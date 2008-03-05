@@ -1,0 +1,25 @@
+\B\.svn\b
+\.html
+\.out
+Makefile$
+Makefile.old
+\.gz
+\.bak
+\.LOG
+\.tmp
+MANIFEST\.
+blib/
+pm_to_blib
+pod2text
+Net-.*
+scripts/console.pl
+scripts/gui.pl
+scripts/ext_chars_tests.pl
+scripts/blah.pl
+scripts/use.pl
+scripts/callbacks.txt
+
+t/etc/generate_miniswarm_dot_torrent.pl
+
+docs/multitracker-spec.pod
+docs/UDP tracker protocol.pod

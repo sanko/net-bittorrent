@@ -1,0 +1,33 @@
+--- #YAML:1.0
+name:                Net-BitTorrent
+version:             0.001
+abstract:            BitTorrent peer-to-peer protocol
+license:             perl
+author:
+    - Sanko Robinson <sanko@cpan.org>
+generated_by:        ExtUtils::MakeMaker version 6.43_01
+distribution_type:   module
+requires:
+    Carp:                          0
+    Class::ISA:                    0
+    Config:                        0
+    Cwd:                           0
+    Data::Dumper:                  0
+    Digest::SHA:                   5.45
+    Encode:                        0
+    English:                       0
+    Exporter:                      0
+    Fcntl:                         0
+    File::Basename:                0
+    File::Path:                    0
+    File::Spec::Functions:         0
+    IO::Select:                    0
+    IO::Socket::INET:              0
+    overload:                      0
+    Test::More:                    0.74
+    utf8:                          0
+    version:                       0.5
+    Win32API::File:                0.1
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3

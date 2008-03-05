@@ -1,0 +1,58 @@
+TODO list for Perl module Net::BitTorrent
+
+- Documentation (high priority)
+  + Incomplete
+    - Net::BitTorrent
+    - Net::BitTorrent::FAQ
+  + Missing:
+    - Net::BitTorrent::Peer
+    - Net::BitTorrent::Peer::Request
+    - Net::BitTorrent::Session
+    - Net::BitTorrent::Session::File
+    - Net::BitTorrent::Session::Piece
+    - Net::BitTorrent::Session::Piece::Block
+    - Net::BitTorrent::Tracker
+    - Net::BitTorrent::Util
+- Handle .torrent files with extended charsets
+  + Easy fix: Move ::File's methods to ::Util?
+- Callbacks according to (tentative) chart in callbacks.txt
+
+Short term goals:
+- The return of Fast Extension aka 'Fast Peers'
+  + Currently incomplete and untested
+  + See http://www.bittorrent.org/fast_extensions.html
+- Bugs
+  + Cannot remove torrents that have open handles (I'm lazy)
+  + mkpath for Unicode?
+- Protect tracker data from ******* users (See [id://639021]?)
+- UDP trackers
+  + See http://xbtt.sourceforge.net/udp_tracker_protocol.html
+- [cpan://Alter] for objects?
+  + How to prevent someone from doing...
+    C<{package Net:[...]:Session;my$hack=ego$session;$hack->{q[uploaded]}=9**9}>
+
+Long term goals:
+- Internal bans for 'bad' peers
+  + Penalty (and eventual ban) for peers who always seem involved
+    with bad pieces
+  + Penalty for apparent leeches
+- limit number of unchoked peers
+- optimistic unchoking
+- untaint w/ brains
+- Disconnect when both are seeds
+- improve file handling
+  + .piece file to store incoming (sub-)pieces
+- Limits for transfer bandwidth (low priority)
+- Extensions
+  + DHT/PEX (low priority)
+      See http://www.bittorrent.org/Draft_DHT_protocol.html
+  + Wire protocol encryption (very low priority)
+      See http://www.azureuswiki.com/index.php/Message_Stream_Encryption
+  + Extension protocol (high priority)
+      See http://www.rasterbar.com/products/libtorrent/extension_protocol.html
+  + Extension Negotiation Protocol (high priority)
+      See http://www.azureuswiki.com/index.php/Extension_negotiation_protocol
+  + BitComet Extension Protocol (low priority)
+      Currently undocumented. Hmmm... Wireshark to the rescue. :|
+
+$Id$

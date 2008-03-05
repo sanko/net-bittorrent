@@ -1,0 +1,190 @@
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::FAQ - Frequently Asked Questions
+
+=head1 Net::BitTorrent::FAQ
+
+These are the Frequently Asked Questions I anticipate will arise
+with the release of the C<Net::BitTorrent> module.
+
+=head2 What is C<Net::BitTorrent>?
+
+C<Net::BitTorrent> is a class-based module written in pure L<perl>
+that allows the exchange of data with other BitTorrent clients.
+
+=head2 What is a... BitTorrent client?
+
+See Wikipedia (L<http://en.wikipedia.org/wiki/BitTorrent>).
+
+=head2 Tell me more!
+
+Okay, that's not a question, but...
+
+Begin with the base specification of the BitTorrent Protocol
+(L<http://wiki.theory.org/BitTorrentSpecification>) then move on to
+some of the extensions:
+
+=over 4
+
+=item *
+
+Fast Extension aka 'Fast Peers' (L<http://www.bittorrent.org/fast_extensions.html>)
+
+=item *
+
+DHT/PEX (L<http://www.bittorrent.org/Draft_DHT_protocol.html>)
+
+=item *
+
+Wire protocol encryption (L<http://www.azureuswiki.com/index.php/Message_Stream_Encryption>)
+
+=item *
+
+Extension protocol (L<http://www.rasterbar.com/products/libtorrent/extension_protocol.html>)
+
+=item *
+
+Extension Negotiation Protocol (L<http://www.azureuswiki.com/index.php/Extension_negotiation_protocol>)
+
+=item *
+
+BitComet Extension Protocol (Currently un(der)documented)
+
+=back
+
+=head2 How do I install this thing?
+
+The current distribution uses the CORE ExtUtils::MakeMaker module, so
+the standard procedure will suffice:
+
+ perl Makefile.PL
+ make
+ make test
+ make install
+
+If you would like to contribute automated test reports (and I hope
+you do), first install C<CPAN::Reporter> from the CPAN shell and then
+install C<Net::BitTorrent>:
+
+ $ cpan
+ cpan> install CPAN::Reporter
+ cpan> reload cpan
+ cpan> o conf init test_report
+   [...follow the CPAN::Reporter setup prompts...]
+ cpan> o conf commit
+ cpan> install Net::BitTorrent
+
+For more on becoming a CPAN tester and why this is useful, please see
+the L<CPAN::Reporter|CPAN::Reporter/"DESCRIPTION"> documentation,
+L<http://cpantesters.perl.org/>, and the CPAN Testers Wiki
+(L<http://cpantest.grango.org/>)
+
+=head2 Before I even bother installing, what do I need to have first?
+
+C<Net::BitTorrent> requires L<version> and L<Digest::SHA>. On Win32,
+we require L<Win32API::File> and L<Encode> when handling .torrents
+holding files with extended charset filenames.* As of perl 5.10, all
+of these modules are are CORE; they come bundled with the
+distribution.
+
+I have listed these modules as prerequisites in the Makefile.PL so,
+unless you answer 'no' when prompted, the CPAN shell should
+automagically install them for you.
+
+* We also use the internal C<utf8::is_utf8()> function which didn't
+appear until perl 5.8.1.
+
+=head2 How can I choose which files I don't want C<Net::BitTorrent>
+to download and prioritize the files I would like?
+
+See L<Net::BitTorrent::Session::File/priority>.
+
+=head2 C<Net::BitTorrent> is slower than [some other client]. Did you
+know that?
+
+Yes.
+
+Right now, we become interested in I<any> peer who happens to have a
+piece we need; I haven't written anything that rates the I<quality>
+of peers we've connected to.  Perhaps, in a future version, a peer
+will be judged on how fast they transfer pieces to us, how often they
+are involved with 'bad' pieces, how many times they have choked us
+while we were waiting for a piece, etc.  Making attempts to stay
+interested and unchoked by these high quality peers will greatly
+increase download speed.  Add to this PEX/DHT and other extensions
+we have yet to support--  Yeah...
+
+=head2 Hash checking every time I load the torrent is too much! How
+'bout quick resume?
+
+Private versions of N::B had resume built in but it was removed for
+various reasons.  Adding this yourself is trivial, fortunately.  For
+each torrent, store the bitfield, nodes (compact list of peers), and
+piece priorities, the modified times for each file just to be safe.
+Oh, and the current 'working' pieces and their progress.  And to that
+some sort of anti-tampering/verification scheme to be sure you're
+loading the right resume info.  Then, when you load the torrent, set
+the C<skip_hashcheck> parameter to true and reload the torrent with
+your stored data. ...well, as long as the modified times match the
+current timestamps and the data verifies.
+
+=head2 I used C<Net::BitTorrent> on [some tracker] and was banned.
+Will you talk to the admin for me?
+
+Thanks to the vast amount of usage data large (private and public)
+trackers have access to, administrators will probably notice bugs
+well before end users or even I, as the sole developer, catch on.
+If it's a ban that directly targets L<Net::BitTorrent> as a
+problematic client, I'll contact whoever is in charge and find out
+why.  If it turns out you alone were banned (because you're a leech
+or you modified the source, etc.), I cannot (and would not) help you.
+
+=head2 Can you recommend other open source BitTorrent clients?
+
+Sure!
+
+=over 4
+
+=item *
+
+libtorrent (L<http://www.rasterbar.com/products/libtorrent/>) is
+covered by the The BSD License.
+
+=item *
+
+Bitflu (L<http://bitflu.workaround.ch/>) is a full client written in
+(*nix oriented) perl and available under the Perl/Artistic License.
+
+=item *
+
+btpeer (L<http://www.alhem.net/project/btpeer/>) is "a collection of
+classes implementing the core client functionality of the bittorrent
+protocol" and has been released under the GPL.
+
+=item *
+
+Artic (L<http://dev.int64.org/arctic.html>) is a minimal client
+based on libtorrent, written in C++ and released under the MIT
+License.
+
+=back
+
+=head2 Who are you? How can I get in touch with you?
+
+	Sanko Robinson
+	CPAN ID: SANKO
+	<sanko@cpan.org>
+	ProperNoun on Freenode
+
+I'm usually idle on Freenode but you can /msg me anytime or have
+MemoServ deliver it for you.
+
+For now, please use
+L<http://code.google.com/p/net-bittorrent/issues/list> for bug
+reports.
+
+=for svn $Id$
+
+=cut
