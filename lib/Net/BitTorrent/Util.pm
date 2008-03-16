@@ -5,30 +5,35 @@
     BEGIN {
         use vars qw[$VERSION];
         use version qw[qv];
-        our $SVN = q[$Id$];
+        our $SVN
+            = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
-
     use strict;
     use warnings 'all';
     use List::Util qw[min max shuffle sum];
     use Carp qw[carp croak];
 
     sub bencode {
-        if (not ref $_[0]) {
-            return (
-                  ($_[0] =~ m[^\d+$])
-                ? (q[i] . $_[0] . q[e])
-                : (length($_[0]) . q[:] . $_[0])
+        if ( not ref $_[0] ) {
+            return (   ( $_[0] =~ m[^\d+$] )
+                     ? ( q[i] . $_[0] . q[e] )
+                     : ( length( $_[0] ) . q[:] . $_[0] )
             );
         }
-        elsif (ref $_[0] eq q[ARRAY]) {
-            return join(q[], q[l], (map { bencode($_) } @{$_[0]}), q[e]);
+        elsif ( ref $_[0] eq q[ARRAY] ) {
+            return
+                join( q[],
+                      q[l], ( map { bencode($_) } @{ $_[0] } ),
+                      q[e] );
         }
-        return join(q[],
-            q[d],
-            (map { bencode($_) . bencode($_[0]->{$_}) } sort keys %{$_[0]}),
-            q[e]);
+        return
+            join( q[], q[d],
+                  (  map { bencode($_) . bencode( $_[0]->{$_} ) }
+                         sort keys %{ $_[0] }
+                  ),
+                  q[e]
+            );
     }
 
 =pod
@@ -61,38 +66,39 @@ key:
     sub bdecode {
         my ($string) = @_;
         my ($return);
-        if ($string =~ m[^(\d+):]) {    # byte string
-                #$' =~ m[^(.{$1})]s; # large .torrents (>=8200 pieces) will have
-                #return ($1, $');    # byte strings longer than perl's regex
-                #                    # quantifier limit.
-            my $blah = $';                           # this new code is untested
-            my $before = substr($blah, 0, $1, q[]);  # needs new benchmark
-            return ($before, $blah);
+        if ( $string =~ m[^(\d+):] ) {    # byte string
+             #$' =~ m[^(.{$1})]s; # large .torrents (>=8200 pieces) will have
+             #return ($1, $');    # byte strings longer than perl's regex
+             #                    # quantifier limit.
+            my $blah = $';    # this new code is untested
+            my $before
+                = substr( $blah, 0, $1, q[] );   # needs new benchmark
+            return ( $before, $blah );
         }
-        elsif ($string =~ m[^i(\d*)e]) {             # integer
-            return ($1, $');
+        elsif ( $string =~ m[^i(\d*)e] ) {       # integer
+            return ( $1, $' );
         }
-        elsif ($string =~ m[^l]) {                   # list
+        elsif ( $string =~ m[^l] ) {             # list
             $string = $';
-
             do {
-                (my ($value), $string) = bdecode($string);
+                ( my ($value), $string ) = bdecode($string);
                 push @$return, $value;
-            } while ($string !~ m[^e]);
-            return ($return, $');
+            } while ( $string !~ m[^e] );
+            return ( $return, $' );
         }
-        elsif ($string =~ m[^d]) {                   # dictionary
+        elsif ( $string =~ m[^d] ) {             # dictionary
             $string = $';
             do {
-                (my ($key),   $string) = bdecode($string);
-                (my ($value), $string) = bdecode($string);
+                ( my ($key),   $string ) = bdecode($string);
+                ( my ($value), $string ) = bdecode($string);
                 $return->{$key} = $value;
-            } while ($string !~ m[^e]);
-            return ($return, $');
+            } while ( $string !~ m[^e] );
+            return ( $return, $' );
         }
         else {
             warn q[Bad bencoded data];
         }
+        return;
     }
 
 =pod
@@ -139,35 +145,36 @@ just for that.  I'll work on it.
 
     sub compact {
         my (@peers) = @_;
-        if (not @peers) {
+        if ( not @peers ) {
 
             #croak(q[Not enough parameters for compact(ARRAY)]);
             return;
         }
         my $return = q[];
-        for my $peer (@{$peers[0]}) {
-            my ($ip, $port) = (    # ...sigh, some (old) trackers do crazy stuff
+        for my $peer ( @{ $peers[0] } ) {
+            my ( $ip, $port )
+                = (    # ...sigh, some (old) trackers do crazy stuff
                 ref $peer eq q[HASH]
-                ? ($peer->{q[ip]}, $peer->{q[port]})
-                : split(q[:], $peer)
-            );
-            $return .= pack q[C4n], ($ip =~ m[(\d+)]g), $port;
+                ? ( $peer->{q[ip]}, $peer->{q[port]} )
+                : split( q[:], $peer )
+                );
+            $return .= pack q[C4n], ( $ip =~ m[(\d+)]g ), $port;
         }
         return $return;
     }
 
     sub uncompact {
         my $string = shift;
-        if (not defined $string) { return; }
+        if ( not defined $string ) { return; }
         my %peers;
-        while ($string =~ m|(....)(..)|g) {
+        while ( $string =~ m|(....)(..)|g ) {
             $peers{
-                sprintf(q[%d.%d.%d.%d:%d], unpack(q[C4], $1), unpack(q[n], $2))
-              }++;
+                sprintf( q[%d.%d.%d.%d:%d],
+                         unpack( q[C4], $1 ),
+                         unpack( q[n],  $2 ) )
+                }++;
         }
-        return (shuffle(%peers ? keys %peers : ()));
+        return ( shuffle( %peers ? keys %peers : () ) );
     }
-
     1;
 }
-

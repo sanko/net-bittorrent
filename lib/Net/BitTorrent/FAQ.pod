@@ -155,7 +155,7 @@ covered by the The BSD License.
 =item *
 
 Bitflu (L<http://bitflu.workaround.ch/>) is a full client written in
-(*nix oriented) perl and available under the Perl/Artistic License.
+(*nix oriented) Perl and available under the Perl/Artistic License.
 
 =item *
 

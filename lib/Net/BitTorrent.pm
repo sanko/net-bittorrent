@@ -5,114 +5,109 @@
     BEGIN {
         use vars qw[$VERSION];
         use version qw[qv];
-        our $SVN = q[$Id$];
+        our $SVN
+            = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
-        our $DEBUG = 0;    # Set to true to get loads of useless messages
+        our $DEBUG = 0; # Set to true to get loads of useless messages
     }
-
     use strict;
     use warnings 'all';
-    use Socket qw[PF_INET AF_INET SOCK_STREAM SOMAXCONN sockaddr_in INADDR_ANY];
+    use Socket
+        qw[PF_INET AF_INET SOCK_STREAM SOMAXCONN sockaddr_in INADDR_ANY];
     use Carp qw[carp croak];
     use List::Util qw[shuffle];
-
     use lib q[../];
     use Net::BitTorrent::Session;
     use Net::BitTorrent::Peer;
     {
-        my (
-            %peer_id,                   %socket,
-            %fileno,                    %timeout,
-            %maximum_requests_per_peer, %maximum_requests_size,
-            %BufferSize,                %maximum_peers_half_open,
-            %maximum_peers_per_session, %maximum_peers_per_client,
-            %connections,               %callbacks,
-            %sessions,                  %use_unicode
+        my ( %peer_id,                   %socket,
+             %fileno,                    %timeout,
+             %maximum_requests_per_peer, %maximum_requests_size,
+             %BufferSize,                %maximum_peers_half_open,
+             %maximum_peers_per_session, %maximum_peers_per_client,
+             %connections,               %callbacks,
+             %sessions,                  %use_unicode
         );
 
         sub new {
-            my ($class, $args) = @_;
+            my ( $class, $args ) = @_;
             my $self = undef;
-
             $args->{q[LocalAddr]} = $args->{q[LocalHost]}
-              if exists $args->{q[LocalHost]} && !exists $args->{q[LocalAddr]};
-
+                if exists $args->{q[LocalHost]}
+                    && !exists $args->{q[LocalAddr]};
             {
-                my @portrange =
-                    defined $args->{q[LocalPort]}
-                  ? ref $args->{q[LocalPort]} eq q[ARRAY]
-                      ? @{$args->{q[LocalPort]}}
-                      : $args->{q[LocalPort]}
-                  : undef;
-              PORT: for my $port (@portrange) {
+                my @portrange
+                    = defined $args->{q[LocalPort]}
+                    ? ref $args->{q[LocalPort]} eq q[ARRAY]
+                        ? @{ $args->{q[LocalPort]} }
+                        : $args->{q[LocalPort]}
+                    : undef;
+            PORT: for my $port (@portrange) {
 
                     # [perldoc://perlipc]
-                    socket(my ($socket),
-                        &PF_INET, &SOCK_STREAM, getprotobyname(q[tcp]))
-                      or next PORT;
+                    socket( my ($socket),
+                            &PF_INET, &SOCK_STREAM,
+                            getprotobyname(q[tcp]) )
+                        or next PORT;
 
-                    # [http://www.unixguide.net/network/socketfaq/4.11.shtml]
-                    # [id://63280]
-                    #setsockopt($socket, &SOL_SOCKET, &SO_REUSEADDR,
-                    #  pack(q[l], 1))
-                    #or next PORT;
-
-                    bind(
-                        $socket,
-                        pack(
-                            q[Sna4x8],
-                            &AF_INET,
-                            (defined $port and $port =~ m[^(\d+)$] ? $1 : 0),
-                            (
-                                defined $args->{q[LocalAddr]}
-                                  and $args->{q[LocalAddr]} =~
-                                  m[^(?:\d+\.?){4}$]
-                                ? (
-                                    join q[],
-                                    map { chr $_ }
-                                      ($args->{q[LocalAddr]} =~ m[(\d+)]g)
-                                  )
-                                : &INADDR_ANY
-                            )
-                        )
+             # [http://www.unixguide.net/network/socketfaq/4.11.shtml]
+             # [id://63280]
+             #setsockopt($socket, &SOL_SOCKET, &SO_REUSEADDR,
+             #  pack(q[l], 1))
+             #or next PORT;
+                    bind( $socket,
+                          pack(q[Sna4x8],
+                               &AF_INET,
+                               ( defined $port
+                                     and $port =~ m[^(\d+)$] ? $1 : 0
+                               ),
+                               ( defined $args->{q[LocalAddr]}
+                                     and $args->{q[LocalAddr]}
+                                     =~ m[^(?:\d+\.?){4}$]
+                                 ? ( join q[],
+                                     map { chr $_ } (
+                                                 $args->{q[LocalAddr]}
+                                                     =~ m[(\d+)]g
+                                     )
+                                     )
+                                 : &INADDR_ANY
+                               )
+                          )
                     ) or next PORT;
 
                     #ioctl($socket, 0x8004667e, pack(q[I], 1))
                     #  or die qq[nonblocking: $^E];
-                    listen($socket, 5) or next PORT;
-
-                    my (undef, $port, @address) =
-                      unpack(q[SnC4x8], getsockname($socket));
-
+                    listen( $socket, 5 ) or next PORT;
+                    my ( undef, $port, @address )
+                        = unpack( q[SnC4x8], getsockname($socket) );
                     defined $port or next PORT;
 
                     # Constructor.
-                    $self = bless \sprintf(q[%d.%d.%d.%d:%d], @address, $port),
-                      $class;
-
+                    $self
+                        = bless \
+                        sprintf( q[%d.%d.%d.%d:%d], @address, $port ),
+                        $class;
                     {
 
                         # Load values user has no control over.
-                        $socket{$self}  = $socket;
-                        $fileno{$self}  = CORE::fileno($socket);
+                        $socket{$self} = $socket;
+                        $fileno{$self} = CORE::fileno($socket);
                         $peer_id{$self} = pack(
                             q[a20],
-                            (
-                                sprintf(
-                                    q[NB%03dS-%8s%5s],
-                                    (q[$Rev$] =~ m[(\d+)]g),
-                                    (
-                                        join q[],
-                                        map {
-                                            [   q[A] .. q[Z],
-                                                q[a] .. q[z],
-                                                0 .. 9,
-                                                qw[- . _ ~]
-                                            ]->[rand(66)]
+                            (  sprintf(
+                                   q[NB%03dS-%8s%5s],
+                                   ( q[$Rev$] =~ m[(\d+)]g ),
+                                   (  join q[],
+                                      map {
+                                          [  q[A] .. q[Z],
+                                             q[a] .. q[z],
+                                             0 .. 9,
+                                             qw[- . _ ~]
+                                          ]->[ rand(66) ]
                                           } 1 .. 8
-                                    ),
-                                    q[--SVN],
-                                )
+                                   ),
+                                   q[--SVN],
+                               )
                             )
                         );
                         $sessions{$self} = [];
@@ -120,39 +115,42 @@
                     }
                     {
                         $BufferSize{$self} = (
-                            defined $args->{q[BufferSize]}
-                            ? $args->{q[BufferSize]}
-                            : 98304
+                                        defined $args->{q[BufferSize]}
+                                        ? $args->{q[BufferSize]}
+                                        : 98304
                         );
                         $maximum_peers_per_client{$self} = (
-                            defined $args->{q[maximum_peers_per_client]}
-                            ? $args->{q[maximum_peers_per_client]}
-                            : 300
+                                defined $args->{
+                                    q[maximum_peers_per_client]}
+                                ? $args->{q[maximum_peers_per_client]}
+                                : 300
                         );
                         $maximum_peers_per_session{$self} = (
-                            defined $args->{q[maximum_peers_per_session]}
-                            ? $args->{q[maximum_peers_per_session]}
-                            : 30
+                               defined $args->{
+                                   q[maximum_peers_per_session]}
+                               ? $args->{q[maximum_peers_per_session]}
+                               : 100
                         );
                         $maximum_peers_half_open{$self} = (
-                            defined $args->{q[maximum_peers_half_open]}
-                            ? $args->{q[maximum_peers_half_open]}
-                            : 8
+                                 defined $args->{
+                                     q[maximum_peers_half_open]}
+                                 ? $args->{q[maximum_peers_half_open]}
+                                 : 8
                         );
                         $maximum_requests_size{$self} = (
-                            defined $args->{q[maximum_requests_size]}
-                            ? $args->{q[maximum_requests_size]}
-                            : 32768
+                             defined $args->{q[maximum_requests_size]}
+                             ? $args->{q[maximum_requests_size]}
+                             : 32768
                         );
                         $maximum_requests_per_peer{$self} = (
-                            defined $args->{q[maximum_requests_per_peer]}
-                            ? $args->{q[maximum_requests_per_peer]}
-                            : 10
+                               defined $args->{
+                                   q[maximum_requests_per_peer]}
+                               ? $args->{q[maximum_requests_per_peer]}
+                               : 10
                         );
-                        $timeout{$self} = (
-                            defined $args->{q[Timeout]}
-                            ? $args->{q[Timeout]}
-                            : 5
+                        $timeout{$self} = (defined $args->{q[Timeout]}
+                                           ? $args->{q[Timeout]}
+                                           : 5
                         );
                         $use_unicode{$self} = 0;
                     }
@@ -163,275 +161,292 @@
         }
 
         # static
-        sub peer_id { return $peer_id{+shift}; }
-        sub socket  { return $socket{+shift}; }
-        sub fileno  { return $fileno{+shift}; }
+        sub peer_id { return $peer_id{ +shift }; }
+        sub socket  { return $socket{ +shift }; }
+        sub fileno  { return $fileno{ +shift }; }
 
         sub use_unicode {
-            my ($self, $value) = @_;
-            #carp(q[use_unicode is only supported on Win32]) and return
-            #  unless $^O eq q[MSWin32];
+            my ( $self, $value ) = @_;
+
+           #carp(q[use_unicode is only supported on Win32]) and return
+           #  unless $^O eq q[MSWin32];
             return (
                 defined $value
                 ? do {
                     carp(q[use_unicode is malformed]) and return
-                      unless $value =~ m[^[01]$];
+                        unless $value =~ m[^[01]$];
                     $use_unicode{$self} = $value;
-                  }
+                    }
                 : $use_unicode{$self}
             );
         }
 
         sub sockport {
-            my (undef, $port, undef) =
-              unpack(q[SnC4x8], getsockname(shift->socket));
+            my ( undef, $port, undef )
+                = unpack( q[SnC4x8], getsockname( shift->socket ) );
             return $port;
         }
 
         sub sockaddr {
-            my (undef, undef, @address) =
-              unpack(q[SnC4x8], getsockname(shift->socket));
+            my ( undef, undef, @address )
+                = unpack( q[SnC4x8], getsockname( shift->socket ) );
             return join q[.], @address;
         }
 
         sub maximum_peers_per_client {
-            my ($self, $value) = @_;
+            my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
                     croak(q[maximum_peers_per_client is malformed])
-                      and return
-                      unless $value =~ m[^\d+$];
+                        and return
+                        unless $value =~ m[^\d+$];
                     $maximum_peers_per_client{$self} = $value;
-                  }
+                    }
                 : $maximum_peers_per_client{$self}
             );
         }
 
         sub maximum_peers_per_session {
-            my ($self, $value) = @_;
+            my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
                     croak(q[maximum_peers_per_session is malformed])
-                      and return
-                      unless $value =~ m[^\d+$];
+                        and return
+                        unless $value =~ m[^\d+$];
                     $maximum_peers_per_session{$self} = $value;
-                  }
+                    }
                 : $maximum_peers_per_session{$self}
             );
         }
 
         sub maximum_peers_half_open {
-            my ($self, $value) = @_;
+            my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
-                    croak(q[maximum_peers_half_open is malformed]) and return
-                      unless $value =~ m[^\d+$];
+                    croak(q[maximum_peers_half_open is malformed])
+                        and return
+                        unless $value =~ m[^\d+$];
                     $maximum_peers_half_open{$self} = $value;
-                  }
+                    }
                 : $maximum_peers_half_open{$self}
             );
         }
 
         sub BufferSize {
-            my ($self, $value) = @_;
+            my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
                     croak(q[BufferSize is malformed]) and return
-                      unless $value =~ m[^\d+$];
+                        unless $value =~ m[^\d+$];
                     $BufferSize{$self} = $value;
-                  }
+                    }
                 : $BufferSize{$self}
             );
         }
 
         sub maximum_requests_size {
-            my ($self, $value) = @_;
+            my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
-                    croak(q[maximum_requests_size is malformed]) and return
-                      unless $value =~ m[^\d+$];
+                    croak(q[maximum_requests_size is malformed])
+                        and return
+                        unless $value =~ m[^\d+$];
                     $maximum_requests_size{$self} = $value;
-                  }
+                    }
                 : $maximum_requests_size{$self}
             );
         }
 
         sub maximum_requests_per_peer {
-            my ($self, $value) = @_;
+            my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
                     croak(q[maximum_requests_per_peer is malformed])
-                      and return
-                      unless $value =~ m[^\d+$];
+                        and return
+                        unless $value =~ m[^\d+$];
                     $maximum_requests_per_peer{$self} = $value;
-                  }
+                    }
                 : $maximum_requests_per_peer{$self}
             );
         }
 
         sub timeout {
-            my ($self, $value) = @_;
+            my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
                     carp(q[Timeout is malformed; requires float])
-                      and return
-                      unless $value =~
-                          m[^([+]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+]?\d+))?$];
+                        and return
+                        unless $value
+                            =~ m[^([+]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+]?\d+))?$];
                     $timeout{$self} = $value;
-                  }
+                    }
                 : $timeout{$self}
             );
         }
 
         sub add_connection {
-            my ($self, $connection) = @_;
-            return $connections{$self}{$connection->fileno} = $connection;
+            my ( $self, $connection ) = @_;
+            return $connections{$self}{ $connection->fileno }
+                = $connection;
         }
 
         sub remove_connection {
-            my ($self, $connection) = @_;
+            my ( $self, $connection ) = @_;
             return
-              if not defined $connections{$self}{$connection->fileno};
-            return delete $connections{$self}{$connection->fileno};
+                if not defined $connections{$self}
+                    { $connection->fileno };
+            return delete $connections{$self}{ $connection->fileno };
         }
 
         sub connections {
             croak q[ARG! ...s. Too many of them.] if @_ > 1;
-            return values %{$connections{+shift}};
+            return values %{ $connections{ +shift } };
         }
 
         sub do_one_loop {
             my ($self) = @_;
-
-            for my $session (shuffle @{$sessions{$self}}) {
+            for my $session ( shuffle @{ $sessions{$self} } ) {
                 $session->pulse if $session->next_pulse < time;
             }
-
             grep {
                 $_->disconnect(
-                    q[Connection timed out before established connection])
-                  if $_ ne $self
-                      and (not $_->connected)
-                      and ($_->connection_timestamp < (time - 60))
-            } values %{$connections{$self}};
-
-            my $timeout =
-                $timeout{$self}
-              ? $timeout{$self} == -1
-                  ? undef
-                  : $timeout{$self}
-              : undef;
+                    q[Connection timed out before established connection]
+                    )
+                    if $_ ne $self
+                        and ( not $_->connected )
+                        and
+                        ( $_->connection_timestamp < ( time - 60 ) )
+            } values %{ $connections{$self} };
+            my $timeout
+                = $timeout{$self}
+                ? $timeout{$self} == -1
+                    ? undef
+                    : $timeout{$self}
+                : undef;
 
             # [id://371720]
-            my ($rin, $win, $ein) = (q[], q[], q[]);
-          PUSH_SOCKET: foreach my $fileno (keys %{$connections{$self}}) {
-                vec($ein, $fileno, 1) = 1;
-                vec($rin, $fileno, 1) = 1;
-                vec($win, $fileno, 1) = 1
-                  if $fileno ne $fileno{$self}
-                      and $connections{$self}{$fileno}->queue_outgoing;
+            my ( $rin, $win, $ein ) = ( q[], q[], q[] );
+        PUSH_SOCKET:
+            foreach my $fileno ( keys %{ $connections{$self} } ) {
+                vec( $ein, $fileno, 1 ) = 1;
+                vec( $rin, $fileno, 1 ) = 1;
+                vec( $win, $fileno, 1 ) = 1
+                    if $fileno ne $fileno{$self}
+                        and
+                        $connections{$self}{$fileno}->queue_outgoing;
             }
-
-            my ($nfound, $timeleft) = select($rin, $win, $ein, $timeout);
-            if ($nfound and $nfound != -1) {
-              POP_SOCKET: foreach my $fileno (keys %{$connections{$self}}) {
-                    if (vec($ein, $fileno, 1)
-                        or not $connections{$self}{$fileno}->socket)
+            my ( $nfound, $timeleft )
+                = select( $rin, $win, $ein, $timeout );
+            if ( $nfound and $nfound != -1 ) {
+            POP_SOCKET:
+                foreach my $fileno ( keys %{ $connections{$self} } ) {
+                    if ( vec( $ein, $fileno, 1 )
+                         or not $connections{$self}{$fileno}->socket )
                     {
-                        if ($^E and (($^E != 10036) and ($^E != 10035))) {
-                            $connections{$self}{$fileno}->disconnect($^E);
+                        if ( $^E
+                             and
+                             ( ( $^E != 10036 ) and ( $^E != 10035 ) )
+                            )
+                        {
+                            $connections{$self}{$fileno}
+                                ->disconnect($^E);
                         }
                         next POP_SOCKET;
                     }
-                    elsif ($fileno eq $fileno{$self}) {
-                        if (vec($rin, $fileno, 1)) {
-                            accept(my ($new_socket), $socket{$self})
-                              or $self->do_callback(q[log],
-                                q[Failed to accept new connection])
-                              and return;
-                            if (
-                                scalar(
-                                    grep { $_->isa(q[Net::BitTorrent::Peer]) }
-                                      values %{$connections{$self}}
+                    elsif ( $fileno eq $fileno{$self} ) {
+                        if ( vec( $rin, $fileno, 1 ) ) {
+                            accept( my ($new_socket), $socket{$self} )
+                                or $self->do_callback( q[log],
+                                  q[Failed to accept new connection] )
+                                and return;
+                            if (scalar(
+                                    grep {
+                                        $_->isa(
+                                             q[Net::BitTorrent::Peer])
+                                        } values
+                                        %{ $connections{$self} }
                                 ) >= $maximum_peers_per_client{$self}
-                              )
+                                )
                             {
                                 close $new_socket;
                             }
                             else {
-                                my $new_peer = Net::BitTorrent::Peer->new(
-                                    {   socket => $new_socket,
-                                        client => $self
-                                    }
-                                );
-                                $self->add_connection($new_peer) if $new_peer;
+                                my $new_peer
+                                    = Net::BitTorrent::Peer->new(
+                                             { socket => $new_socket,
+                                               client => $self
+                                             }
+                                    );
+                                $self->add_connection($new_peer)
+                                    if $new_peer;
                             }
                         }
                     }
                     else {
-                        my $read  = vec($rin, $fileno, 1);
-                        my $write = vec($win, $fileno, 1);
-                        if ($read or $write) {
+                        my $read  = vec( $rin, $fileno, 1 );
+                        my $write = vec( $win, $fileno, 1 );
+                        if ( $read or $write ) {
                             $connections{$self}{$fileno}
-                              ->process_one(((2**15) * $read),
-                                ((2**15) * $write));
+                                ->process_one( ( ( 2**15 ) * $read ),
+                                             ( ( 2**15 ) * $write ) );
                         }
                     }
                 }
             }
-            select(undef, undef, undef, $timeleft) if $timeleft;  # save the CPU
+            select( undef, undef, undef, $timeleft )
+                if $timeleft;    # save the CPU
             return 1;
         }
 
         sub sessions {
-            my ($self, $value) = @_;
-            return ($sessions{$self} ? $sessions{$self} : []);
+            my ( $self, $value ) = @_;
+            return ( $sessions{$self} ? $sessions{$self} : [] );
         }
 
         sub add_session {
-            my ($self, $args) = @_;
+            my ( $self, $args ) = @_;
             $args->{q[client]} = $self;
             my $session = Net::BitTorrent::Session->new($args);
             if ($session) {
-                push @{$sessions{$self}}, $session;
-                $session->hash_check unless $args->{q[skip_hashcheck]};
+                push @{ $sessions{$self} }, $session;
+                $session->hash_check
+                    unless $args->{q[skip_hashcheck]};
             }
             return $session;
         }
 
         sub remove_session {
-            my ($self, $session) = @_;
+            my ( $self, $session ) = @_;
             $session->trackers->[0]->announce(q[stopped])
-              if scalar @{$session->trackers};
+                if scalar @{ $session->trackers };
             $session->close_files;
-            return $sessions{$self} =
-              [grep { $session ne $_ } @{$sessions{$self}}];
+            return $sessions{$self}
+                = [ grep { $session ne $_ } @{ $sessions{$self} } ];
         }
 
         sub locate_session {
-            my ($self, $infohash) = @_;
-            for my $session (@{$sessions{$self}}) {
+            my ( $self, $infohash ) = @_;
+            for my $session ( @{ $sessions{$self} } ) {
                 return $session if $session->infohash eq $infohash;
             }
             return;
         }
 
         sub as_string {
-            my ($self, $advanced) = @_;
+            my ( $self, $advanced ) = @_;
 
 =pod
 
 =begin blarg
 
             my %_data = (
-
                 socket                    => $socket{$self},
                 use_unicode               => $use_unicode{$self},
                 Timeout            => $Timeout{$self},
@@ -443,20 +458,19 @@
 
 =cut
 
-            my @values = (
-                $peer_id{$self},
-                $self->sockaddr,
-                $self->sockport,
-                $maximum_peers_per_client{$self},
-                $maximum_peers_per_session{$self},
-                $maximum_peers_half_open{$self},
-                $BufferSize{$self},
-                $maximum_requests_size{$self},
-                $maximum_requests_per_peer{$self},
+            my @values = ( $peer_id{$self},
+                           $self->sockaddr,
+                           $self->sockport,
+                           $maximum_peers_per_client{$self},
+                           $maximum_peers_per_session{$self},
+                           $maximum_peers_half_open{$self},
+                           $BufferSize{$self},
+                           $maximum_requests_size{$self},
+                           $maximum_requests_per_peer{$self},
             );
             s/(^[-+]?\d+?(?=(?>(?:\d{3})+)(?!\d))|\G\d{3}(?=\d))/$1,/g
-              for @values[3 .. 8];
-            my $dump = sprintf(<<'END', @values);
+                for @values[ 3 .. 8 ];
+            my $dump = sprintf( <<'END', @values );
 Net::BitTorrent (%20s)
 ======================================
 Basic Information
@@ -471,8 +485,8 @@ Basic Information
 
 END
             if ($advanced) {
-                my @adv_values = (scalar(@{$sessions{$self}}));
-                $dump .= sprintf(<<'END', @adv_values);
+                my @adv_values = ( scalar( @{ $sessions{$self} } ) );
+                $dump .= sprintf( <<'END', @adv_values );
 Advanced Information
   Loaded sessions: (%d torrents)
 END
@@ -480,81 +494,71 @@ END
                     my $session = $_->as_string($advanced);
                     $session =~ s|\n|\n    |g;
                     q[ ] x 4 . $session
-                } @{$sessions{$self}};
+                } @{ $sessions{$self} };
             }
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
-
         for my $callback (
-            qw[
-            log
-
-            peer_connect                 peer_disconnect
-            peer_incoming_keepalive      peer_outgoing_keepalive
-            peer_incoming_data           peer_outgoing_data
-            peer_outgoing_packet         peer_incoming_packet
-            peer_incoming_handshake      peer_outgoing_handshake
-            peer_incoming_choke          peer_outgoing_choke
-            peer_incoming_unchoke        peer_outgoing_unchoke
-            peer_incoming_interested     peer_outgoing_interested
-            peer_incoming_disinterested  peer_outgoing_disinterested
-            peer_incoming_have           peer_outgoing_have
-            peer_incoming_bitfield       peer_outgoing_bitfield
-            peer_incoming_request        peer_outgoing_request
-            peer_incoming_block          peer_outgoing_block
-            peer_incoming_cancel         peer_outgoing_cancel
-
-            file_read  file_write
-            file_open  file_close
-            file_error
-
-            piece_hash_pass piece_hash_fail
-
-            block_write
-
-            tracker_connect        tracker_disconnect
-            tracker_scrape         tracker_announce
-            tracker_scrape_okay    tracker_announce_okay
-            tracker_incoming_data  tracker_outgoing_data
-            tracker_error
-            ]
-          )
+              qw[
+              log
+              peer_connect                 peer_disconnect
+              peer_incoming_keepalive      peer_outgoing_keepalive
+              peer_incoming_data           peer_outgoing_data
+              peer_outgoing_packet         peer_incoming_packet
+              peer_incoming_handshake      peer_outgoing_handshake
+              peer_incoming_choke          peer_outgoing_choke
+              peer_incoming_unchoke        peer_outgoing_unchoke
+              peer_incoming_interested     peer_outgoing_interested
+              peer_incoming_disinterested  peer_outgoing_disinterested
+              peer_incoming_have           peer_outgoing_have
+              peer_incoming_bitfield       peer_outgoing_bitfield
+              peer_incoming_request        peer_outgoing_request
+              peer_incoming_block          peer_outgoing_block
+              peer_incoming_cancel         peer_outgoing_cancel
+              file_read  file_write
+              file_open  file_close
+              file_error
+              piece_hash_pass piece_hash_fail
+              block_write
+              tracker_connect        tracker_disconnect
+              tracker_scrape         tracker_announce
+              tracker_scrape_okay    tracker_announce_okay
+              tracker_incoming_data  tracker_outgoing_data
+              tracker_error
+              ]
+            )
         {
             no strict q[refs];
             *{"set_callback_on_$callback"} = sub {
-                my ($self, $coderef) = @_;
+                my ( $self, $coderef ) = @_;
                 return unless defined $coderef;
                 croak(q[callback is malformed])
-                  unless ref $coderef eq q[CODE];
+                    unless ref $coderef eq q[CODE];
                 $callbacks{$self}{$callback} = $coderef;
             };
         }
 
         sub do_callback {
-            my ($self, $callback, @params) = @_;
-            if (not defined $callbacks{$self}{$callback}) {
-                carp sprintf(q[Unhandled callback '%s'], $callback)
-                  if $Net::BitTorrent::DEBUG;
+            my ( $self, $callback, @params ) = @_;
+            if ( not defined $callbacks{$self}{$callback} ) {
+                carp sprintf( q[Unhandled callback '%s'], $callback )
+                    if $Net::BitTorrent::DEBUG;
                 return;
             }
-            return &{$callbacks{$self}{$callback}}($self, @params);
+            return &{ $callbacks{$self}{$callback} }( $self,
+                                                      @params );
         }
-
         DESTROY {
             my $self = shift;
-
             delete $peer_id{$self};
             delete $socket{$self};
-
             delete $use_unicode{$self};
             delete $maximum_peers_per_client{$self};
             delete $maximum_peers_per_session{$self};
             delete $maximum_peers_half_open{$self};
             delete $BufferSize{$self};
-
             delete $maximum_requests_size{$self};
-
             delete $maximum_requests_per_peer{$self};
             delete $timeout{$self};
             delete $connections{$self};
@@ -563,13 +567,13 @@ END
             #grep { $self->remove_session($_) } @{$sessions{$self}};
             delete $sessions{$self};
             delete $fileno{$self};
-            return 1
-
+            return 1;
         }
     }
     1;
 }
 __END__
+
 =pod
 
 =head1 NAME
@@ -655,7 +659,7 @@ See also: [theory://Algorithms:_Queuing>]
 
 maximum_peers_per_session - Max number of peers per session.
 
-Default: 30
+Default: 100
 
 maximum_peers_half_open - Max number of sockets we have yet to
 reciece a handshake from.

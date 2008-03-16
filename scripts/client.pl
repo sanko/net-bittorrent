@@ -1,53 +1,43 @@
 #!/usr/bin/perl
-
 use strict;
 use warnings;
-
 use Getopt::Long;
 use Pod::Usage;
 use Carp qw[cluck croak carp];
-
 use lib q[../lib];
-
 use Net::BitTorrent;
 
 #$Net::BitTorrent::DEBUG = 1;
 use English qw(-no_match_vars);
 $OUTPUT_AUTOFLUSH = 1;
-
-my $man          = 0;
-my $help         = 0;
-my $localport    = 0;
-my @dot_torrents = ();
-my $basedir      = q[./];
-
-my $sig_int = 0;
-
-GetOptions(
-    q[help|?]             => \$help,
-    q[man]                => \$man,
-    q[torrent|t=s@]       => \@dot_torrents,
-    q[port|p:i]           => \$localport,
-    q[store|d|base_dir:s] => \$basedir
+my $man            = 0;
+my $help           = 0;
+my $localport      = 0;
+my @dot_torrents   = ();
+my $basedir        = q[./];
+my $skip_hashcheck = 0;
+my $sig_int        = 0;
+GetOptions( q[help|?]             => \$help,
+            q[man]                => \$man,
+            q[torrent|t=s@]       => \@dot_torrents,
+            q[port|p:i]           => \$localport,
+            q[store|d|base_dir:s] => \$basedir,
+            q[skip_hashcheck:i]   => \$skip_hashcheck
 ) or pod2usage(2);
 
 if ( not scalar @dot_torrents and scalar @ARGV ) {
     push @dot_torrents, shift @ARGV while ( -e $ARGV[0] );
 }
-
 pod2usage(1) if $help or not scalar @dot_torrents;
 pod2usage( -verbose => 2 ) if $man;
-
 my $client = new Net::BitTorrent(
-    {
-        LocalPort => $localport,
+    {  LocalPort => $localport,
 
-        #LocalPort => [80, 6881 .. 6889],
-        #LocalPort => 80,
-        #LocalAddr   => q[127.0.0.1],
+       #LocalPort => [80, 6881 .. 6889],
+       #LocalPort => 80,
+       #LocalAddr   => q[127.0.0.1],
     }
 ) or croak sprintf q[Failed to create N::B object (%s)], $^E;
-
 $SIG{q[INT]} = sub {
 
     # One Ctrl-C combo shows status.
@@ -55,39 +45,39 @@ $SIG{q[INT]} = sub {
     if ( $sig_int + 10 > time ) { exit; }
     $sig_int = time;
     print q[=] x 10
-      . q[> Press Ctrl-C again within 10 seconds to exit <]
-      . ( q[=] x 10 ), qq[\n];
+        . q[> Press Ctrl-C again within 10 seconds to exit <]
+        . ( q[=] x 10 ), qq[\n];
     return print $client->as_string(1);
 };
 
 sub hashfail {
     my ( $self, $piece ) = @_;
     my $session = $piece->session;
-    return    #printf( qq[on_hashfail: %04d|%s\n], $piece->index, $$session );
+    return #printf( qq[on_hashfail: %04d|%s\n], $piece->index, $$session );
 }
 
 sub hashpass {
     my ( $self, $piece ) = @_;
     my $session = $piece->session;
-    return printf qq[on_hashpass: %04d|%s|%4d/%4d|%3.2f%%\n], $piece->index,
-      $$session,
-      ( scalar grep { $_->check } @{ $session->pieces } ),
-      ( scalar @{ $session->pieces } ),
-      (
-        (
-            ( scalar grep { $_->check } @{ $session->pieces } ) /
-              ( scalar @{ $session->pieces } )
-        )
-      ) * 100;
+    return printf qq[on_hashpass: %04d|%s|%4d/%4d|%3.2f%%\n],
+        $piece->index,
+        $$session,
+        ( scalar grep { $_->check } @{ $session->pieces } ),
+        ( scalar @{ $session->pieces } ),
+        ( (   ( scalar grep { $_->check } @{ $session->pieces } )
+            / ( scalar @{ $session->pieces } )
+          )
+        ) * 100;
 }
 
 sub request_out {
     my ( $self, $peer, $request ) = @_;
-    return printf(
-        qq[REQUESTING p:%15s:%-5d i:%4d o:%7d l:%5d\n],
-        $peer->peerhost,  $peer->peerport, $request->index,
-        $request->offset, $request->length
-    );
+    return
+        printf( qq[REQUESTING p:%15s:%-5d i:%4d o:%7d l:%5d\n],
+                $peer->peerhost, $peer->peerport,
+                $request->index, $request->offset,
+                $request->length
+        );
 }
 
 sub block_in {
@@ -96,11 +86,8 @@ sub block_in {
 
         #qq[RECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d [%s]\n],
         qq[RECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d\n],
-        $peer->peerhost,
-        $peer->peerport,
-        $block->index,
-        $block->offset,
-        $block->length,
+        $peer->peerhost, $peer->peerport, $block->index,
+        $block->offset,  $block->length,
 
         #join(
         #    q[],
@@ -113,36 +100,23 @@ sub block_in {
         #)
     );
 }
-
 $client->set_callback_on_peer_incoming_block( \&block_in );
 $client->set_callback_on_peer_outgoing_request( \&request_out );
 $client->set_callback_on_piece_hash_pass( \&hashpass );
 $client->set_callback_on_piece_hash_fail( \&hashfail );
-
 for my $dot_torrent ( sort @dot_torrents ) {
     next if not -e $dot_torrent;
     printf qq[Loading '%s'...\n], $dot_torrent;
     my $session =
-      $client->add_session( { path => $dot_torrent, base_dir => $basedir } )
-      or carp sprintf q[Cannot load .torrent (%s): %s], $dot_torrent, $^E;
-    $session->set_block_size(
-        Net::BitTorrent::Util::max(
-            2**14,
-            (
-                Net::BitTorrent::Util::min(
-                    ( $session->piece_size / 16 ), 2**15
-                )
-            )
+        $client->add_session( { path           => $dot_torrent,
+                                base_dir       => $basedir,
+                                skip_hashcheck => $skip_hashcheck
+                              }
         )
-    );
-    $session->files->[0]->priority(10);
+        or carp sprintf q[Cannot load .torrent (%s): %s],
+        $dot_torrent, $^E;
 }
-
 while ( scalar $client->sessions > 0 ) { $client->do_one_loop }
-
-# start     | idle      | use/require
-# 4272/5192 |     /     | strict; warnings;
-# 9868/7032 | 2448/3172 |
 
 __END__
 

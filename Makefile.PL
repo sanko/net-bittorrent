@@ -1,16 +1,12 @@
 #!/usr/bin/perl -w
-
 use strict;
 use warnings;
-
 use ExtUtils::MakeMaker qw[WriteMakefile prompt];
-
 my @tests = glob(
     q[t/0*.t] . (
-        (  # AUTOMATED_TESTING | http://cpantest.grango.org/wiki/CPANAuthorNotes
-            (
-                not $ENV{q[AUTOMATED_TESTING]} and prompt(
-                    q[
+        ( # AUTOMATED_TESTING | http://cpantest.grango.org/wiki/CPANAuthorNotes
+           (  not $ENV{q[AUTOMATED_TESTING]} and prompt(
+                  q[
   *****************************************************************
    During the "make test" phase, we may run tests that open ports.
    By design, no data will be transferred to remote systems during
@@ -22,11 +18,10 @@ my @tests = glob(
 
 Do you want to perform these tests in addition to core tests?], q[no]
                   ) =~ m[^\s*(y)]i
-            )
+           )
         ) ? q[ t/network/00*.t] : q[]
     )
 );
-
 WriteMakefile(
     NAME         => q[Net::BitTorrent],
     AUTHOR       => q[Sanko Robinson <sanko@cpan.org>],
@@ -52,13 +47,11 @@ WriteMakefile(
         q[Fcntl]                 => 0,
         q[overload]              => 0,
         q[Encode]                => 0,
-        (
-            $^O eq q[MSWin32]
-            ? (
-                q[Win32API::File] => 0.10,
-                q[utf8] => 0    # utf8::is_utf8 internal as of Perl 5.8.1
-              )
-            : ()
+        (  $^O eq q[MSWin32]
+           ? ( q[Win32API::File] => 0.10,
+               q[utf8] => 0  # utf8::is_utf8 internal as of Perl 5.8.1
+               )
+           : ()
         )
     },
     dist => {
