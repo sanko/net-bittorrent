@@ -23,3 +23,5 @@ t/etc/generate_miniswarm_dot_torrent.pl
 
 docs/multitracker-spec.pod
 docs/UDP tracker protocol.pod
+
+commit.changes.txt

@@ -338,6 +338,7 @@ Default: 0 (C<false>)
                 $peer->pulse if $peer->next_pulse < time;
             }
 
+# TODO: review the following block ===================================
 #for my $file (@{$files{$self}}) {
 #$file->close if ((time - $file->touch_timestamp) > 600);
 #}
@@ -349,7 +350,7 @@ Default: 0 (C<false>)
 # Remove peers we're not interested it. Evil, but...
 # well, survival is key. We can seed later.
 #}
-# TODO: review the following block =============================================
+
             for my $piece (
                 grep {
                     $_->working
@@ -370,7 +371,7 @@ Default: 0 (C<false>)
                 ) if $Net::BitTorrent::DEBUG;
             }
 
-# TODO: review the above block =================================================
+# TODO: review the above block =======================================
             warn sprintf
                 q[-----> Current peers: half-open:%d | mine:%d],
                 scalar( grep { not $_->peer_id } @peers ),
@@ -434,23 +435,32 @@ Default: 0 (C<false>)
             return if not defined $peer->bitfield;
             my $piece = undef;
 
-            # TODO: rather than using the number of non-choking peers,
-            #       I should consider how many blocks are unfilled.
-            #
-            my $max_working = Net::BitTorrent::Util::min(
-                25,
-                Net::BitTorrent::Util::max(
-                    3,
-                    int((  scalar grep {
-                               ref $_ eq q[Net::BitTorrent::Peer]
-                                   and defined $_->session
-                                   and $_->session eq $self
-                                   and not $_->is_choking
-                               } $self->client->connections
-                        ) * 1.9
-                    )
-                )
+# TODO:  needs work... ###############################################
+            my $free_blocks = 0;
+            my $free_slots  = 0;
+            grep {
+                $free_blocks
+                    += scalar grep { scalar $_->peers == 0 }
+                    values %{ $_->blocks }
+                }
+                grep { $_->working } @{ $pieces{$self} };
+            grep {
+                $free_slots
+                    += ( $client{$self}->maximum_requests_per_peer
+                         - scalar( @{ $_->outgoing_requests } ) )
+                    if not $_->is_choking
+            } $self->peers;
+
+# ...major work ######################################################
+
+            my $max_working = (
+                      ( $free_blocks < $free_slots ) + (
+                          scalar(
+                              grep { $_->working } @{ $pieces{$self} }
+                          )
+                      )
             );
+
             my @weights = (
                 (  scalar( grep { $_->working } @{ $pieces{$self} } )
                        < $max_working # TODO: Make this ratio variable
@@ -694,7 +704,8 @@ END
 END
                 }
             }
-            return print STDERR qq[$dump\n] unless defined wantarray;
+            return print STDERR qq[$dump\n]
+                unless defined wantarray;
             return $dump;
         }
     }

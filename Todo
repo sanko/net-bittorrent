@@ -16,6 +16,9 @@ High priorities:
     - Net::BitTorrent::Util
 - Callbacks
 - Endgame!
+- client.pl?
+  + -skip_hashcheck should try to load the bitfield from disk?
+  + occasional storage of the bitfield to disk on hash_pass?
 
 Short term goals:
 - The return of Fast Extension aka 'Fast Peers'

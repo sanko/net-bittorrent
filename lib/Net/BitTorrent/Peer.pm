@@ -267,6 +267,11 @@ Current address used by this peer. (IPv4)
             return push @{ $outgoing_requests{$self} }, $request;
         }
 
+        sub outgoing_requests {
+            my ($self) = @_;
+            return $outgoing_requests{$self};
+        }
+
         # Private Methods
         sub process_one {
             my $self = shift;
@@ -999,6 +1004,9 @@ Current address used by this peer. (IPv4)
             $block->remove_peer($self);
             @{ $outgoing_requests{$self} } = grep { $_ ne $block }
                 @{ $outgoing_requests{$self} };
+            $next_pulse{$self} =
+                Net::BitTorrent::Util::min( ( time + 5 ),
+                                            $next_pulse{$self} );
             return
                 $self->build_packet( { data => { request => $block },
                                        type => 8

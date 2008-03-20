@@ -23,6 +23,7 @@ t/010_pod.t
 t/etc/example-A.torrent
 t/etc/miniswarm.torrent
 t/etc/miniswarm/seed/1291672777_30adc6a421_o.jpg
+t/etc/miniswarm/seed/2183742557_5c9a91727d_m.jpg
 t/etc/miniswarm/seed/credit.txt
 t/network/000_NB_new.t
 t/network/001_NB_miniswarm.t

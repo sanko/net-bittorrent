@@ -109,6 +109,7 @@
                                    piece => $self
                                  }
                             ) if $_length % $_block_length;
+                        $previous_incoming_block{$self} = time  # lies
                     }
 
                     #elsif (not $value and $blocks{$self}) {
