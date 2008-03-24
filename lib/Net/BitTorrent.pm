@@ -18,7 +18,7 @@
     use List::Util qw[shuffle];
     use lib q[../];
     use Net::BitTorrent::Session;
-    use Net::BitTorrent::Peer;
+    use Net::BitTorrent::Session::Peer;
     {
         my ( %peer_id,                   %socket,
              %fileno,                    %timeout,
@@ -379,7 +379,7 @@
                             }
                             else {
                                 my $new_peer
-                                    = Net::BitTorrent::Peer->new(
+                                    = Net::BitTorrent::Session::Peer->new(
                                              { socket => $new_socket,
                                                client => $self
                                              }

@@ -1,13 +1,13 @@
 {
 
-    package Net::BitTorrent::Peer;
+    package Net::BitTorrent::Session::Peer;
 
     BEGIN {
         use vars qw[$VERSION];
         use version qw[qv];
         our $SVN
-            = q[$Id$];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
+            = q[$Id: Peer.pm 4 2008-03-20 20:37:16Z sanko@cpan.org $];
+        our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 4 $)->numify / 1000;
     }
     use strict;
     use warnings 'all';
@@ -17,7 +17,7 @@
     use Carp qw[carp croak];
     use Digest::SHA qw[];
     use lib q[../../];
-    use Net::BitTorrent::Peer::Request;
+    use Net::BitTorrent::Session::Peer::Request;
     {
         my ( %client,
              %fileno,
@@ -171,28 +171,6 @@
         sub peer_id { return $peer_id{ +shift }; }
         sub socket  { return $socket{ +shift }; }
 
-=pod
-
-=head2 peerport
-
-=over
-
-=item Usage
-
-C<$peer-E<gt>peerport();>
-
-=item Purpose
-
-Retrieve port bound to by C<$peer-E<gt>socket>.
-
-=item Returns
-
-Current port used by this peer. (integer)
-
-=back
-
-=cut
-
         sub peerport {
             my ($self) = @_;
             if ( not defined $peerport{$self} and $connected{$self} )
@@ -203,28 +181,6 @@ Current port used by this peer. (integer)
             }
             return $peerport{$self};
         }
-
-=pod
-
-=head2 peerhost
-
-=over
-
-=item Usage
-
-C<$client-E<gt>peerhost();>
-
-=item Purpose
-
-Retrieve address bound to by C<$client-E<gt>socket>.
-
-=item Returns
-
-Current address used by this peer. (IPv4)
-
-=back
-
-=cut
 
         sub peerhost {
             my ($self) = @_;
@@ -263,7 +219,7 @@ Current address used by this peer. (IPv4)
 
         sub add_outgoing_request {
             my ( $self, $request ) = @_;
-            return unless $request->isa(q[Net::BitTorrent::Block]);
+            return unless $request->isa(q[Net::BitTorrent::Session::Block]);
             return push @{ $outgoing_requests{$self} }, $request;
         }
 
@@ -565,7 +521,7 @@ Current address used by this peer. (IPv4)
                              length => $length,
                     );
                     my $request =
-                        Net::BitTorrent::Peer::Request->new(
+                        Net::BitTorrent::Session::Peer::Request->new(
                                                  { index  => $index,
                                                    offset => $offset,
                                                    length => $length,
@@ -639,11 +595,7 @@ Current address used by this peer. (IPv4)
           # TODO: if endgame, cancel all other requests for this block
 
                             if ( scalar( $block->peers ) > 1 ) {
-                                use Data::Dump qw[pp];
-                                warn pp $block->peers;
-                                warn scalar $block->peers;
                                 for my $peer ( $block->peers ) {
-                                    warn $block;
                                     $peer->cancel_block($block)
                                         unless $peer == $self;
                                 }
@@ -1030,17 +982,12 @@ Current address used by this peer. (IPv4)
 
         sub cancel_old_requests {
             my ($self) = @_;
-            for my $block (
-                grep {
-                    $_->request_timestamp($self)
-                        <= (
-                        time
-                            - 300 ) # TODO: make this timeout variable
-                } @{ $outgoing_requests{$self} }
-                )
-            {
-                $self->cancel_block($block);
-            }
+
+            # TODO: make this timeout variable
+            my @remove
+                = grep { $_->request_timestamp($self) < ( time - 300 ) }
+                @{ $outgoing_requests{$self} };
+            for my $block (@remove) { $self->cancel_block($block); }
         }
 
         sub check_interesting {
@@ -1173,3 +1120,106 @@ Current address used by this peer. (IPv4)
         1;
     }
 }
+
+__END__
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Session::Peer - BitTorrent client class
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 METHODS
+
+=over 4
+
+=item C<peer_id ( )>
+
+TODO
+
+=item C<socket ( )>
+
+TODO
+
+=item C<peerport ( )>
+
+TODO
+
+=item C<peerhost ( )>
+
+TODO
+
+=item C<fileno ( )>
+
+TODO
+
+=item C<connected ( )>
+
+TODO
+
+=item C<session ( )>
+
+TODO
+
+=item C<client ( )>
+
+TODO
+
+=item C<bitfield ( )>
+
+TODO
+
+=item C<downloaded ( )>
+
+TODO
+
+=item C<uploaded ( )>
+
+TODO
+
+=item C<is_choked ( )>
+
+TODO
+
+=item C<is_choking ( )>
+
+TODO
+
+=item C<is_interested ( )>
+
+TODO
+
+=item C<is_interesting ( )>
+
+TODO
+
+=item C<reserved ( )>
+
+TODO
+
+=back
+
+=head1 AUTHOR
+
+Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+
+=head1 LICENSE AND LEGAL
+
+Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+included with this module.
+
+Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

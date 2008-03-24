@@ -109,9 +109,9 @@ Yes.
 Right now, we become interested in I<any> peer who happens to have a
 piece we need; I haven't written anything that rates the I<quality>
 of peers we've connected to.  Perhaps, in a future version, a peer
-will be judged on how fast they transfer pieces to us, how often they
+will be judged on how fast they transfer blocks to us, how often they
 are involved with 'bad' pieces, how many times they have choked us
-while we were waiting for a piece, etc.  Making attempts to stay
+while we were waiting for a block, etc.  Making attempts to stay
 interested and unchoked by these high quality peers will greatly
 increase download speed.  Add to this PEX/DHT and other extensions
 we have yet to support--  Yeah...
@@ -119,16 +119,15 @@ we have yet to support--  Yeah...
 =head2 Hash checking every time I load the torrent is too much! How
 'bout quick resume?
 
-Private versions of N::B had resume built in but it was removed for
+Early versions of N::B had resume built in but it was removed for
 various reasons.  Adding this yourself is trivial, fortunately.  For
 each torrent, store the bitfield, nodes (compact list of peers), and
 piece priorities, the modified times for each file just to be safe.
 Oh, and the current 'working' pieces and their progress.  And to that
-some sort of anti-tampering/verification scheme to be sure you're
-loading the right resume info.  Then, when you load the torrent, set
-the C<skip_hashcheck> parameter to true and reload the torrent with
-your stored data. ...well, as long as the modified times match the
-current timestamps and the data verifies.
+some sort of verification scheme to be sure you're loading information
+that hasn't been tampered with or corrupted.  Then, when you load the
+torrent, set the C<skip_hashcheck> parameter to a C<true> value and
+reload the torrent with your stored data.  See?  Easy.
 
 =head2 I used C<Net::BitTorrent> on [some tracker] and was banned.
 Will you talk to the admin for me?
@@ -138,8 +137,7 @@ trackers have access to, administrators will probably notice bugs
 well before end users or even I, as the sole developer, catch on.
 If it's a ban that directly targets L<Net::BitTorrent> as a
 problematic client, I'll contact whoever is in charge and find out
-why.  If it turns out you alone were banned (because you're a leech
-or you modified the source, etc.), I cannot (and would not) help you.
+why.
 
 =head2 Can you recommend other open source BitTorrent clients?
 
@@ -160,12 +158,12 @@ Bitflu (L<http://bitflu.workaround.ch/>) is a full client written in
 =item *
 
 btpeer (L<http://www.alhem.net/project/btpeer/>) is "a collection of
-classes implementing the core client functionality of the bittorrent
+classes implementing the core client functionality of the BitTorrent
 protocol" and has been released under the GPL.
 
 =item *
 
-Artic (L<http://dev.int64.org/arctic.html>) is a minimal client
+Arctic (L<http://dev.int64.org/arctic.html>) is a minimal client
 based on libtorrent, written in C++ and released under the MIT
 License.
 
@@ -184,6 +182,16 @@ MemoServ deliver it for you.
 For now, please use
 L<http://code.google.com/p/net-bittorrent/issues/list> for bug
 reports.
+
+=head2 I'd like to help! What can I do?
+
+Bug reports?  Use the issues system provided by Google:
+L<http://code.google.com/p/net-bittorrent/issues/list> rather than
+CPAN's RT system.
+
+Currently, I'm not actively looking for co maintainers, but if you
+think you can bring order to the project, it doesn't hurt to contact
+me.
 
 =for svn $Id$
 

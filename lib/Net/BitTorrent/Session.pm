@@ -18,7 +18,7 @@
     use Net::BitTorrent::Util;
     use Net::BitTorrent::Session::Piece;
     use Net::BitTorrent::Session::File;
-    use Net::BitTorrent::Tracker;
+    use Net::BitTorrent::Session::Tracker;
     {
         my ( %next_pulse,  %path,     %base_dir,   %private,
              %piece_count, %infohash, %block_size, %piece_size,
@@ -28,6 +28,8 @@
         );
 
 =pod
+
+=begin future
 
 =over
 
@@ -60,6 +62,9 @@ of this torrent until we complete a hashcheck.
 
 Default: 0 (C<false>)
 
+=back
+
+=end future
 
 =cut
 
@@ -200,14 +205,14 @@ Default: 0 (C<false>)
                     {
                         $trackers{$self} = [
                             map {
-                                Net::BitTorrent::Tracker->new(
+                                Net::BitTorrent::Session::Tracker->new(
                                     { session => $self, urls => $_ } )
                                 } @{ $_content->{q[announce-list]} }
                         ];
                     }
                     elsif ( defined $_content->{q[announce]} ) {
                         $trackers{$self} = [
-                              Net::BitTorrent::Tracker->new(
+                              Net::BitTorrent::Session::Tracker->new(
                                   { urls =>
                                         [ $_content->{q[announce]} ],
                                     session => $self
@@ -296,14 +301,14 @@ Default: 0 (C<false>)
 
         sub inc_uploaded {
             croak q[uploaded is protected]
-                unless caller->isa(q[Net::BitTorrent::Peer]);
+                unless caller->isa(q[Net::BitTorrent::Session::Peer]);
             return $uploaded{ +shift } += shift;
         }
         sub uploaded { return $uploaded{ +shift }; }
 
         sub inc_downloaded {
             croak q[downloaded is protected]
-                unless caller->isa(q[Net::BitTorrent::Peer]);
+                unless caller->isa(q[Net::BitTorrent::Session::Peer]);
             return $downloaded{ +shift } += shift;
         }
         sub downloaded { return $downloaded{ +shift }; }
@@ -350,27 +355,6 @@ Default: 0 (C<false>)
 # Remove peers we're not interested it. Evil, but...
 # well, survival is key. We can seed later.
 #}
-
-            for my $piece (
-                grep {
-                    $_->working
-                        and ( ( time - $_->previous_incoming_block )
-                              > 1200 )
-                } @{ $pieces{$self} }
-                )
-            {
-
-                #$piece->working(0);
-                $piece->priority( $piece->priority * 1.5 );
-                warn(
-                    sprintf(
-                        q[REMOVING WORKING STATUS FROM PIECE: %d (w:%d p:%d)],
-                        $piece->index, $piece->working,
-                        $piece->priority
-                    )
-                ) if $Net::BitTorrent::DEBUG;
-            }
-
 # TODO: review the above block =======================================
             warn sprintf
                 q[-----> Current peers: half-open:%d | mine:%d],
@@ -386,7 +370,7 @@ Default: 0 (C<false>)
                 and (
                     scalar(
                         grep {
-                            $_->isa(q[Net::BitTorrent::Peer])
+                            $_->isa(q[Net::BitTorrent::Session::Peer])
                                 and not $_->connected
                             } $self->client->connections
                     ) < $self->client->maximum_peers_half_open
@@ -403,7 +387,7 @@ Default: 0 (C<false>)
                     )
                 {
                     my $new_peer =
-                        Net::BitTorrent::Peer->new(
+                        Net::BitTorrent::Session::Peer->new(
                                           { address => shift(@nodes),
                                             session => $self
                                           }
@@ -517,7 +501,7 @@ Default: 0 (C<false>)
             my ($self) = @_;
             return (
                 grep {
-                            ref $_ eq q[Net::BitTorrent::Peer]
+                            ref $_ eq q[Net::BitTorrent::Session::Peer]
                         and defined $_->session
                         and $_->session eq $self
                     } $self->client->connections
@@ -711,3 +695,148 @@ END
     }
     1;
 }
+
+__END__
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Session - BitTorrent client class
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 METHODS
+
+=over 4
+
+=item C<hash_check ( )>
+
+TODO
+
+=item C<path ( )>
+
+Filename of the .torrent file to load.
+
+This is the only requried parameter.
+
+=item C<base_dir ( )>
+
+Base directory used to store the files related to this session.  If
+not preexisting, this directory is created when required.
+
+Default: F<./> (Current working directory)
+
+=item C<peerhost ( )>
+
+TODO
+
+=item C<fileno ( )>
+
+TODO
+
+=item C<private ( )>
+
+TODO
+
+=item C<infohash ( )>
+
+TODO
+
+=item C<client ( )>
+
+TODO
+
+=item C<pieces ( )>
+
+TODO
+
+=item C<trackers ( )>
+
+TODO
+
+=item C<files ( )>
+
+TODO
+
+=item C<piece_count ( )>
+
+TODO
+
+=item C<piece_size ( )>
+
+TODO
+
+=item C<block_size ( )>
+
+Length of blocks we request from peers of this session.
+
+NOTE: This should not be changed accept during testing.
+
+Default: C<2**15>
+
+=item C<set_block_size ( )>
+
+TODO
+
+=item C<total_size ( )>
+
+TODO
+
+=item C<downloaded ( )>
+
+TODO
+
+=item C<uploaded ( )>
+
+TODO
+
+=item C<nodes ( )>
+
+TODO
+
+=item C<append_nodes ( )>
+
+TODO
+
+=item C<compact_nodes ( )>
+
+TODO
+
+=item C<peers ( )>
+
+TODO
+
+=item C<complete ( )>
+
+TODO
+
+=item C<bitfield ( )>
+
+TODO
+
+=back
+
+=head1 AUTHOR
+
+Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+
+=head1 LICENSE AND LEGAL
+
+Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+included with this module.
+
+Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut
+

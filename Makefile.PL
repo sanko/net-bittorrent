@@ -59,7 +59,7 @@ WriteMakefile(
         SUFFIX   => q[.gz],
 
 #PREOP => q[svn commit -m "make dist" && pod2text .\lib\Net\BitTorrent.pm > README]
-        PREOP => q[svn commit -m "make dist"]
+#PREOP => q[svn commit -m "make dist"]
     },
     test => { TESTS => join q[ ], @tests },
 

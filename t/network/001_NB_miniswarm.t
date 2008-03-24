@@ -15,8 +15,6 @@ use File::Temp qw[];
 
 $|++;
 
-#$Net::BitTorrent::DEBUG = 1;
-
 my %client;
 my $complete = 0;
 
@@ -97,8 +95,6 @@ grep {
 
 diag(q[Setting up miniswarm. Please wait...]);
 
-#my $tb = Test::More->builder;
-#while ($tb->{q[Curr_Test]} < 16) {
 while ( $complete < 10 ) {
     grep { $_->do_one_loop } values %client;
 }

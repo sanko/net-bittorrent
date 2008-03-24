@@ -13,13 +13,13 @@ use Test::More tests => 9;
 
 BEGIN {
     use_ok(q[Net::BitTorrent]);
-    use_ok(q[Net::BitTorrent::Peer]);
-    use_ok(q[Net::BitTorrent::Peer::Request]);
     use_ok(q[Net::BitTorrent::Session]);
     use_ok(q[Net::BitTorrent::Session::File]);
+    use_ok(q[Net::BitTorrent::Session::Peer]);
+    use_ok(q[Net::BitTorrent::Session::Peer::Request]);
     use_ok(q[Net::BitTorrent::Session::Piece]);
     use_ok(q[Net::BitTorrent::Session::Piece::Block]);
-    use_ok(q[Net::BitTorrent::Tracker]);
+    use_ok(q[Net::BitTorrent::Session::Tracker]);
     use_ok(q[Net::BitTorrent::Util]);
 }
 

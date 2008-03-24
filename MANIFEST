@@ -2,13 +2,13 @@ Changes
 docs/PeerID_spec.pod
 lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/FAQ.pod
-lib/Net/BitTorrent/Peer.pm
-lib/Net/BitTorrent/Peer/Request.pm
 lib/Net/BitTorrent/Session.pm
 lib/Net/BitTorrent/Session/File.pm
+lib/Net/BitTorrent/Session/Peer.pm
+lib/Net/BitTorrent/Session/Peer/Request.pm
 lib/Net/BitTorrent/Session/Piece.pm
 lib/Net/BitTorrent/Session/Piece/Block.pm
-lib/Net/BitTorrent/Tracker.pm
+lib/Net/BitTorrent/Session/Tracker.pm
 lib/Net/BitTorrent/Util.pm
 LICENSE
 Makefile.PL

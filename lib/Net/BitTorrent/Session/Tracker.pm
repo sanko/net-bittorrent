@@ -1,14 +1,14 @@
 {
 
-    package Net::BitTorrent::Tracker;
+    package Net::BitTorrent::Session::Tracker;
 
     # Honestly, this should be N::B::Session::Tracker::Tier;
     BEGIN {
         use vars qw[$VERSION];
         use version qw[qv];
         our $SVN
-            = q[$Id$];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
+            = q[$Id: Tracker.pm 3 2008-03-16 05:46:16Z sanko@cpan.org $];
+        our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 3 $)->numify / 1000;
     }
     use strict;
     use warnings 'all';
@@ -511,3 +511,74 @@ END
     }
     1;
 }
+
+__END__
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Session::Tracker - BitTorrent client class
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 METHODS
+
+=over 4
+
+=item C<urls ( )>
+
+TODO
+
+=item C<session ( )>
+
+TODO
+
+=item C<client ( )>
+
+TODO
+
+=item C<base_dir ( )>
+
+TODO
+
+=item C<peerhost ( )>
+
+TODO
+
+=item C<fileno ( )>
+
+TODO
+
+=item C<private ( )>
+
+TODO
+
+=item C<infohash ( )>
+
+TODO
+
+=back
+
+=head1 AUTHOR
+
+Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+
+=head1 LICENSE AND LEGAL
+
+Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+included with this module.
+
+Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

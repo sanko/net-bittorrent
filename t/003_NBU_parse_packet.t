@@ -11,7 +11,7 @@ use Test::More tests => 15;
 use lib q[../lib];
 
 BEGIN {
-    use_ok(q[Net::BitTorrent::Peer]);
+    use_ok(q[Net::BitTorrent::Session::Peer]);
 }
 
 {

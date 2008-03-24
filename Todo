@@ -5,17 +5,16 @@ High priorities:
   + Incomplete
     - Net::BitTorrent
     - Net::BitTorrent::FAQ
-  + Missing:
-    - Net::BitTorrent::Peer
-    - Net::BitTorrent::Peer::Request
     - Net::BitTorrent::Session
     - Net::BitTorrent::Session::File
+    - Net::BitTorrent::Session::Peer
+    - Net::BitTorrent::Session::Peer::Request
     - Net::BitTorrent::Session::Piece
     - Net::BitTorrent::Session::Piece::Block
-    - Net::BitTorrent::Tracker
+    - Net::BitTorrent::Session::Tracker
     - Net::BitTorrent::Util
-- Callbacks
-- Endgame!
+- Complete callback system
+- Endgame! (untested)
 - client.pl?
   + -skip_hashcheck should try to load the bitfield from disk?
   + occasional storage of the bitfield to disk on hash_pass?
@@ -33,7 +32,6 @@ Long term goals:
 - Internal bans for 'bad' peers
   + Penalty (and eventual ban) for peers who always seem involved
     with bad pieces
-  + Penalty for apparent leeches
 - limit number of unchoked peers
 - optimistic unchoking
 - taint safe
@@ -42,15 +40,14 @@ Long term goals:
   + .piece file to store incoming blocks
 - Limits for transfer bandwidth
 - Extensions
-  + DHT/PEX (low priority)
-      See http://www.bittorrent.org/Draft_DHT_protocol.html
-  + Wire protocol encryption (very low priority)
-      See http://www.azureuswiki.com/index.php/Message_Stream_Encryption
-  + Extension protocol
-      See http://www.rasterbar.com/products/libtorrent/extension_protocol.html
-  + Extension Negotiation Protocol
-      See http://www.azureuswiki.com/index.php/Extension_negotiation_protocol
-  + BitComet Extension Protocol (low priority)
-      Currently undocumented. Hmmm... Wireshark to the rescue. :|
+  + DHT/PEX
+  + Wire protocol encryption?
+  + Extension protocol?
+  + Extension Negotiation Protocol?
+  + BitComet Extension Protocol?
+- N::B::Lite - barebones client?
+  + Single class
+  + No extentions
+  + Trimmed API
 
 $Id$
