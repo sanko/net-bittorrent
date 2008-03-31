@@ -1,6 +1,7 @@
+package Net::BitTorrent::Session::File;
+use strict;
+use warnings;
 {
-
-    package Net::BitTorrent::Session::File;
 
     BEGIN {
         use vars qw[$VERSION];
@@ -9,14 +10,13 @@
             = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
-    use strict;
-    use warnings 'all';
     use Fcntl qw[/O_/ /SEEK/];
     use File::Spec;
     use Carp qw[carp croak];
     my ( %size,           %path,      %index,
          %session,        %handle,    %unicode_filehandle,
-         %open_timestamp, %open_mode, %touch_timestamp
+         %open_timestamp, %open_mode, %touch_timestamp      ,%piece_range
+
     );
     {    # constructor
 
@@ -45,7 +45,7 @@
             }
             return $self;
         }
-        sub size { return $size{ +shift } }
+        sub size { my ($self) = @_; return $size{$self} }
 
         sub path {
             my $self = shift;
@@ -53,22 +53,34 @@
                 File::Spec->catfile( $session{$self}->base_dir,
                                      $path{$self} );
         }
-        sub index   { $index{ +shift } }
-        sub session { return $session{ +shift } }
-        sub client  { return $session{ +shift }->client }
-        sub handle  { return $handle{ +shift } }
+        sub index   { my ($self) = @_; return $index{$self} }
+        sub session { my ($self) = @_; return $session{$self} }
+        sub client {
+            my ($self) = @_;
+            return $session{$self}->client;
+        }
+        sub handle { my ($self) = @_; return $handle{$self} }
 
         sub use_unicode_handle {
-            return $unicode_filehandle{ +shift };
+            my ($self) = @_;
+            return $unicode_filehandle{$self};
         }    # used only on win32
-        sub open_timestamp  { return $open_timestamp{ +shift } }
-        sub open_mode       { return $open_mode{ +shift } }
-        sub touch_timestamp { return $touch_timestamp{ +shift } }
 
-        sub open {
+        sub open_timestamp {
+            my ($self) = @_;
+            return $open_timestamp{$self};
+        }
+        sub open_mode { my ($self) = @_; return $open_mode{$self} }
+
+        sub touch_timestamp {
+            my ($self) = @_;
+            return $touch_timestamp{$self};
+        }
+
+        sub _open {
             my ( $self, $mode ) = @_;
             if ( $mode !~ m[^[rw]$] ) {
-                $self->client->do_callback( q[file_error], $self,
+                $self->client->_do_callback( q[file_error], $self,
                              sprintf( q[Bad open mode: %s], $mode ) );
                 return;
             }
@@ -77,7 +89,7 @@
                     return 1;
                 }
                 else {
-                    $self->sysclose;
+                    $self->_sysclose;
                 }
             }
             {    # TODO: Is File::Spec unicode safe?
@@ -99,11 +111,11 @@
             }
             if ($self->client->use_unicode
                 ? do {
-                    $self->sysopen( ( $mode eq q[r]
+                    $self->_sysopen( ( $mode eq q[r]
                                       ? O_RDONLY
                                       : O_WRONLY | O_CREAT
                                     ),
-                                    0777
+                                    oct 777
                     );
                 }
                 : do {
@@ -113,27 +125,27 @@
                                 ? O_RDONLY
                                 : O_WRONLY | O_CREAT
                              ),
-                             0777
+                             oct 777
                     );
                 }
                 )
             {
                 $open_mode{$self}      = $mode;
                 $open_timestamp{$self} = time;
-                $self->client->do_callback( q[file_open], $self );
+                $self->client->_do_callback( q[file_open], $self );
                 return 1;
             }
             return;
         }
 
-        sub seek {
+        sub _seek {
             my ( $self, $position ) = @_;
             if ( not $handle{$self} ) {
-                $self->client->do_callback( q[file_error],
+                $self->client->_do_callback( q[file_error],
                                             q[File not open] );
             }
             elsif ( $position > $size{$self} ) {
-                $self->client->do_callback(
+                $self->client->_do_callback(
                       q[file_error],
                       sprintf(
                           q[Cannot seek beyond end of file (%d > %d)],
@@ -142,24 +154,25 @@
                 );
             }
             else {
-                return sysseek( $handle{$self}, $position, SEEK_SET );
+                return
+                    sysseek( $handle{$self}, $position, SEEK_SET );
             }
         }
-        sub systell { sysseek( $_[0]->handle, 0, SEEK_CUR ) }
+        sub _systell { sysseek( $_[0]->handle, 0, SEEK_CUR ) }
 
-        sub read {
+        sub _read {
             my ( $self, $length ) = @_;
             my $data = q[];
             if ( not $handle{$self} ) {
-                $self->client->do_callback( q[file_error],
+                $self->client->_do_callback( q[file_error],
                                             q[File not open] );
             }
             elsif ( $open_mode{$self} ne q[r] ) {
-                $self->client->do_callback( q[file_error],
+                $self->client->_do_callback( q[file_error],
                                           q[File not open for read] );
             }
-            elsif ( $self->systell + $length > $size{$self} ) {
-                $self->client->do_callback( q[file_error],
+            elsif ( $self->_systell + $length > $size{$self} ) {
+                $self->client->_do_callback( q[file_error],
                                   q[Cannot read beyond end of file] );
             }
             else {
@@ -169,26 +182,26 @@
                     = sysread( $handle{$self}, $data, $length );
                 if ( $real_length or ( $real_length == $length ) ) {
                     $touch_timestamp{$self} = time;
-                    $self->client->do_callback( q[file_read], $self,
+                    $self->client->_do_callback( q[file_read], $self,
                                                 $real_length );
                 }
             }
             return $data;
         }
 
-        sub write {
+        sub _write {
             my ( $self, $data ) = @_;
             my $real_length;
             if ( not $handle{$self} ) {
-                $self->client->do_callback( q[file_error],
+                $self->client->_do_callback( q[file_error],
                                             q[File not open] );
             }
             elsif ( $open_mode{$self} ne q[w] ) {
-                $self->client->do_callback( q[file_error],
+                $self->client->_do_callback( q[file_error],
                                          q[File not open for write] );
             }
-            elsif ( $self->systell + length($data) > $size{$self} ) {
-                $self->client->do_callback( q[file_error],
+            elsif ( $self->_systell + length($data) > $size{$self} ) {
+                $self->client->_do_callback( q[file_error],
                                  q[Cannot write beyond end of file] );
             }
             else {
@@ -200,24 +213,23 @@
                      or $real_length != length($data) )
                 {
                     $touch_timestamp{$self} = time;
-                    $self->client->do_callback( q[file_write], $self,
+                    $self->client->_do_callback( q[file_write], $self,
                                                 $real_length );
                 }
             }
             return $real_length;
         }
 
-        sub close {
+        sub _close {
             my ($self) = @_;
             $self->session->client->use_unicode
-                ? do { $self->sysclose( $handle{$self} ) }
+                ? do { $self->_sysclose( $handle{$self} ) }
                 : do { CORE::close( $handle{$self} ) };
             delete $handle{$self};
             delete $open_mode{$self};
-            $self->client->do_callback( q[file_close], $self );
+            $self->client->_do_callback( q[file_close], $self );
             return 1;
         }
-        my %piece_range;
 
         sub piece_range {    # cache this only when needed
             my ($self) = @_;
@@ -243,7 +255,7 @@
             }
             return
                 map { $self->session->pieces->[$_] }
-                ( $piece_range{$self}[0] .. $piece_range{$self}[1] );
+                ($piece_range{$self}[0] .. $piece_range{$self}[1] );
         }
 
 =pod
@@ -348,7 +360,7 @@ END
             return 1;
         }
 
-        sub sysopen {
+        sub _sysopen {
             my ( $self, $mode, $perms ) = @_;
 
  # Unicode, and other extended charsets are a pain...
@@ -390,11 +402,10 @@ END
                                 $fd
                     );
             }
-            CORE::sysopen( $handle{$self}, $self->path, $mode,
-                           $perms );
+            sysopen( $handle{$self}, $self->path, $mode, $perms );
         }
 
-        sub sysclose {
+        sub _sysclose {
             my ($self) = @_;
             if ( $self->session->client->use_unicode
                  and defined $self->use_unicode_handle )
@@ -409,9 +420,9 @@ END
                 and $open_mode{$self} = q[c];
         }
     }
-    1;
-}
 
+}
+1;
 __END__
 
 =pod

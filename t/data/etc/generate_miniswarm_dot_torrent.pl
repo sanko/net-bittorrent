@@ -3,8 +3,8 @@ package Net::BitTorrent::GenTorrent;
 use strict;
 use warnings;
 
-use lib q[../../lib];
-use Net::BitTorrent::Util;
+use lib q[../../../lib];
+use Net::BitTorrent::Util qw[bencode];
 use Digest::SHA;
 use Fcntl q[SEEK_CUR];
 use File::Spec;
@@ -81,7 +81,7 @@ FILE: for my $index ( 0 .. $#{ $info{$self}{q[files]} } ) {
         }
     }
     $data{q[info]}{q[pieces]} .= Digest::SHA::sha1($data);
-    return Net::BitTorrent::Util::bencode( \%data );
+    return bencode( \%data );
 }
 
 sub defaults {
@@ -169,9 +169,9 @@ package main;
 use strict;
 use warnings;
 
-my $torrent = new Net::BitTorrent::GenTorrent q[miniswarm.torrent];
+my $torrent = new Net::BitTorrent::GenTorrent q[../torrents/miniswarm.torrent];
 
-$torrent->directory(q[./miniswarm/seed/]);
+$torrent->directory(q[../miniswarm/seed/]);
 
 #$torrent->files(
 #    q[37112393_902495ba23.jpg],     q[488732995_b3cb64291a.jpg],
@@ -186,4 +186,4 @@ $torrent->name(q[seed]);
 
 $torrent->save;
 
-# $Id$
+# $Id: generate_miniswarm_dot_torrent.pl 4 2008-03-20 20:37:16Z sanko@cpan.org $

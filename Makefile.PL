@@ -2,11 +2,18 @@
 use strict;
 use warnings;
 use ExtUtils::MakeMaker qw[WriteMakefile prompt];
-my @tests = glob(
-    q[t/0*.t] . (
-        ( # AUTOMATED_TESTING | http://cpantest.grango.org/wiki/CPANAuthorNotes
-           (  not $ENV{q[AUTOMATED_TESTING]} and prompt(
-                  q[
+
+use File::Find;
+
+my @search = qw[t/000_basic/ t/100_data_parsing/
+    t/200_classes/ t/400_broken_data/ t/900_etc/];
+
+if (
+    not $ENV{q[AUTOMATED_TESTING]
+    }        # http://cpantest.grango.org/wiki/CPANAuthorNotes
+    and can_talk_to_ourself()
+    and prompt(
+        q[
   *****************************************************************
    During the "make test" phase, we may run tests that open ports.
    By design, no data will be transferred to remote systems during
@@ -17,11 +24,21 @@ my @tests = glob(
   *****************************************************************
 
 Do you want to perform these tests in addition to core tests?], q[no]
-                  ) =~ m[^\s*(y)]i
-           )
-        ) ? q[ t/network/00*.t] : q[]
+    ) =~ m[^\s*(y)]i
     )
-);
+{
+    push @search, q[t/500_full_swarm/];
+}
+
+my @tests;
+
+find sub {
+    return if -d $_ or -l $_;
+    return unless -T $_;
+    return unless $_ =~ m[.+\.t$];
+    push @tests, $File::Find::name;
+}, @search;
+
 WriteMakefile(
     NAME         => q[Net::BitTorrent],
     AUTHOR       => q[Sanko Robinson <sanko@cpan.org>],
@@ -32,6 +49,7 @@ WriteMakefile(
         q[Digest::SHA]           => 5.45,    # CORE in 5.10
         q[version]               => 0.50,    # CORE in 5.10
         q[Test::More]            => 0.74,
+        q[Time::HiRes]           => 0,
         q[Data::Dumper]          => 0,
         q[English]               => 0,
         q[Class::ISA]            => 0,
@@ -65,5 +83,11 @@ WriteMakefile(
 
     #SIGN=> 1 # doesn't play nice with my .svn dirs
 );
+
+sub can_talk_to_ourself
+{    # Check if we should try to run tests that talk to ourself
+    system(qq("$^X" t/data/etc/talk-to-ourself.pl));
+    return $? ? 0 : 1;
+}
 
 # $Id$

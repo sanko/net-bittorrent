@@ -1,6 +1,7 @@
+package Net::BitTorrent;
+use strict;    # to make Perl::Critic happy
+use warnings;
 {
-
-    package Net::BitTorrent;
 
     BEGIN {
         use vars qw[$VERSION];
@@ -11,11 +12,12 @@
         our $DEBUG = 0; # Set to true to get loads of useless messages
     }
     use strict;
-    use warnings 'all';
+    use warnings;
     use Socket
         qw[PF_INET AF_INET SOCK_STREAM SOMAXCONN sockaddr_in INADDR_ANY];
     use Carp qw[carp croak];
     use List::Util qw[shuffle];
+    use Time::HiRes qw[usleep];
     use lib q[../];
     use Net::BitTorrent::Session;
     use Net::BitTorrent::Session::Peer;
@@ -111,7 +113,7 @@
                             )
                         );
                         $sessions{$self} = [];
-                        $self->add_connection($self);
+                        $self->_add_connection($self);
                     }
                     {
                         $BufferSize{$self} = (
@@ -148,7 +150,8 @@
                                ? $args->{q[maximum_requests_per_peer]}
                                : 10
                         );
-                        $timeout{$self} = (defined $args->{q[Timeout]}
+                        $timeout{$self} = (
+                                           defined $args->{q[Timeout]}
                                            ? $args->{q[Timeout]}
                                            : 5
                         );
@@ -161,9 +164,9 @@
         }
 
         # static
-        sub peer_id { return $peer_id{ +shift }; }
-        sub socket  { return $socket{ +shift }; }
-        sub fileno  { return $fileno{ +shift }; }
+        sub peer_id { my ($self) = @_; return $peer_id{$self}; }
+        sub socket  { my ($self) = @_; return $socket{$self}; }
+        sub fileno  { my ($self) = @_; return $fileno{$self}; }
 
         sub use_unicode {
             my ( $self, $value ) = @_;
@@ -291,7 +294,7 @@
             );
         }
 
-        sub add_connection {
+        sub _add_connection {
             my ( $self, $connection ) = @_;
             return $connections{$self}{ $connection->fileno }
                 = $connection;
@@ -307,7 +310,8 @@
 
         sub connections {
             croak q[ARG! ...s. Too many of them.] if @_ > 1;
-            return values %{ $connections{ +shift } };
+            my ($self) = @_;
+            return values %{ $connections{$self} };
         }
 
         sub do_one_loop {
@@ -346,9 +350,10 @@
                 = select( $rin, $win, $ein, $timeout );
             if ( $nfound and $nfound != -1 ) {
             POP_SOCKET:
-                foreach my $fileno ( keys %{ $connections{$self} } ) {
+                foreach my $fileno ( keys %{ $connections{$self} } )
+                {
                     if ( vec( $ein, $fileno, 1 )
-                         or not $connections{$self}{$fileno}->socket )
+                        or not $connections{$self}{$fileno}->socket )
                     {
                         if ( $^E
                              and
@@ -362,8 +367,9 @@
                     }
                     elsif ( $fileno eq $fileno{$self} ) {
                         if ( vec( $rin, $fileno, 1 ) ) {
-                            accept( my ($new_socket), $socket{$self} )
-                                or $self->do_callback( q[log],
+                            accept( my ($new_socket),
+                                    $socket{$self} )
+                                or $self->_do_callback( q[log],
                                   q[Failed to accept new connection] )
                                 and return;
                             if (scalar(
@@ -379,12 +385,12 @@
                             }
                             else {
                                 my $new_peer
-                                    = Net::BitTorrent::Session::Peer->new(
-                                             { socket => $new_socket,
-                                               client => $self
-                                             }
+                                    = Net::BitTorrent::Session::Peer
+                                    ->new( { socket => $new_socket,
+                                             client => $self
+                                           }
                                     );
-                                $self->add_connection($new_peer)
+                                $self->_add_connection($new_peer)
                                     if $new_peer;
                             }
                         }
@@ -400,8 +406,7 @@
                     }
                 }
             }
-            select( undef, undef, undef, $timeleft )
-                if $timeleft;    # save the CPU
+            usleep($timeleft) if $timeleft;    # save the CPU
             return 1;
         }
 
@@ -499,47 +504,8 @@ END
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
-        for my $callback (
-              qw[
-              log
-              peer_connect                 peer_disconnect
-              peer_incoming_keepalive      peer_outgoing_keepalive
-              peer_incoming_data           peer_outgoing_data
-              peer_outgoing_packet         peer_incoming_packet
-              peer_incoming_handshake      peer_outgoing_handshake
-              peer_incoming_choke          peer_outgoing_choke
-              peer_incoming_unchoke        peer_outgoing_unchoke
-              peer_incoming_interested     peer_outgoing_interested
-              peer_incoming_disinterested  peer_outgoing_disinterested
-              peer_incoming_have           peer_outgoing_have
-              peer_incoming_bitfield       peer_outgoing_bitfield
-              peer_incoming_request        peer_outgoing_request
-              peer_incoming_block          peer_outgoing_block
-              peer_incoming_cancel         peer_outgoing_cancel
-              file_read  file_write
-              file_open  file_close
-              file_error
-              piece_hash_pass piece_hash_fail
-              block_write
-              tracker_connect        tracker_disconnect
-              tracker_scrape         tracker_announce
-              tracker_scrape_okay    tracker_announce_okay
-              tracker_incoming_data  tracker_outgoing_data
-              tracker_error
-              ]
-            )
-        {
-            no strict q[refs];
-            *{"set_callback_on_$callback"} = sub {
-                my ( $self, $coderef ) = @_;
-                return unless defined $coderef;
-                croak(q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                $callbacks{$self}{$callback} = $coderef;
-            };
-        }
 
-        sub do_callback {
+        sub _do_callback {
             my ( $self, $callback, @params ) = @_;
             if ( not defined $callbacks{$self}{$callback} ) {
                 carp sprintf( q[Unhandled callback '%s'], $callback )
@@ -547,8 +513,408 @@ END
                 return;
             }
             return &{ $callbacks{$self}{$callback} }( $self,
-                                                      @params );
+                                                       @params );
         }
+
+        sub set_callback_on_log {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[log]} = $coderef;
+        }
+
+        sub set_callback_on_peer_connect {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_connect]} = $coderef;
+        }
+
+        sub set_callback_on_peer_disconnect {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_disconnect]} = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_keepalive {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_keepalive]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_keepalive {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_keepalive]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_data {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_data]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_data {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_data]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_packet {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_packet]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_packet {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_packet]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_handshake {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_handshake]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_handshake {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_handshake]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_choke {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_choke]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_choke {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_choke]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_unchoke {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_unchoke]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_unchoke {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_unchoke]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_interested {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_interested]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_interested {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_interested]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_disinterested {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_disinterested]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_disinterested {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_disinterested]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_have {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_have]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_have {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_have]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_bitfield {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_bitfield]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_bitfield {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_bitfield]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_request {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_request]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_request {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_request]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_block {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_block]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_block {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_block]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_incoming_cancel {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_incoming_cancel]}
+                = $coderef;
+        }
+
+        sub set_callback_on_peer_outgoing_cancel {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[peer_outgoing_cancel]}
+                = $coderef;
+        }
+
+        sub set_callback_on_file_read {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[file_read]} = $coderef;
+        }
+
+        sub set_callback_on_file_write {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[file_write]} = $coderef;
+        }
+
+        sub set_callback_on_file_open {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[file_open]} = $coderef;
+        }
+
+        sub set_callback_on_file_close {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[file_close]} = $coderef;
+        }
+
+        sub set_callback_on_file_error {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[file_error]} = $coderef;
+        }
+
+        sub set_callback_on_piece_hash_pass {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[piece_hash_pass]} = $coderef;
+        }
+
+        sub set_callback_on_piece_hash_fail {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[piece_hash_fail]} = $coderef;
+        }
+
+        sub set_callback_on_block_write {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[block_write]} = $coderef;
+        }
+
+        sub set_callback_on_tracker_connect {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_connect]} = $coderef;
+        }
+
+        sub set_callback_on_tracker_disconnect {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_disconnect]}
+                = $coderef;
+        }
+
+        sub set_callback_on_tracker_scrape {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_scrape]} = $coderef;
+        }
+
+        sub set_callback_on_tracker_announce {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_announce]} = $coderef;
+        }
+
+        sub set_callback_on_tracker_scrape_okay {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_scrape_okay]}
+                = $coderef;
+        }
+
+        sub set_callback_on_tracker_announce_okay {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_announce_okay]}
+                = $coderef;
+        }
+
+        sub set_callback_on_tracker_incoming_data {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_incoming_data]}
+                = $coderef;
+        }
+
+        sub set_callback_on_tracker_outgoing_data {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_outgoing_data]}
+                = $coderef;
+        }
+
+        sub set_callback_on_tracker_error {
+            my ( $self, $coderef ) = @_;
+            return unless defined $coderef;
+            croak(q[callback is malformed])
+                unless ref $coderef eq q[CODE];
+            return $callbacks{$self}{q[tracker_error]} = $coderef;
+        }
+
         DESTROY {
             my $self = shift;
             delete $peer_id{$self};
@@ -570,8 +936,9 @@ END
             return 1;
         }
     }
-    1;
+
 }
+1;
 __END__
 
 =pod

@@ -1,6 +1,7 @@
+package Net::BitTorrent::Session::Piece::Block;
+use strict;
+use warnings;
 {
-
-    package Net::BitTorrent::Session::Piece::Block;
 
     BEGIN {
         use vars qw[$VERSION];
@@ -9,8 +10,6 @@
             = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
-    use strict;
-    use warnings 'all';
     use Scalar::Util qw[/weak/];
     use Carp qw[carp croak];
     {    # constructor
@@ -34,12 +33,16 @@
             }
             return $self;
         }
-        sub piece   { return $piece{ +shift }; }
-        sub session { return $piece{ +shift }->session; }
-        sub client  { return $piece{ +shift }->client; }
-        sub index   { return $piece{ +shift }->index; }
-        sub offset  { return $offset{ +shift }; }
-        sub length  { return $length{ +shift }; }
+        sub piece { my ($self) = @_; return $piece{$self}; }
+
+        sub session {
+            my ($self) = @_;
+            return $piece{$self}->session;
+        }
+        sub client { my ($self) = @_; return $piece{$self}->client; }
+        sub index  { my ($self) = @_; return $piece{$self}->index; }
+        sub offset { my ($self) = @_; return $offset{$self}; }
+        sub length { my ($self) = @_; return $length{$self}; }
 
         sub peers {
             my ($self) = @_;
@@ -67,7 +70,7 @@
             return $peer{$self}{$peer}{q[timestamp]};
         }
 
-        sub build_packet_args {
+        sub _build_packet_args {
             my ($self) = @_;
             return ( index  => $piece{$self}->index,
                      offset => $offset{$self},
@@ -75,15 +78,15 @@
             );
         }
 
-        sub write {
+        sub _write {
             my ($self) = @_;
-            $self->client->do_callback( q[block_write], $self );
-            return $piece{$self}->write( $_[1], $offset{$self} );
+            $self->client->_do_callback( q[block_write], $self );
+            return $piece{$self}->_write( $_[1], $offset{$self} );
         }
 
         sub as_string {
             my ( $self, $advanced ) = @_;
-            my $dump = $$self . q[ [TODO]];
+            my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }

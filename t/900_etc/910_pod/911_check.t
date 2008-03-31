@@ -1,6 +1,6 @@
 # -*- perl -*-
 
-# t/001_pod.t - check for POD errors
+# t/900_etc/910_pod/911_check.t -
 # $Id$
 
 use Test::More;

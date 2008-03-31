@@ -1,6 +1,8 @@
-{
+package Net::BitTorrent::Session;
+use strict;
+use warnings;
 
-    package Net::BitTorrent::Session;
+{
 
     BEGIN {
         use vars qw[$VERSION];
@@ -9,13 +11,12 @@
             = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
-    use strict;
-    use warnings 'all';
     use Digest::SHA qw[];
     use File::Spec qw[];
     use Carp qw[carp croak croak];
     use lib q[../../];
-    use Net::BitTorrent::Util;
+    use Net::BitTorrent::Util
+        qw[bdecode bencode uncompact compact sum];
     use Net::BitTorrent::Session::Piece;
     use Net::BitTorrent::Session::File;
     use Net::BitTorrent::Session::Tracker;
@@ -76,19 +77,19 @@ Default: 0 (C<false>)
             # Client is set internally. If we mess that up--
             if ( defined $args->{q[client]} ) {
                 if ( not defined $args->{q[path]} ) {
-                    $args->{q[client]}->do_callback( q[log],
+                    $args->{q[client]}->_do_callback( q[log],
                         q[Cannot create session; missing 'path' parameter]
                     );
                 }
                 elsif ( not -e $args->{q[path]} ) {
-                    $args->{q[client]}->do_callback(
+                    $args->{q[client]}->_do_callback(
                                      q[log],
                                      sprintf( q[File not found: '%s'],
                                               $args->{q[path]} )
                     );
                 }
                 elsif ( not -f $args->{q[path]} ) {
-                    $args->{q[client]}->do_callback(
+                    $args->{q[client]}->_do_callback(
                                        q[log],
                                        sprintf( q['%s' is not a file],
                                                 $args->{q[path]} )
@@ -112,14 +113,11 @@ Default: 0 (C<false>)
                         == ( ( stat($FH) )[7] )
                         or return;    # error
                     close $FH;
-                    my ($_content)
-                        = Net::BitTorrent::Util::bdecode($_data);
-                    my $infohash =
-                        Digest::SHA::sha1_hex(
-                                       Net::BitTorrent::Util::bencode(
-                                                  $_content->{q[info]}
-                                       )
-                        );
+                    my ($_content) = bdecode($_data);
+
+                    my $infohash = Digest::SHA::sha1_hex(
+                                    bencode( $_content->{q[info]} ) );
+
                     if ( $infohash !~ m[^([0-9a-f]{40})$] ) {
                         croak(q[Improper info_hash]);
                         return;
@@ -139,6 +137,7 @@ Default: 0 (C<false>)
                     $client{$self}   = $args->{q[client]};
                     $infohash{$self} = $infohash;
                     $path{$self}     = $args->{q[path]};
+                    $nodes{$self}    = q[];
                     if ( $_content->{q[info]}{q[files]} ) {
                         my $_size = 0;
                         for my $_f (
@@ -196,8 +195,9 @@ Default: 0 (C<false>)
                     if ( defined( $_content->{q[nodes]} )
                          and ref $_content->{q[nodes]} eq q[ARRAY] )
                     {
-                        $nodes{$self} = [ map { join q[:], @$_ }
-                                         @{ $_content->{q[nodes]} } ];
+                        $nodes{$self}
+                            = compact( map { join q[:], @$_ }
+                                       @{ $_content->{q[nodes]} } );
                     }
                     if ( defined( $_content->{q[announce-list]} )
                          and ref $_content->{q[announce-list]} eq
@@ -205,7 +205,8 @@ Default: 0 (C<false>)
                     {
                         $trackers{$self} = [
                             map {
-                                Net::BitTorrent::Session::Tracker->new(
+                                Net::BitTorrent::Session::Tracker
+                                    ->new(
                                     { session => $self, urls => $_ } )
                                 } @{ $_content->{q[announce-list]} }
                         ];
@@ -275,62 +276,92 @@ Default: 0 (C<false>)
         }
 
         # static
-        sub next_pulse { return $next_pulse{ +shift }; }
-        sub path       { return $path{ +shift }; }
+        sub next_pulse {
+            my ($self) = @_;
+            return $next_pulse{$self};
+        }
+        sub path { my ($self) = @_; return $path{$self}; }
 
         sub base_dir {
-            return File::Spec->rel2abs( $base_dir{ +shift } );
+            my ($self) = @_;
+            return File::Spec->rel2abs( $base_dir{$self} );
         }
-        sub private     { return $private{ +shift }; }
-        sub infohash    { return $infohash{ +shift }; }
-        sub client      { return $client{ +shift }; }
-        sub pieces      { return $pieces{ +shift }; }
-        sub trackers    { return $trackers{ +shift }; }
-        sub files       { return $files{ +shift }; }
-        sub piece_count { return $piece_count{ +shift }; }
-        sub piece_size  { return $piece_size{ +shift }; }
-        sub block_size  { return $block_size{ +shift }; }
+        sub private  { my ($self) = @_; return $private{$self}; }
+        sub infohash { my ($self) = @_; return $infohash{$self}; }
+        sub client   { my ($self) = @_; return $client{$self}; }
+        sub pieces   { my ($self) = @_; return $pieces{$self}; }
+        sub trackers { my ($self) = @_; return $trackers{$self}; }
+
+        sub add_tracker {    # should be add_tracker_tier
+            my ( $self, @urls ) = @_;
+            return push @{ $trackers{$self} },
+                Net::BitTorrent::Session::Tracker->new(
+                                { urls => @urls, session => $self } );
+        }
+        sub files { my ($self) = @_; return $files{$self}; }
+
+        sub piece_count {
+            my ($self) = @_;
+            return $piece_count{$self};
+        }
+
+        sub piece_size {
+            my ($self) = @_;
+            return $piece_size{$self};
+        }
+
+        sub block_size {
+            my ($self) = @_;
+            return $block_size{$self};
+        }
 
         sub set_block_size {
             my ( $self, $value ) = @_;
             return if $value > 2**15;
             $block_size{$self} = $value;
         }
-        sub total_size { return $total_size{ +shift }; }
-        sub endgame    { return $endgame{ +shift }; }
+
+        sub total_size {
+            my ($self) = @_;
+            return $total_size{$self};
+        }
+        sub endgame { my ($self) = @_; return $endgame{$self}; }
 
         sub inc_uploaded {
+            my ( $self, $value ) = @_;
             croak q[uploaded is protected]
                 unless caller->isa(q[Net::BitTorrent::Session::Peer]);
-            return $uploaded{ +shift } += shift;
+            return $uploaded{$self} += $value;
         }
-        sub uploaded { return $uploaded{ +shift }; }
+        sub uploaded { my ($self) = @_; return $uploaded{$self}; }
 
         sub inc_downloaded {
+            my ( $self, $value ) = @_;
             croak q[downloaded is protected]
                 unless caller->isa(q[Net::BitTorrent::Session::Peer]);
-            return $downloaded{ +shift } += shift;
+            return $downloaded{$self} += $value;
         }
-        sub downloaded { return $downloaded{ +shift }; }
+
+        sub downloaded {
+            my ($self) = @_;
+            return $downloaded{$self};
+        }
 
         sub append_nodes {
             my ( $self, $new_nodes ) = @_;
-            my @old_nodes
-                = Net::BitTorrent::Util::uncompact( $nodes{$self} );
-            my @new_nodes
-                = Net::BitTorrent::Util::uncompact($new_nodes);
-            my @all_nodes = ( @old_nodes, @new_nodes );
-            return $nodes{$self}
-                = Net::BitTorrent::Util::compact( \@all_nodes );
+            return $nodes{$self} =
+                compact( uncompact( $nodes{$self} ),
+                         uncompact($new_nodes) );
         }
 
         sub nodes {
-            return Net::BitTorrent::Util::uncompact(
-                                                   $nodes{ +shift } );
+            my ($self) = @_;
+            return uncompact( $nodes{$self} );
         }
 
         sub compact_nodes {
-            return $nodes{ +shift };
+            my ($self) = @_;
+            return $nodes{$self};
         }    # quick-resume
 
         sub pulse {
@@ -392,7 +423,7 @@ Default: 0 (C<false>)
                                             session => $self
                                           }
                         );
-                    $self->client->add_connection($new_peer)
+                    $self->client->_add_connection($new_peer)
                         if $new_peer;
                 }
             }
@@ -479,9 +510,7 @@ Default: 0 (C<false>)
                 if $Net::BitTorrent::DEBUG;
 
             # [id://230661]
-            my $total
-                = Net::BitTorrent::Util::sum map { $_->priority }
-                @weights;
+            my $total    = sum map { $_->priority } @weights;
             my $rand_val = $total * rand;
             my $i        = -1;
             while ( $rand_val > 0 ) {
@@ -501,7 +530,7 @@ Default: 0 (C<false>)
             my ($self) = @_;
             return (
                 grep {
-                            ref $_ eq q[Net::BitTorrent::Session::Peer]
+                    ref $_ eq q[Net::BitTorrent::Session::Peer]
                         and defined $_->session
                         and $_->session eq $self
                     } $self->client->connections
@@ -509,7 +538,8 @@ Default: 0 (C<false>)
         }
 
         sub complete {
-            for my $piece ( @{ $pieces{ +shift } } ) {
+            my ($self) = @_;
+            for my $piece ( @{ $pieces{$self} } ) {
                 if ( not $piece->check and $piece->priority ) {
                     return 0;
                 }
@@ -518,13 +548,18 @@ Default: 0 (C<false>)
         }
 
         sub bitfield {
+            my ($self) = @_;
             return pack q[B*], join q[],
-                map { $_->check ? 1 : 0 } @{ $pieces{ +shift } };
+                map { $_->check ? 1 : 0 } @{ $pieces{$self} };
         }
 
         sub close_files {
             my ($self) = @_;
-            for my $file ( @{ $files{$self} } ) { $file->close; }
+            my $return = 0;
+            for my $file ( @{ $files{$self} } ) {
+                $return++ if $file->_close;
+            }
+            return $return;
         }
         DESTROY {
             my ($self) = @_;
@@ -693,9 +728,9 @@ END
             return $dump;
         }
     }
-    1;
-}
 
+}
+1;
 __END__
 
 =pod
@@ -718,9 +753,7 @@ TODO
 
 =item C<path ( )>
 
-Filename of the .torrent file to load.
-
-This is the only requried parameter.
+Filename of the .torrent file currently loaded.
 
 =item C<base_dir ( )>
 

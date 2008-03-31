@@ -26,7 +26,8 @@ GetOptions( q[help|?]             => \$help,
 ) or pod2usage(2);
 
 if ( not scalar @dot_torrents and scalar @ARGV ) {
-    push @dot_torrents, shift @ARGV while ( -e $ARGV[0] );
+    push @dot_torrents, shift @ARGV
+        while ( defined $ARGV[0] and -e $ARGV[0] );
 }
 pod2usage(1) if $help or not scalar @dot_torrents;
 pod2usage( -verbose => 2 ) if $man;

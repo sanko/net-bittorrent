@@ -1,6 +1,7 @@
+package Net::BitTorrent::Session::Peer::Request;
+use strict;
+use warnings;
 {
-
-    package Net::BitTorrent::Session::Peer::Request;
 
     BEGIN {
         use vars qw[$VERSION];
@@ -9,8 +10,6 @@
             = q[$Id: Request.pm 3 2008-03-16 05:46:16Z sanko@cpan.org $];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 3 $)->numify / 1000;
     }
-    use strict;
-    use warnings 'all';
     use Carp qw[carp croak];
     {
         my ( %peer, %index, %offset, %length, %timestamp );
@@ -36,37 +35,41 @@
             }
             return $self;
         }
-        sub peer      { return $peer{ +shift } }
-        sub session   { return $peer{ +shift }->session }
-        sub client    { return $peer{ +shift }->session->client }
-        sub index     { return $index{ +shift } }
-        sub offset    { return $offset{ +shift } }
-        sub length    { return $length{ +shift } }
-        sub timestamp { return $timestamp{ +shift } }
+        sub peer    { my ($self) = @_; return $peer{$self} }
+        sub session { my ($self) = @_; return $peer{$self}->session }
+
+        sub client {
+            my ($self) = @_;
+            return $peer{$self}->session->client;
+        }
+        sub index     { my ($self) = @_; return $index{$self} }
+        sub offset    { my ($self) = @_; return $offset{$self} }
+        sub length    { my ($self) = @_; return $length{$self} }
+        sub timestamp { my ($self) = @_; return $timestamp{$self} }
 
         sub piece {
             my ($self) = @_;
             return $peer{$self}->session->pieces->[ $index{$self} ];
         }
 
-        sub build_packet_args {    # unused
+        sub _build_packet_args {    # unused
             my ($self) = @_;
             return ( index  => $index{$self},
                      offset => $offset{$self},
                      length => $length{$self},
-                     data   => $self->read
+                     data   => $self->_read
             );
         }
 
-        sub read {
+        sub _read {
             my ($self) = @_;
-            return $self->piece->read( $offset{$self},
+            return $self->piece->_read( $offset{$self},
                                        $length{$self} );
         }
 
         sub as_string {
             my ( $self, $advanced ) = @_;
-            my $dump = $$self . q[ [TODO]];
+            my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
@@ -80,9 +83,9 @@
             return 1;
         }
     }
-    1;
-}
 
+}
+1;
 __END__
 
 =pod

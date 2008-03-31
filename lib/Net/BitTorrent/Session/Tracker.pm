@@ -1,8 +1,10 @@
+package Net::BitTorrent::Session::Tracker;
+
+# Honestly, this should be N::B::Session::Tracker::Tier;
+use strict;
+use warnings;
 {
 
-    package Net::BitTorrent::Session::Tracker;
-
-    # Honestly, this should be N::B::Session::Tracker::Tier;
     BEGIN {
         use vars qw[$VERSION];
         use version qw[qv];
@@ -10,9 +12,8 @@
             = q[$Id: Tracker.pm 3 2008-03-16 05:46:16Z sanko@cpan.org $];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 3 $)->numify / 1000;
     }
-    use strict;
-    use warnings 'all';
-    use List::Util qw[shuffle];
+
+    use Net::BitTorrent::Util qw[min bdecode max compact shuffle];
     use Socket;
     use Carp qw[carp croak];
     {
@@ -50,9 +51,9 @@
         }
 
         # static
-        sub urls   { return $urls{ +shift }; }
-        sub fileno { return $fileno{ +shift }; }
-        sub socket { return $socket{ +shift }; }
+        sub urls   { my ($self) = @_; return $urls{$self}; }
+        sub fileno { my ($self) = @_; return $fileno{$self}; }
+        sub socket { my ($self) = @_; return $socket{$self}; }
 
 #sub socket {
 #    my ($self, $value) = @_;
@@ -75,21 +76,56 @@
 #        : $socket{$self}
 #    );
 #}
-        sub session { return $session{ +shift }; }
-        sub client  { return $session{ +shift }->client; }
+        sub session { my ($self) = @_; return $session{$self}; }
+        sub client {
+            my ($self) = @_;
+            return $session{$self}->client;
+        }
 
         sub connection_timestamp {
-            return $connection_timestamp{ +shift };
+            my ($self) = @_;
+            return $connection_timestamp{$self};
         }
-        sub scrape_complete   { return $scrape_complete{ +shift }; }
-        sub scrape_incomplete { return $scrape_incomplete{ +shift }; }
-        sub scrape_downloaded { return $scrape_downloaded{ +shift }; }
-        sub connected         { return $connected{ +shift }; }
-        sub queue_outgoing    { return $queue_outgoing{ +shift }; }
-        sub queue_incoming    { return $queue_incoming{ +shift }; }
-        sub next_pulse        { return $next_pulse{ +shift }; }
-        sub next_announce     { return $next_announce{ +shift }; }
-        sub next_scrape       { return $next_scrape{ +shift }; }
+
+        sub scrape_complete {
+            my ($self) = @_;
+            return $scrape_complete{$self};
+        }
+
+        sub scrape_incomplete {
+            my ($self) = @_;
+            return $scrape_incomplete{$self};
+        }
+
+        sub scrape_downloaded {
+            my ($self) = @_;
+            return $scrape_downloaded{$self};
+        }
+        sub connected { my ($self) = @_; return $connected{$self}; }
+
+        sub queue_outgoing {
+            my ($self) = @_;
+            return $queue_outgoing{$self};
+        }
+
+        sub queue_incoming {
+            my ($self) = @_;
+            return $queue_incoming{$self};
+        }
+        sub next_pulse {
+            my ($self) = @_;
+            return $next_pulse{$self};
+        }
+
+        sub next_announce {
+            my ($self) = @_;
+            return $next_announce{$self};
+        }
+
+        sub next_scrape {
+            my ($self) = @_;
+            return $next_scrape{$self};
+        }
 
         sub pulse {
             my ($self) = @_;
@@ -104,9 +140,8 @@
                     $next_pulse{$self}    = time + 125;
                 }
             }
-            $next_pulse{$self} =
-                Net::BitTorrent::Util::min( $next_announce{$self},
-                                            $next_scrape{$self} );
+            $next_pulse{$self}
+                = min( $next_announce{$self}, $next_scrape{$self} );
             return 1;
         }
 
@@ -157,8 +192,8 @@
                 my %query_hash = (
                     q[info_hash] => $infohash,
                     q[peer_id]   => $peer_id,
-                    q[port]      => $session{$self}->client->sockport,
-                    q[uploaded]  => $session{$self}->uploaded,
+                    q[port]     => $session{$self}->client->sockport,
+                    q[uploaded] => $session{$self}->uploaded,
                     q[downloaded] => $session{$self}->downloaded,
                     q[left]       => (
                         $session{$self}->piece_size * scalar(
@@ -178,8 +213,8 @@
                     )
                 );
                 $self->_tcp_connect(
-                          $urls{$self}->[0]
-                        . ( $urls{$self}->[0] =~ m[\?] ? q[&] : q[?] )
+                    $urls{$self}->[0]
+                        . ($urls{$self}->[0] =~ m[\?] ? q[&] : q[?] )
                         . (
                         join q[&],
                         map {
@@ -215,12 +250,12 @@
                  )
                 )
             {
-                $self->client->do_callback( q[tracker_error],
+                $self->client->_do_callback( q[tracker_error],
                                          q[Failed to create socket] );
             }
             elsif (not ioctl( $socket, 0x8004667e, pack( q[I], 1 ) ) )
             {
-                $self->client->do_callback( q[tracker_error],
+                $self->client->_do_callback( q[tracker_error],
                             q[Failed to set socket to non-blocking] );
             }
             elsif ( not setsockopt(
@@ -231,7 +266,7 @@
                         SO_RCVTIMEO, pack( 'LL', 15, 0 ) )
                 )
             {
-                $self->client->do_callback( q[tracker_error],
+                $self->client->_do_callback( q[tracker_error],
                          q[Failed to set socket connection timeout] );
             }
             elsif ( not connect( $socket,
@@ -243,7 +278,7 @@
                     and ( $^E != 10035 )
                 )
             {
-                $self->client->do_callback( q[tracker_error],
+                $self->client->_do_callback( q[tracker_error],
                                 sprintf q[Failed to connect: %s (%d)],
                                 $^E, $^E + 0 );
             }
@@ -262,14 +297,15 @@
                                 . $Net::BitTorrent::VERSION,
                             q[],
                             q[] );
-                return $session{$self}->client->add_connection($self);
+                return $session{$self}
+                    ->client->_add_connection($self);
             }
             return;
         }
 
         sub _tcp_parse_data {
             my ($self) = @_;
-            my ( $head, $body ) = split qq[\015\012\015\012],
+            my ( $head, $body ) = split m[\015?\012\015?\012],
                 $queue_incoming{$self}, 2;
             if ( $head and not $body ) {
                 $body = $head;
@@ -279,7 +315,7 @@
                 my ( $k, $v ) = split( m[[^\w-]+], $_, 2 );
                 $k => $v
                 }
-                split( qq[\015\012], $head );
+                split( m[\015?\012], $head );
             if ( ( defined( $headers{q[Content-Length]} )
                    and
                    ( length($body) == $headers{q[Content-Length]} )
@@ -287,12 +323,11 @@
                  or ( length($body) )
                 )
             {
-                my ($decoded_data)
-                    = Net::BitTorrent::Util::bdecode($body);
+                my ($decoded_data) = bdecode($body);
                 if ( defined $decoded_data ) {
                     if ( defined $decoded_data->{q[failure reason]} )
                     {
-                        $self->client->do_callback( q[tracker_error],
+                        $self->client->_do_callback( q[tracker_error],
                                  $decoded_data->{q[failure reason]} );
                     }
                     elsif ( defined $decoded_data->{q[files]} ) {
@@ -306,8 +341,7 @@
                         $scrape_incomplete{$self}
                             = $file_hash->{q[incomplete]};
                         $next_scrape{$self}
-                            = Net::BitTorrent::Util::max(
-                                  ( defined $decoded_data->{q[flags]}
+                            = max(( defined $decoded_data->{q[flags]}
                                         {q[min_request_interval]}
                                     ? $decoded_data->{q[flags]}
                                         {q[min_request_interval]}
@@ -321,14 +355,13 @@
                              q[ARRAY] )
                         { # Tracker is old and doesn't listen. Handed us
                                 # non-compacted peer list
-                            $decoded_data->{q[peers]}
-                                = Net::BitTorrent::Util::compact(
+                            $decoded_data->{q[peers]} = compact(
                                           $decoded_data->{q[peers]} );
                         }
                         $session{$self}->append_nodes(
                                           $decoded_data->{q[peers]} );
                         $next_announce{$self}
-                            = Net::BitTorrent::Util::max(
+                            = max(
                                ( defined $decoded_data->{q[interval]}
                                  ? $decoded_data->{q[interval]}
                                  : 1800
@@ -348,35 +381,35 @@
 
         sub _udp_connect {
             my ($self) = @_;
-            $self->client->do_callback( q[tracker_error],
+            $self->client->_do_callback( q[tracker_error],
                                    q[UDP trackers are unsupported.] );
             return 0;
         }
 
         sub _udp_write {
             my ($self) = @_;
-            $self->client->do_callback( q[tracker_error],
+            $self->client->_do_callback( q[tracker_error],
                                    q[UDP trackers are unsupported.] );
             return 0;
         }
 
         sub _udp_read {
             my ($self) = @_;
-            $self->client->do_callback( q[tracker_error],
+            $self->client->_do_callback( q[tracker_error],
                                    q[UDP trackers are unsupported.] );
             return 0;
         }
 
         sub _udp_disconnect {
             my ($self) = @_;
-            $self->client->do_callback( q[tracker_error],
+            $self->client->_do_callback( q[tracker_error],
                                    q[UDP trackers are unsupported.] );
             return 0;
         }
 
         sub _udp_parse_data {
             my ($self) = @_;
-            $self->client->do_callback( q[tracker_error],
+            $self->client->_do_callback( q[tracker_error],
                                    q[UDP trackers are unsupported.] );
             return 0;
         }
@@ -394,7 +427,7 @@
                     );
                 if ($actual_write) {
                     $session{$self}
-                        ->client->do_callback( q[tracker_data_out],
+                        ->client->_do_callback( q[tracker_data_out],
                                                $self, $actual_write );
                 }
                 else { $self->disconnect; return ( 0, 0 ); }
@@ -414,7 +447,7 @@
                         $connected{$self} = 1;
                     }
                     $session{$self}
-                        ->client->do_callback( q[tracker_data_in],
+                        ->client->_do_callback( q[tracker_data_in],
                                                $self, $actual_read );
                     $self->parse_packet;
                 }
@@ -441,16 +474,17 @@
         sub as_string {
             my ( $self, $advanced ) = @_;
             my @values = (
-                $urls{$self}->[0],
-                ( q[=] x ( 27 + length( $urls{$self}->[0] ) ) ),
-                (  $scrape_complete{$self} + $scrape_incomplete{$self}
-                ),
-                $scrape_complete{$self},
-                $scrape_incomplete{$self},
-                $scrape_downloaded{$self},
-                $next_scrape{$self} - time,
-                $next_announce{$self} - time,
-                $next_pulse{$self} - time,
+                     $urls{$self}->[0],
+                     ( q[=] x ( 27 + length( $urls{$self}->[0] ) ) ),
+                     (       $scrape_complete{$self}
+                           + $scrape_incomplete{$self}
+                     ),
+                     $scrape_complete{$self},
+                     $scrape_incomplete{$self},
+                     $scrape_downloaded{$self},
+                     $next_scrape{$self} - time,
+                     $next_announce{$self} - time,
+                     $next_pulse{$self} - time,
             );
             $_ = ( sprintf q[%dm %ss%s],
                    int( abs($_) / 60 ),
@@ -509,9 +543,9 @@ END
             return 1;
         }
     }
-    1;
-}
 
+}
+1;
 __END__
 
 =pod

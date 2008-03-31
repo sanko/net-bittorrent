@@ -169,6 +169,17 @@ License.
 
 =back
 
+=head2 I'd like to help! What can I do?
+
+Short of becomeing an official co-owner of the project, the best way
+to contribute would be through submission of patches.  All patches
+should be made against the most recent revision and well tested.  For
+a list of svn clients, some of which make patch creation a little
+easier, see L<http://subversion.tigris.org/links.html#clients>.
+
+Please submit patches for review to the address listed in the next
+section.
+
 =head2 Who are you? How can I get in touch with you?
 
 	Sanko Robinson
@@ -181,17 +192,7 @@ MemoServ deliver it for you.
 
 For now, please use
 L<http://code.google.com/p/net-bittorrent/issues/list> for bug
-reports.
-
-=head2 I'd like to help! What can I do?
-
-Bug reports?  Use the issues system provided by Google:
-L<http://code.google.com/p/net-bittorrent/issues/list> rather than
-CPAN's RT system.
-
-Currently, I'm not actively looking for co maintainers, but if you
-think you can bring order to the project, it doesn't hurt to contact
-me.
+reports rather than CPAN RT.
 
 =for svn $Id$
 

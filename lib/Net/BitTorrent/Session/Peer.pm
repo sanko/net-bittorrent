@@ -1,6 +1,8 @@
-{
+package Net::BitTorrent::Session::Peer;
+use strict;
+use warnings;
 
-    package Net::BitTorrent::Session::Peer;
+{
 
     BEGIN {
         use vars qw[$VERSION];
@@ -9,15 +11,14 @@
             = q[$Id: Peer.pm 4 2008-03-20 20:37:16Z sanko@cpan.org $];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 4 $)->numify / 1000;
     }
-    use strict;
-    use warnings 'all';
     use Socket
         qw[SOL_SOCKET SO_SNDTIMEO SO_RCVTIMEO PF_INET AF_INET SOCK_STREAM];
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use Carp qw[carp croak];
     use Digest::SHA qw[];
-    use lib q[../../];
+    use lib q[../../../];
     use Net::BitTorrent::Session::Peer::Request;
+    use Net::BitTorrent::Util qw[min bdecode];
     {
         my ( %client,
              %fileno,
@@ -132,11 +133,12 @@
 
              # TODO: check value of err to verify non-blocking connect
                 $self = bless \$args->{q[address]}, $class;
-                $socket{$self}    = $socket;
-                $fileno{$self}    = fileno( $socket{$self} );
-                $connected{$self} = 0;
-                $session{$self}   = $args->{q[session]};
-                $client{$self}    = $args->{q[session]}->client;
+                $socket{$self}            = $socket;
+                $fileno{$self}            = fileno( $socket{$self} );
+                $connected{$self}         = 0;
+                $session{$self}           = $args->{q[session]};
+                $incoming_requests{$self} = [];
+                $client{$self} = $args->{q[session]}->client;
                 $incoming_connection{$self} = 0;
                 $self->set_defaults;
                 $self->build_packet( {} );    # handshake
@@ -156,24 +158,26 @@
             $downloaded{$self}              = 0;
             $uploaded{$self}                = 0;
             $connection_timestamp{$self}    = time;
-            $previous_incoming_block{$self} = time;        # lies
-            $previous_incoming_data{$self}  = time;        # lies
+            $previous_incoming_block{$self} = time;    # lies
+            $previous_incoming_data{$self}  = time;    # lies
             $outgoing_requests{$self}       = [];
-            $incoming_requests{$self}       = [];
-            $next_pulse{$self}              = time + 15;
-            $queue_outgoing{$self}          = q[];
-            $queue_incoming{$self}          = q[];
-            $bitfield{$self}                = q[];
+
+            #$incoming_requests{$self}       = {};
+            $next_pulse{$self}     = time + 5;
+            $queue_outgoing{$self} = q[];
+            $queue_incoming{$self} = q[];
+            $bitfield{$self}       = q[];
             return 1;
         }
 
         # static
-        sub peer_id { return $peer_id{ +shift }; }
-        sub socket  { return $socket{ +shift }; }
+        sub peer_id { my ($self) = @_; return $peer_id{$self}; }
+        sub socket  { my ($self) = @_; return $socket{$self}; }
 
         sub peerport {
             my ($self) = @_;
-            if ( not defined $peerport{$self} and $connected{$self} )
+            if ( not defined $peerport{$self}
+                 and $connected{$self} )
             {
                 ( undef, $peerport{$self}, undef )
                     = unpack( q[SnC4x8],
@@ -184,7 +188,8 @@
 
         sub peerhost {
             my ($self) = @_;
-            if ( not defined $peerhost{$self} and $connected{$self} )
+            if ( not defined $peerhost{$self}
+                 and $connected{$self} )
             {
                 my ( undef, undef, @address )
                     = unpack( q[SnC4x8],
@@ -193,33 +198,65 @@
             }
             return $peerhost{$self};
         }
-        sub fileno         { return $fileno{ +shift }; }
-        sub connected      { return $connected{ +shift }; }
-        sub session        { return $session{ +shift }; }
-        sub bitfield       { return $bitfield{ +shift }; }
-        sub client         { return $client{ +shift }; }
-        sub downloaded     { return $downloaded{ +shift }; }
-        sub uploaded       { return $uploaded{ +shift }; }
-        sub is_choked      { return $is_choked{ +shift }; }
-        sub is_choking     { return $is_choking{ +shift }; }
-        sub is_interested  { return $is_interested{ +shift }; }
-        sub is_interesting { return $is_interesting{ +shift }; }
-        sub next_pulse     { return $next_pulse{ +shift }; }
-        sub reserved       { return $reserved{ +shift }; }
+        sub fileno    { my ($self) = @_; return $fileno{$self}; }
+        sub connected { my ($self) = @_; return $connected{$self}; }
+        sub session   { my ($self) = @_; return $session{$self}; }
+        sub bitfield  { my ($self) = @_; return $bitfield{$self}; }
+        sub client    { my ($self) = @_; return $client{$self}; }
+
+        sub downloaded {
+            my ($self) = @_;
+            return $downloaded{$self};
+        }
+        sub uploaded  { my ($self) = @_; return $uploaded{$self}; }
+        sub is_choked { my ($self) = @_; return $is_choked{$self}; }
+
+        sub is_choking {
+            my ($self) = @_;
+            return $is_choking{$self};
+        }
+
+        sub is_interested {
+            my ($self) = @_;
+            return $is_interested{$self};
+        }
+
+        sub is_interesting {
+            my ($self) = @_;
+            return $is_interesting{$self};
+        }
+
+        sub next_pulse {
+            my ($self) = @_;
+            return $next_pulse{$self};
+        }
+        sub reserved { my ($self) = @_; return $reserved{$self}; }
 
         sub connection_timestamp {
-            return $connection_timestamp{ +shift };
+            my ($self) = @_;
+            return $connection_timestamp{$self};
         }
 
         sub incoming_connection {
-            return $incoming_connection{ +shift };
+            my ($self) = @_;
+            return $incoming_connection{$self};
         }
-        sub queue_outgoing { return $queue_outgoing{ +shift }; }
-        sub queue_incoming { return $queue_incoming{ +shift }; }
+
+        sub queue_outgoing {
+            my ($self) = @_;
+            return $queue_outgoing{$self};
+        }
+
+        sub queue_incoming {
+            my ($self) = @_;
+            return $queue_incoming{$self};
+        }
 
         sub add_outgoing_request {
             my ( $self, $request ) = @_;
-            return unless $request->isa(q[Net::BitTorrent::Session::Block]);
+            return
+                unless $request->isa(
+                                  q[Net::BitTorrent::Session::Block]);
             return push @{ $outgoing_requests{$self} }, $request;
         }
 
@@ -247,7 +284,7 @@
                     );
                 if ($actual_write) {
                     $client{$self}
-                        ->do_callback( q[peer_outgoing_data], $self,
+                        ->_do_callback( q[peer_outgoing_data], $self,
                                        $actual_write );
                 }
                 else { $self->disconnect($^E); goto RETURN; }
@@ -267,10 +304,10 @@
                     if ( not $connected{$self} ) {
                         $connected{$self} = 1;
                         $client{$self}
-                            ->do_callback( q[peer_connect], $self );
+                            ->_do_callback( q[peer_connect], $self );
                     }
                     $client{$self}
-                        ->do_callback( q[peer_incoming_data], $self,
+                        ->_do_callback( q[peer_incoming_data], $self,
                                        $actual_read );
                     while ( $self->parse_packet ) {;}
                 }
@@ -317,7 +354,8 @@
                 return $self->disconnect(q[Second handshake packet])
                     if defined $peer_id{$self};
                 $packet_len = 68;
-                return if $packet_len > length $queue_incoming{$self};
+                return
+                    if $packet_len > length $queue_incoming{$self};
                 (  my $protocol_name,
                    my $reserved, my $info_hash,
                    my $peer_id, $queue_incoming{$self}
@@ -346,7 +384,8 @@
                             return $self->disconnect(
                                              q[We have enough peers]);
                         }
-                        $session{$self} = $session;
+                        $session{$self}           = $session;
+                        $incoming_requests{$self} = [];
                         if (scalar grep {
                                 defined $_->peer_id
                                     and $_->peer_id eq $peer_id
@@ -380,7 +419,7 @@
                 elsif ( not $connected{$self} ) {
                     $connected{$self} = 1;
                     $client{$self}
-                        ->do_callback( q[peer_connect], $self );
+                        ->_do_callback( q[peer_connect], $self );
                 }
                 %ref = ( protocol  => $protocol_name,
                          reserved  => $reserved,
@@ -388,12 +427,13 @@
                          peer_id   => $peer_id,
                 );
                 $client{$self}
-                    ->do_callback( q[peer_incoming_handshake],
+                    ->_do_callback( q[peer_incoming_handshake],
                                    $self );
                 $self->send_bitfield if defined $session{$self};
             }
             else {
-                return if $packet_len > length $queue_incoming{$self};
+                return
+                    if $packet_len > length $queue_incoming{$self};
                 ( undef, my $packet_data, $queue_incoming{$self} )
                     = unpack q[Na] . ($packet_len) . q[ a*],
                     $queue_incoming{$self};
@@ -410,7 +450,7 @@
                     }
                     $type = -1;
                     $client{$self}
-                        ->do_callback( q[peer_incoming_keepalive],
+                        ->_do_callback( q[peer_incoming_keepalive],
                                        $self );
                 }
                 elsif ( $type == 0 ) {
@@ -425,7 +465,7 @@
                         @{ $outgoing_requests{$self} };
                     $outgoing_requests{$self} = [];
                     $client{$self}
-                        ->do_callback( q[peer_incoming_choke],
+                        ->_do_callback( q[peer_incoming_choke],
                                        $self );
                 }
                 elsif ( $type == 1 ) {
@@ -436,11 +476,9 @@
                     }
                     $is_choking{$self} = 0;
                     $next_pulse{$self}
-                        = Net::BitTorrent::Util::min(
-                                                   $next_pulse{$self},
-                                                   time + 2 );
+                        = min( $next_pulse{$self}, time + 2 );
                     $client{$self}
-                        ->do_callback( q[peer_incoming_unchoke],
+                        ->_do_callback( q[peer_incoming_unchoke],
                                        $self );
                 }
                 elsif ( $type == 2 ) {
@@ -452,7 +490,7 @@
                     }
                     $is_interested{$self} = 1;
                     $client{$self}
-                        ->do_callback( q[peer_incoming_interested],
+                        ->_do_callback( q[peer_incoming_interested],
                                        $self );
                 }
                 elsif ( $type == 3 ) {
@@ -464,7 +502,7 @@
                     }
                     $is_interested{$self} = 0;
                     $client{$self}
-                        ->do_callback( q[peer_incoming_disinterested],
+                        ->_do_callback( q[peer_incoming_disinterested],
                                        $self );
                 }
                 elsif ( $type == 4 ) {
@@ -489,7 +527,7 @@
                     }
                     %ref = ( index => $index );
                     $client{$self}
-                        ->do_callback( q[peer_incoming_have], $self,
+                        ->_do_callback( q[peer_incoming_have], $self,
                                        $index );
                 }
                 elsif ( $type == 5 ) {
@@ -505,7 +543,7 @@
                     $self->check_interesting;
                     %ref = ( bitfield => $packet );
                     $client{$self}
-                        ->do_callback( q[peer_incoming_bitfield],
+                        ->_do_callback( q[peer_incoming_bitfield],
                                        $self );
                 }
                 elsif ( $type == 6 ) {
@@ -530,7 +568,7 @@
                         );
                     push @{ $incoming_requests{$self} }, $request;
                     $client{$self}
-                        ->do_callback( q[peer_incoming_request],
+                        ->_do_callback( q[peer_incoming_request],
                                        $self, $request );
                 }
                 elsif ( $type == 7 ) {
@@ -542,6 +580,7 @@
                         );
                         return;
                     }
+
                     my ( $index, $offset, $data )
                         = unpack( q[N2a*], $packet );
                     %ref = ( block  => $data,
@@ -556,11 +595,13 @@
                                       q[Malformed PIECE packet. (1)]);
                     }
                     else {
+
                         my $block = $session{$self}->pieces->[$index]
                             ->blocks->{$offset};
                         if (    ( not defined $block )
                              or ( length($data) != $block->length ) )
                         {
+                            die(q[Malformed PIECE packet. (2)]);
 
            #    $self->disconnect(q[Malformed PIECE packet. (2)]);
            #}
@@ -572,16 +613,15 @@
                                 q[Peer sent us a piece we've already canceled or we never asked for.]
                             );
                         }
-                        elsif ( $block->write($data) ) {
+                        elsif ( $block->_write($data) ) {
                             delete $session{$self}->pieces->[$index]
                                 ->blocks->{$offset};
                             @{ $outgoing_requests{$self} }
                                 = grep { $_ ne $block }
                                 @{ $outgoing_requests{$self} };
                             $next_pulse{$self}
-                                = Net::BitTorrent::Util::min(
-                                                 ( time + 5 ),
-                                                 $next_pulse{$self} );
+                                = min( ( time + 5 ),
+                                       $next_pulse{$self} );
                             $downloaded{$self} += length $data;
                             $session{$self}
                                 ->inc_downloaded( length $data );
@@ -589,7 +629,7 @@
                             $block->piece->previous_incoming_block(
                                                                 time);
                             $client{$self}
-                                ->do_callback( q[peer_incoming_block],
+                                ->_do_callback( q[peer_incoming_block],
                                                $self, $block );
 
           # TODO: if endgame, cancel all other requests for this block
@@ -618,15 +658,21 @@
                                     } $session{$self}->peers;
                                 }
                                 else {
+                                    die
+                                        q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
 
                            # TODO: penalize all peers related to piece
                            # See N::B::P::verify()
                                 }
                             }
                             else {
+                                die q[Gah];
 
                                 # .:shrugs:.
                             }
+                        }
+                        else {
+                            die q[Fuck!];
                         }
                     }
                 }
@@ -642,6 +688,7 @@
                              offset => $offset,
                              length => $length
                     );
+
                     my ($request) = grep {
                                 $_->index == $index
                             and $_->offset == $offset
@@ -649,7 +696,7 @@
                     } @{ $incoming_requests{$self} };
                     if ( defined $request ) {
                         $client{$self}
-                            ->do_callback( q[peer_incoming_cancel],
+                            ->_do_callback( q[peer_incoming_cancel],
                                            $self, $request );
                     }
                     else {
@@ -724,16 +771,14 @@
                     }
                     my ( $messageid, $data )
                         = unpack( q[ca*], $packet );
-                    %ref = (packet =>
-                                Net::BitTorrent::Util::bdecode($data),
-                            messageid => $messageid,
-                    );
+                    %ref = ( packet    => bdecode($data),
+                             messageid => $messageid );
                 }
                 else {
                     $self->disconnect(q[Unknown or malformed packet]);
                 }
             }
-            $client{$self}->do_callback( q[peer_incoming_packet],
+            $client{$self}->_do_callback( q[peer_incoming_packet],
                                          $self,
                                          { length => $packet_len,
                                            type   => $type,
@@ -761,14 +806,14 @@
                             $client{$self}->peer_id
                 );
                 $client{$self}
-                    ->do_callback( q[peer_outgoing_handshake],
+                    ->_do_callback( q[peer_outgoing_handshake],
                                    $self );
             }
             elsif ( $packet->{q[type]} == -1 )
             {    # keepalive; no payload
                 $packet_data = ( pack( q[N], 0 ) );
                 $client{$self}
-                    ->do_callback( q[peer_outgoing_keepalive],
+                    ->_do_callback( q[peer_outgoing_keepalive],
                                    $self );
             }
             elsif ( ( $packet->{q[type]} == 0 )       # choke
@@ -778,7 +823,7 @@
                 )
             {                                     # not interested
                 $packet_data = pack( q[NC], 1, $packet->{q[type]} );
-                $client{$self}->do_callback(
+                $client{$self}->_do_callback(
                                    ( $packet->{q[type]} == 0
                                      ? q[peer_outgoing_choke]
                                      : $packet->{q[type]} == 1
@@ -795,7 +840,7 @@
                                      5, $packet->{q[type]},
                                      $packet->{q[data]}{q[index]} );
                 $client{$self}
-                    ->do_callback( q[peer_outgoing_have], $self,
+                    ->_do_callback( q[peer_outgoing_have], $self,
                                    $packet->{q[data]}{q[index]} );
             }
             elsif ( $packet->{q[type]} == 5 ) {    # bitfield
@@ -804,7 +849,7 @@
                         $packet->{q[type]},
                         $packet->{q[data]}{q[bitfield]} );
                 $client{$self}
-                    ->do_callback( q[peer_outgoing_bitfield], $self );
+                    ->_do_callback( q[peer_outgoing_bitfield], $self );
             }
             elsif ( ( $packet->{q[type]} == 6 )        # request
                     or ( $packet->{q[type]} == 8 ) )
@@ -816,7 +861,7 @@
                 $packet_data = pack( q[NCa*],
                                      length($packed) + 1,
                                      $packet->{q[type]}, $packed );
-                $client{$self}->do_callback(
+                $client{$self}->_do_callback(
                                         ( $packet->{q[type]} == 6
                                           ? q[peer_outgoing_request]
                                           : q[peer_outgoing_cancel]
@@ -829,12 +874,12 @@
                 my $packed = pack( q[N2a*],
                                $packet->{q[data]}{q[request]}->index,
                                $packet->{q[data]}{q[request]}->offset,
-                               $packet->{q[data]}{q[request]}->read );
+                               $packet->{q[data]}{q[request]}->_read );
                 $packet_data = pack( q[NCa*],
                                      length($packed) + 1,
                                      $packet->{q[type]}, $packed );
                 $client{$self}
-                    ->do_callback( q[peer_outgoing_block], $self,
+                    ->_do_callback( q[peer_outgoing_block], $self,
                                    $packet->{q[data]}{q[request]} );
             }
 
@@ -860,7 +905,7 @@
                         Data::Dumper::Dump($packet) )
                 );
             }
-            $client{$self}->do_callback(
+            $client{$self}->_do_callback(
                 q[peer_outgoing_packet],
                 $self, $packet,
                 (    $Net::BitTorrent::DEBUG
@@ -897,25 +942,27 @@
             $self->cancel_old_requests;
             $self->unchoke
                 if $is_interested{$self} and $is_choked{$self};
-            if ( scalar( @{ $incoming_requests{$self} } ) ) {
-                while ( length( $queue_outgoing{$self} )
-                        < $self->client->BufferSize
-                        and my $request
-                        = shift @{ $incoming_requests{$self} } )
-                {    # TODO: verify piece before handing over data
-                    if ( defined $request ) {
-                        $self->build_packet(
+
+            #use Data::Dump qw[pp];
+            #warn pp $incoming_requests{$self};
+
+            if ( @{ $incoming_requests{$self} }
+                 and length( $queue_outgoing{$self} )
+                 < $self->client->BufferSize )
+            {
+                my $request = shift @{ $incoming_requests{$self} };
+
+                # TODO: verify piece before handing over data
+                $self->build_packet(
                                    { data => { request => $request },
                                      type => 7
                                    }
-                        );
-                        $uploaded{$self} += $request->length;
-                        $session{$self}
-                            ->inc_uploaded( $request->length );
-                    }
-                }
+                );
+                $uploaded{$self} += $request->length;
+                $session{$self}->inc_uploaded( $request->length );
             }
-            return $next_pulse{$self} = time + 15;
+            return $next_pulse{$self}
+                = min( time + 10, $next_pulse{$self} );
         }
 
         sub request_block {
@@ -932,7 +979,13 @@
                           $client{$self}->maximum_requests_per_peer )
                     {
                         my $block = $piece->unrequested_block;
-                        if ($block) {
+
+                        #warn pp $block->peers;
+                        #warn pp $$self;
+                        if ( $block
+                             and not grep { $$_ eq $$self }
+                             $block->peers )
+                        {
                             $self->build_packet(
                                      { data => { request => $block },
                                        type => 6
@@ -956,9 +1009,8 @@
             $block->remove_peer($self);
             @{ $outgoing_requests{$self} } = grep { $_ ne $block }
                 @{ $outgoing_requests{$self} };
-            $next_pulse{$self} =
-                Net::BitTorrent::Util::min( ( time + 5 ),
-                                            $next_pulse{$self} );
+            $next_pulse{$self}
+                = min( ( time + 5 ), $next_pulse{$self} );
             return
                 $self->build_packet( { data => { request => $block },
                                        type => 8
@@ -1035,7 +1087,7 @@
             close $socket{$self};
             $connected{$self} = 0;
             $client{$self}->remove_connection($self);
-            $client{$self}->do_callback( q[peer_disconnect], $self,
+            $client{$self}->_do_callback( q[peer_disconnect], $self,
                                          ( $reason || $^E ) )
                 if $connected{$self};
             return 1;
@@ -1048,7 +1100,7 @@
             $k ||= 9;
 
             # convert host to byte order, ie localhost is 0x7f000001
-            my ( $ip, undef ) = split q[:], $$self;
+            my ( $ip, undef ) = split q[:], $self;
             my $x = sprintf( q[%X],
                              (  0xFFFFFF00 & ( hex unpack q[H*],
                                                pack q[C*],
@@ -1073,18 +1125,19 @@
 
         sub as_string {
             my ( $self, $advanced ) = @_;
-            my $dump = $$self . q[ [TODO]];
+            my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
         DESTROY {
             my ($self) = @_;
             delete $client{$self};
-            delete $session{$self};
             delete $peer_id{$self};
             delete $bitfield{$self};
-            delete $incoming_requests{$self};
+            delete $incoming_requests{ $session{$self} }{$self}
+                if $session{$self};
             delete $outgoing_requests{$self};
+            delete $session{$self} if $session{$self};
             delete $queue_incoming{$self};
             delete $queue_outgoing{$self};
             delete $is_interested{$self};
@@ -1117,10 +1170,10 @@
             delete $peerport{$self};
             return 1;
         }
-        1;
+
     }
 }
-
+1;
 __END__
 
 =pod

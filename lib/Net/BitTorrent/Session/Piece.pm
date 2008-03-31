@@ -1,6 +1,8 @@
-{
+package Net::BitTorrent::Session::Piece;
+use strict;
+use warnings;
 
-    package Net::BitTorrent::Session::Piece;
+{
 
     BEGIN {
         use vars qw[$VERSION];
@@ -9,8 +11,6 @@
             = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
-    use strict;
-    use warnings 'all';
     use Carp qw[carp croak cluck];
     use lib q[../../../];
     use Net::BitTorrent::Session::Piece::Block;
@@ -39,13 +39,13 @@
             }
             return $self;
         }
-        sub hash    { $hash{ +shift }; }
-        sub index   { $index{ +shift }; }
-        sub session { $session{ +shift }; }
-        sub client  { $session{ +shift }->client; }
-        sub blocks  { $blocks{ +shift }; }
-        sub check   { $check{ +shift }; }
-        sub touch   { $touch{ +shift }; }
+        sub hash    { my ($self) = @_; $hash{$self}; }
+        sub index   { my ($self) = @_; $index{$self}; }
+        sub session { my ($self) = @_; $session{$self}; }
+        sub client  { my ($self) = @_; $session{$self}->client; }
+        sub blocks  { my ($self) = @_; $blocks{$self}; }
+        sub check   { my ($self) = @_; $check{$self}; }
+        sub touch   { my ($self) = @_; $touch{$self}; }
 
         sub previous_incoming_block {
             my ( $self, $value ) = @_;
@@ -128,7 +128,7 @@
                 : $self->session->piece_size;
         }
 
-        sub read {
+        sub _read {
             my ( $self, $offset, $length ) = @_;
             croak(q[Bad length!])
                 if defined $length
@@ -156,10 +156,11 @@
                         > $self->session->files->[$f]->size )
                     ? $self->session->files->[$f]->size - $pos
                     : $_LENGTH;
-                $self->session->files->[$f]->open(q[r]) or return;
-                $self->session->files->[$f]->seek($pos) or return;
+                $self->session->files->[$f]->_open(q[r]) or return;
+                $self->session->files->[$f]->_seek($pos) or return;
+
                 $_RETURN
-                    .= $self->session->files->[$f]->read($this_read)
+                    .= $self->session->files->[$f]->_read($this_read)
                     or return;
                 $f++;
                 $pos = 0;
@@ -168,9 +169,10 @@
             return $_RETURN;
         }
 
-        sub write {
+        sub _write {
             my ( $self, $data, $offset ) = @_;
             my $f = 0;
+            $offset ||=0;
             if ( length($data) + $offset > $self->size ) { return; }
             my $pos
                 = int(
@@ -186,10 +188,10 @@
                         > $self->session->files->[$f]->size )
                     ? $self->session->files->[$f]->size - $pos
                     : length $data;
-                $self->session->files->[$f]->open(q[w]) or return;
-                $self->session->files->[$f]->seek($pos) or return;
+                $self->session->files->[$f]->_open(q[w]) or return;
+                $self->session->files->[$f]->_seek($pos) or return;
                 $self->session->files->[$f]
-                    ->write( substr( $data, 0, $this_write, q[] ) )
+                    ->_write( substr( $data, 0, $this_write, q[] ) )
                     or return;
                 $f++;
                 $pos = 0;
@@ -201,11 +203,12 @@
             my ($self) = @_;
             delete $blocks{$self};
             $working{$self} = 0;
-            if ( Digest::SHA::sha1( $self->read ) eq $self->hash ) {
+            if ( Digest::SHA::sha1( $self->_read ) eq $self->hash ) {
                 my $old_value = $self->check;
                 $check{$self} = 1;
                 $session{$self}
-                    ->client->do_callback( q[piece_hash_pass], $self )
+                    ->client->_do_callback( q[piece_hash_pass],
+                                            $self )
                     if not $old_value
                 ;    # no point telling us the piece is good twice
                 $session{$self}->check_endgame_status;
@@ -215,7 +218,7 @@
             # failed
             # TODO: penalize all peers related to piece
             $session{$self}
-                ->client->do_callback( q[piece_hash_fail], $self );
+                ->client->_do_callback( q[piece_hash_fail], $self );
             return 0;
         }
 
@@ -239,7 +242,7 @@
 
         sub as_string {
             my ( $self, $advanced ) = @_;
-            my $dump = $$self . q[ [TODO]];
+            my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
