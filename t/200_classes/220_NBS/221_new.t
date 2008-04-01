@@ -33,10 +33,10 @@ SKIP: {
                 and ref $client eq q[Fake::BitTorrent];
     SKIP: {    # cwd is messed up while testing locally
             skip q[Cannot find example-A.torrent], 19
-                unless -f q[./t/etc/example-A.torrent];
+                unless -f q[./t/data/torrents/example-A.torrent];
             my $session =
                 new Net::BitTorrent::Session(
-                              { path => q[./t/etc/example-A.torrent],
+                              { path => q[./t/data/torrents/example-A.torrent],
                                 client         => $client,
                                 skip_hashcheck => 1,
                                 base_dir => tempdir( CLEANUP => 1 )

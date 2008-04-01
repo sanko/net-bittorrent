@@ -276,7 +276,7 @@ Default: 0 (C<false>)
         }
 
         # static
-        sub next_pulse {
+        sub _next_pulse {
             my ($self) = @_;
             return $next_pulse{$self};
         }
@@ -327,7 +327,7 @@ Default: 0 (C<false>)
         }
         sub endgame { my ($self) = @_; return $endgame{$self}; }
 
-        sub inc_uploaded {
+        sub _inc_uploaded {
             my ( $self, $value ) = @_;
             croak q[uploaded is protected]
                 unless caller->isa(q[Net::BitTorrent::Session::Peer]);
@@ -335,7 +335,7 @@ Default: 0 (C<false>)
         }
         sub uploaded { my ($self) = @_; return $uploaded{$self}; }
 
-        sub inc_downloaded {
+        sub _inc_downloaded {
             my ( $self, $value ) = @_;
             croak q[downloaded is protected]
                 unless caller->isa(q[Net::BitTorrent::Session::Peer]);
@@ -364,14 +364,14 @@ Default: 0 (C<false>)
             return $nodes{$self};
         }    # quick-resume
 
-        sub pulse {
+        sub _pulse {
             my ($self) = @_;
             for my $tier ( @{ $trackers{$self} } ) {
-                $tier->pulse if $tier->next_pulse < time;
+                $tier->_pulse if $tier->_next_pulse < time;
             }
             my @peers = $self->peers;
             for my $peer (@peers) {
-                $peer->pulse if $peer->next_pulse < time;
+                $peer->_pulse if $peer->_next_pulse < time;
             }
 
 # TODO: review the following block ===================================
@@ -380,7 +380,7 @@ Default: 0 (C<false>)
 #}
 #if (not $self->complete) {
 #grep {
-#	$_->disconnect(q[We're in pull mode and this peer has nothing for us.])
+#	$_->_disconnect(q[We're in pull mode and this peer has nothing for us.])
 #	not $_->is_interesting
 #} @peers;
 # Remove peers we're not interested it. Evil, but...
@@ -402,8 +402,8 @@ Default: 0 (C<false>)
                     scalar(
                         grep {
                             $_->isa(q[Net::BitTorrent::Session::Peer])
-                                and not $_->connected
-                            } $self->client->connections
+                                and not $_->_connected
+                            } $self->client->_connections
                     ) < $self->client->maximum_peers_half_open
                 )
                 )
@@ -430,7 +430,7 @@ Default: 0 (C<false>)
             return $next_pulse{$self} = time + 3;
         }
 
-        sub check_endgame_status {
+        sub _check_endgame_status {
             my ($self) = @_;
             return unless $downloaded{$self};
             if ((  scalar( grep { not $_->check and $_->priority }
@@ -444,7 +444,7 @@ Default: 0 (C<false>)
             return $endgame{$self};
         }
 
-        sub pick_piece {
+        sub _pick_piece {
             my ( $self, $peer ) = @_;
             return if $self->complete;
             return if not defined $peer->bitfield;
@@ -533,7 +533,7 @@ Default: 0 (C<false>)
                     ref $_ eq q[Net::BitTorrent::Session::Peer]
                         and defined $_->session
                         and $_->session eq $self
-                    } $self->client->connections
+                    } $self->client->_connections
             );
         }
 
@@ -745,112 +745,7 @@ TODO
 
 =head1 METHODS
 
-=over 4
-
-=item C<hash_check ( )>
-
 TODO
-
-=item C<path ( )>
-
-Filename of the .torrent file currently loaded.
-
-=item C<base_dir ( )>
-
-Base directory used to store the files related to this session.  If
-not preexisting, this directory is created when required.
-
-Default: F<./> (Current working directory)
-
-=item C<peerhost ( )>
-
-TODO
-
-=item C<fileno ( )>
-
-TODO
-
-=item C<private ( )>
-
-TODO
-
-=item C<infohash ( )>
-
-TODO
-
-=item C<client ( )>
-
-TODO
-
-=item C<pieces ( )>
-
-TODO
-
-=item C<trackers ( )>
-
-TODO
-
-=item C<files ( )>
-
-TODO
-
-=item C<piece_count ( )>
-
-TODO
-
-=item C<piece_size ( )>
-
-TODO
-
-=item C<block_size ( )>
-
-Length of blocks we request from peers of this session.
-
-NOTE: This should not be changed accept during testing.
-
-Default: C<2**15>
-
-=item C<set_block_size ( )>
-
-TODO
-
-=item C<total_size ( )>
-
-TODO
-
-=item C<downloaded ( )>
-
-TODO
-
-=item C<uploaded ( )>
-
-TODO
-
-=item C<nodes ( )>
-
-TODO
-
-=item C<append_nodes ( )>
-
-TODO
-
-=item C<compact_nodes ( )>
-
-TODO
-
-=item C<peers ( )>
-
-TODO
-
-=item C<complete ( )>
-
-TODO
-
-=item C<bitfield ( )>
-
-TODO
-
-=back
 
 =head1 AUTHOR
 

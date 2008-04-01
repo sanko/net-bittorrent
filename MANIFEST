@@ -56,7 +56,6 @@ t/900_etc/910_pod/912_coverage.t
 t/900_etc/921_perlcritic.t
 t/data/etc/generate_miniswarm_dot_torrent.pl
 t/data/etc/http_miniswarm.pl
-t/data/etc/http_tracker.pl
 t/data/etc/perlcritic.rc
 t/data/etc/talk-to-ourself.pl
 t/data/etc/udp_tracker.pl

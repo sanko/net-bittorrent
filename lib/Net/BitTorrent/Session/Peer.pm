@@ -78,7 +78,7 @@ use warnings;
                 $client{$self}    = $args->{q[client]};
                 $connected{$self} = 1;
                 $incoming_connection{$self} = 1;
-                $self->set_defaults;
+                $self->_set_defaults;
             }
             elsif (  defined $args->{q[address]}
                  and $args->{q[address]} =~ m[^(?:\d+\.?){4}:(?:\d+)$]
@@ -140,15 +140,15 @@ use warnings;
                 $incoming_requests{$self} = [];
                 $client{$self} = $args->{q[session]}->client;
                 $incoming_connection{$self} = 0;
-                $self->set_defaults;
-                $self->build_packet( {} );    # handshake
+                $self->_set_defaults;
+                $self->_build_packet( {} );    # handshake
                 $peerhost{$self} = $ip;
                 $peerport{$self} = $peerport;
             }
             return $self;
         }
 
-        sub set_defaults {
+        sub _set_defaults {
             my $self = shift;
             $is_interesting{$self}          = 0;
             $is_interested{$self}           = 0;
@@ -172,7 +172,7 @@ use warnings;
 
         # static
         sub peer_id { my ($self) = @_; return $peer_id{$self}; }
-        sub socket  { my ($self) = @_; return $socket{$self}; }
+        sub _socket  { my ($self) = @_; return $socket{$self}; }
 
         sub peerport {
             my ($self) = @_;
@@ -198,8 +198,8 @@ use warnings;
             }
             return $peerhost{$self};
         }
-        sub fileno    { my ($self) = @_; return $fileno{$self}; }
-        sub connected { my ($self) = @_; return $connected{$self}; }
+        sub _fileno    { my ($self) = @_; return $fileno{$self}; }
+        sub _connected { my ($self) = @_; return $connected{$self}; }
         sub session   { my ($self) = @_; return $session{$self}; }
         sub bitfield  { my ($self) = @_; return $bitfield{$self}; }
         sub client    { my ($self) = @_; return $client{$self}; }
@@ -226,13 +226,13 @@ use warnings;
             return $is_interesting{$self};
         }
 
-        sub next_pulse {
+        sub _next_pulse {
             my ($self) = @_;
             return $next_pulse{$self};
         }
         sub reserved { my ($self) = @_; return $reserved{$self}; }
 
-        sub connection_timestamp {
+        sub _connection_timestamp {
             my ($self) = @_;
             return $connection_timestamp{$self};
         }
@@ -242,23 +242,23 @@ use warnings;
             return $incoming_connection{$self};
         }
 
-        sub queue_outgoing {
+        sub _queue_outgoing {
             my ($self) = @_;
             return $queue_outgoing{$self};
         }
 
-        sub queue_incoming {
+        sub _queue_incoming {
             my ($self) = @_;
             return $queue_incoming{$self};
         }
 
-        sub add_outgoing_request {
-            my ( $self, $request ) = @_;
-            return
-                unless $request->isa(
-                                  q[Net::BitTorrent::Session::Block]);
-            return push @{ $outgoing_requests{$self} }, $request;
-        }
+        #sub _add_outgoing_request {
+        #    my ( $self, $request ) = @_;
+        #    return
+        #        unless $request->isa(
+        #                          q[Net::BitTorrent::Session::Block]);
+        #    return push @{ $outgoing_requests{$self} }, $request;
+        #}
 
         sub outgoing_requests {
             my ($self) = @_;
@@ -266,7 +266,7 @@ use warnings;
         }
 
         # Private Methods
-        sub process_one {
+        sub _process_one {
             my $self = shift;
             my $read = shift
                 ;    # length (>= 0) we should read from this peer...
@@ -285,9 +285,9 @@ use warnings;
                 if ($actual_write) {
                     $client{$self}
                         ->_do_callback( q[peer_outgoing_data], $self,
-                                       $actual_write );
+                                        $actual_write );
                 }
-                else { $self->disconnect($^E); goto RETURN; }
+                else { $self->_disconnect($^E); goto RETURN; }
             }
             if ($read) {
                 $actual_read =
@@ -308,18 +308,18 @@ use warnings;
                     }
                     $client{$self}
                         ->_do_callback( q[peer_incoming_data], $self,
-                                       $actual_read );
-                    while ( $self->parse_packet ) {;}
+                                        $actual_read );
+                    while ( $self->_parse_packet ) {;}
                 }
                 else {
-                    $self->disconnect($^E);
+                    $self->_disconnect($^E);
                 }
             }
         RETURN:
             return ( $actual_read, $actual_write );
         }
 
-        sub parse_reserved {
+        sub _parse_reserved {
             my $self = shift;
             my ($reserved)
                 = [ map {ord} split( q[], $reserved{$self} ) ];
@@ -343,7 +343,7 @@ use warnings;
             return 1;
         }
 
-        sub parse_packet {                        # TODO: refactor
+        sub _parse_packet {                       # TODO: refactor
             my $self = shift;
             my $packet_len = unpack q[N], $queue_incoming{$self};
             return
@@ -351,7 +351,7 @@ use warnings;
                     or length $queue_incoming{$self} == 0;
             my ( %ref, $type );
             if ( unpack( q[c], $queue_incoming{$self} ) == 0x13 ) {
-                return $self->disconnect(q[Second handshake packet])
+                return $self->_disconnect(q[Second handshake packet])
                     if defined $peer_id{$self};
                 $packet_len = 68;
                 return
@@ -363,16 +363,16 @@ use warnings;
                     = unpack( q[c/a a8 H40 a20 a*],
                               $queue_incoming{$self} );
                 if ( $protocol_name ne q[BitTorrent protocol] ) {
-                    $self->disconnect(
+                    $self->_disconnect(
                         qq[Improper handshake; Bad protocol name ($protocol_name)]
                     );
                     return;
                 }
                 $reserved{$self} = $reserved;
-                $self->parse_reserved();
+                $self->_parse_reserved();
                 if ( $incoming_connection{$self} ) {
                     my $session
-                        = $client{$self}->locate_session($info_hash);
+                        = $client{$self}->_locate_session($info_hash);
                     if ( defined $session
                         and $session->isa(q[Net::BitTorrent::Session])
                         )
@@ -381,7 +381,7 @@ use warnings;
                             > $self->client->maximum_peers_per_session
                             )
                         {
-                            return $self->disconnect(
+                            return $self->_disconnect(
                                              q[We have enough peers]);
                         }
                         $session{$self}           = $session;
@@ -392,12 +392,12 @@ use warnings;
                             } $session{$self}->peers
                             )
                         {
-                            return $self->disconnect(
+                            return $self->_disconnect(
                                 q[We've already connected to this peer.]
                             );
                         }
                         elsif ( $peer_id eq $self->client->peer_id ) {
-                            return $self->disconnect(
+                            return $self->_disconnect(
                                        q[We connected to ourselves.]);
                         }
                         $peer_id{$self} = $peer_id;
@@ -405,10 +405,10 @@ use warnings;
                             = pack( q[b*],
                                     q[0] x $session{$self}
                                         ->piece_count );
-                        $self->build_packet( {} );    # handshake
+                        $self->_build_packet( {} );    # handshake
                     }
                     else {
-                        $self->disconnect(
+                        $self->_disconnect(
                             sprintf(
                                 q[We aren't serving this torrent (%s)],
                                 $info_hash )
@@ -428,8 +428,8 @@ use warnings;
                 );
                 $client{$self}
                     ->_do_callback( q[peer_incoming_handshake],
-                                   $self );
-                $self->send_bitfield if defined $session{$self};
+                                    $self );
+                $self->_send_bitfield if defined $session{$self};
             }
             else {
                 return
@@ -441,7 +441,7 @@ use warnings;
                     = unpack( q[ca*], $packet_data );
                 if ( $type eq q[] ) {
                     if ($packet_len) {
-                        $self->disconnect(
+                        $self->_disconnect(
                             sprintf(
                                 q[Incorrect packet length for keepalive (%d)],
                                 $packet_len )
@@ -451,26 +451,26 @@ use warnings;
                     $type = -1;
                     $client{$self}
                         ->_do_callback( q[peer_incoming_keepalive],
-                                       $self );
+                                        $self );
                 }
                 elsif ( $type == 0 ) {
                     if ( $packet_len != 1 ) {
-                        $self->disconnect(
-                                q[Incorrect packet length for CHOKE]);
+                        $self->_disconnect(
+                               q[Incorrect packet length for _choke]);
                         return;
                     }
                     $is_choking{$self}     = 1;
                     $is_interesting{$self} = 1;
-                    grep { $_->remove_peer($self) }
+                    grep { $_->_remove_peer($self) }
                         @{ $outgoing_requests{$self} };
                     $outgoing_requests{$self} = [];
                     $client{$self}
                         ->_do_callback( q[peer_incoming_choke],
-                                       $self );
+                                        $self );
                 }
                 elsif ( $type == 1 ) {
                     if ( $packet_len != 1 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                               q[Incorrect packet length for UNCHOKE]);
                         return;
                     }
@@ -479,11 +479,11 @@ use warnings;
                         = min( $next_pulse{$self}, time + 2 );
                     $client{$self}
                         ->_do_callback( q[peer_incoming_unchoke],
-                                       $self );
+                                        $self );
                 }
                 elsif ( $type == 2 ) {
                     if ( $packet_len != 1 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                              q[Incorrect packet length for INTERESTED]
                         );
                         return;
@@ -491,29 +491,29 @@ use warnings;
                     $is_interested{$self} = 1;
                     $client{$self}
                         ->_do_callback( q[peer_incoming_interested],
-                                       $self );
+                                        $self );
                 }
                 elsif ( $type == 3 ) {
                     if ( $packet_len != 1 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                             q[Incorrect packet length for not interested]
                         );
                         return;
                     }
                     $is_interested{$self} = 0;
-                    $client{$self}
-                        ->_do_callback( q[peer_incoming_disinterested],
+                    $client{$self}->_do_callback(
+                                       q[peer_incoming_disinterested],
                                        $self );
                 }
                 elsif ( $type == 4 ) {
                     if ( $packet_len != 5 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                                  q[Incorrect packet length for HAVE]);
                         return;
                     }
                     my ($index) = unpack( q[N], $packet );
                     if ( not defined $index ) {
-                        $self->disconnect(q[Malformed HAVE packet]);
+                        $self->_disconnect(q[Malformed HAVE packet]);
                         return;
                     }
                     vec( $bitfield{$self}, $index, 1 ) = 1;
@@ -523,16 +523,16 @@ use warnings;
                         not $session{$self}->pieces->[$index]->check )
                     {
                         $is_interesting{$self} = 1;
-                        $self->build_packet( { type => 2 } );
+                        $self->_build_packet( { type => 2 } );
                     }
                     %ref = ( index => $index );
                     $client{$self}
                         ->_do_callback( q[peer_incoming_have], $self,
-                                       $index );
+                                        $index );
                 }
                 elsif ( $type == 5 ) {
                     if ( $packet_len < 1 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                              q[Incorrect packet length for BITFIELD]);
                         return;
                     }
@@ -540,15 +540,15 @@ use warnings;
                     # Make it vec friendly.
                     $bitfield{$self} = pack q[b*], unpack q[B*],
                         $packet;
-                    $self->check_interesting;
+                    $self->_check_interesting;
                     %ref = ( bitfield => $packet );
                     $client{$self}
                         ->_do_callback( q[peer_incoming_bitfield],
-                                       $self );
+                                        $self );
                 }
                 elsif ( $type == 6 ) {
                     if ( $packet_len != 13 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                               q[Incorrect packet length for REQUEST]);
                         return;
                     }
@@ -569,11 +569,11 @@ use warnings;
                     push @{ $incoming_requests{$self} }, $request;
                     $client{$self}
                         ->_do_callback( q[peer_incoming_request],
-                                       $self, $request );
+                                        $self, $request );
                 }
                 elsif ( $type == 7 ) {
                     if ( $packet_len < 9 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                             sprintf(
                                 q[Incorrect packet length for PIECE (%d requires >=9)],
                                 $packet_len )
@@ -591,7 +591,7 @@ use warnings;
                     if ( not $session{$self}->pieces->[$index]
                          ->working )
                     {
-                        $self->disconnect(
+                        $self->_disconnect(
                                       q[Malformed PIECE packet. (1)]);
                     }
                     else {
@@ -601,15 +601,14 @@ use warnings;
                         if (    ( not defined $block )
                              or ( length($data) != $block->length ) )
                         {
-                            die(q[Malformed PIECE packet. (2)]);
-
-           #    $self->disconnect(q[Malformed PIECE packet. (2)]);
+                            $self->_disconnect(q[Malformed PIECE packet. (2)]);
+           #
            #}
            #elsif (not scalar $block->peers
            #    or not $block->request_timestamp($self))
            #{
            # TODO: ...should we accept the block anyway if we need it?
-                            $self->disconnect(
+                            $self->_disconnect(
                                 q[Peer sent us a piece we've already canceled or we never asked for.]
                             );
                         }
@@ -624,19 +623,19 @@ use warnings;
                                        $next_pulse{$self} );
                             $downloaded{$self} += length $data;
                             $session{$self}
-                                ->inc_downloaded( length $data );
+                                ->_inc_downloaded( length $data );
                             $previous_incoming_block{$self} = time;
                             $block->piece->previous_incoming_block(
                                                                 time);
-                            $client{$self}
-                                ->_do_callback( q[peer_incoming_block],
-                                               $self, $block );
+                            $client{$self}->_do_callback(
+                                q[peer_incoming_block], $self,
+                                $block );
 
           # TODO: if endgame, cancel all other requests for this block
 
                             if ( scalar( $block->peers ) > 1 ) {
                                 for my $peer ( $block->peers ) {
-                                    $peer->cancel_block($block)
+                                    $peer->_cancel_block($block)
                                         unless $peer == $self;
                                 }
                             }
@@ -646,7 +645,7 @@ use warnings;
                             {
                                 if ( $block->piece->verify ) {
                                     grep {
-                                        $_->build_packet(
+                                        $_->_build_packet(
                                               { type => 4,
                                                 data => {
                                                      index =>
@@ -658,27 +657,26 @@ use warnings;
                                     } $session{$self}->peers;
                                 }
                                 else {
-                                    die
-                                        q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
+                                    #die q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
 
                            # TODO: penalize all peers related to piece
                            # See N::B::P::verify()
                                 }
                             }
                             else {
-                                die q[Gah];
+                                #die q[Gah];
 
                                 # .:shrugs:.
                             }
                         }
                         else {
-                            die q[Fuck!];
+                             # .:shrugs:.
                         }
                     }
                 }
                 elsif ( $type == 8 ) {
                     if ( $packet_len != 13 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                                q[Incorrect packet length for cancel]);
                         return;
                     }
@@ -697,22 +695,22 @@ use warnings;
                     if ( defined $request ) {
                         $client{$self}
                             ->_do_callback( q[peer_incoming_cancel],
-                                           $self, $request );
+                                            $self, $request );
                     }
                     else {
-                        $self->disconnect(
+                        $self->_disconnect(
                             q[Peer has canceled a request they never made or has already been filled.]
                         );
                     }
                 }
                 elsif ( $type == 9 ) {
                     if (q[I'll get to this one day...]) {
-                        $self->disconnect(
+                        $self->_disconnect(
                              q[We don't support PORT messages. Yet.]);
                         return;
                     }
                     if ( $packet_len != 3 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                             q[Incorrect packet length for PORT message]
                         );
                         return;
@@ -722,21 +720,21 @@ use warnings;
                 }
                 elsif ( $type == 14 ) {
                     if ( $packet_len != 1 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                              q[Incorrect packet length for HAVE ALL]);
                         return;
                     }
                 }
                 elsif ( $type == 15 ) {
                     if ( $packet_len != 1 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                             q[Incorrect packet length for HAVE NONE]);
                         return;
                     }
                 }
                 elsif ( $type == 16 ) {
                     if ( $packet_len != 13 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                                q[Incorrect packet length for REJECT]);
                         return;
                     }
@@ -749,7 +747,7 @@ use warnings;
                 }
                 elsif ( $type == 17 ) {
                     if ( $packet_len != 5 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                             q[Incorrect packet length for ALLOWED FAST]
                         );
                         return;
@@ -759,13 +757,13 @@ use warnings;
                 }
                 elsif ( $type == 20 ) {
                     if (q[Soon, soon...]) {
-                        $self->disconnect(
+                        $self->_disconnect(
                              q[Support for utx messages is incomplete]
                         );
                         return;
                     }
                     if ( $packet_len < 3 ) {
-                        $self->disconnect(
+                        $self->_disconnect(
                                   q[Incorrect packet length for utx]);
                         return;
                     }
@@ -775,48 +773,49 @@ use warnings;
                              messageid => $messageid );
                 }
                 else {
-                    $self->disconnect(q[Unknown or malformed packet]);
+                    $self->_disconnect(
+                                      q[Unknown or malformed packet]);
                 }
             }
             $client{$self}->_do_callback( q[peer_incoming_packet],
-                                         $self,
-                                         { length => $packet_len,
-                                           type   => $type,
-                                           data   => \%ref
-                                         }
+                                          $self,
+                                          { length => $packet_len,
+                                            type   => $type,
+                                            data   => \%ref
+                                          }
             );
             return 1;
         }
 
-        sub build_reserved {
+        sub _build_reserved {
 
 # TODO: As we add support for more ext, this will be updated. For now, ...
             return q[0] x 8;
         }
 
-        sub build_packet {
+        sub _build_packet {
             my ( $self, $packet ) = @_;
             my $packet_data = q[];
             if ( not defined $packet->{q[type]} ) {    # handshake
                 $packet_data = pack(
                             q[c/a* a8 a20 a20],
                             q[BitTorrent protocol],
-                            pack( q[C8],  $self->build_reserved ),
+                            pack( q[C8],  $self->_build_reserved ),
                             pack( q[H40], $session{$self}->infohash ),
                             $client{$self}->peer_id
                 );
                 $client{$self}
                     ->_do_callback( q[peer_outgoing_handshake],
-                                   $self );
+                                    $self );
             }
             elsif ( $packet->{q[type]} == -1 )
             {    # keepalive; no payload
                 $packet_data = ( pack( q[N], 0 ) );
                 $client{$self}
                     ->_do_callback( q[peer_outgoing_keepalive],
-                                   $self );
+                                    $self );
             }
-            elsif ( ( $packet->{q[type]} == 0 )       # choke
+            elsif ( ( $packet->{q[type]} == 0 )       #>_unchoke
                     or ( $packet->{q[type]} == 1 )    # unchoke
                     or ( $packet->{q[type]} == 2 )    # interested
                     or ( $packet->{q[type]} == 3 )
@@ -841,7 +840,7 @@ use warnings;
                                      $packet->{q[data]}{q[index]} );
                 $client{$self}
                     ->_do_callback( q[peer_outgoing_have], $self,
-                                   $packet->{q[data]}{q[index]} );
+                                    $packet->{q[data]}{q[index]} );
             }
             elsif ( $packet->{q[type]} == 5 ) {    # bitfield
                 $packet_data = pack( q[NCa*],
@@ -849,7 +848,8 @@ use warnings;
                         $packet->{q[type]},
                         $packet->{q[data]}{q[bitfield]} );
                 $client{$self}
-                    ->_do_callback( q[peer_outgoing_bitfield], $self );
+                    ->_do_callback( q[peer_outgoing_bitfield],
+                                    $self );
             }
             elsif ( ( $packet->{q[type]} == 6 )        # request
                     or ( $packet->{q[type]} == 8 ) )
@@ -872,15 +872,15 @@ use warnings;
             }
             elsif ( $packet->{q[type]} == 7 ) {    # piece
                 my $packed = pack( q[N2a*],
-                               $packet->{q[data]}{q[request]}->index,
-                               $packet->{q[data]}{q[request]}->offset,
-                               $packet->{q[data]}{q[request]}->_read );
+                              $packet->{q[data]}{q[request]}->index,
+                              $packet->{q[data]}{q[request]}->offset,
+                              $packet->{q[data]}{q[request]}->_read );
                 $packet_data = pack( q[NCa*],
                                      length($packed) + 1,
                                      $packet->{q[type]}, $packed );
                 $client{$self}
                     ->_do_callback( q[peer_outgoing_block], $self,
-                                   $packet->{q[data]}{q[request]} );
+                                    $packet->{q[data]}{q[request]} );
             }
 
             #elsif ($packet->{q[type]} == 9)  { carp pp \@_; }# port
@@ -916,31 +916,31 @@ use warnings;
             return $queue_outgoing{$self} .= $packet_data;
         }
 
-        sub pulse {
+        sub _pulse {
             my ($self) = @_;
             if (    ( time - $connection_timestamp{$self} >= 10 * 60 )
                 and
                 ( time - $previous_incoming_block{$self} >= 5 * 60 ) )
             {            # TODO: make this timeout a variable
-                $self->disconnect(q[peer must be useless]);
+                $self->_disconnect(q[peer must be useless]);
                 return 0;
             }
             if (    ( time - $connection_timestamp{$self} >= 60 )
                 and ( time - $previous_incoming_data{$self} >= 130 ) )
             {            # TODO: make this timeout a variable
-                $self->disconnect(q[Peer must be dead]);
+                $self->_disconnect(q[Peer must be dead]);
                 return 0;
             }
             if ( not defined $previous_outgoing_keepalive{$self}
                  or $previous_outgoing_keepalive{$self} + 90 < time )
             {
-                $self->build_packet( { type => -1 } );
+                $self->_build_packet( { type => -1 } );
                 $previous_outgoing_keepalive{$self} = time;
             }
-            $self->check_interesting;
-            $self->request_block;
-            $self->cancel_old_requests;
-            $self->unchoke
+            $self->_check_interesting;
+            $self->_request_block;
+            $self->_cancel_old_requests;
+            $self->_unchoke
                 if $is_interested{$self} and $is_choked{$self};
 
             #use Data::Dump qw[pp];
@@ -948,37 +948,37 @@ use warnings;
 
             if ( @{ $incoming_requests{$self} }
                  and length( $queue_outgoing{$self} )
-                 < $self->client->BufferSize )
+                 < $self->client->maximum_buffer_size )
             {
                 my $request = shift @{ $incoming_requests{$self} };
 
                 # TODO: verify piece before handing over data
-                $self->build_packet(
+                $self->_build_packet(
                                    { data => { request => $request },
                                      type => 7
                                    }
                 );
                 $uploaded{$self} += $request->length;
-                $session{$self}->inc_uploaded( $request->length );
+                $session{$self}->_inc_uploaded( $request->length );
             }
             return $next_pulse{$self}
                 = min( time + 10, $next_pulse{$self} );
         }
 
-        sub request_block {
+        sub _request_block {
             my ($self) = @_;
             if ( not $is_choking{$self}
                  and ( scalar @{ $outgoing_requests{$self} }
                        < $client{$self}->maximum_requests_per_peer )
                 )
             {
-                my $piece = $session{$self}->pick_piece($self);
+                my $piece = $session{$self}->_pick_piece($self);
                 if ($piece) {
                 REQUEST:
                     for ( scalar @{ $outgoing_requests{$self} } ..
                           $client{$self}->maximum_requests_per_peer )
                     {
-                        my $block = $piece->unrequested_block;
+                        my $block = $piece->_unrequested_block;
 
                         #warn pp $block->peers;
                         #warn pp $$self;
@@ -986,12 +986,12 @@ use warnings;
                              and not grep { $$_ eq $$self }
                              $block->peers )
                         {
-                            $self->build_packet(
+                            $self->_build_packet(
                                      { data => { request => $block },
                                        type => 6
                                      }
                             );
-                            $block->add_peer($self);
+                            $block->_add_peer($self);
                             push @{ $outgoing_requests{$self} },
                                 $block;
                         }
@@ -1004,45 +1004,45 @@ use warnings;
             return;
         }
 
-        sub cancel_block {
+        sub _cancel_block {
             my ( $self, $block ) = @_;
-            $block->remove_peer($self);
+            $block->_remove_peer($self);
             @{ $outgoing_requests{$self} } = grep { $_ ne $block }
                 @{ $outgoing_requests{$self} };
             $next_pulse{$self}
                 = min( ( time + 5 ), $next_pulse{$self} );
             return
-                $self->build_packet( { data => { request => $block },
+                $self->_build_packet({ data => { request => $block },
                                        type => 8
                                      }
                 );
         }
 
-        sub choke {
+        sub _choke {
             my ($self) = @_;
             return if $is_choked{$self};
             $is_choked{$self} = 1;
-            return $self->build_packet( { type => 0 } );
+            return $self->_build_packet( { type => 0 } );
         }
 
-        sub unchoke {
+        sub _unchoke {
             my ($self) = @_;
             return if not $is_choked{$self};
             $is_choked{$self} = 0;
-            return $self->build_packet( { type => 1 } );
+            return $self->_build_packet( { type => 1 } );
         }
 
-        sub cancel_old_requests {
+        sub _cancel_old_requests {
             my ($self) = @_;
 
             # TODO: make this timeout variable
             my @remove
-                = grep { $_->request_timestamp($self) < ( time - 300 ) }
+                = grep { $_->_request_timestamp($self) < ( time - 300 ) }
                 @{ $outgoing_requests{$self} };
-            for my $block (@remove) { $self->cancel_block($block); }
+            for my $block (@remove) { $self->_cancel_block($block); }
         }
 
-        sub check_interesting {
+        sub _check_interesting {
             my ($self) = @_;
             return if not defined $session{$self};
             my $interesting = 0;
@@ -1063,37 +1063,37 @@ use warnings;
             }
             if ( $interesting and not $is_interesting{$self} ) {
                 $is_interesting{$self} = 1;
-                $self->build_packet( { type => 2 } );
+                $self->_build_packet( { type => 2 } );
             }
             elsif ( not $interesting and $is_interesting{$self} ) {
                 $is_interesting{$self} = 0;
-                $self->build_packet( { type => 3 } );
+                $self->_build_packet( { type => 3 } );
             }
             return $interesting;
         }
 
-        sub send_bitfield {
+        sub _send_bitfield {
             my ($self) = @_;
             return
-                $self->build_packet(
+                $self->_build_packet(
                   { type => 5,
                     data => { bitfield => $session{$self}->bitfield }
                   }
                 );
         }
 
-        sub disconnect {
+        sub _disconnect {
             my ( $self, $reason ) = @_;
             close $socket{$self};
             $connected{$self} = 0;
-            $client{$self}->remove_connection($self);
+            $client{$self}->_remove_connection($self);
             $client{$self}->_do_callback( q[peer_disconnect], $self,
-                                         ( $reason || $^E ) )
+                                          ( $reason || $^E ) )
                 if $connected{$self};
             return 1;
         }
 
-        sub generate_fast_set
+        sub _generate_fast_set
         {    # http://www.bittorrent.org/fast_extensions.html
             my ( $self, $k ) = @_;
             my @a;
@@ -1188,73 +1188,7 @@ TODO
 
 =head1 METHODS
 
-=over 4
-
-=item C<peer_id ( )>
-
 TODO
-
-=item C<socket ( )>
-
-TODO
-
-=item C<peerport ( )>
-
-TODO
-
-=item C<peerhost ( )>
-
-TODO
-
-=item C<fileno ( )>
-
-TODO
-
-=item C<connected ( )>
-
-TODO
-
-=item C<session ( )>
-
-TODO
-
-=item C<client ( )>
-
-TODO
-
-=item C<bitfield ( )>
-
-TODO
-
-=item C<downloaded ( )>
-
-TODO
-
-=item C<uploaded ( )>
-
-TODO
-
-=item C<is_choked ( )>
-
-TODO
-
-=item C<is_choking ( )>
-
-TODO
-
-=item C<is_interested ( )>
-
-TODO
-
-=item C<is_interesting ( )>
-
-TODO
-
-=item C<reserved ( )>
-
-TODO
-
-=back
 
 =head1 AUTHOR
 

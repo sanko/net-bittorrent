@@ -53,19 +53,19 @@ use warnings;
                 values %{ $peer{$self} };
         }
 
-        sub add_peer {
+        sub _add_peer {
             my ( $self, $peer ) = @_;
             $peer{$self}{$peer}
                 = { peer => $peer, timestamp => time };
             return weaken $peer{$self}{$peer}{q[peer]};
         }
 
-        sub remove_peer {
+        sub _remove_peer {
             my ( $self, $peer ) = @_;
             return delete $peer{$self}{$peer};
         }
 
-        sub request_timestamp {
+        sub _request_timestamp {
             my ( $self, $peer ) = @_;
             return $peer{$self}{$peer}{q[timestamp]};
         }
@@ -116,37 +116,7 @@ TODO
 
 =head1 METHODS
 
-=over 4
-
-=item C<piece ( )>
-
 TODO
-
-=item C<session ( )>
-
-TODO
-
-=item C<client ( )>
-
-TODO
-
-=item C<index ( )>
-
-TODO
-
-=item C<offset ( )>
-
-TODO
-
-=item C<length ( )>
-
-TODO
-
-=item C<peers ( )>
-
-TODO
-
-=back
 
 =head1 AUTHOR
 

@@ -12,7 +12,6 @@ use lib q[../../lib];
 
 BEGIN { use_ok( q[Net::BitTorrent::Util], qw[:compact] ) }
 
-use Data::Dump qw[pp];
 
 is( compact(qw[127.0.0.1:000065]),
     qq[\x7F\0\0\1\0A], q[port with leading zeros] );

@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 {
+
     BEGIN {
         use vars qw[$VERSION];
         use version qw[qv];
@@ -187,13 +188,14 @@ just for that.  I'll work on it.
     sub compact {
         my (@peers) = @_;
         if ( not @peers ) {
+
             #warn(q[Not enough parameters for compact(ARRAY)]);
             return;
         }
         my $return = q[];
 
         my %saw;
-    PEER: for my $peer (grep(!$saw{$_}++, @peers)) {
+    PEER: for my $peer ( grep( !$saw{$_}++, @peers ) ) {
             my ( $ip, $port )
                 = (    # ...sigh, some (old) trackers do crazy stuff
                 ref $peer eq q[HASH]
@@ -201,19 +203,17 @@ just for that.  I'll work on it.
                 : split( q[:], $peer, 2 )
                 );
 
-            if (grep { $_ > 0xff }
-                ( $ip =~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$] )
-                    or (
-                    $ip !~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$]
-                    )
-                )
+            if ( grep { $_ > 0xff }
+                 ( $ip =~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$] )
+                     or
+                 ( $ip !~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$] ) )
             {
                 $@ = q[Invalid IP address: ] . $peer;
             }
             elsif ( $port =~ m[[^\d]] ) {
                 $@ = q[Malformed port number: ] . $peer;
             }
-            elsif ( $port > 2**16 ) { #
+            elsif ( $port > 2**16 ) {    #
                 $@ = q[Port number beyond ephemeral range: ] . $peer;
             }
             else {
@@ -228,9 +228,9 @@ just for that.  I'll work on it.
     sub uncompact {
         my $string = shift;
         if ( not defined $string ) { return; }
-         my %peers;
+        my %peers;
         while ( $string =~ m|(....)(..)|g ) {
-             $peers{
+            $peers{
                 sprintf( q[%d.%d.%d.%d:%d],
                          unpack( q[C4], $1 ),
                          unpack( q[n],  $2 ) )
@@ -248,15 +248,40 @@ __END__
 
 Net::BitTorrent::Util - Utility functions
 
-=head1 DESCRIPTION
-
-TODO
-
 =head1 METHODS
 
 =over 4
 
-TODO
+=item bencode
+
+Expects a single value (basic scalar, array reference, or hash
+reference) and returns a single string.
+
+Bencoding is the BitTorrent protocol's basic serialization and
+data organization format.  The specification supports integers,
+lists (arrays), dictionaries (hashes), and byte strings.
+
+See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
+
+=item bdecode
+
+Expects a bencoded string.  The return value depends on the type of
+data contained in the string.
+
+See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
+
+=item compact
+
+Compacts a list of IPv4:port strings into a single string.
+
+A compact peer is 6 bytes;  the first four bytes are the host (in
+network byte order), the last two bytes are the port (again in network
+byte order).
+
+=item uncompact
+
+Inflates a compacted string of peers and returns a list of IPv4:port
+strings.
 
 =back
 

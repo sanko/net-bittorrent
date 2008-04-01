@@ -12,4 +12,3 @@ use lib q[../../lib/];
 
 BEGIN{use_ok(q[Net::BitTorrent::Util], qw[:compact])}
 
-use Data::Dump qw[pp];

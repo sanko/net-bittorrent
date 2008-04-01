@@ -12,7 +12,7 @@ use lib q[../../lib/];
 
 BEGIN { use_ok( q[Net::BitTorrent::Util], qw[:compact] ) }
 
-use Data::Dump qw[pp];
+
 
 #is( uncompact(qw[127.0.0.1:98]), qq[\x7F\0\0\1\0b], q[localhost] );
 

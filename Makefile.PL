@@ -8,19 +8,19 @@ use File::Find;
 my @search = qw[t/000_basic/ t/100_data_parsing/
     t/200_classes/ t/400_broken_data/ t/900_etc/];
 
-if (
-    not $ENV{q[AUTOMATED_TESTING]
-    }        # http://cpantest.grango.org/wiki/CPANAuthorNotes
+if (    # http://cpantest.grango.org/wiki/CPANAuthorNotes
+    not $ENV{q[AUTOMATED_TESTING]}
     and can_talk_to_ourself()
     and prompt(
         q[
   *****************************************************************
-   During the "make test" phase, we may run tests that open ports.
-   By design, no data will be transferred to remote systems during
-   these tests.
+   During the "make test" phase, we may run tests that open ports
+   and simulate typical swarms.  By design, no data will be
+   transferred to remote systems during these tests.
 
-   NOTE: These tests can fail or timeout due to restrictive
-   firewalling, or other connectivity problems.
+   NOTE: These tests can be painfully slow and may fail due to
+   restrictive firewalling, local weather conditions, or other
+   connectivity problems.
   *****************************************************************
 
 Do you want to perform these tests in addition to core tests?], q[no]

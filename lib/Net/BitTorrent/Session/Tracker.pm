@@ -14,7 +14,9 @@ use warnings;
     }
 
     use Net::BitTorrent::Util qw[min bdecode max compact shuffle];
-    use Socket;
+    use Socket
+        qw[SOL_SOCKET SO_SNDTIMEO SO_RCVTIMEO PF_INET AF_INET SOCK_STREAM];
+    use Fcntl qw[F_SETFL O_NONBLOCK];
     use Carp qw[carp croak];
     {
         my ( %urls,                 %fileno,
@@ -50,84 +52,64 @@ use warnings;
             return $self;
         }
 
-        # static
-        sub urls   { my ($self) = @_; return $urls{$self}; }
-        sub fileno { my ($self) = @_; return $fileno{$self}; }
-        sub socket { my ($self) = @_; return $socket{$self}; }
+        sub urls    { my ($self) = @_; return $urls{$self}; }
+        sub _fileno { my ($self) = @_; return $fileno{$self}; }
+        sub _socket { my ($self) = @_; return $socket{$self}; }
 
-#sub socket {
-#    my ($self, $value) = @_;
-#    return (
-#        defined $value
-#        ? do {
-#            croak(q[socket is protected]) and return
-#              unless caller->isa(__PACKAGE__);
-#            #croak(q[socket is static])
-#            #  if defined $socket{$self};
-#            croak(q[socket is malformed]) and return
-#              unless $value->isa(q[GLOB]);
-#            $socket{$self} = $value;
-#            if ($value) {
-#                $fileno{$self} = CORE::fileno($socket{$self});
-#                $session{$self}->client->add_connection($self);
-#            }
-#            else { $session{$self}->client->remove_connection($self); }
-#          }
-#        : $socket{$self}
-#    );
-#}
         sub session { my ($self) = @_; return $session{$self}; }
+
         sub client {
             my ($self) = @_;
             return $session{$self}->client;
         }
 
-        sub connection_timestamp {
+        sub _connection_timestamp {
             my ($self) = @_;
             return $connection_timestamp{$self};
         }
 
-        sub scrape_complete {
+        sub _scrape_complete {
             my ($self) = @_;
             return $scrape_complete{$self};
         }
 
-        sub scrape_incomplete {
+        sub _scrape_incomplete {
             my ($self) = @_;
             return $scrape_incomplete{$self};
         }
 
-        sub scrape_downloaded {
+        sub _scrape_downloaded {
             my ($self) = @_;
             return $scrape_downloaded{$self};
         }
-        sub connected { my ($self) = @_; return $connected{$self}; }
+        sub _connected { my ($self) = @_; return $connected{$self}; }
 
-        sub queue_outgoing {
+        sub _queue_outgoing {
             my ($self) = @_;
             return $queue_outgoing{$self};
         }
 
-        sub queue_incoming {
+        sub _queue_incoming {
             my ($self) = @_;
             return $queue_incoming{$self};
         }
-        sub next_pulse {
+
+        sub _next_pulse {
             my ($self) = @_;
             return $next_pulse{$self};
         }
 
-        sub next_announce {
+        sub _next_announce {
             my ($self) = @_;
             return $next_announce{$self};
         }
 
-        sub next_scrape {
+        sub _next_scrape {
             my ($self) = @_;
             return $next_scrape{$self};
         }
 
-        sub pulse {
+        sub _pulse {
             my ($self) = @_;
             if ( not defined $socket{$self} ) {
                 if ( $next_scrape{$self} <= time ) {
@@ -145,10 +127,10 @@ use warnings;
             return 1;
         }
 
-        sub disconnect {
+        sub _disconnect {
             my ( $self, $reason ) = @_;
             close $socket{$self};
-            $session{$self}->client->remove_connection($self);
+            $session{$self}->client->_remove_connection($self);
             delete $socket{$self};
             delete $fileno{$self};
             $connected{$self}      = 0;
@@ -192,8 +174,8 @@ use warnings;
                 my %query_hash = (
                     q[info_hash] => $infohash,
                     q[peer_id]   => $peer_id,
-                    q[port]     => $session{$self}->client->sockport,
-                    q[uploaded] => $session{$self}->uploaded,
+                    q[port]      => $session{$self}->client->sockport,
+                    q[uploaded]  => $session{$self}->uploaded,
                     q[downloaded] => $session{$self}->downloaded,
                     q[left]       => (
                         $session{$self}->piece_size * scalar(
@@ -213,8 +195,8 @@ use warnings;
                     )
                 );
                 $self->_tcp_connect(
-                    $urls{$self}->[0]
-                        . ($urls{$self}->[0] =~ m[\?] ? q[&] : q[?] )
+                          $urls{$self}->[0]
+                        . ( $urls{$self}->[0] =~ m[\?] ? q[&] : q[?] )
                         . (
                         join q[&],
                         map {
@@ -253,7 +235,11 @@ use warnings;
                 $self->client->_do_callback( q[tracker_error],
                                          q[Failed to create socket] );
             }
-            elsif (not ioctl( $socket, 0x8004667e, pack( q[I], 1 ) ) )
+            elsif (not($^O eq q[MSWin32]
+                       ? ioctl( $socket, 0x8004667e, pack( q[I], 1 ) )
+                       : fcntl( $socket, F_SETFL, O_NONBLOCK )
+                   )
+                )
             {
                 $self->client->_do_callback( q[tracker_error],
                             q[Failed to set socket to non-blocking] );
@@ -284,7 +270,7 @@ use warnings;
             }
             else {
                 $socket{$self} = $socket;
-                $fileno{$self} = CORE::fileno( $socket{$self} );
+                $fileno{$self} = fileno( $socket{$self} );
                 $connection_timestamp{$self} = time;
                 $queue_outgoing{$self}
                     = join( qq[\015\012],
@@ -374,7 +360,7 @@ use warnings;
                             ) + time;
                     }
                 }
-                return $self->disconnect;
+                return $self->_disconnect;
             }
             return;
         }
@@ -414,7 +400,7 @@ use warnings;
             return 0;
         }
 
-        sub process_one {
+        sub _process_one {
             my ( $self, $read, $write ) = @_;
             my ( $actual_read, $actual_write ) = ( 0, 0 );
             if ($write) {
@@ -430,7 +416,7 @@ use warnings;
                         ->client->_do_callback( q[tracker_data_out],
                                                $self, $actual_write );
                 }
-                else { $self->disconnect; return ( 0, 0 ); }
+                else { $self->_disconnect; return ( 0, 0 ); }
             }
             if ($read) {
                 $actual_read =
@@ -448,18 +434,18 @@ use warnings;
                     }
                     $session{$self}
                         ->client->_do_callback( q[tracker_data_in],
-                                               $self, $actual_read );
-                    $self->parse_packet;
+                                                $self, $actual_read );
+                    $self->_parse_packet;
                 }
                 else {
-                    $self->disconnect();
+                    $self->_disconnect();
                     return ( 0, 0 );
                 }
             }
             return;
         }
 
-        sub parse_packet {
+        sub _parse_packet {
             my ($self) = @_;
             if ( $urls{$self}->[0] =~ m[^http:] ) {
                 $self->_tcp_parse_data;
@@ -467,24 +453,25 @@ use warnings;
             elsif ( $urls{$self}->[0] =~ m[^udp:] ) {
                 $self->_udp_parse_data;
             }
-            else { die q[Somethin' is wrong!] }
+            else {
+                #die q[Somethin' is wrong!]
+                }
             return;
         }
 
         sub as_string {
             my ( $self, $advanced ) = @_;
             my @values = (
-                     $urls{$self}->[0],
-                     ( q[=] x ( 27 + length( $urls{$self}->[0] ) ) ),
-                     (       $scrape_complete{$self}
-                           + $scrape_incomplete{$self}
-                     ),
-                     $scrape_complete{$self},
-                     $scrape_incomplete{$self},
-                     $scrape_downloaded{$self},
-                     $next_scrape{$self} - time,
-                     $next_announce{$self} - time,
-                     $next_pulse{$self} - time,
+                $urls{$self}->[0],
+                ( q[=] x ( 27 + length( $urls{$self}->[0] ) ) ),
+                (  $scrape_complete{$self} + $scrape_incomplete{$self}
+                ),
+                $scrape_complete{$self},
+                $scrape_incomplete{$self},
+                $scrape_downloaded{$self},
+                $next_scrape{$self} - time,
+                $next_announce{$self} - time,
+                $next_pulse{$self} - time,
             );
             $_ = ( sprintf q[%dm %ss%s],
                    int( abs($_) / 60 ),
@@ -552,49 +539,55 @@ __END__
 
 =head1 NAME
 
-Net::BitTorrent::Session::Tracker - BitTorrent client class
+Net::BitTorrent::Session::Tracker - Class representing a single tier of BitTorrent trackers
 
 =head1 DESCRIPTION
 
 TODO
 
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item C<new ( [PARAMETERS] )>
+
+This constructor should not be used directly.
+
+=back
+
 =head1 METHODS
 
 =over 4
 
-=item C<urls ( )>
+=item C<announce ( )>
 
-TODO
+This method starts the process of requesting "in depth" information
+from the tracker
 
-=item C<session ( )>
-
-TODO
+=item C<scrape ( )>
 
 =item C<client ( )>
 
-TODO
+=item C<session ( )>
 
-=item C<base_dir ( )>
+=item C<urls ( )>
 
-TODO
+=item C<as_string ( [ VERBOSE ] )>
 
-=item C<peerhost ( )>
+Returns a 'ready to print' dump of the
+C<Net::BitTorrent::Session::Tracker> object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
 
-TODO
+This is a debugging method, not to be used under normal
+circumstances.
 
-=item C<fileno ( )>
-
-TODO
-
-=item C<private ( )>
-
-TODO
-
-=item C<infohash ( )>
-
-TODO
+See also: L<Net::BitTorrent/as_string> [id://317520]
 
 =back
+
+=head1 BUGS
+
+TODO
 
 =head1 AUTHOR
 

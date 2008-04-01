@@ -17,7 +17,7 @@ use warnings;
         qw[PF_INET AF_INET SOCK_STREAM SOMAXCONN sockaddr_in INADDR_ANY];
     use Carp qw[carp croak];
     use List::Util qw[shuffle];
-    use Time::HiRes qw[usleep];
+    use Time::HiRes qw[sleep];
     use lib q[../];
     use Net::BitTorrent::Session;
     use Net::BitTorrent::Session::Peer;
@@ -25,7 +25,7 @@ use warnings;
         my ( %peer_id,                   %socket,
              %fileno,                    %timeout,
              %maximum_requests_per_peer, %maximum_requests_size,
-             %BufferSize,                %maximum_peers_half_open,
+             %maximum_buffer_size,                %maximum_peers_half_open,
              %maximum_peers_per_session, %maximum_peers_per_client,
              %connections,               %callbacks,
              %sessions,                  %use_unicode
@@ -93,7 +93,7 @@ use warnings;
 
                         # Load values user has no control over.
                         $socket{$self} = $socket;
-                        $fileno{$self} = CORE::fileno($socket);
+                        $fileno{$self} = fileno($socket);
                         $peer_id{$self} = pack(
                             q[a20],
                             (  sprintf(
@@ -116,9 +116,9 @@ use warnings;
                         $self->_add_connection($self);
                     }
                     {
-                        $BufferSize{$self} = (
-                                        defined $args->{q[BufferSize]}
-                                        ? $args->{q[BufferSize]}
+                        $maximum_buffer_size{$self} = (
+                                        defined $args->{q[maximum_buffer_size]}
+                                        ? $args->{q[maximum_buffer_size]}
                                         : 98304
                         );
                         $maximum_peers_per_client{$self} = (
@@ -165,8 +165,8 @@ use warnings;
 
         # static
         sub peer_id { my ($self) = @_; return $peer_id{$self}; }
-        sub socket  { my ($self) = @_; return $socket{$self}; }
-        sub fileno  { my ($self) = @_; return $fileno{$self}; }
+        sub _socket  { my ($self) = @_; return $socket{$self}; }
+        sub _fileno  { my ($self) = @_; return $fileno{$self}; }
 
         sub use_unicode {
             my ( $self, $value ) = @_;
@@ -186,13 +186,13 @@ use warnings;
 
         sub sockport {
             my ( undef, $port, undef )
-                = unpack( q[SnC4x8], getsockname( shift->socket ) );
+                = unpack( q[SnC4x8], getsockname( shift->_socket ) );
             return $port;
         }
 
         sub sockaddr {
             my ( undef, undef, @address )
-                = unpack( q[SnC4x8], getsockname( shift->socket ) );
+                = unpack( q[SnC4x8], getsockname( shift->_socket ) );
             return join q[.], @address;
         }
 
@@ -238,16 +238,16 @@ use warnings;
             );
         }
 
-        sub BufferSize {
+        sub maximum_buffer_size {
             my ( $self, $value ) = @_;
             return (
                 defined $value
                 ? do {
-                    croak(q[BufferSize is malformed]) and return
+                    croak(q[maximum_buffer_size is malformed]) and return
                         unless $value =~ m[^\d+$];
-                    $BufferSize{$self} = $value;
+                    $maximum_buffer_size{$self} = $value;
                     }
-                : $BufferSize{$self}
+                : $maximum_buffer_size{$self}
             );
         }
 
@@ -296,19 +296,19 @@ use warnings;
 
         sub _add_connection {
             my ( $self, $connection ) = @_;
-            return $connections{$self}{ $connection->fileno }
+            return $connections{$self}{ $connection->_fileno }
                 = $connection;
         }
 
-        sub remove_connection {
+        sub _remove_connection {
             my ( $self, $connection ) = @_;
             return
                 if not defined $connections{$self}
-                    { $connection->fileno };
-            return delete $connections{$self}{ $connection->fileno };
+                    { $connection->_fileno };
+            return delete $connections{$self}{ $connection->_fileno };
         }
 
-        sub connections {
+        sub _connections {
             croak q[ARG! ...s. Too many of them.] if @_ > 1;
             my ($self) = @_;
             return values %{ $connections{$self} };
@@ -317,16 +317,16 @@ use warnings;
         sub do_one_loop {
             my ($self) = @_;
             for my $session ( shuffle @{ $sessions{$self} } ) {
-                $session->pulse if $session->next_pulse < time;
+                $session->_pulse if $session->_next_pulse < time;
             }
             grep {
-                $_->disconnect(
+                $_->_disconnect(
                     q[Connection timed out before established connection]
                     )
                     if $_ ne $self
-                        and ( not $_->connected )
+                        and ( not $_->_connected )
                         and
-                        ( $_->connection_timestamp < ( time - 60 ) )
+                        ( $_->_connection_timestamp < ( time - 60 ) )
             } values %{ $connections{$self} };
             my $timeout
                 = $timeout{$self}
@@ -344,7 +344,7 @@ use warnings;
                 vec( $win, $fileno, 1 ) = 1
                     if $fileno ne $fileno{$self}
                         and
-                        $connections{$self}{$fileno}->queue_outgoing;
+                        $connections{$self}{$fileno}->_queue_outgoing;
             }
             my ( $nfound, $timeleft )
                 = select( $rin, $win, $ein, $timeout );
@@ -353,7 +353,7 @@ use warnings;
                 foreach my $fileno ( keys %{ $connections{$self} } )
                 {
                     if ( vec( $ein, $fileno, 1 )
-                        or not $connections{$self}{$fileno}->socket )
+                        or not $connections{$self}{$fileno}->_socket )
                     {
                         if ( $^E
                              and
@@ -361,7 +361,7 @@ use warnings;
                             )
                         {
                             $connections{$self}{$fileno}
-                                ->disconnect($^E);
+                                ->_disconnect($^E);
                         }
                         next POP_SOCKET;
                     }
@@ -400,13 +400,13 @@ use warnings;
                         my $write = vec( $win, $fileno, 1 );
                         if ( $read or $write ) {
                             $connections{$self}{$fileno}
-                                ->process_one( ( ( 2**15 ) * $read ),
+                                ->_process_one( ( ( 2**15 ) * $read ),
                                              ( ( 2**15 ) * $write ) );
                         }
                     }
                 }
             }
-            usleep($timeleft) if $timeleft;    # save the CPU
+            sleep($timeleft) if $timeleft;    # save the CPU
             return 1;
         }
 
@@ -436,7 +436,7 @@ use warnings;
                 = [ grep { $session ne $_ } @{ $sessions{$self} } ];
         }
 
-        sub locate_session {
+        sub _locate_session {
             my ( $self, $infohash ) = @_;
             for my $session ( @{ $sessions{$self} } ) {
                 return $session if $session->infohash eq $infohash;
@@ -469,7 +469,7 @@ use warnings;
                            $maximum_peers_per_client{$self},
                            $maximum_peers_per_session{$self},
                            $maximum_peers_half_open{$self},
-                           $BufferSize{$self},
+                           $maximum_buffer_size{$self},
                            $maximum_requests_size{$self},
                            $maximum_requests_per_peer{$self},
             );
@@ -504,7 +504,7 @@ END
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
-
+{ # Callback system | So much for code reuse...
         sub _do_callback {
             my ( $self, $callback, @params ) = @_;
             if ( not defined $callbacks{$self}{$callback} ) {
@@ -914,7 +914,7 @@ END
                 unless ref $coderef eq q[CODE];
             return $callbacks{$self}{q[tracker_error]} = $coderef;
         }
-
+    }
         DESTROY {
             my $self = shift;
             delete $peer_id{$self};
@@ -923,7 +923,7 @@ END
             delete $maximum_peers_per_client{$self};
             delete $maximum_peers_per_session{$self};
             delete $maximum_peers_half_open{$self};
-            delete $BufferSize{$self};
+            delete $maximum_buffer_size{$self};
             delete $maximum_requests_size{$self};
             delete $maximum_requests_per_peer{$self};
             delete $timeout{$self};
@@ -1012,49 +1012,11 @@ Note: BitTorrent has not been assigned a port number or range by the
 IANA nor is such a standard needed.  Though, the default in most
 clients is a random port in the 6881-6889 range.
 
-=begin future
-
-B<BufferSize> - Amount of data, in bytes, we store from a peer before
-dropping their connection.  Setting this too high leaves you open to
-DDos-like attacks.  Malicious or not. (Defaults to 98304)
-
-maximum_peers_per_client - Max number of peers per client.
-
-Default: 300
-
-See also: [theory://Algorithms:_Queuing>]
-
-maximum_peers_per_session - Max number of peers per session.
-
-Default: 100
-
-maximum_peers_half_open - Max number of sockets we have yet to
-reciece a handshake from.
-
-NOTE: On some OS (WinXP, et. al.), setting this too high can cause
-problems with the TCP stack.
-
-Default: 8
-
-maximum_requests_size - Maximum size, in bytes, a peer is allowed to
-request from us as a single block.
-
-Default: 32768
-
-See also: [talk://Messages:_request]
-
-maximum_requests_per_peer - Maximum number of blocks we have in queue
-from each peer.
-
-Default: 10
-
-=end future
-
 B<Timeout> - The maximum amount of time C<select()> is allowed to wait
 before returning, in seconds, possibly fractional. (Defaults to 5.0)
 
 If the constructor fails, C<undef> will be returned and the value of
-C<$!> and C<$^E> shoulc be checked.
+C<$!> and C<$^E> should be checked.
 
 =back
 
@@ -1065,6 +1027,9 @@ C<false> value, with C<true> meaning that the operation was a
 success.  When a method states that it returns a value, failure will
 be returned as C<undef> or an empty list.
 
+Besides these listed here, there are several set_callback[...] methods
+described in the L</CALLBACKS> section.
+
 =over 4
 
 =item C<do_one_loop ( )>
@@ -1072,22 +1037,22 @@ be returned as C<undef> or an empty list.
 Processes the various socket-containing objects held by this
 C<Net::BitTorrent> object.  This method should be called frequently.
 
-See Also: L</timeout( )> method to set the timeout interval used by
-this method's C<select> call.
+See Also: L</timeout ( [TIMEOUT] )> method to set the timeout interval
+used by this method's C<select> call.
 
 =item C<timeout ( [TIMEOUT] )>
 
-Gets or sets the timeout value used by the L<do_one_loop( )> method.
+Gets or sets the timeout value used by the L<do_one_loop ( )> method.
 The default timeout is 5 seconds.
 
-See Also: L</do_one_loop( )>, L</new( )>
+See Also: L</do_one_loop ( )>, L</new ( [PARAMETERS] )>
 
 =item C<sessions ( )>
 
 Returns a list of all (if any) loaded
 L<Net::BitTorrent::Session|Net::BitTorrent::Session> objects.
 
-See Also: L</add_session( )>, L</remove_session( )>,
+See Also: L</add_session ( { ... } )>, L</remove_session ( SESSION )>,
 L<Net::BitTorrent::Session|Net::BitTorrent::Session>
 
 =item C<add_session ( { ... } )>
@@ -1103,7 +1068,7 @@ This method returns C<undef> on failure or a new
 L<Net::BitTorrent::Session|Net::BitTorrent::Session> object on
 success.
 
-See also: L</sessions( )>, L</remove_session( )>,
+See also: L</sessions ( )>, L</remove_session ( SESSION )>,
 L<Net::BitTorrent::Session|Net::BitTorrent::Session>
 
 =item C<remove_session ( SESSION )>
@@ -1114,14 +1079,71 @@ Before the torrent session is closed, we announce to the tracker
 that we have 'stopped' downloading and the callback to store the
 current state is called.
 
-See also: L</sessions( )>, L</add_session( )>,
+See also: L</sessions ( )>, L</add_session ( { ... } )>,
 L<Net::BitTorrent::Session|Net::BitTorrent::Session>
 
 =item C<peer_id ( )>
 
-Retrieve the peer_id genreated for this C<Net::BitTorrent> object.
+Retrieve the peer_id generated for this C<Net::BitTorrent> object.
 
-See also [theory://peer_id].
+See also: [theory://peer_id]
+
+=item C<sockaddr ( )>
+
+Return the address part of the sockaddr structure for the socket.
+
+See also: L<IO::Socket::INET/sockaddr>
+
+=item C<sockport ( )>
+
+Return the port number that the socket is using on the local host.
+
+See also: L<IO::Socket::INET/sockport>
+
+
+=item C<maximum_buffer_size ( )>
+
+Amount of data, in bytes, we store from a peer before dropping their
+connection.  Setting this too high leaves you open to DDos-like
+attacks.  Malicious or not. (Defaults to 98304)
+
+=item C<maximum_peers_per_client ( )>
+
+Max number of peers per client object.
+
+Default: 300
+
+See also: [theory://Algorithms:_Queuing>]
+
+=item C<maximum_peers_per_session ( )>
+
+Max number of peers per session.
+
+Default: 100
+
+=item C<maximum_peers_half_open ( )>
+
+Max number of sockets we have yet to receive a handshake from.
+
+NOTE: On some OSes (WinXP, et al.), setting this too high can cause
+problems with the TCP stack.
+
+Default: 8
+
+=item C<maximum_requests_size ( )>
+
+Maximum size, in bytes, a peer is allowed to request from us as a
+single block.
+
+Default: 32768
+
+See also: [talk://Messages:_request]
+
+=item C<maximum_requests_per_peer ( )>
+
+Maximum number of blocks we have in queue from each peer.
+
+Default: 10
 
 =item C<as_string ( [ VERBOSE ] )>
 
@@ -1129,7 +1151,7 @@ Returns a 'ready to print' dump of the C<Net::BitTorrent> object's
 data structure.  If called in void context, the structure is printed
 to C<STDERR>.
 
-Note: The stringified version returned by this method is not
+Note: The serialized version returned by this method is not
 a full, accurate representation of the object and cannot be C<eval>ed
 into a new C<Net::BitTorrent> object or used as resume data.
 
@@ -1150,90 +1172,146 @@ I<This is an experimental workaround that may or may not be
 removed or improved in the future.>
 
 See also [id://538097], [id://229642], [id://445883],
-[L<http://groups.google.com/group/perl.unicode/msg/86ab5af239975df7>].
+[L<http://groups.google.com/group/perl.unicode/msg/86ab5af239975df7>]
 
 =back
 
 =head1 CALLBACKS
 
-C<Net::BitTorrent> provides a convienient callback system for client
-developers.  To set a callback, use the equivilent
+C<Net::BitTorrent> provides a convenient callback system for client
+developers.  To set a callback, use the equivalent
 C<set_callback_on_[action]> method.  For example, to catch all attempts
 to read from a file, use
 C<$client-E<gt>set_callback_on_file_read(\&on_read)>.
 
 Here is the current list of events fired by C<Net::BitTorrent> and
-its related objects as well as a brief description (soon) of them:
+related classes as well as a brief description (soon) of them:
 
 =head2 Peer level
 
 Peer level events are triggered by
 L<Net::BitTorrent::Peer|Net::BitTorrent::Peer> objects.
 
-=begin future
+=begin future?
 
 This list will be moved to N::B::P's POD.  Same goes for all the
 other callbacks.
 
-=end future
+=end future?
 
 =over
 
-=item peer_connect ( CLIENT, PEER )
+=item C<set_callback_on_peer_connect ( CODEREF )>
 
-=item peer_disconnect ( CLIENT, PEER, REASON )
+Callback arguments: ( CLIENT, PEER )
 
-=item peer_incoming_keepalive ( CLIENT, PEER )
+=item C<set_callback_on_peer_disconnect ( CODEREF )>
 
-=item peer_outgoing_keepalive ( CLIENT, PEER )
+Callback arguments: ( CLIENT, PEER, REASON )
 
-=item peer_incoming_data ( CLIENT, PEER, LENGTH )
+=item C<set_callback_on_peer_incoming_bitfield ( CODEREF )>
 
-=item peer_outgoing_data ( CLIENT, PEER, LENGTH )
+Callback arguments: ( CLIENT, PEER )
 
-=item peer_outgoing_packet ( CLIENT, PEER, PACKET )
+=item C<set_callback_on_peer_incoming_block ( CODEREF )>
 
-=item peer_incoming_packet ( CLIENT, PEER, PACKET )
+Callback arguments: ( CLIENT, PEER, BLOCK )
 
-=item peer_incoming_handshake ( CLIENT, PEER )
+=item C<set_callback_on_peer_incoming_cancel ( CODEREF )>
 
-=item peer_outgoing_handshake ( CLIENT, PEER )
+Callback arguments: ( CLIENT, PEER, REQUEST )
 
-=item peer_incoming_choke ( CLIENT, PEER )
+=item C<set_callback_on_peer_incoming_choke ( CODEREF )>
 
-=item peer_outgoing_choke ( CLIENT, PEER )
+Callback arguments: ( CLIENT, PEER )
 
-=item peer_incoming_unchoke ( CLIENT, PEER )
+=item C<set_callback_on_peer_incoming_data ( CODEREF )>
 
-=item peer_outgoing_unchoke ( CLIENT, PEER )
+Callback arguments: ( CLIENT, PEER, LENGTH )
 
-=item peer_incoming_interested ( CLIENT, PEER )
+=item C<set_callback_on_peer_incoming_disinterested ( CODEREF )>
 
-=item peer_outgoing_interested ( CLIENT, PEER )
+Callback arguments: ( CLIENT, PEER )
 
-=item peer_incoming_disinterested ( CLIENT, PEER )
+=item C<set_callback_on_peer_incoming_handshake ( CODEREF )>
 
-=item peer_outgoing_disinterested ( CLIENT, PEER )
+Callback arguments: ( CLIENT, PEER )
 
-=item peer_incoming_have ( CLIENT, PEER, INDEX )
+=item C<set_callback_on_peer_incoming_have ( CODEREF )>
 
-=item peer_outgoing_have ( CLIENT, PEER, INDEX )
+Callback arguments: ( CLIENT, PEER, INDEX )
 
-=item peer_incoming_bitfield ( CLIENT, PEER )
+=item C<set_callback_on_peer_incoming_interested ( CODEREF )>
 
-=item peer_outgoing_bitfield ( CLIENT, PEER )
+Callback arguments: ( CLIENT, PEER )
 
-=item peer_incoming_request ( CLIENT, PEER, REQUEST )
+=item C<set_callback_on_peer_incoming_keepalive ( CODEREF )>
 
-=item peer_outgoing_request ( CLIENT, PEER, BLOCK )
+Callback arguments: ( CLIENT, PEER )
 
-=item peer_incoming_block ( CLIENT, PEER, BLOCK )
+=item C<set_callback_on_peer_incoming_packet ( CODEREF )>
 
-=item peer_outgoing_block ( CLIENT, PEER, REQUEST )
+Callback arguments: ( CLIENT, PEER, PACKET )
 
-=item peer_incoming_cancel ( CLIENT, PEER, REQUEST )
+=item C<set_callback_on_peer_incoming_request ( CODEREF )>
 
-=item peer_outgoing_cancel ( CLIENT, PEER, BLOCK )
+Callback arguments: ( CLIENT, PEER, REQUEST )
+
+=item C<set_callback_on_peer_incoming_unchoke ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
+
+=item C<set_callback_on_peer_outgoing_bitfield ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
+
+=item C<set_callback_on_peer_outgoing_block ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER, REQUEST )
+
+=item C<set_callback_on_peer_outgoing_cancel ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER, BLOCK )
+
+=item C<set_callback_on_peer_outgoing_choke ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
+
+=item C<set_callback_on_peer_outgoing_data ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER, LENGTH )
+
+=item C<set_callback_on_peer_outgoing_disinterested ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
+
+=item C<set_callback_on_peer_outgoing_handshake ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
+
+=item C<set_callback_on_peer_outgoing_have ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER, INDEX )
+
+=item C<set_callback_on_peer_outgoing_interested ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
+
+=item C<set_callback_on_peer_outgoing_keepalive ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
+
+=item C<set_callback_on_peer_outgoing_packet ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER, PACKET )
+
+=item C<set_callback_on_peer_outgoing_request ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER, BLOCK )
+
+=item C<set_callback_on_peer_outgoing_unchoke ( CODEREF )>
+
+Callback arguments: ( CLIENT, PEER )
 
 =back
 
@@ -1244,23 +1322,41 @@ L<Net::BitTorrent::Tracker|Net::BitTorrent::Tracker> objects.
 
 =over
 
-=item tracker_connect ( CLIENT, TRACKER )
+=item C<set_callback_on_tracker_announce ( CODEREF )>
 
-=item tracker_disconnect ( CLIENT, TRACKER )
+Callback arguments: ( CLIENT, TRACKER )
 
-=item tracker_scrape ( CLIENT, TRACKER )
+=item C<set_callback_on_tracker_announce_okay ( CODEREF )>
 
-=item tracker_announce ( CLIENT, TRACKER )
+Callback arguments: ( CLIENT, TRACKER )
 
-=item tracker_scrape_okay ( CLIENT, TRACKER )
+=item C<set_callback_on_tracker_connect ( CODEREF )>
 
-=item tracker_announce_okay ( CLIENT, TRACKER )
+Callback arguments: ( CLIENT, TRACKER )
 
-=item tracker_incoming_data ( CLIENT, TRACKER, LENGTH )
+=item C<set_callback_on_tracker_disconnect ( CODEREF )>
 
-=item tracker_outgoing_data ( CLIENT, TRACKER, LENGTH )
+Callback arguments: ( CLIENT, TRACKER )
 
-=item tracker_error ( CLIENT, TRACKER, MESSAGE )
+=item C<set_callback_on_tracker_error ( CODEREF )>
+
+Callback arguments: ( CLIENT, TRACKER, MESSAGE )
+
+=item C<set_callback_on_tracker_incoming_data ( CODEREF )>
+
+Callback arguments: ( CLIENT, TRACKER, LENGTH )
+
+=item C<set_callback_on_tracker_outgoing_data ( CODEREF )>
+
+Callback arguments: ( CLIENT, TRACKER, LENGTH )
+
+=item C<set_callback_on_tracker_scrape ( CODEREF )>
+
+Callback arguments: ( CLIENT, TRACKER )
+
+=item C<set_callback_on_tracker_scrape_okay ( CODEREF )>
+
+Callback arguments: ( CLIENT, TRACKER )
 
 =back
 
@@ -1272,15 +1368,25 @@ objects.
 
 =over
 
-=item file_read ( CLIENT, FILE, LENGTH )
+=item C<set_callback_on_file_close ( CODEREF )>
 
-=item file_write ( CLIENT, FILE, LENGTH )
+Callback arguments: ( CLIENT, FILE )
 
-=item file_open ( CLIENT, FILE )
+=item C<set_callback_on_file_error ( CODEREF )>
 
-=item file_close ( CLIENT, FILE )
+Callback arguments: ( CLIENT, FILE, MESSAGE )
 
-=item file_error ( CLIENT, FILE, MESSAGE )
+=item C<set_callback_on_file_open ( CODEREF )>
+
+Callback arguments: ( CLIENT, FILE )
+
+=item C<set_callback_on_file_read ( CODEREF )>
+
+Callback arguments: ( CLIENT, FILE, LENGTH )
+
+=item C<set_callback_on_file_write ( CODEREF )>
+
+Callback arguments: ( CLIENT, FILE, LENGTH )
 
 =back
 
@@ -1292,9 +1398,13 @@ objects.
 
 =over
 
-=item piece_hash_pass ( CLIENT, PIECE )
+=item C<set_callback_on_piece_hash_fail ( CODEREF )>
 
-=item piece_hash_fail ( CLIENT, PIECE )
+Callback arguments: ( CLIENT, PIECE )
+
+=item C<set_callback_on_piece_hash_pass ( CODEREF )>
+
+Callback arguments: ( CLIENT, PIECE )
 
 =back
 
@@ -1306,7 +1416,9 @@ objects.
 
 =over
 
-=item block_write ( CLIENT, BLOCK )
+=item C<set_callback_on_block_write ( CODEREF )>
+
+Callback arguments: ( BLOCK )
 
 =back
 
@@ -1317,10 +1429,17 @@ specific.
 
 =over
 
-=item log ( CLIENT, STRING )
+=item C<set_callback_on_log ( CODEREF )>
+
+Callback arguments: ( CLIENT, STRING )
 
 =back
 
+=begin TODOlist
+
+=head1 IMPLEMENTED EXTENTIONS
+
+Um, none yet.  Fast Peers soon.
 
 =head1 UNIMPLEMENTED EXTENTIONS
 
@@ -1406,11 +1525,16 @@ See [bep://17]
 
 =back
 
+=end TODOlist
+
 =head1 CAVEATS
+
+...none yet.
 
 =head2 BUGS/TODO
 
-Numerous. If you find one, please report it.
+Numerous.  If you find one not listed in the F<Todo> file included
+with this distribution, please report it.
 
 List of know bugs:
 

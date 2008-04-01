@@ -12,9 +12,9 @@ High priorities:
     - Net::BitTorrent::Session::Piece
     - Net::BitTorrent::Session::Piece::Block
     - Net::BitTorrent::Session::Tracker
-    - Net::BitTorrent::Util
 - Complete callback system
 - Endgame (untested)
+- Trackers need the correct event param
 
 Short term goals:
 - The return of Fast Extension aka 'Fast Peers'

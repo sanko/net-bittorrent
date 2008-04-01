@@ -1,18 +1,10 @@
-Version 0.001
+Version 0.008
 
  Interface changes:
   - It actually exists
 
  Internal changes:
-  - N::B
-  - N::B::Util
-  - N::B::Tracker
-  - N::B::Session
-  - N::B::Session::Piece
-  - N::B::Session::Piece::Block
-  - N::B::Session::File
-  - N::B::Peer
-    + N/A
+  - See above
 
 _ -.-. .... .- -. --. . ... _________________________________________
 $Rev$ from public svn

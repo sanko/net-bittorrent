@@ -211,7 +211,7 @@ use warnings;
                                             $self )
                     if not $old_value
                 ;    # no point telling us the piece is good twice
-                $session{$self}->check_endgame_status;
+                $session{$self}->_check_endgame_status;
                 return 1;
             }
 
@@ -222,7 +222,7 @@ use warnings;
             return 0;
         }
 
-        sub unrequested_block {
+        sub _unrequested_block {
             my ($self) = @_;
             return if not $working{$self};
             for my $block (
@@ -277,53 +277,7 @@ TODO
 
 =head1 METHODS
 
-=over 4
-
-=item C<hash ( )>
-
 TODO
-
-=item C<index ( )>
-
-TODO
-
-=item C<session ( )>
-
-TODO
-
-=item C<client ( )>
-
-TODO
-
-=item C<blocks ( )>
-
-TODO
-
-=item C<check ( )>
-
-TODO
-
-=item C<verify ( )>
-
-TODO
-
-=item C<previous_incoming_block ( )>
-
-TODO
-
-=item C<priority ( )>
-
-TODO
-
-=item C<working ( )>
-
-TODO
-
-=item C<size ( )>
-
-TODO
-
-=back
 
 =head1 AUTHOR
 

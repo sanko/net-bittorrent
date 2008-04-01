@@ -32,3 +32,5 @@ docs/multitracker-spec.pod
 docs/UDP tracker protocol.pod
 
 commit.changes.txt
+
+t/data/etc/http_tracker.pl

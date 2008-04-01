@@ -171,7 +171,7 @@ License.
 
 =head2 I'd like to help! What can I do?
 
-Short of becomeing an official co-owner of the project, the best way
+Short of becoming an official co-owner of the project, the best way
 to contribute would be through submission of patches.  All patches
 should be made against the most recent revision and well tested.  For
 a list of svn clients, some of which make patch creation a little

@@ -41,8 +41,7 @@ my $client = new Net::BitTorrent(
 ) or croak sprintf q[Failed to create N::B object (%s)], $^E;
 $SIG{q[INT]} = sub {
 
-    # One Ctrl-C combo shows status.
-    # Two exits.
+    # One Ctrl-C combo shows status.  Two exits.
     if ( $sig_int + 10 > time ) { exit; }
     $sig_int = time;
     print q[=] x 10
