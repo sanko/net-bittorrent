@@ -97,7 +97,7 @@ use warnings;
                         $peer_id{$self} = pack(
                             q[a20],
                             (  sprintf(
-                                   q[NB%03dS-%8s%5s],
+                                   q[NB%03dC-%8s%5s],
                                    ( q[$Rev$] =~ m[(\d+)]g ),
                                    (  join q[],
                                       map {
@@ -108,7 +108,7 @@ use warnings;
                                           ]->[ rand(66) ]
                                           } 1 .. 8
                                    ),
-                                   q[--SVN],
+                                   q[CPAN!],
                                )
                             )
                         );
