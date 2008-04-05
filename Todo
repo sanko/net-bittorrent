@@ -4,14 +4,7 @@ High priorities:
 - Documentation
   + Incomplete/missing
     - Net::BitTorrent
-    - Net::BitTorrent::FAQ
-    - Net::BitTorrent::Session
-    - Net::BitTorrent::Session::File
-    - Net::BitTorrent::Session::Peer
-    - Net::BitTorrent::Session::Peer::Request
-    - Net::BitTorrent::Session::Piece
-    - Net::BitTorrent::Session::Piece::Block
-    - Net::BitTorrent::Session::Tracker
+      - callbacks are still undocumented
 - Complete callback system
 - Endgame (untested)
 - Trackers need the correct event param
@@ -51,5 +44,6 @@ Long term goals:
 - gui-client.pl?
   + very light gui example using perl/TK
 - perlcritic severity=stern?
+- non-blocking hash_check()
 
 $Id$

@@ -13,8 +13,7 @@ use warnings;
     }
     use Digest::SHA qw[];
     use File::Spec qw[];
-    use Carp qw[carp croak croak];
-    use lib q[../../];
+    use Carp qw[carp];
     use Net::BitTorrent::Util
         qw[bdecode bencode uncompact compact sum];
     use Net::BitTorrent::Session::Piece;
@@ -28,53 +27,9 @@ use warnings;
              %endgame
         );
 
-=pod
-
-=begin future
-
-=over
-
-=item path
-
-Filename of the .torrent file to load.
-
-This is the only requried parameter.
-
-=item base_dir
-
-Base directory used to store the files related to this session.  If
-not preexisting, this directory is created when required.
-
-Default: F<./> (Current working directory)
-
-=item block_length
-
-Length of blocks we request from peers of this session.
-
-NOTE: This should not be changed accept during testing.
-
-Default: C<2**15>
-
-=item skip_hashcheck
-
-Bool value that, when set to C<true>, will not check the files of
-this session for integrity. We assume that we have none of the data
-of this torrent until we complete a hashcheck.
-
-Default: 0 (C<false>)
-
-=back
-
-=end future
-
-=cut
-
-        # constructor
         sub new {
             my ( $class, $args ) = @_;
             my $self = undef;
-
-            # Client is set internally. If we mess that up--
             if ( defined $args->{q[client]} ) {
                 if ( not defined $args->{q[path]} ) {
                     $args->{q[client]}->_do_callback( q[log],
@@ -119,7 +74,7 @@ Default: 0 (C<false>)
                                     bencode( $_content->{q[info]} ) );
 
                     if ( $infohash !~ m[^([0-9a-f]{40})$] ) {
-                        croak(q[Improper info_hash]);
+                        carp(q[Improper info_hash]);
                         return;
                     }
                     elsif (
@@ -130,7 +85,7 @@ Default: 0 (C<false>)
                         ) < 40
                         )
                     {
-                        croak(q[Broken torrent]);
+                        carp(q[Broken torrent]);
                         return;
                     }
                     $self = bless \$infohash, $class;
@@ -269,13 +224,12 @@ Default: 0 (C<false>)
             return $self;
         }
 
-        # Methods
         sub hash_check {
             my ($self) = @_;
             for my $piece ( @{ $pieces{$self} } ) { $piece->verify }
+            return 1;
         }
 
-        # static
         sub _next_pulse {
             my ($self) = @_;
             return $next_pulse{$self};
@@ -311,25 +265,33 @@ Default: 0 (C<false>)
         }
 
         sub block_size {
-            my ($self) = @_;
-            return $block_size{$self};
-        }
-
-        sub set_block_size {
             my ( $self, $value ) = @_;
-            return if $value > 2**15;
-            $block_size{$self} = $value;
+            return (
+                defined $value
+                ? do {
+                    $self->client->_do_callback( q[on_log],
+                                          q[block_size is malformed] )
+                        and return
+                        unless $value =~ m[^\d+$]
+                            and $value < (
+                                   $client{$self}->maximum_buffer_size
+                                       + 12
+                            );
+                    $block_size{$self} = $value;
+                    }
+                : $block_size{$self}
+            );
         }
 
         sub total_size {
             my ($self) = @_;
             return $total_size{$self};
         }
-        sub endgame { my ($self) = @_; return $endgame{$self}; }
+        sub _endgame { my ($self) = @_; return $endgame{$self}; }
 
         sub _inc_uploaded {
             my ( $self, $value ) = @_;
-            croak q[uploaded is protected]
+            carp q[uploaded is protected]
                 unless caller->isa(q[Net::BitTorrent::Session::Peer]);
             return $uploaded{$self} += $value;
         }
@@ -337,7 +299,7 @@ Default: 0 (C<false>)
 
         sub _inc_downloaded {
             my ( $self, $value ) = @_;
-            croak q[downloaded is protected]
+            carp q[downloaded is protected]
                 unless caller->isa(q[Net::BitTorrent::Session::Peer]);
             return $downloaded{$self} += $value;
         }
@@ -362,7 +324,7 @@ Default: 0 (C<false>)
         sub compact_nodes {
             my ($self) = @_;
             return $nodes{$self};
-        }    # quick-resume
+        }
 
         sub _pulse {
             my ($self) = @_;
@@ -383,15 +345,10 @@ Default: 0 (C<false>)
 #	$_->_disconnect(q[We're in pull mode and this peer has nothing for us.])
 #	not $_->is_interesting
 #} @peers;
-# Remove peers we're not interested it. Evil, but...
-# well, survival is key. We can seed later.
+# Remove peers we're not interested it.  Evil, but...
+# well, survival is key. We can seed later.  Right?  Right.
 #}
 # TODO: review the above block =======================================
-            warn sprintf
-                q[-----> Current peers: half-open:%d | mine:%d],
-                scalar( grep { not $_->peer_id } @peers ),
-                scalar(@peers)
-                if $Net::BitTorrent::DEBUG;
 
         # TODO: remember TCP/IP holds old connections ~120s and you'll
         #      get caught with too many open sockets if they pile up
@@ -503,11 +460,6 @@ Default: 0 (C<false>)
                 )
             );
             return if not @weights;
-            warn sprintf qq[max: %d, w: (%d) %s\n],
-                $max_working,
-                scalar @weights,
-                join( q[, ], map { $_->index } @weights )
-                if $Net::BitTorrent::DEBUG;
 
             # [id://230661]
             my $total    = sum map { $_->priority } @weights;
@@ -519,8 +471,6 @@ Default: 0 (C<false>)
             $piece = $weights[$i];
             if ($piece) {
                 $piece->working(1);
-                warn q[Settled on ] . $piece->index
-                    if $Net::BitTorrent::DEBUG;
                 return $piece;
             }
             return;
@@ -728,38 +678,236 @@ END
             return $dump;
         }
     }
-
 }
 1;
+
 __END__
 
 =pod
 
 =head1 NAME
 
-Net::BitTorrent::Session - BitTorrent client class
+Net::BitTorrent::Session - Single .torrent session
 
-=head1 DESCRIPTION
+=head1 CONSTRUCTOR
 
-TODO
+=over 4
+
+=item C<new ( { [ARGS] } )>
+
+Creates a C<Net::BitTorrent::Session> object.  This constructor is
+called by
+L<Net::BitTorrent::add_session()|Net::BitTorrent/add_session ( { ... } )>
+and should not be used directly.  C<new ( )> accepts arguments as a
+hash, using key-value pairs:
+
+=over 4
+
+=item C<path>
+
+Filename of the .torrent file to load.
+
+This is the only required parameter.
+
+=item C<base_dir>
+
+Base directory used to store the files related to this session.  This
+directory is created if not preexisting.
+
+Default: C<./> (Current working directory)
+
+=item C<block_length>
+
+Length of blocks we request from peers of this session.  This should
+not be changed as it can greatly affect performance.
+
+Default: 32768 (C<2**15>)
+
+=back
+
+=back
 
 =head1 METHODS
 
-TODO
+Unless stated, all methods return either a C<true> or C<false> value,
+with C<true> meaning that the operation was a success.  When a method
+states that it returns a value, failure will result in C<undef> or an
+empty list.
+
+=over 4
+
+=item C<add_tracker ( URLS )>
+
+Add a new
+L<Net::BitTorrent::Session::Tracker|Net::BitTorrent::Session::Tracker>
+tier to the session.  Accepts a list of URLs.
+
+See also: L<trackers ( )|/trackers ( )>
+
+=item C<append_nodes ( STRING )>
+
+Adds a string of compacted nodes to the list of potential peers.
+
+See also:
+L<compact_nodes ( )|/compact_nodes ( )>, L<nodes ( )|/nodes ( )>,
+L<Net::BitTorrent::Util::compact( )|Net::BitTorrent::Util/compact ( LIST )>
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the C<Net::BitTorrent::Session>
+object's data structure.  If called in void context, the structure is
+printed to C<STDERR>.
+
+See also: [id://317520],
+L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
+
+=item C<bitfield ( )>
+
+Returns a bitfield representing the pieces that have been successfully
+downloaded.
+
+=item C<block_size ( [NEWVAL] )>
+
+Mutator to get and/or set the size used when requesting data from
+peers.  Use with care.
+
+See also:
+L<Net::BitTorrent::maximum_buffer_size( )|Net::BitTorrent/maximum_buffer_size ( [NEW VALUE] )>,
+theory.org (L<http://tinyurl.com/32k7wu>), discussion
+(L<http://tinyurl.com/4ekea2>)
+
+=item C<client ( )>
+
+Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
+session.
+
+=item C<close_files ( )>
+
+Forces the closure of all related
+L<Net::BitTorrent::Session::File|Net::BitTorrent::Session::File>
+objects with open file handles.
+
+Under normal circumstances, this should not be called in clients.
+
+=item C<compact_nodes ( )>
+
+Returns a list of potential peers as a compacted string.
+
+See also:
+L<nodes ( )|/nodes ( )>,
+L<Net::BitTorrent::Util::compact( )|Net::BitTorrent::Util/compact ( LIST )>
+L<Net::BitTorrent::Util::uncompact( )|Net::BitTorrent::Util/uncompact ( STRING )>
+
+=item C<complete ( )>
+
+Boolean value indicating whether or not we have finished downloading
+all pieces we want.
+
+See also:
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
+
+=item C<downloaded ( )>
+
+Returns the total amount of data downloaded during the current
+session.
+
+See also: L<uploaded ( )|/uploaded ( )>
+
+=item C<files ( )>
+
+Returns a list of
+L<Net::BitTorrent::Session::File|Net::BitTorrent::Session::File>
+objects representing all files contained in the related .torrent file.
+
+=item C<hash_check ( )>
+
+Verifies the integrity of all files associated with this session.
+
+This is a blocking method; all processing will stop until this
+function returns.
+
+See also:
+L<Net::BitTorrent::Session::Piece::verify( )|Net::BitTorrent::Session::Piece/verify( )>
+
+=item C<infohash ( )>
+
+Returns the 20 byte SHA1 hash used to identify this session
+internally, with trackers, and with remote peers.
+
+=item C<nodes ( )>
+
+Returns a list of potential peers.
+
+To receive a compacted list of nodes (to use in a quick resume system,
+for example), see L<compact_nodes( )|/compact_nodes ( )>.
+
+=item C<peers ( )>
+
+Returns a list of all related
+L<Net::BitTorrent::Session::Peer|Net::BitTorrent::Session::Peer>
+objects.
+
+=item C<piece_count ( )>
+
+Returns the number of
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
+objects related to this session.
+
+=item C<piece_size ( )>
+
+Returns the piece size defined in the .torrent file.
+
+=item C<pieces ( )>
+
+Returns a list of
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
+objects.
+
+=item C<private ( )>
+
+Returns a bool value indicating whether or not this session is allowed
+to use DHT and other Peer Exchange protocols.
+
+=item C<total_size ( )>
+
+Returns the total size of all files listed in the .torrent file.
+
+=item C<trackers ( )>
+
+Returns a list of all
+L<Net::BitTorrent::Session::Tracker|Net::BitTorrent::Session::Tracker>
+objects related to the session.
+
+See also: L<add_tracker ( )|/add_tracker ( URLS )>
+
+=item C<uploaded ( )>
+
+Returns the total amount of data uploaded during the current session.
+
+See also: L<downloaded ( )|/downloaded ( )>
+
+=back
 
 =head1 AUTHOR
 
-Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
+
+CPAN ID: SANKO
+
+ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 
 Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+it under the same terms as Perl itself.  See
+L<http://www.perl.com/perl/misc/Artistic.html> or the F<LICENSE> file
 included with this module.
+
+All POD documentation is covered by the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 License
+(L<http://creativecommons.org/licenses/by-nc-sa/3.0/us/>).
 
 Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
 BitTorrent, Inc.
@@ -767,4 +915,3 @@ BitTorrent, Inc.
 =for svn $Id$
 
 =cut
-

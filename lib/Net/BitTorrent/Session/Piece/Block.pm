@@ -11,8 +11,8 @@ use warnings;
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
     use Scalar::Util qw[/weak/];
-    use Carp qw[carp croak];
-    {    # constructor
+    use Carp qw[carp];
+    {
         my ( %offset, %length, %piece, %peer );
 
         sub new {
@@ -99,38 +99,100 @@ use warnings;
             return 1;
         }
     }
-    1;
 }
-
+    1;
 __END__
 
 =pod
 
 =head1 NAME
 
-Net::BitTorrent::Session::Piece::Block - BitTorrent client class
+Net::BitTorrent::Session::Piece::Block - Outgoing request
 
-=head1 DESCRIPTION
+=head1 CONSTRUCTOR
 
-TODO
+=over 4
+
+=item C<new ( { [ARGS] } )>
+
+Creates a C<Net::BitTorrent::Session::Piece::Block> object.  This
+constructor should not be used directly.
+
+=back
 
 =head1 METHODS
 
-TODO
+=over 4
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the
+C<Net::BitTorrent::Session::Piece::Block> object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+
+See also: [id://317520],
+L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
+
+=item C<client ( )>
+
+Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
+block.
+
+=item C<index ( )>
+
+Returns the zero based index of the related
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
+object.
+
+=item C<length ( )>
+
+Returns the amount of data covered by the block.
+
+=item C<offset ( )>
+
+Returns the offset of the block in reference to the beginning of the
+L<piece|Net::BitTorrent::Session::Piece>.
+
+=item C<peers ( )>
+
+Returns a list of all related
+L<Net::BitTorrent::Session::Peer|Net::BitTorrent::Session::Peer>
+objects.  Unless the L<session|Net::BitTorrent::Session> is in endgame
+mode, the list will contain a single peer.
+
+=item C<piece ( )>
+
+Returns the
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
+object related to this piece.
+
+=item C<session ( )>
+
+Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session>
+object related to this block.
+
+=back
 
 =head1 AUTHOR
 
-Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
+
+CPAN ID: SANKO
+
+ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 
 Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+it under the same terms as Perl itself.  See
+L<http://www.perl.com/perl/misc/Artistic.html> or the F<LICENSE> file
 included with this module.
+
+All POD documentation is covered by the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 License
+(L<http://creativecommons.org/licenses/by-nc-sa/3.0/us/>).
 
 Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
 BitTorrent, Inc.

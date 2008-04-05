@@ -12,14 +12,13 @@ use warnings;
     }
     use Fcntl qw[/O_/ /SEEK/];
     use File::Spec;
-    use Carp qw[carp croak];
-    my ( %size,           %path,      %index,
-         %session,        %handle,    %unicode_filehandle,
-         %open_timestamp, %open_mode, %touch_timestamp      ,%piece_range
+    use Carp qw[carp];
+    my (%size,    %path,   %index,
+        %session, %handle, %unicode_filehandle,
+        %open_timestamp, %open_mode, %touch_timestamp, %piece_range
 
     );
-    {    # constructor
-
+    {
         sub new {
             my ( $class, $args ) = @_;
             my $self = undef;
@@ -41,7 +40,7 @@ use warnings;
                 $path{$self}      = $args->{q[path]};
                 $index{$self}     = $args->{q[index]};
                 $session{$self}   = $args->{q[session]};
-                $open_mode{$self} = q[c];
+                $open_mode{$self} = undef;
             }
             return $self;
         }
@@ -55,13 +54,14 @@ use warnings;
         }
         sub index   { my ($self) = @_; return $index{$self} }
         sub session { my ($self) = @_; return $session{$self} }
+
         sub client {
             my ($self) = @_;
             return $session{$self}->client;
         }
-        sub handle { my ($self) = @_; return $handle{$self} }
+        sub _handle { my ($self) = @_; return $handle{$self} }
 
-        sub use_unicode_handle {
+        sub _use_unicode_handle {
             my ($self) = @_;
             return $unicode_filehandle{$self};
         }    # used only on win32
@@ -102,20 +102,22 @@ use warnings;
                         my @created
                             = File::Path::mkpath(
                             File::Spec->catpath( $vol, $dir, q[] ),
-                            { verbose => $Net::BitTorrent::DEBUG } )
+                            { verbose => 0 } )    # or one?
                             or return;
-                        grep { print q[mkpath created $_\n] } @created
-                            if $Net::BitTorrent::DEBUG;
+                        grep {
+                            $self->client->_do_callback( q[on_log],
+                                              q[mkpath created $_\n] )
+                        } @created;
                     }
                 }
             }
             if ($self->client->use_unicode
                 ? do {
                     $self->_sysopen( ( $mode eq q[r]
-                                      ? O_RDONLY
-                                      : O_WRONLY | O_CREAT
-                                    ),
-                                    oct 777
+                                       ? O_RDONLY
+                                       : O_WRONLY | O_CREAT
+                                     ),
+                                     oct 777
                     );
                 }
                 : do {
@@ -130,7 +132,8 @@ use warnings;
                 }
                 )
             {
-                $open_mode{$self}      = $mode;
+                $open_mode{$self}
+                    = $mode eq q[r] ? O_RDONLY : O_WRONLY;
                 $open_timestamp{$self} = time;
                 $self->client->_do_callback( q[file_open], $self );
                 return 1;
@@ -142,7 +145,7 @@ use warnings;
             my ( $self, $position ) = @_;
             if ( not $handle{$self} ) {
                 $self->client->_do_callback( q[file_error],
-                                            q[File not open] );
+                                             q[File not open] );
             }
             elsif ( $position > $size{$self} ) {
                 $self->client->_do_callback(
@@ -154,20 +157,19 @@ use warnings;
                 );
             }
             else {
-                return
-                    sysseek( $handle{$self}, $position, SEEK_SET );
+                return sysseek( $handle{$self}, $position, SEEK_SET );
             }
         }
-        sub _systell { sysseek( $_[0]->handle, 0, SEEK_CUR ) }
+        sub _systell { sysseek( $_[0]->_handle, 0, SEEK_CUR ) }
 
         sub _read {
             my ( $self, $length ) = @_;
             my $data = q[];
             if ( not $handle{$self} ) {
                 $self->client->_do_callback( q[file_error],
-                                            q[File not open] );
+                                             q[File not open] );
             }
-            elsif ( $open_mode{$self} ne q[r] ) {
+            elsif ( $open_mode{$self} != O_RDONLY ) {
                 $self->client->_do_callback( q[file_error],
                                           q[File not open for read] );
             }
@@ -183,7 +185,7 @@ use warnings;
                 if ( $real_length or ( $real_length == $length ) ) {
                     $touch_timestamp{$self} = time;
                     $self->client->_do_callback( q[file_read], $self,
-                                                $real_length );
+                                                 $real_length );
                 }
             }
             return $data;
@@ -194,9 +196,9 @@ use warnings;
             my $real_length;
             if ( not $handle{$self} ) {
                 $self->client->_do_callback( q[file_error],
-                                            q[File not open] );
+                                             q[File not open] );
             }
-            elsif ( $open_mode{$self} ne q[w] ) {
+            elsif ( $open_mode{$self} != O_WRONLY ) {
                 $self->client->_do_callback( q[file_error],
                                          q[File not open for write] );
             }
@@ -214,7 +216,7 @@ use warnings;
                 {
                     $touch_timestamp{$self} = time;
                     $self->client->_do_callback( q[file_write], $self,
-                                                $real_length );
+                                                 $real_length );
                 }
             }
             return $real_length;
@@ -226,7 +228,7 @@ use warnings;
                 ? do { $self->_sysclose( $handle{$self} ) }
                 : do { CORE::close( $handle{$self} ) };
             delete $handle{$self};
-            delete $open_mode{$self};
+            $open_mode{$self} = undef;
             $self->client->_do_callback( q[file_close], $self );
             return 1;
         }
@@ -255,29 +257,8 @@ use warnings;
             }
             return
                 map { $self->session->pieces->[$_] }
-                ($piece_range{$self}[0] .. $piece_range{$self}[1] );
+                ( $piece_range{$self}[0] .. $piece_range{$self}[1] );
         }
-
-=pod
-
-=begin future
-
-With this snippet, you can set the priority of any file to anything
-you want.  By default, all pieces begin with a level two priority
-with the intent being on a 0 (skip), 1 (low), 2 (normal), 3 (high)
-priority scale.  You could set a file's priority to say... 1,000,000
-and be positive we'll work on it first.
-
-NOTE: Setting the priority to zero will tell C<Net::BitTorrrent> not
-to bother requesting these pieces but the file will still be created
-on disk if a piece we want overlaps onto this file.  Just give me
-some time to work on an intermediate .piece file and this problem
-will go away. I may put an improved version of the above code into
-L<Net::BitTorrent::Session> when I start working on the rough edges.
-
-=end future
-
-=cut
 
         sub priority {
             my ( $self, $value ) = @_;
@@ -287,7 +268,7 @@ L<Net::BitTorrent::Session> when I start working on the rough edges.
             return (
                 defined $value
                 ? do {
-                    croak(q[priority is malformed]) and return
+                    carp(q[priority is malformed]) and return
                         unless $value =~ m[^\d+$];
                     map { $_->priority($value) } $self->pieces;
                     }
@@ -392,7 +373,7 @@ END
                 );
                 my $fd = OsFHandleOpenFd( $h, $mode );
                 return if $fd < 0;
-                $self->use_unicode_handle($h);
+                $self->_use_unicode_handle($h);
                 return
                     CORE::open( $handle{$self},
                                 (  ( $mode &= O_WRONLY )
@@ -408,19 +389,18 @@ END
         sub _sysclose {
             my ($self) = @_;
             if ( $self->session->client->use_unicode
-                 and defined $self->use_unicode_handle )
+                 and defined $self->_use_unicode_handle )
             {
                 require Win32API::File;
                 Win32API::File->import(qw[:ALL]);
-                my $OS_FH = CloseHandle( $self->use_unicode_handle );
+                my $OS_FH = CloseHandle( $self->_use_unicode_handle );
                 delete $unicode_filehandle{$self};
             }
             return CORE::close( $handle{$self} )
                 and delete $handle{$self}
-                and $open_mode{$self} = q[c];
+                and $open_mode{$self} = undef;
         }
     }
-
 }
 1;
 __END__
@@ -429,79 +409,129 @@ __END__
 
 =head1 NAME
 
-Net::BitTorrent::Session::File - BitTorrent client class
+Net::BitTorrent::Session::File - Single file class
 
-=head1 DESCRIPTION
+=head1 CONSTRUCTOR
 
-TODO
+=over 4
+
+=item C<new ( { [ARGS] } )>
+
+Creates a C<Net::BitTorrent::Session::File> object.  This constructor
+should not be used directly.
+
+=back
 
 =head1 METHODS
 
 =over 4
 
-=item C<size ( )>
+=item C<as_string ( [ VERBOSE ] )>
 
-TODO
+Returns a 'ready to print' dump of the
+C<Net::BitTorrent::Session::File> object's data structure.  If called
+in void context, the structure is printed to C<STDERR>.
 
-=item C<path ( )>
-
-TODO
-
-=item C<index ( )>
-
-TODO
-
-=item C<session ( )>
-
-TODO
+See also: [id://317520],
+L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
 
 =item C<client ( )>
 
-TODO
+Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
+file.
 
-=item C<handle ( )>
+=item C<index ( )>
 
-TODO
-
-=item C<open_timestamp ( )>
-
-TODO
+Returns the zero based index of this file according to the related
+L<Net::BitTorrent::Session|Net::BitTorrent::Session> object's file
+list.
 
 =item C<open_mode ( )>
 
-TODO
+Returns a C<Fcntl> value representing if and how the related file
+handle is open.  Possible values:
 
-=item C<touch_timestamp ( )>
+    O_RDONLY - Read
+    O_WRONLY - Write
+    undef    - Closed
 
-TODO
+See also: L<Fcntl|Fcntl>
+
+=item C<open_timestamp ( )>
+
+Returns when the file was opened.
+
+=item C<path ( )>
+
+Returns the absolute path of the related file.
 
 =item C<piece_range ( )>
 
-TODO
+Returns the indexes of the first and last
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
+objects covered by this file.
 
 =item C<pieces ( )>
 
-TODO
+Returns a list of
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
+objects.
 
-=item C<priority ( )>
+=item C<priority ( [NEWVAL] )>
 
-TODO
+Mutator to set/get the download priority of this file.
+
+By default, all files begin with a level two priority with the intent
+being on a C<0> (skip), C<1> (low), C<2> (normal), C<3> (high)
+priority scale but you may use any scale you want.  For example, you
+could set a file's priority to say... C<1,000,000>, leave everything
+else at the default C<2> and and be positive we'll work on it first.
+To avoid downloading this file, set priority to zero.
+
+See also:
+L<Net::BitTorrent::Session::Piece::priority ( )|Net::BitTorrent::Session::Piece/priority ( [NEWVAL] )>
+
+NOTE: Setting the priority to zero will tell C<Net::BitTorrrent> not
+to bother requesting these pieces but the file will still be created
+on disk if a piece we want overlaps onto this file.  Just give me some
+time to work on an intermediate .piece file and this problem will go
+away.
+
+=item C<session ( )>
+
+Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session>
+object related to this file.
+
+=item C<size ( )>
+
+Returns the size of the file represented by this object.
+
+=item C<touch_timestamp ( )>
+
+Returns when the file was last written to.
 
 =back
 
 =head1 AUTHOR
 
-Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
+
+CPAN ID: SANKO
+
+ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 
 Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+it under the same terms as Perl itself.  See
+L<http://www.perl.com/perl/misc/Artistic.html> or the F<LICENSE> file
 included with this module.
+
+All POD documentation is covered by the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 License
+(L<http://creativecommons.org/licenses/by-nc-sa/3.0/us/>).
 
 Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
 BitTorrent, Inc.

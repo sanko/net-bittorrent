@@ -252,7 +252,7 @@ Net::BitTorrent::Util - Utility functions
 
 =over 4
 
-=item bencode
+=item C<bencode ( ARGS )>
 
 Expects a single value (basic scalar, array reference, or hash
 reference) and returns a single string.
@@ -263,14 +263,14 @@ lists (arrays), dictionaries (hashes), and byte strings.
 
 See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
 
-=item bdecode
+=item C<bdecode ( STRING )>
 
 Expects a bencoded string.  The return value depends on the type of
 data contained in the string.
 
 See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
 
-=item compact
+=item C<compact ( LIST )>
 
 Compacts a list of IPv4:port strings into a single string.
 
@@ -278,7 +278,7 @@ A compact peer is 6 bytes;  the first four bytes are the host (in
 network byte order), the last two bytes are the port (again in network
 byte order).
 
-=item uncompact
+=item C<uncompact ( STRING )>
 
 Inflates a compacted string of peers and returns a list of IPv4:port
 strings.

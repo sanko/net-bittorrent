@@ -186,4 +186,4 @@ $torrent->name(q[seed]);
 
 $torrent->save;
 
-# $Id: generate_miniswarm_dot_torrent.pl 4 2008-03-20 20:37:16Z sanko@cpan.org $
+# $Id$

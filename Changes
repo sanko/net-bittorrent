@@ -1,12 +1,26 @@
+Version 0.0XX
+
+ API changes:
+  - None
+
+ Internal changes:
+  - None
+
+ Notes:
+  - This is a documentation update.  100% POD coverage
+
 Version 0.008
 
- Interface changes:
+ API changes:
   - It actually exists
 
  Internal changes:
   - See above
 
 _ -.-. .... .- -. --. . ... _________________________________________
+For more information, see the commit log:
+    http://code.google.com/p/net-bittorrent/source/list
+
 $Rev$ from public svn
 $Date$
 $URL$

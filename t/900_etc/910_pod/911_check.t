@@ -3,6 +3,9 @@
 # t/900_etc/910_pod/911_check.t -
 # $Id$
 
+use strict;
+use warnings;
+
 use Test::More;
 
 eval q[use Test::Pod 1.00];

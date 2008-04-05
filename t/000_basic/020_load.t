@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# /t/000_basic/002_load.t
+# /t/000_basic/020_load.t
 #
 # $Id$
 

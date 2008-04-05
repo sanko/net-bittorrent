@@ -1,7 +1,8 @@
+Build.PL
 Changes
-docs/PeerID_spec.pod
 lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/FAQ.pod
+lib/Net/BitTorrent/PeerID.pod
 lib/Net/BitTorrent/Session.pm
 lib/Net/BitTorrent/Session/File.pm
 lib/Net/BitTorrent/Session/Peer.pm
@@ -16,8 +17,9 @@ MANIFEST			This list of files
 META.yml
 README
 scripts/client.pl
-t/000_basic/001_load_prerequisites.t
-t/000_basic/002_load.t
+t/000_basic/005_signature.t
+t/000_basic/010_load_prerequisites.t
+t/000_basic/020_load.t
 t/100_data_parsing/101_bdecode.t
 t/100_data_parsing/102_bdecode_bad.t
 t/100_data_parsing/105_bencode.t

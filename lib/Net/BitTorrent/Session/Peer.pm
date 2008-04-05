@@ -8,15 +8,14 @@ use warnings;
         use vars qw[$VERSION];
         use version qw[qv];
         our $SVN
-            = q[$Id: Peer.pm 4 2008-03-20 20:37:16Z sanko@cpan.org $];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 4 $)->numify / 1000;
+            = q[$Id$];
+        our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
     use Socket
         qw[SOL_SOCKET SO_SNDTIMEO SO_RCVTIMEO PF_INET AF_INET SOCK_STREAM];
     use Fcntl qw[F_SETFL O_NONBLOCK];
-    use Carp qw[carp croak];
-    use Digest::SHA qw[];
-    use lib q[../../../];
+    use Carp qw[carp];
+    use Digest::SHA qw[sha1_hex];
     use Net::BitTorrent::Session::Peer::Request;
     use Net::BitTorrent::Util qw[min bdecode];
     {
@@ -54,7 +53,7 @@ use warnings;
              %previous_incoming_block,
              %previous_outgoing_request,
              %previous_outgoing_keepalive,
-             %extentions_FastPeers_outgoing_fastset
+             %outgoing_fastset
         );
 
         # constructor
@@ -100,23 +99,22 @@ use warnings;
                 }
                 else { fcntl( $socket, F_SETFL, O_NONBLOCK ) }
 
-#if(
-#	(
-#		not
-#			(
-#				$^O eq q[Win32]
-#				? not ioctl($socket, 0x8004667e, pack(q[I], 1))
-#				: fcntl(fd, F_SETFL, ~O_NONBLOCK)
-#			)
-#		and
-#			$Net::BitTorrent::DEBUG
+                #if(
+                #	(
+                #		not
+                #			(
+                #				$^O eq q[Win32]
+                #				? not ioctl($socket, 0x8004667e, pack(q[I], 1))
+                #				: fcntl(fd, F_SETFL, ~O_NONBLOCK)
+                #			)
+
 #	)
 #)
 #{carp(q[Failed to set socket blocking status]);}
 #if (not setsockopt($socket, SOL_SOCKET, SO_SNDTIMEO, pack(q[LL], 30, 0))
-#and $Net::BitTorrent::DEBUG){carp(q[Failed to set socket timeout]);}
+# ){carp(q[Failed to set socket timeout]);}
 #if not( setsockopt($socket, SOL_SOCKET, SO_RCVTIMEO, pack(q[LL], 30, 0))
-#and $Net::BitTorrent::DEBUG){or carp(q[Failed to set socket timeout]);}
+# ){or carp(q[Failed to set socket timeout]);}
 #setsockopt($socket, SOL_SOCKET, SO_SNDBUF, 1024 * 256);
 #setsockopt($socket, SOL_SOCKET, SO_RCVBUF, 1024 * 256);
                 my ( $ip, $peerport ) = split q[:],
@@ -172,7 +170,7 @@ use warnings;
 
         # static
         sub peer_id { my ($self) = @_; return $peer_id{$self}; }
-        sub _socket  { my ($self) = @_; return $socket{$self}; }
+        sub _socket { my ($self) = @_; return $socket{$self}; }
 
         sub peerport {
             my ($self) = @_;
@@ -200,9 +198,9 @@ use warnings;
         }
         sub _fileno    { my ($self) = @_; return $fileno{$self}; }
         sub _connected { my ($self) = @_; return $connected{$self}; }
-        sub session   { my ($self) = @_; return $session{$self}; }
-        sub bitfield  { my ($self) = @_; return $bitfield{$self}; }
-        sub client    { my ($self) = @_; return $client{$self}; }
+        sub session    { my ($self) = @_; return $session{$self}; }
+        sub bitfield   { my ($self) = @_; return $bitfield{$self}; }
+        sub client     { my ($self) = @_; return $client{$self}; }
 
         sub downloaded {
             my ($self) = @_;
@@ -252,13 +250,13 @@ use warnings;
             return $queue_incoming{$self};
         }
 
-        #sub _add_outgoing_request {
-        #    my ( $self, $request ) = @_;
-        #    return
-        #        unless $request->isa(
-        #                          q[Net::BitTorrent::Session::Block]);
-        #    return push @{ $outgoing_requests{$self} }, $request;
-        #}
+       #sub _add_outgoing_request {
+       #    my ( $self, $request ) = @_;
+       #    return
+       #        unless $request->isa(
+       #                          q[Net::BitTorrent::Session::Block]);
+       #    return push @{ $outgoing_requests{$self} }, $request;
+       #}
 
         sub outgoing_requests {
             my ($self) = @_;
@@ -601,7 +599,9 @@ use warnings;
                         if (    ( not defined $block )
                              or ( length($data) != $block->length ) )
                         {
-                            $self->_disconnect(q[Malformed PIECE packet. (2)]);
+                            $self->_disconnect(
+                                      q[Malformed PIECE packet. (2)]);
+
            #
            #}
            #elsif (not scalar $block->peers
@@ -625,7 +625,7 @@ use warnings;
                             $session{$self}
                                 ->_inc_downloaded( length $data );
                             $previous_incoming_block{$self} = time;
-                            $block->piece->previous_incoming_block(
+                            $block->piece->_previous_incoming_block(
                                                                 time);
                             $client{$self}->_do_callback(
                                 q[peer_incoming_block], $self,
@@ -657,20 +657,23 @@ use warnings;
                                     } $session{$self}->peers;
                                 }
                                 else {
-                                    #die q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
+
+                 #die q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
 
                            # TODO: penalize all peers related to piece
                            # See N::B::P::verify()
                                 }
                             }
                             else {
+
                                 #die q[Gah];
 
                                 # .:shrugs:.
                             }
                         }
                         else {
-                             # .:shrugs:.
+
+                            # .:shrugs:.
                         }
                     }
                 }
@@ -704,7 +707,7 @@ use warnings;
                     }
                 }
                 elsif ( $type == 9 ) {
-                    if (q[I'll get to this one day...]) {
+                    if (q[TODO: I'll get to this one day...]) {
                         $self->_disconnect(
                              q[We don't support PORT messages. Yet.]);
                         return;
@@ -756,7 +759,7 @@ use warnings;
                     %ref = ( index => $index );
                 }
                 elsif ( $type == 20 ) {
-                    if (q[Soon, soon...]) {
+                    if (q[TODO: Soon, soon...]) {
                         $self->_disconnect(
                              q[Support for utx messages is incomplete]
                         );
@@ -789,7 +792,8 @@ use warnings;
 
         sub _build_reserved {
 
-# TODO: As we add support for more ext, this will be updated. For now, ...
+            # TODO: As we add support for more ext,
+            # this will be updated. For now, ...
             return q[0] x 8;
         }
 
@@ -815,12 +819,12 @@ use warnings;
                     ->_do_callback( q[peer_outgoing_keepalive],
                                     $self );
             }
-            elsif ( ( $packet->{q[type]} == 0 )       #>_unchoke
+            elsif ( ( $packet->{q[type]} == 0 )       # choke
                     or ( $packet->{q[type]} == 1 )    # unchoke
                     or ( $packet->{q[type]} == 2 )    # interested
-                    or ( $packet->{q[type]} == 3 )
+                    or ( $packet->{q[type]} == 3 )    # not interested
                 )
-            {                                     # not interested
+            {
                 $packet_data = pack( q[NC], 1, $packet->{q[type]} );
                 $client{$self}->_do_callback(
                                    ( $packet->{q[type]} == 0
@@ -852,8 +856,9 @@ use warnings;
                                     $self );
             }
             elsif ( ( $packet->{q[type]} == 6 )        # request
-                    or ( $packet->{q[type]} == 8 ) )
-            {                                      # cancel
+                    or ( $packet->{q[type]} == 8 )     # cancel
+                )
+            {
                 my $packed = pack( q[N3],
                              $packet->{q[data]}{q[request]}->index,
                              $packet->{q[data]}{q[request]}->offset,
@@ -905,14 +910,9 @@ use warnings;
                         Data::Dumper::Dump($packet) )
                 );
             }
-            $client{$self}->_do_callback(
-                q[peer_outgoing_packet],
-                $self, $packet,
-                (    $Net::BitTorrent::DEBUG
-                   ? $packet_data
-                   : ( ) # send the raw data only if we're in debug mode
-                )
-            );
+            $client{$self}
+                ->_do_callback( q[peer_outgoing_packet], $self,
+                                $packet, $packet_data );
             return $queue_outgoing{$self} .= $packet_data;
         }
 
@@ -921,13 +921,13 @@ use warnings;
             if (    ( time - $connection_timestamp{$self} >= 10 * 60 )
                 and
                 ( time - $previous_incoming_block{$self} >= 5 * 60 ) )
-            {            # TODO: make this timeout a variable
+            {    # TODO: make this timeout a variable
                 $self->_disconnect(q[peer must be useless]);
                 return 0;
             }
             if (    ( time - $connection_timestamp{$self} >= 60 )
                 and ( time - $previous_incoming_data{$self} >= 130 ) )
-            {            # TODO: make this timeout a variable
+            {    # TODO: make this timeout a variable
                 $self->_disconnect(q[Peer must be dead]);
                 return 0;
             }
@@ -942,9 +942,6 @@ use warnings;
             $self->_cancel_old_requests;
             $self->_unchoke
                 if $is_interested{$self} and $is_choked{$self};
-
-            #use Data::Dump qw[pp];
-            #warn pp $incoming_requests{$self};
 
             if ( @{ $incoming_requests{$self} }
                  and length( $queue_outgoing{$self} )
@@ -1036,9 +1033,10 @@ use warnings;
             my ($self) = @_;
 
             # TODO: make this timeout variable
-            my @remove
-                = grep { $_->_request_timestamp($self) < ( time - 300 ) }
-                @{ $outgoing_requests{$self} };
+            my @remove = grep {
+                $_->_request_timestamp($self)
+                    < ( time - 300 )
+            } @{ $outgoing_requests{$self} };
             for my $block (@remove) { $self->_cancel_block($block); }
         }
 
@@ -1093,14 +1091,15 @@ use warnings;
             return 1;
         }
 
-        sub _generate_fast_set
-        {    # http://www.bittorrent.org/fast_extensions.html
+        sub _generate_fast_set {
+
+            # http://www.bittorrent.org/beps/bep_0006.html
             my ( $self, $k ) = @_;
             my @a;
             $k ||= 9;
 
             # convert host to byte order, ie localhost is 0x7f000001
-            my ( $ip, undef ) = split q[:], $self;
+            my ( $ip, undef ) = split q[:], $$self;
             my $x = sprintf( q[%X],
                              (  0xFFFFFF00 & ( hex unpack q[H*],
                                                pack q[C*],
@@ -1109,18 +1108,18 @@ use warnings;
                              )
             );
             $x .= $session{$self}->infohash;
+            my $piece_count = $session{$self}->piece_count;
             while ( scalar @a < $k ) {
-                $x = Digest::SHA::sha1_hex( pack( q[H*], $x ) );
+                $x = sha1_hex( pack( q[H*], $x ) );
                 for ( my $i = 0; $i < 5 && scalar @a < $k; $i++ ) {
                     my $j     = $i * 8;
                     my $y     = hex( substr( $x, $j, 8 ) );
-                    my $index = $y % $session{$self}->piece_count;
+                    my $index = $y % $piece_count;
                     push( @a, $index )
                         unless grep { $_ == $index } @a;
                 }
             }
-            return $extentions_FastPeers_outgoing_fastset{$self}
-                = \@a;
+            return $outgoing_fastset{$self} = \@a;
         }
 
         sub as_string {
@@ -1146,7 +1145,7 @@ use warnings;
             delete $is_choking{$self};
             delete $reserved{$self};
             delete $extentions_FastPeers{$self};
-            delete $extentions_FastPeers_outgoing_fastset{$self};
+            delete $outgoing_fastset{$self};
             delete $extentions_PEX{$self};
             delete $extentions_DHT{$self};
             delete $extentions_encryption{$self};
@@ -1180,29 +1179,132 @@ __END__
 
 =head1 NAME
 
-Net::BitTorrent::Session::Peer - BitTorrent client class
+Net::BitTorrent::Session::Peer - A remote peer
 
-=head1 DESCRIPTION
+=head1 CONSTRUCTOR
 
-TODO
+=over 4
+
+=item C<new ( { [ARGS] } )>
+
+Creates a C<Net::BitTorrent::Session::Peer> object.  This constructor
+should not be used directly.
+
+=back
 
 =head1 METHODS
 
-TODO
+=over 4
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the
+C<Net::BitTorrent::Session::Peer> object's data structure.  If called
+in void context, the structure is printed to C<STDERR>.
+
+See also: [id://317520],
+L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
+
+=item C<bitfield ( )>
+
+Returns a bitfield representing the pieces this peer claims to have
+successfully downloaded.
+
+=item C<client ( )>
+
+Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
+peer.
+
+=item C<downloaded ( )>
+
+Returns the total amount of data downloaded from this peer.
+
+See also: L<uploaded ( )|/uploaded ( )>
+
+=item C<incoming_connection ( )>
+
+Returns a boolean indicating who initiated this connection.
+
+=item C<is_choked ( )>
+
+Returns a boolean indicating whether or not we are choking this peer.
+
+=item C<is_choking ( )>
+
+Returns a boolean indicating whether or not we are being choked by
+this peer.
+
+=item C<is_interested ( )>
+
+Returns a boolean indicating whether or not this peer is interested in
+downloading pieces from us.
+
+=item C<is_interesting ( )>
+
+Returns a boolean indicating whether or not we are interested in this
+peer.
+
+=item C<outgoing_requests ( )>
+
+Returns a list of
+L<Net::BitTorrent::Peer::Request|Net::BitTorrent::Peer::Request>
+objects representing blocks this peer has asked us for.
+
+=item C<peer_id ( )>
+
+Returns the Peer ID used to identify this peer.
+
+See also: theory.org (L<http://tinyurl.com/4a9cuv>)
+
+=item C<peerhost ( )>
+
+Return the address part of the sockaddr structure for the socket on
+the peer host in a text form xx.xx.xx.xx
+
+=item C<peerport ( )>
+
+Return the port number for the socket on the peer host.
+
+=item C<reserved ( )>
+
+Returns the eight (C<8>) byte string the peer sent us as part of the
+BitTorrent handshake.
+
+See also: theory.org (L<http://tinyurl.com/3lo5oj>)
+
+=item C<session ( )>
+
+Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session>
+object related to this peer.
+
+=item C<uploaded ( )>
+
+Returns the total amount of data uploaded to this peer.
+
+See also: L<downloaded ( )|/downloaded ( )>
+
+=back
 
 =head1 AUTHOR
 
-Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
+
+CPAN ID: SANKO
+
+ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 
 Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+it under the same terms as Perl itself.  See
+L<http://www.perl.com/perl/misc/Artistic.html> or the F<LICENSE> file
 included with this module.
+
+All POD documentation is covered by the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 License
+(L<http://creativecommons.org/licenses/by-nc-sa/3.0/us/>).
 
 Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
 BitTorrent, Inc.

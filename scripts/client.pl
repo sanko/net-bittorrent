@@ -7,9 +7,7 @@ use Carp qw[cluck croak carp];
 use lib q[../lib];
 use Net::BitTorrent;
 
-#$Net::BitTorrent::DEBUG = 1;
-use English qw(-no_match_vars);
-$OUTPUT_AUTOFLUSH = 1;
+$|++;
 my $man            = 0;
 my $help           = 0;
 my $localport      = 0;
@@ -26,8 +24,9 @@ GetOptions( q[help|?]             => \$help,
 ) or pod2usage(2);
 
 if ( not scalar @dot_torrents and scalar @ARGV ) {
+
     push @dot_torrents, shift @ARGV
-        while ( defined $ARGV[0] and -e $ARGV[0] );
+        while ( defined $ARGV[0] and -f $ARGV[0] );
 }
 pod2usage(1) if $help or not scalar @dot_torrents;
 pod2usage( -verbose => 2 ) if $man;
@@ -49,12 +48,6 @@ $SIG{q[INT]} = sub {
         . ( q[=] x 10 ), qq[\n];
     return print $client->as_string(1);
 };
-
-sub hashfail {
-    my ( $self, $piece ) = @_;
-    my $session = $piece->session;
-    return #printf( qq[on_hashfail: %04d|%s\n], $piece->index, $$session );
-}
 
 sub hashpass {
     my ( $self, $piece ) = @_;
@@ -82,28 +75,17 @@ sub request_out {
 
 sub block_in {
     my ( $self, $peer, $block ) = @_;
-    return printf(
-
-        #qq[RECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d [%s]\n],
-        qq[RECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d\n],
-        $peer->peerhost, $peer->peerport, $block->index,
-        $block->offset,  $block->length,
-
-        #join(
-        #    q[],
-        #    map ((
-        #            $_->recieved
-        #            ? ($block->offset == $_->offset ? q[*] : q[|])
-        #            : (scalar $_->peers ? q[.] : q[ ])
-        #        ),
-        #        values %{$block->piece->blocks})
-        #)
-    );
+    return
+        printf( qq[RECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d\n],
+                $peer->peerhost, $peer->peerport, $block->index,
+                $block->offset,  $block->length,
+        );
 }
+
 $client->set_callback_on_peer_incoming_block( \&block_in );
 $client->set_callback_on_peer_outgoing_request( \&request_out );
 $client->set_callback_on_piece_hash_pass( \&hashpass );
-$client->set_callback_on_piece_hash_fail( \&hashfail );
+
 for my $dot_torrent ( sort @dot_torrents ) {
     next if not -e $dot_torrent;
     printf qq[Loading '%s'...\n], $dot_torrent;
@@ -173,8 +155,8 @@ Print the manual page and exit.
 
 =head1 DESCRIPTION
 
-B<This program> is a very basic demonstration of what a full
-C<Net::BitTorrent>-based client is capable of.
+This is a B<very> basic demonstration of a full
+C<Net::BitTorrent>-based client.
 
 =for svn $Id$
 

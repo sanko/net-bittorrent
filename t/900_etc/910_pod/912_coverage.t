@@ -14,16 +14,14 @@ if ( not $ENV{TEST_AUTHOR} ) {
     );
 }
 
-plan( skip_all => q[POD coverage is on my TODO list] );
-
-eval {qq[use Test::Pod::Coverage;]} and 1;
+eval q[use Test::Pod::Coverage;] and 1;
 
 if (    $@
      or ( not defined $Test::Pod::Coverage::VERSION )
      or ( $Test::Pod::Coverage::VERSION < 1.08 ) )
 {
     plan( skip_all =>
-         q[Test::Pod::Coverage 1.06 required for testing POD coverage]
+         q[Test::Pod::Coverage 1.08 required for testing POD coverage]
     );
 }
 elsif (    ( not defined $Pod::Coverage::VERSION )

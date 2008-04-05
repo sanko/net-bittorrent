@@ -9,15 +9,15 @@ use warnings;
         use vars qw[$VERSION];
         use version qw[qv];
         our $SVN
-            = q[$Id: Tracker.pm 3 2008-03-16 05:46:16Z sanko@cpan.org $];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 3 $)->numify / 1000;
+            = q[$Id$];
+        our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
 
     use Net::BitTorrent::Util qw[min bdecode max compact shuffle];
     use Socket
         qw[SOL_SOCKET SO_SNDTIMEO SO_RCVTIMEO PF_INET AF_INET SOCK_STREAM];
     use Fcntl qw[F_SETFL O_NONBLOCK];
-    use Carp qw[carp croak];
+    use Carp qw[carp];
     {
         my ( %urls,                 %fileno,
              %socket,               %session,
@@ -25,10 +25,9 @@ use warnings;
              %connection_timestamp, %scrape_complete,
              %scrape_incomplete,    %scrape_downloaded,
              %connected,            %queue_outgoing,
-             %queue_incoming,       %next_pulse,
+             %queue_incoming,       %next_pulse
         );
 
-        # constructor
         sub new {
             my ( $class, $args ) = @_;
             my $self = undef;
@@ -160,7 +159,7 @@ use warnings;
                 return $self->_udp_connect;
             }
             else {
-                warn q[Unsupported tracker];
+                carp q[Unsupported tracker];
             }
             return;
         }
@@ -210,7 +209,7 @@ use warnings;
                 $self->_udp_connect;
             }
             else {
-                warn q[Unsupported tracker];
+                carp q[Unsupported tracker];
             }
             return 1;
         }
@@ -454,8 +453,9 @@ use warnings;
                 $self->_udp_parse_data;
             }
             else {
-                #die q[Somethin' is wrong!]
-                }
+
+                #carp q[Somethin' is wrong!]
+            }
             return;
         }
 
@@ -505,16 +505,14 @@ END
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
-        DESTROY {    #  DESTROY
+        DESTROY {
             my $self = shift;
 
-            # static
             delete $urls{$self};
             delete $socket{$self};
             delete $session{$self};
             delete $fileno{$self};
 
-            # protected
             delete $next_announce{$self};
             delete $next_scrape{$self};
             delete $connection_timestamp{$self};
@@ -523,14 +521,12 @@ END
             delete $scrape_downloaded{$self};
             delete $next_pulse{$self};
 
-            # private
             delete $connected{$self};
             delete $queue_outgoing{$self};
             delete $queue_incoming{$self};
             return 1;
         }
     }
-
 }
 1;
 __END__
@@ -539,19 +535,19 @@ __END__
 
 =head1 NAME
 
-Net::BitTorrent::Session::Tracker - Class representing a single tier of BitTorrent trackers
-
-=head1 DESCRIPTION
-
-TODO
+Net::BitTorrent::Session::Tracker - A single tier of BitTorrent trackers
 
 =head1 CONSTRUCTOR
 
 =over 4
 
-=item C<new ( [PARAMETERS] )>
+=item C<new ( [ARGS] )>
 
-This constructor should not be used directly.
+Creates a C<Net::BitTorrent::Session::Tracker> object.  This
+constructor should not be used directly.
+
+See also:
+L<Net::BitTorrent::Session::add_tracker( )|Net::BitTorrent::Session/add_tracker ( URLS )>
 
 =back
 
@@ -561,47 +557,87 @@ This constructor should not be used directly.
 
 =item C<announce ( )>
 
-This method starts the process of requesting "in depth" information
-from the tracker
+Asks the tracker for full data including a list of nodes.  Announce
+is also used to let the tracker know when we start, stop and finish
+downloading.
 
-=item C<scrape ( )>
-
-=item C<client ( )>
-
-=item C<session ( )>
-
-=item C<urls ( )>
+See also: L<scrape ( )|/scrape ( )>
 
 =item C<as_string ( [ VERBOSE ] )>
 
 Returns a 'ready to print' dump of the
-C<Net::BitTorrent::Session::Tracker> object's data structure.  If
+C<Net::BitTorrent::Session::Tracker> object's data structure. If
 called in void context, the structure is printed to C<STDERR>.
 
-This is a debugging method, not to be used under normal
-circumstances.
+See also: [id://317520],
+L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
 
-See also: L<Net::BitTorrent/as_string> [id://317520]
+=item C<client ( )>
+
+Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
+tracker.
+
+=item C<scrape ( )>
+
+Asks the tracker for basic data.
+
+See also: L<announce ( )|/announce ( )>
+
+=item C<session ( )>
+
+Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session>
+object related to this request.
+
+=item C<urls ( )>
+
+Returns the list of URLs contained in this tier.
 
 =back
 
-=head1 BUGS
+=head1 BUGS/TODO
 
-TODO
+=over 4
+
+=item *
+
+Does not support UDP or HTTPS trackers.
+
+=item *
+
+While we don't hammer the trackers, the current version of this module
+does not comply with the current draft of the Multitracker Metadata
+Extension specification's order of processing.
+
+See also: L<http://www.bittorrent.org/beps/bep_0012.html>
+
+=item *
+
+We do not send stop and complete announcements when required.  This
+is actually a L<Net::BitTorrent::Session|Net::BitTorrent::Session> and
+L<Net::BitTorrent::Session::Peer|Net::BitTorrent::Session::Peer> bug.
+
+=back
 
 =head1 AUTHOR
 
-Sanko Robinson <sanko@cpan.org> - [http://sankorobinson.com/]
+Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
+
+CPAN ID: SANKO
+
+ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 
 Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-See [http://www.perl.com/perl/misc/Artistic.html] or the LICENSE file
+it under the same terms as Perl itself.  See
+L<http://www.perl.com/perl/misc/Artistic.html> or the F<LICENSE> file
 included with this module.
+
+All POD documentation is covered by the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 License
+(L<http://creativecommons.org/licenses/by-nc-sa/3.0/us/>).
 
 Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
 BitTorrent, Inc.
