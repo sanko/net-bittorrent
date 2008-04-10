@@ -1,7 +1,6 @@
 package Net::BitTorrent::Session::Piece;
 use strict;
 use warnings;
-
 {
 
     BEGIN {
@@ -12,19 +11,19 @@ use warnings;
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
     use Carp qw[carp cluck];
+    use Net::BitTorrent::Util qw[:log];
     use Net::BitTorrent::Session::Piece::Block;
-    {    # constructor
-        my ( %hash, %index, %session, %blocks, %check,
-        %priority, %working, %previous_incoming_block );
+    {
+        my (%hash, %index, %session, %blocks, %check, %priority,
+            %working, %previous_incoming_block);
 
         sub new {
-            my ( $class, $args ) = @_;
+            my ($class, $args) = @_;
             my $self = undef;
-            if (     defined $args->{q[session]}
-                 and defined $args->{q[hash]}
-                 and defined $args->{q[index]} )
-            {
-                $self = bless \$args->{q[hash]}, $class;
+            if (    defined $args->{q[session]}
+                and defined $args->{q[hash]}
+                and defined $args->{q[index]})
+            {   $self = bless \$args->{q[hash]}, $class;
                 $index{$self}   = $args->{q[index]};
                 $session{$self} = $args->{q[session]};
                 $hash{$self}    = $args->{q[hash]};
@@ -37,74 +36,149 @@ use warnings;
             }
             return $self;
         }
-        sub hash    { my ($self) = @_; $hash{$self}; }
-        sub index   { my ($self) = @_; $index{$self}; }
-        sub session { my ($self) = @_; $session{$self}; }
-        sub client  { my ($self) = @_; $session{$self}->client; }
-        sub blocks  { my ($self) = @_; $blocks{$self}; }
-        sub check   { my ($self) = @_; $check{$self}; }
 
-        sub _previous_incoming_block { # unused
-            my ( $self, $value ) = @_;
-            return ( defined $value
-                     ? $previous_incoming_block{$self}
-                         = $value
-                     : $previous_incoming_block{$self}
+        sub hash {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $hash{$self};
+        }
+
+        sub index {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $index{$self};
+        }
+
+        sub session {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $session{$self};
+        }
+
+        sub client {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $session{$self}->client;
+        }
+
+        sub blocks {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $blocks{$self};
+        }
+
+        sub check {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $check{$self};
+        }
+
+        sub _previous_incoming_block {    # unused
+            my ($self, $value) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return (defined $value
+                    ? $previous_incoming_block{$self}
+                        = $value
+                    : $previous_incoming_block{$self}
             );
         }
 
         sub priority {
-            my ( $self, $value ) = @_;
-            return ( defined $value
-                     ? $priority{$self}
-                         = $value
-                     : $priority{$self}
+            my ($self, $value) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return (defined $value
+                    ? $priority{$self}
+                        = $value
+                    : $priority{$self}
             );
         }
 
         sub working {
-            my ( $self, $value ) = @_;
+            my ($self, $value) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return (
                 defined $value
                 ? do {
                     cluck(q[working is malformed]) and return
                         unless $value =~ m[^[10]$];
                     $working{$self} = $value;
-                    if ( $value and not $blocks{$self} ) {
+                    if ($value and not $blocks{$self}) {
                         my $_offset = 0;
                         my $_length = (
-                                $self->index
-                                    == $self->session->piece_count
-                                ? ( $self->size
-                                    % $self->session->piece_size )
-                                : $self->session->piece_size
+                                  $self->index
+                                      == $self->session->piece_count
+                                  ? ($self->size
+                                     % $self->session->piece_size)
+                                  : $self->session->piece_size
                         );
                         my $_block_length
                             = Net::BitTorrent::Util::min(
                                            $self->session->block_size,
-                                           $_length );
+                                           $_length);
                         return if $_block_length < 1;
                         for my $_int (
-                                 0 .. int( $_length / $_block_length )
-                                 - 1 )
-                        {
-                            $blocks{$self}{$_offset}
+                              0 .. int($_length / $_block_length) - 1)
+                        {   $blocks{$self}{$_offset}
                                 = Net::BitTorrent::Session::Piece::Block
-                                ->new( { offset => $_offset,
-                                         length => $_block_length,
-                                         piece  => $self
-                                       }
+                                ->new({offset => $_offset,
+                                       length => $_block_length,
+                                       piece  => $self
+                                      }
                                 );
                             $_offset += $_block_length;
                         }
                         $blocks{$self}{$_offset}
                             = Net::BitTorrent::Session::Piece::Block
                             ->new(
-                                 { offset => $_offset,
-                                   length =>
-                                       ( $_length % $_block_length ),
-                                   piece => $self
-                                 }
+                            {   offset => $_offset,
+                                length => ($_length % $_block_length),
+                                piece  => $self
+                            }
                             ) if $_length % $_block_length;
                         $previous_incoming_block{$self} = time  # lies
                     }
@@ -119,43 +193,53 @@ use warnings;
 
         sub size {
             my ($self) = @_;
-            return ( $self->index == $self->session->piece_count )
-                ? ( $self->session->total_size
-                    % $self->session->piece_size )
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return ($self->index == $self->session->piece_count)
+                ? ($self->session->total_size
+                   % $self->session->piece_size)
                 : $self->session->piece_size;
         }
 
         sub _read {
-            my ( $self, $offset, $length ) = @_;
+            my ($self, $offset, $length) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             carp(q[Bad length!])
                 if defined $length
-                    and (    $length !~ m[^\d+$]
-                          or $length > $self->session->piece_size );
+                    and (   $length !~ m[^\d+$]
+                         or $length > $self->session->piece_size);
             carp(q[Bad offset!])
                 if defined $offset and $offset !~ m[^\d+$];
             my $_RETURN = q[];
             my $_LENGTH = defined $length ? $length : $self->size;
             my $pos
-                = int(
-                     ( ( $self->index * $self->session->piece_size ) )
-                     + ( $offset || 0 ) );
-            if ( ( $pos + $_LENGTH ) > $self->session->total_size ) {
+                = int(  (($self->index * $self->session->piece_size))
+                      + ($offset || 0));
+            if (($pos + $_LENGTH) > $self->session->total_size) {
                 return;
             }
             my $f = 0;
-            while ( $pos > $self->session->files->[$f]->size ) {
-                $pos -= $self->session->files->[ $f++ ]->size;
+            while ($pos > $self->session->files->[$f]->size) {
+                $pos -= $self->session->files->[$f++]->size;
                 last if not defined $self->session->files->[$f];
             }
-            while ( $_LENGTH > 0 ) {
+            while ($_LENGTH > 0) {
                 my $this_read
-                    = ( $pos + $_LENGTH
-                        > $self->session->files->[$f]->size )
+                    = ($pos + $_LENGTH
+                       > $self->session->files->[$f]->size)
                     ? $self->session->files->[$f]->size - $pos
                     : $_LENGTH;
                 $self->session->files->[$f]->_open(q[r]) or return;
                 $self->session->files->[$f]->_seek($pos) or return;
-
                 $_RETURN
                     .= $self->session->files->[$f]->_read($this_read)
                     or return;
@@ -167,28 +251,33 @@ use warnings;
         }
 
         sub _write {
-            my ( $self, $data, $offset ) = @_;
+            my ($self, $data, $offset) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             my $f = 0;
-            $offset ||=0;
-            if ( length($data) + $offset > $self->size ) { return; }
+            $offset ||= 0;
+            if (length($data) + $offset > $self->size) { return; }
             my $pos
-                = int(
-                     ( ( $self->index * $self->session->piece_size ) )
-                     + ( $offset || 0 ) );
-            while ( $pos > $self->session->files->[$f]->size ) {
+                = int(  (($self->index * $self->session->piece_size))
+                      + ($offset || 0));
+            while ($pos > $self->session->files->[$f]->size) {
                 $pos -= $self->session->files->[$f]->size;
                 $f++;
             }
-            while ( length $data > 0 ) {
+            while (length $data > 0) {
                 my $this_write
-                    = ( $pos + length $data
-                        > $self->session->files->[$f]->size )
+                    = ($pos + length $data
+                       > $self->session->files->[$f]->size)
                     ? $self->session->files->[$f]->size - $pos
                     : length $data;
                 $self->session->files->[$f]->_open(q[w]) or return;
                 $self->session->files->[$f]->_seek($pos) or return;
                 $self->session->files->[$f]
-                    ->_write( substr( $data, 0, $this_write, q[] ) )
+                    ->_write(substr($data, 0, $this_write, q[]))
                     or return;
                 $f++;
                 $pos = 0;
@@ -198,14 +287,19 @@ use warnings;
 
         sub verify {
             my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             delete $blocks{$self};
             $working{$self} = 0;
-            if ( Digest::SHA::sha1( $self->_read ) eq $self->hash ) {
+            if (Digest::SHA::sha1($self->_read) eq $self->hash) {
                 my $old_value = $self->check;
                 $check{$self} = 1;
                 $session{$self}
-                    ->client->_do_callback( q[piece_hash_pass],
-                                            $self )
+                    ->client->_do_callback(q[piece_hash_pass], $self)
                     if not $old_value
                 ;    # no point telling us the piece is good twice
                 $session{$self}->_check_endgame_status;
@@ -215,21 +309,26 @@ use warnings;
             # failed
             # TODO: penalize all peers related to piece
             $session{$self}
-                ->client->_do_callback( q[piece_hash_fail], $self );
+                ->client->_do_callback(q[piece_hash_fail], $self);
             return 0;
         }
 
         sub _unrequested_block {
             my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return if not $working{$self};
             for my $block (
                 sort {
                     scalar $a->peers <=> scalar $b->peers
-                } values %{ $blocks{$self} }
+                } values %{$blocks{$self}}
                 )
-            {
-                if ( $session{$self}->_endgame ) { return $block; }
-                if ( not scalar $block->peers ) { return $block; }
+            {   if ($session{$self}->_endgame) { return $block; }
+                if (not scalar $block->peers)  { return $block; }
 
     # TODO: check for peer() instead of requested() but remember to...
     #       ...ignore both during endgame.
@@ -238,7 +337,13 @@ use warnings;
         }
 
         sub as_string {
-            my ( $self, $advanced ) = @_;
+            my ($self, $advanced) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
@@ -258,7 +363,6 @@ use warnings;
     }
     1;
 }
-
 __END__
 
 =pod
@@ -362,8 +466,6 @@ piece.
 Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
 
 CPAN ID: SANKO
-
-ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 

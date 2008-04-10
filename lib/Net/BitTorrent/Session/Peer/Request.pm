@@ -11,21 +11,23 @@ use warnings;
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
     use Carp qw[carp];
+    use Net::BitTorrent::Util qw[:log];
     {
-        my ( %peer, %index, %offset, %length, %timestamp );
+        my (%peer, %index, %offset, %length, %timestamp);
 
         sub new {
-            my ( $class, $args ) = @_;
+            my ($class, $args) = @_;
             my $self = undef;
-            if (     defined $args->{q[peer]}
-                 and defined $args->{q[index]}
-                 and defined $args->{q[offset]}
-                 and defined $args->{q[length]} )
-            {
-                $self =
-                    bless \sprintf( q[R I:%d:O:%d:L:%d],
-                                $args->{q[index]}, $args->{q[offset]},
-                                $args->{q[length]} ),
+            if (    defined $args->{q[peer]}
+                and defined $args->{q[index]}
+                and defined $args->{q[offset]}
+                and defined $args->{q[length]})
+            {   $self =
+                    bless \sprintf(q[R I:%d:O:%d:L:%d],
+                                   $args->{q[index]},
+                                   $args->{q[offset]},
+                                   $args->{q[length]}
+                    ),
                     $class;
                 $peer{$self}      = $args->{q[peer]};
                 $index{$self}     = $args->{q[index]};
@@ -35,40 +37,130 @@ use warnings;
             }
             return $self;
         }
-        sub peer    { my ($self) = @_; return $peer{$self} }
-        sub session { my ($self) = @_; return $peer{$self}->session }
+
+        sub peer {
+            my ($self) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $peer{$self};
+        }
+
+        sub session {
+            my ($self) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $peer{$self}->session;
+        }
 
         sub client {
             my ($self) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return $peer{$self}->session->client;
         }
-        sub index     { my ($self) = @_; return $index{$self} }
-        sub offset    { my ($self) = @_; return $offset{$self} }
-        sub length    { my ($self) = @_; return $length{$self} }
-        sub timestamp { my ($self) = @_; return $timestamp{$self} }
+
+        sub index {
+            my ($self) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $index{$self};
+        }
+
+        sub offset {
+            my ($self) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $offset{$self};
+        }
+
+        sub length {
+            my ($self) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $length{$self};
+        }
+
+        sub timestamp {
+            my ($self) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $timestamp{$self};
+        }
 
         sub piece {
             my ($self) = @_;
-            return $peer{$self}->session->pieces->[ $index{$self} ];
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $peer{$self}->session->pieces->[$index{$self}];
         }
 
         sub _build_packet_args {    # unused
             my ($self) = @_;
-            return ( index  => $index{$self},
-                     offset => $offset{$self},
-                     length => $length{$self},
-                     data   => $self->_read
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return (index  => $index{$self},
+                    offset => $offset{$self},
+                    length => $length{$self},
+                    data   => $self->_read
             );
         }
 
         sub _read {
             my ($self) = @_;
-            return $self->piece->_read( $offset{$self},
-                                        $length{$self} );
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $self->piece->_read($offset{$self},
+                                       $length{$self});
         }
 
         sub as_string {
-            my ( $self, $advanced ) = @_;
+            my ($self, $advanced) = @_;
+            $peer{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
@@ -164,8 +256,6 @@ Returns the time when the request was made.
 Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
 
 CPAN ID: SANKO
-
-ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 

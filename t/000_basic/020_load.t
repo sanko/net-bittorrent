@@ -1,7 +1,6 @@
 #!/usr/bin/perl -w
 
 # /t/000_basic/020_load.t
-#
 # $Id$
 
 use strict;

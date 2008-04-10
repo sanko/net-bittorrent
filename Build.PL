@@ -34,31 +34,34 @@ my @tests;
 
 find \&find_cb, sort @search;
 my $mb = Module::Build->new(
-    module_name        => q[Net::BitTorrent],
-    license            => q[perl],
-    dist_author        => q[Sanko Robinson <sanko@cpan.org>],
-    dist_abstract      => q[BitTorrent peer-to-peer protocol],
-    dist_version_from  => q[lib/Net/BitTorrent.pm],
+    module_name       => q[Net::BitTorrent],
+    license           => q[perl],
+    dist_author       => q[Sanko Robinson <sanko@cpan.org>],
+    dist_abstract     => q[BitTorrent peer-to-peer protocol],
+    dist_version_from => q[lib/Net/BitTorrent.pm],
+
     #create_makefile_pl => q[passthrough],
-    sign               => 1,
-    requires           => {
-        q[Module::Build]         => 0.2805,    # non-CORE
-        q[Digest::SHA]           => 5.45,      # CORE in 5.10
-        q[version]               => 0.50,      # CORE in 5.10
-        q[Test::More]            => 0.74,
-        q[Time::HiRes]           => 0,
-        q[Data::Dumper]          => 0,
-        q[Exporter]              => 0,
-        q[Config]                => 0,
-        q[File::Basename]        => 0,
-        q[File::Path]            => 0,
-        q[File::Spec::Functions] => 0,
-        q[IO::Select]            => 0,
-        q[IO::Socket::INET]      => 0,
-        q[Carp]                  => 0,
-        q[Cwd]                   => 0,
-        q[Fcntl]                 => 0,
-        q[overload]              => 0,
+    sign           => 0, # chokes on build.bat on win32
+    build_requires => { q[Module::Build] => 0.2805,    # non-CORE
+                        q[Test::More]    => 0.72 # tested on 0.74
+                        #q[Test::Signature]   => 1.04,
+                        #q[Module::Signature] => 0.22,
+    },
+    requires => {
+          q[Exporter]     => 0,          # tested on 5.62
+          q[File::Spec]   => 0,          # Tested on 3.2701
+          q[Carp]         => 0,          # tested on
+          q[Cwd]          => 0,          # tested on
+          q[Time::HiRes]  => 0,          # tested on 1.9712
+          q[Fcntl]        => 0,          # tested on 1.06
+          q[Digest::SHA]  => 5.45,       # tested on 5.45|CORE in 5.10
+          q[version]      => 0.74,       # tested on 0.74|CORE in 5.10
+          q[Carp]         => 1.08,       # tested on 1.08
+          q[Scalar::Util] => 1.19,       # tested on 1.19
+          q[Socket]       => 1.80,       # tested on 1.80
+    },
+    recommends => {
+        q[Data::Dumper] => 0,
         (  $^O eq q[MSWin32]
            ? ( q[Encode] => 0,
                q[utf8] => 0, # utf8::is_utf8 internal as of Perl 5.8.1
@@ -85,8 +88,8 @@ my $mb = Module::Build->new(
 
 $mb->create_build_script;
 
-sub can_talk_to_ourself
-{    # Check if we should try to run tests that talk to ourself
+sub can_talk_to_ourself{
+   # Check if we should try to run tests that talk to ourself
     system(qq("$^X" t/data/etc/talk-to-ourself.pl));
     return $? ? 0 : 1;
 }
@@ -97,4 +100,5 @@ sub find_cb {
     return unless $_ =~ m[.+\.t$];
     return push @tests, $File::Find::name;
 }
+
 # $Id$

@@ -55,10 +55,11 @@ L<http://cpantesters.perl.org/>, and the CPAN Testers Wiki
 
 =head2 Before I even bother installing, what do I need to have first?
 
-C<Net::BitTorrent> requires L<version> and L<Digest::SHA>.  On Win32,
-we require L<Win32API::File> and L<Encode> when handling .torrents
-holding files with extended charset filenames.*  As of perl 5.10, all
-of these modules are are CORE; they come bundled with the
+C<Net::BitTorrent> requires L<version|version> and
+L<Digest::SHA|Digest::SHA>.  On Win32, we require
+L<Win32API::File|Win32API::File> and L<Encode|Encode> when handling
+.torrents holding files with extended charset filenames.*  As of perl
+5.10, all of these modules are are CORE; they come bundled with the
 distribution.
 
 I have listed these modules as prerequisites in Build.PL so, unless
@@ -70,7 +71,7 @@ appear until perl 5.8.1.
 
 =head2 I'm writing a client.  How can I choose which files I don't want C<Net::BitTorrent> to download and prioritize the files I would like?
 
-See L<Net::BitTorrent::Session::File/priority( [NEWVAL] )>.
+See L<Net::BitTorrent::Session::File/"priority( [NEWVAL] )">.
 
 =head2 Hash checking every time I load the torrent is too much!  How 'bout quick resume?
 
@@ -90,8 +91,8 @@ data.
 Thanks to the vast amount of usage data large trackers have access to,
 administrators will probably notice bugs well before end users or even
 I, as the sole developer, catch on.  If it's a ban that directly
-targets L<Net::BitTorrent> as a problematic client, I'll contact
-whoever is in charge and find out why.
+targets L<Net::BitTorrent|Net::BitTorrent> as a problematic client,
+I'll contact whoever is in charge and find out why.
 
 =head2 Can you recommend other open source BitTorrent clients?
 
@@ -198,13 +199,13 @@ protocol makes it easy to add new extensions without interfering with
 the standard bittorrent protocol or clients that don't support this
 extension or the one you want to add.
 
-See also: <http://bittorrent.org/beps/bep_0010.html>
+See also: L<http://bittorrent.org/beps/bep_0010.html>
 
 =item B<HTTP Seeding>
 
 Very low priority.
 
-See <http://bittorrent.org/beps/bep_0017.html>
+See L<http://bittorrent.org/beps/bep_0017.html>
 
 =back
 
@@ -267,12 +268,9 @@ L<http://twitter.com/Net_BitTorrent>.
 
 =head2 Who are you? How can I get in touch with you?
 
-	Sanko Robinson L<sanko@cpan.org> - L<http://sankorobinson.com/>
-	CPAN ID: SANKO
-	ProperNoun on Freenode
+Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
 
-I'm usually idle on Freenode but you can /msg me anytime or have
-MemoServ deliver it for you.
+CPAN ID: SANKO
 
 Please use
 L<http://code.google.com/p/net-bittorrent/issues/list> for bug

@@ -1,7 +1,6 @@
 package Net::BitTorrent::Util;
 use strict;
 use warnings;
-
 {
 
     BEGIN {
@@ -10,42 +9,51 @@ use warnings;
         our $SVN
             = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
-
     }
     use List::Util qw[min max shuffle sum];
     use Carp qw[carp];
     use base qw[Exporter];
     use vars qw[@ISA @EXPORT_OK %EXPORT_TAGS];
-
-    @ISA = qw[Exporter];
-    @EXPORT_OK
-        = qw[bencode bdecode compact uncompact min max shuffle sum]
-        ;    # symbols to export on request
-    %EXPORT_TAGS = ( all     => [@EXPORT_OK],
-                     bencode => [qw(bencode bdecode)],
-                     compact => [qw[compact uncompact]]
+    @ISA       = qw[Exporter];
+    @EXPORT_OK = qw[bencode bdecode
+        compact uncompact
+        min max shuffle sum
+        TRACE FATAL ERROR WARN INFO DEBUG
+    ];
+    %EXPORT_TAGS = (all     => [@EXPORT_OK],
+                    bencode => [qw(bencode bdecode)],
+                    compact => [qw[compact uncompact]],
+                    list    => [qw[min max shuffle sum]],
+                    log     => [qw[TRACE FATAL ERROR WARN INFO DEBUG]]
     );
 
+   # http://tech.puredanger.com/2008/03/25/log-levels/
+   # http://www.sip-communicator.org/index.php/Documentation/LogLevels
+    sub TRACE { return 32 }
+    sub DEBUG { return 16 }
+    sub INFO  { return 7 }
+    sub WARN  { return 4 }
+    sub ERROR { return 2 }
+    sub FATAL { return 1 }
+
     sub bencode {
-        if ( not ref $_[0] ) {
-            return (   ( $_[0] =~ m[^[-+]?\d+$] )
-                     ? ( q[i] . $_[0] . q[e] )
-                     : ( length( $_[0] ) . q[:] . $_[0] )
+        if (not ref $_[0]) {
+            return (  ($_[0] =~ m[^[-+]?\d+$])
+                    ? (q[i] . $_[0] . q[e])
+                    : (length($_[0]) . q[:] . $_[0])
             );
         }
-        elsif ( ref $_[0] eq q[ARRAY] ) {
+        elsif (ref $_[0] eq q[ARRAY]) {
             return
-                join( q[],
-                      q[l], ( map { bencode($_) } @{ $_[0] } ),
-                      q[e] );
+                join(q[], q[l], (map { bencode($_) } @{$_[0]}), q[e]);
         }
-        elsif ( ref $_[0] eq q[HASH] ) {
+        elsif (ref $_[0] eq q[HASH]) {
             return
-                join( q[], q[d],
-                      (  map { bencode($_) . bencode( $_[0]->{$_} ) }
-                             sort keys %{ $_[0] }
-                      ),
-                      q[e]
+                join(q[], q[d],
+                     (map { bencode($_) . bencode($_[0]->{$_}) }
+                          sort keys %{$_[0]}
+                     ),
+                     q[e]
                 );
         }
         $@ = q[invalid format];
@@ -83,59 +91,55 @@ key:
         my ($string) = @_;
         return if not $string;
         my ($return);
-
-        if ( $string =~ m[^(\d+):] ) {    # byte string
+        if ($string =~ m[^(\d+):]) {    # byte string
              #$' =~ m[^(.{$1})]s; # large .torrents (>=8200 pieces) will have
              #return ($1, $');    # byte strings longer than perl's regex
              #                    # quantifier limit.
             my $blah = $';    # this new code is untested
-            my $before = substr( $blah, 0, $1, q[] );
+            my $before = substr($blah, 0, $1, q[]);
             $@ =
                 sprintf(q[Not enough data for byte string (%d vs %d)],
-                        $1, length($blah) )
+                        $1, length($blah))
                 if length($blah) < $1;
-            $@ =
-                sprintf( q[Trailing garbage at %d (%d bytes)],
-                         length($1), length($blah) )
+            $@ = sprintf(q[Trailing garbage at %d (%d bytes)],
+                         length($1), length($blah))
                 if $blah;
-            return wantarray ? ( $before, $blah ) : $before;
+            return wantarray ? ($before, $blah) : $before;
         }
-        elsif ( $string =~ m[^i([-+]?\d+)e] ) {    # integer
-            $@ = sprintf( q[Trailing garbage at %d (%d bytes)],
-                          length($1), length($') )
+        elsif ($string =~ m[^i([-+]?\d+)e]) {    # integer
+            $@ = sprintf(q[Trailing garbage at %d (%d bytes)],
+                         length($1), length($'))
                 if $';
-            return wantarray ? ( int($1), $' ) : int($1);
+            return wantarray ? (int($1), $') : int($1);
         }
 
         #elsif ( $string =~ m[^l(.+e)] ) {          # list
         #    $string = $1;
-        elsif ( $string =~ m[^l] ) {               # dictionary
+        elsif ($string =~ m[^l]) {               # dictionary
             $string = $';
             do {
-                ( my ($value), $string ) = bdecode($string);
+                (my ($value), $string) = bdecode($string);
                 push @$return, $value;
-            } while ( $string and $string !~ m[^e] );
-            $@ =
-                sprintf( q[Trailing garbage at %d (%d bytes)],
-                         length($`), length($') )
+            } while ($string and $string !~ m[^e]);
+            $@ = sprintf(q[Trailing garbage at %d (%d bytes)],
+                         length($`), length($'))
                 if $';
-            return wantarray ? ( $return, $' ) : ($return);
+            return wantarray ? ($return, $') : ($return);
         }
 
         #elsif ( $string =~ m[^d(.+e)] ) {          # dictionary
         #    $string = $1;
-        elsif ( $string =~ m[^d] ) {    # dictionary
+        elsif ($string =~ m[^d]) {    # dictionary
             $string = $';
             do {
-                ( my ($key),   $string ) = bdecode($string);
-                ( my ($value), $string ) = bdecode($string);
+                (my ($key),   $string) = bdecode($string);
+                (my ($value), $string) = bdecode($string);
                 $return->{$key} = $value if $key;
-            } while ( $string and $string !~ m[^e] );
-            $@ =
-                sprintf( q[Trailing garbage at %d (%d bytes)],
-                         length($'), length($') )
+            } while ($string and $string !~ m[^e]);
+            $@ = sprintf(q[Trailing garbage at %d (%d bytes)],
+                         length($'), length($'))
                 if $';
-            return wantarray ? ( $return, $' ) : ($return);
+            return wantarray ? ($return, $') : ($return);
         }
         else {
             $@ = q[Bad bencoded data];
@@ -187,38 +191,35 @@ just for that.  I'll work on it.
 
     sub compact {
         my (@peers) = @_;
-        if ( not @peers ) {
+        if (not @peers) {
 
             #warn(q[Not enough parameters for compact(ARRAY)]);
             return;
         }
         my $return = q[];
-
         my %saw;
-    PEER: for my $peer ( grep( !$saw{$_}++, @peers ) ) {
-            my ( $ip, $port )
+    PEER: for my $peer (grep(!$saw{$_}++, @peers)) {
+            my ($ip, $port)
                 = (    # ...sigh, some (old) trackers do crazy stuff
                 ref $peer eq q[HASH]
-                ? ( $peer->{q[ip]}, $peer->{q[port]} )
-                : split( q[:], $peer, 2 )
+                ? ($peer->{q[ip]}, $peer->{q[port]})
+                : split(q[:], $peer, 2)
                 );
-
-            if ( grep { $_ > 0xff }
-                 ( $ip =~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$] )
-                     or
-                 ( $ip !~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$] ) )
-            {
-                $@ = q[Invalid IP address: ] . $peer;
+            if (grep { $_ > 0xff }
+                ($ip =~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$])
+                    or
+                ($ip !~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$]))
+            {   $@ = q[Invalid IP address: ] . $peer;
             }
-            elsif ( $port =~ m[[^\d]] ) {
+            elsif ($port =~ m[[^\d]]) {
                 $@ = q[Malformed port number: ] . $peer;
             }
-            elsif ( $port > 2**16 ) {    #
+            elsif ($port > 2**16) {    #
                 $@ = q[Port number beyond ephemeral range: ] . $peer;
             }
             else {
                 $return .= pack q[C4n],
-                    ($ip =~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$] ),
+                    ($ip =~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$]),
                     int $port;
             }
         }
@@ -227,16 +228,16 @@ just for that.  I'll work on it.
 
     sub uncompact {
         my $string = shift;
-        if ( not defined $string ) { return; }
+        if (not defined $string) { return; }
         my %peers;
-        while ( $string =~ m|(....)(..)|g ) {
+        while ($string =~ m|(....)(..)|g) {
             $peers{
-                sprintf( q[%d.%d.%d.%d:%d],
-                         unpack( q[C4], $1 ),
-                         unpack( q[n],  $2 ) )
+                sprintf(q[%d.%d.%d.%d:%d],
+                        unpack(q[C4], $1),
+                        unpack(q[n],  $2))
                 }++;
         }
-        return ( shuffle( %peers ? keys %peers : () ) );
+        return (shuffle(%peers ? keys %peers : ()));
     }
 }
 1;
@@ -282,6 +283,45 @@ byte order).
 
 Inflates a compacted string of peers and returns a list of IPv4:port
 strings.
+
+=back
+
+=head1 LOG LEVELS
+
+=over 4
+
+=item C<FATAL>
+
+C<FATAL> errors usually mean something really wrong has taken place.
+You should restart the application to restore normal operation.
+
+=item C<ERROR>
+
+C<ERROR> is used for logging general errors that prevent the
+L<Net::BitTorrent> from functioning as expected.
+
+=item C<WARN>
+
+C<WARN> is used for logging any unusual situation that is, for the
+moment, not preventing normal operation.
+
+=item C<INFO>
+
+C<INFO> level messages include any interesting piece of information
+that helps to give context to a log, often when things are starting or
+stopping.
+
+=item C<DEBUG>
+
+C<DEBUG> level includes anything that you’d like to be in the logs
+when trying to understand why the application didn’t work as expected.
+
+=item C<TRACE>
+
+Indicates a level of logging that shows the control flow of the
+program.  Among the things that you’d like to log with a C<TRACE>
+level are: entry and exit of a method, loop, if statement or other
+control flow statements.
 
 =back
 

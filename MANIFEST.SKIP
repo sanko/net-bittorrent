@@ -1,11 +1,14 @@
 \B\.svn\b
 \.html
 \.out
+
+\.bat$
 ^Build$
-Build.bat
-^_build/
 Makefile$
 Makefile.old
+^Build$
+^Makefile$
+^_build/
 
 \.gz
 \.bak
@@ -14,7 +17,6 @@ Makefile.old
 \.TEE
 MANIFEST\.
 
-^Makefile$
 ^blib/
 ^pm_to_blib
 ^blibdirs

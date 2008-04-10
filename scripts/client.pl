@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# C:\Temp\pearl-jam-life-wasted-video.torrent -store "c:\Temp"
 use strict;
 use warnings;
 use Getopt::Long;
@@ -20,7 +21,7 @@ GetOptions( q[help|?]             => \$help,
             q[torrent|t=s@]       => \@dot_torrents,
             q[port|p:i]           => \$localport,
             q[store|d|base_dir:s] => \$basedir,
-            q[skip_hashcheck:i]   => \$skip_hashcheck
+            q[skip_hashcheck]     => \$skip_hashcheck
 ) or pod2usage(2);
 
 if ( not scalar @dot_torrents and scalar @ARGV ) {
@@ -37,7 +38,7 @@ my $client = new Net::BitTorrent(
        #LocalPort => 80,
        #LocalAddr   => q[127.0.0.1],
     }
-) or croak sprintf q[Failed to create N::B object (%s)], $^E;
+) or croak sprintf q[Failed to create Net::BitTorrent object (%s)], $^E;
 $SIG{q[INT]} = sub {
 
     # One Ctrl-C combo shows status.  Two exits.
@@ -85,6 +86,8 @@ sub block_in {
 $client->set_callback_on_peer_incoming_block( \&block_in );
 $client->set_callback_on_peer_outgoing_request( \&request_out );
 $client->set_callback_on_piece_hash_pass( \&hashpass );
+#$client->set_callback_on_log( sub { shift; shift; warn shift; } );
+#$client->debug_level(1000);
 
 for my $dot_torrent ( sort @dot_torrents ) {
     next if not -e $dot_torrent;
@@ -132,7 +135,7 @@ You may pass several -torrent parameters and load more than one
 
 =item B<-port>
 
-Port number opened to the world for incoming connections. This
+Port number opened to the world for incoming connections.  This
 defaults to C<0> and lets IO::Socket bind to a random, unused port.
 
 =item B<-store>

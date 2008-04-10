@@ -1,6 +1,6 @@
 ---
 name: Net-BitTorrent
-version: 0.008
+version: 0.010
 author:
   - 'Sanko Robinson <sanko@cpan.org>'
 abstract: BitTorrent peer-to-peer protocol
@@ -12,54 +12,52 @@ resources:
   license: http://dev.perl.org/licenses/
   repository: http://net-bittorrent.googlecode.com/svn/trunk/
 requires:
-  Carp: 0
-  Config: 0
+  Carp: 1.08
   Cwd: 0
-  Data::Dumper: 0
   Digest::SHA: 5.45
-  Encode: 0
   Exporter: 0
   Fcntl: 0
-  File::Basename: 0
-  File::Path: 0
-  File::Spec::Functions: 0
-  IO::Select: 0
-  IO::Socket::INET: 0
-  Module::Build: 0.2805
-  Test::More: 0.74
+  File::Spec: 0
+  Scalar::Util: 1.19
+  Socket: 1.8
   Time::HiRes: 0
+  version: 0.74
+build_requires:
+  Module::Build: 0.2805
+  Test::More: 0.72
+recommends:
+  Data::Dumper: 0
+  Encode: 0
   Win32API::File: 0.1
-  overload: 0
   utf8: 0
-  version: 0.5
 provides:
   Net::BitTorrent:
     file: lib/Net/BitTorrent.pm
-    version: 0.008
+    version: 0.010
   Net::BitTorrent::Session:
     file: lib/Net/BitTorrent/Session.pm
-    version: 0.007
+    version: 0.010
   Net::BitTorrent::Session::File:
     file: lib/Net/BitTorrent/Session/File.pm
-    version: 0.006
+    version: 0.010
   Net::BitTorrent::Session::Peer:
     file: lib/Net/BitTorrent/Session/Peer.pm
-    version: 0.004
+    version: 0.010
   Net::BitTorrent::Session::Peer::Request:
     file: lib/Net/BitTorrent/Session/Peer/Request.pm
-    version: 0.003
+    version: 0.010
   Net::BitTorrent::Session::Piece:
     file: lib/Net/BitTorrent/Session/Piece.pm
-    version: 0.007
+    version: 0.010
   Net::BitTorrent::Session::Piece::Block:
     file: lib/Net/BitTorrent/Session/Piece/Block.pm
-    version: 0.007
+    version: 0.010
   Net::BitTorrent::Session::Tracker:
     file: lib/Net/BitTorrent/Session/Tracker.pm
-    version: 0.003
+    version: 0.010
   Net::BitTorrent::Util:
     file: lib/Net/BitTorrent/Util.pm
-    version: 0.007
+    version: 0.010
 generated_by: 'Sanko Robinson <sanko@cpan.org>'
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

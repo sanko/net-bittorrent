@@ -12,20 +12,23 @@ use warnings;
     }
     use Scalar::Util qw[/weak/];
     use Carp qw[carp];
+    use Net::BitTorrent::Util qw[:log];
     {
-        my ( %offset, %length, %piece, %peer );
+        my (%offset, %length, %piece, %peer);
 
         sub new {
-            my ( $class, $args ) = @_;
+            my ($class, $args) = @_;
+
             my $self = undef;
-            if (     defined $args->{q[piece]}
-                 and defined $args->{q[offset]}
-                 and defined $args->{q[length]} )
-            {
-                $self =
-                    bless \sprintf( q[B I:%d:O:%d:L:%d],
-                             $args->{q[piece]}->index,
-                             $args->{q[offset]}, $args->{q[length]} ),
+            if (    defined $args->{q[piece]}
+                and defined $args->{q[offset]}
+                and defined $args->{q[length]})
+            {   $self =
+                    bless \sprintf(q[B I:%d:O:%d:L:%d],
+                                   $args->{q[piece]}->index,
+                                   $args->{q[offset]},
+                                   $args->{q[length]}
+                    ),
                     $class;
                 $length{$self} = $args->{q[length]};
                 $offset{$self} = $args->{q[offset]};
@@ -33,59 +36,149 @@ use warnings;
             }
             return $self;
         }
-        sub piece { my ($self) = @_; return $piece{$self}; }
+
+        sub piece {
+            my ($self) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $piece{$self};
+        }
 
         sub session {
             my ($self) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return $piece{$self}->session;
         }
-        sub client { my ($self) = @_; return $piece{$self}->client; }
-        sub index  { my ($self) = @_; return $piece{$self}->index; }
-        sub offset { my ($self) = @_; return $offset{$self}; }
-        sub length { my ($self) = @_; return $length{$self}; }
+
+        sub client {
+            my ($self) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $piece{$self}->client;
+        }
+
+        sub index {
+            my ($self) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $piece{$self}->index;
+        }
+
+        sub offset {
+            my ($self) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $offset{$self};
+        }
+
+        sub length {
+            my ($self) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $length{$self};
+        }
 
         sub peers {
             my ($self) = @_;
             wantarray
                 ? grep {defined}
-                map    { $_->{q[peer]} } values %{ $peer{$self} }
-                : grep { defined $_->{q[peer]} }
-                values %{ $peer{$self} };
+                map    {$_->{q[peer]}} values %{$peer{$self}}
+                : grep {defined $_->{q[peer]}} values %{$peer{$self}};
         }
 
         sub _add_peer {
-            my ( $self, $peer ) = @_;
-            $peer{$self}{$peer}
-                = { peer => $peer, timestamp => time };
+            my ($self, $peer) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            $peer{$self}{$peer} = {peer => $peer, timestamp => time};
             return weaken $peer{$self}{$peer}{q[peer]};
         }
 
         sub _remove_peer {
-            my ( $self, $peer ) = @_;
+            my ($self, $peer) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return delete $peer{$self}{$peer};
         }
 
         sub _request_timestamp {
-            my ( $self, $peer ) = @_;
+            my ($self, $peer) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return $peer{$self}{$peer}{q[timestamp]};
         }
 
         sub _build_packet_args {
             my ($self) = @_;
-            return ( index  => $piece{$self}->index,
-                     offset => $offset{$self},
-                     length => $length{$self}
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return (index  => $piece{$self}->index,
+                    offset => $offset{$self},
+                    length => $length{$self}
             );
         }
 
         sub _write {
             my ($self) = @_;
-            $self->client->_do_callback( q[block_write], $self );
-            return $piece{$self}->_write( $_[1], $offset{$self} );
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            $self->client->_do_callback(q[block_write], $self);
+            return $piece{$self}->_write($_[1], $offset{$self});
         }
 
         sub as_string {
-            my ( $self, $advanced ) = @_;
+            my ($self, $advanced) = @_;
+            $piece{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
@@ -100,7 +193,7 @@ use warnings;
         }
     }
 }
-    1;
+1;
 __END__
 
 =pod
@@ -178,8 +271,6 @@ object related to this block.
 Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
 
 CPAN ID: SANKO
-
-ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 

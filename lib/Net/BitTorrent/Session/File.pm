@@ -13,14 +13,16 @@ use warnings;
     use Fcntl qw[/O_/ /SEEK/];
     use File::Spec;
     use Carp qw[carp];
-    my (%size,    %path,   %index,
-        %session, %handle, %unicode_filehandle,
-        %open_timestamp, %open_mode, %touch_timestamp, %piece_range
-
+    use Net::BitTorrent::Util qw[:log];
+    my (%size,           %path,      %index,
+        %session,        %handle,    %unicode_filehandle,
+        %open_timestamp, %open_mode, %touch_timestamp,
+        %piece_range
     );
     {
+
         sub new {
-            my ( $class, $args ) = @_;
+            my ($class, $args) = @_;
             my $self = undef;
             if (    caller->isa(q[Net::BitTorrent::Session])
                 and defined $args->{q[session]}
@@ -34,8 +36,7 @@ use warnings;
                 and defined $args->{q[index]}
                 and $args->{q[index]} =~ m[^\d+$]
                 )
-            {
-                $self = bless \$args->{q[path]}, $class;
+            {   $self = bless \$args->{q[path]}, $class;
                 $size{$self}      = $args->{q[size]};
                 $path{$self}      = $args->{q[path]};
                 $index{$self}     = $args->{q[index]};
@@ -44,48 +45,136 @@ use warnings;
             }
             return $self;
         }
-        sub size { my ($self) = @_; return $size{$self} }
+
+        sub size {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $size{$self};
+        }
 
         sub path {
             my $self = shift;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return
-                File::Spec->catfile( $session{$self}->base_dir,
-                                     $path{$self} );
+                File::Spec->catfile($session{$self}->base_dir,
+                                    $path{$self});
         }
-        sub index   { my ($self) = @_; return $index{$self} }
-        sub session { my ($self) = @_; return $session{$self} }
+
+        sub index {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $index{$self};
+        }
+
+        sub session {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $session{$self};
+        }
 
         sub client {
             my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return $session{$self}->client;
         }
-        sub _handle { my ($self) = @_; return $handle{$self} }
+
+        sub _handle {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $handle{$self};
+        }
 
         sub _use_unicode_handle {
             my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return $unicode_filehandle{$self};
         }    # used only on win32
 
         sub open_timestamp {
             my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return $open_timestamp{$self};
         }
-        sub open_mode { my ($self) = @_; return $open_mode{$self} }
+
+        sub open_mode {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            return $open_mode{$self};
+        }
 
         sub touch_timestamp {
             my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             return $touch_timestamp{$self};
         }
 
         sub _open {
-            my ( $self, $mode ) = @_;
-            if ( $mode !~ m[^[rw]$] ) {
-                $self->client->_do_callback( q[file_error], $self,
-                             sprintf( q[Bad open mode: %s], $mode ) );
+            my ($self, $mode) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            if ($mode !~ m[^[rw]$]) {
+                $self->client->_do_callback(q[file_error], $self,
+                                sprintf(q[Bad open mode: %s], $mode));
                 return;
             }
-            if ( $handle{$self} and $open_mode{$self} ) {
-                if ( $mode eq $open_mode{$self} ) {
+            my $mode_Fcntl = $mode eq q[r] ? O_RDONLY : O_WRONLY;
+            if (    defined $handle{$self}
+                and defined $open_mode{$self})
+            {   if ($open_mode{$self} == $mode_Fcntl) {
                     return 1;
                 }
                 else {
@@ -93,61 +182,66 @@ use warnings;
                 }
             }
             {    # TODO: Is File::Spec unicode safe?
-                my ( $vol, $dir, $file )
-                    = File::Spec->splitpath( $self->path );
-                if ( not -d File::Spec->catpath( $vol, $dir, q[] ) )
+                my ($vol, $dir, $file)
+                    = File::Spec->splitpath($self->path);
+                if (not -d File::Spec->catpath($vol, $dir, q[]))
                 {    # TODO: -d is certainly not safe :(
-                    if ( $mode =~ m[w] ) {
+                    if ($mode =~ m[w]) {
                         require File::Path;
                         my @created
                             = File::Path::mkpath(
-                            File::Spec->catpath( $vol, $dir, q[] ),
-                            { verbose => 0 } )    # or one?
+                            File::Spec->catpath($vol, $dir, q[]),
+                            {verbose => 0})    # or one?
                             or return;
                         grep {
-                            $self->client->_do_callback( q[on_log],
-                                              q[mkpath created $_\n] )
+                            $self->client->_do_callback(q[log], INFO,
+                                               q[mkpath created $_\n])
                         } @created;
                     }
                 }
             }
             if ($self->client->use_unicode
                 ? do {
-                    $self->_sysopen( ( $mode eq q[r]
-                                       ? O_RDONLY
-                                       : O_WRONLY | O_CREAT
-                                     ),
-                                     oct 777
+                    $self->_sysopen(($mode eq q[r]
+                                     ? O_RDONLY
+                                     : O_WRONLY | O_CREAT
+                                    ),
+                                    oct 777
                     );
                 }
                 : do {
-                    sysopen( $handle{$self},
-                             $self->path,
-                             (  $mode eq q[r]
-                                ? O_RDONLY
-                                : O_WRONLY | O_CREAT
-                             ),
-                             oct 777
+                    sysopen($handle{$self},
+                            $self->path,
+                            ($mode eq q[r]
+                             ? O_RDONLY
+                             : O_WRONLY | O_CREAT
+                            ),
+                            oct 777
                     );
                 }
                 )
-            {
-                $open_mode{$self}
+            {   $open_mode{$self}
                     = $mode eq q[r] ? O_RDONLY : O_WRONLY;
                 $open_timestamp{$self} = time;
-                $self->client->_do_callback( q[file_open], $self );
+                $self->client->_do_callback(q[file_open], $self);
                 return 1;
             }
             return;
         }
 
         sub _seek {
-            my ( $self, $position ) = @_;
-            if ( not $handle{$self} ) {
-                $self->client->_do_callback( q[file_error],
-                                             q[File not open] );
+            my ($self, $position) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            if (not $handle{$self}) {
+                $self->client->_do_callback(q[file_error],
+                                            q[File not open]);
             }
-            elsif ( $position > $size{$self} ) {
+            elsif ($position > $size{$self}) {
                 $self->client->_do_callback(
                       q[file_error],
                       sprintf(
@@ -157,66 +251,87 @@ use warnings;
                 );
             }
             else {
-                return sysseek( $handle{$self}, $position, SEEK_SET );
+                return sysseek($handle{$self}, $position, SEEK_SET);
             }
         }
-        sub _systell { sysseek( $_[0]->_handle, 0, SEEK_CUR ) }
+
+        sub _systell {
+            my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            sysseek($self->_handle, 0, SEEK_CUR);
+        }
 
         sub _read {
-            my ( $self, $length ) = @_;
+            my ($self, $length) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             my $data = q[];
-            if ( not $handle{$self} ) {
-                $self->client->_do_callback( q[file_error],
-                                             q[File not open] );
+            if (not $handle{$self}) {
+                $self->client->_do_callback(q[file_error],
+                                            q[File not open]);
             }
-            elsif ( $open_mode{$self} != O_RDONLY ) {
-                $self->client->_do_callback( q[file_error],
-                                          q[File not open for read] );
+            elsif ($open_mode{$self} != O_RDONLY) {
+                $self->client->_do_callback(q[file_error],
+                                           q[File not open for read]);
             }
-            elsif ( $self->_systell + $length > $size{$self} ) {
-                $self->client->_do_callback( q[file_error],
-                                  q[Cannot read beyond end of file] );
+            elsif ($self->_systell + $length > $size{$self}) {
+                $self->client->_do_callback(q[file_error],
+                                   q[Cannot read beyond end of file]);
             }
             else {
-                truncate( $handle{$self}, $size{$self} )
+                truncate($handle{$self}, $size{$self})
                     if -s $handle{$self} != $size{$self};
                 my $real_length
-                    = sysread( $handle{$self}, $data, $length );
-                if ( $real_length or ( $real_length == $length ) ) {
+                    = sysread($handle{$self}, $data, $length);
+                if ($real_length or ($real_length == $length)) {
                     $touch_timestamp{$self} = time;
-                    $self->client->_do_callback( q[file_read], $self,
-                                                 $real_length );
+                    $self->client->_do_callback(q[file_read], $self,
+                                                $real_length);
                 }
             }
             return $data;
         }
 
         sub _write {
-            my ( $self, $data ) = @_;
+            my ($self, $data) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             my $real_length;
-            if ( not $handle{$self} ) {
-                $self->client->_do_callback( q[file_error],
-                                             q[File not open] );
+            if (not $handle{$self}) {
+                $self->client->_do_callback(q[file_error],
+                                            q[File not open]);
             }
-            elsif ( $open_mode{$self} != O_WRONLY ) {
-                $self->client->_do_callback( q[file_error],
-                                         q[File not open for write] );
+            elsif ($open_mode{$self} != O_WRONLY) {
+                $self->client->_do_callback(q[file_error],
+                                          q[File not open for write]);
             }
-            elsif ( $self->_systell + length($data) > $size{$self} ) {
-                $self->client->_do_callback( q[file_error],
-                                 q[Cannot write beyond end of file] );
+            elsif ($self->_systell + length($data) > $size{$self}) {
+                $self->client->_do_callback(q[file_error],
+                                  q[Cannot write beyond end of file]);
             }
             else {
-                truncate( $handle{$self}, $size{$self} )
+                truncate($handle{$self}, $size{$self})
                     if -s $handle{$self} != $size{$self};
-                $real_length = syswrite( $handle{$self}, $data,
-                                         length($data) );
-                if ( not defined $real_length
-                     or $real_length != length($data) )
-                {
-                    $touch_timestamp{$self} = time;
-                    $self->client->_do_callback( q[file_write], $self,
-                                                 $real_length );
+                $real_length
+                    = syswrite($handle{$self}, $data, length($data));
+                if (not defined $real_length
+                    or $real_length != length($data))
+                {   $touch_timestamp{$self} = time;
+                    $self->client->_do_callback(q[file_write], $self,
+                                                $real_length);
                 }
             }
             return $real_length;
@@ -224,27 +339,39 @@ use warnings;
 
         sub _close {
             my ($self) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
             $self->session->client->use_unicode
-                ? do { $self->_sysclose( $handle{$self} ) }
-                : do { CORE::close( $handle{$self} ) };
+                ? do { $self->_sysclose($handle{$self}) }
+                : do { CORE::close($handle{$self}) };
             delete $handle{$self};
             $open_mode{$self} = undef;
-            $self->client->_do_callback( q[file_close], $self );
+            $self->client->_do_callback(q[file_close], $self);
             return 1;
         }
 
         sub piece_range {    # cache this only when needed
             my ($self) = @_;
-            if ( not defined $piece_range{$self} ) {
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            if (not defined $piece_range{$self}) {
                 my $offset = 0;
-                for my $_index ( 0 .. $self->index - 1 ) {
+                for my $_index (0 .. $self->index - 1) {
                     $offset += $self->session->files->[$_index]->size;
                 }
                 $piece_range{$self} = [
-                          int( $offset / $self->session->piece_size ),
-                          int( ( $offset + $size{$self} )
-                               / $self->session->piece_size
-                          )
+                            int($offset / $self->session->piece_size),
+                            int(($offset + $size{$self})
+                                / $self->session->piece_size
+                            )
                 ];
             }
             return $piece_range{$self};
@@ -252,16 +379,28 @@ use warnings;
 
         sub pieces {
             my ($self) = @_;
-            if ( not defined $piece_range{$self} ) {
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            if (not defined $piece_range{$self}) {
                 $self->piece_range;
             }
             return
                 map { $self->session->pieces->[$_] }
-                ( $piece_range{$self}[0] .. $piece_range{$self}[1] );
+                ($piece_range{$self}[0] .. $piece_range{$self}[1]);
         }
 
         sub priority {
-            my ( $self, $value ) = @_;
+            my ($self, $value) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
 
        # TODO: if $value == 0, we shouldn't write to this file
        # TODO: let's not set the priority for the piece if it overlaps
@@ -277,22 +416,27 @@ use warnings;
         }
 
         sub as_string {
-            my ( $self, $advanced ) = @_;
-            my @values = (
-                   $index{$self},
-                   ( q[=] x ( 25 + length( $index{$self} ) ) ),
-                   $self->path,
-                   $size{$self},
-                   (  (  (  (  scalar grep { $_->check } $self->pieces
-                            ) / ( scalar $self->pieces )
-                         )
-                      ) * 100
-                   ),
-                   @{ $self->piece_range }
+            my ($self, $advanced) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            my @values = ($index{$self},
+                          (q[=] x (25 + length($index{$self}))),
+                          $self->path,
+                          $size{$self},
+                          ((((scalar grep { $_->check } $self->pieces
+                             ) / (scalar $self->pieces)
+                            )
+                           ) * 100
+                          ),
+                          @{$self->piece_range}
             );
             s/(^[-+]?\d+?(?=(?>(?:\d{3})+)(?!\d))|\G\d{3}(?=\d))/$1,/g
-                for @values[ 3, ];    # no 'better way' warning...
-            my $dump = sprintf( <<'END', @values );
+                for @values[3,];    # no 'better way' warning...
+            my $dump = sprintf( <<'END', @values);
 Net::BitTorrent::File (#%d)
 %s
 Basic Information
@@ -323,7 +467,6 @@ END
 =end future
 
 =cut
-
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
@@ -342,61 +485,71 @@ END
         }
 
         sub _sysopen {
-            my ( $self, $mode, $perms ) = @_;
+            my ($self, $mode, $perms) = @_;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
 
  # Unicode, and other extended charsets are a pain...
  # [http://groups.google.com/group/perl.unicode/msg/86ab5af239975df7],
  # [id://538097], [id://229642], [id://445883], and others
-            if ( $self->session->client->use_unicode
-                 and ( $^O eq q[MSWin32]
-                       and ( utf8::is_utf8( $self->path ) ) )
+            if ($self->session->client->use_unicode
+                and ($^O eq q[MSWin32]
+                     and (utf8::is_utf8($self->path)))
                 )
-            {
-                require Win32API::File;
+            {   require Win32API::File;
                 Win32API::File->import(qw[:ALL]);
                 require Encode;
                 Encode->import(qw[find_encoding encode]);
                 my $h = CreateFileW(
-                        encode( q[UTF-16LE], $self->path . qq[\0] ),
-                        ( ( $mode &= O_WRONLY )
-                          ? ( GENERIC_WRITE(),
-                              FILE_SHARE_READ() | FILE_SHARE_WRITE(),
-                              [], OPEN_ALWAYS()
-                              )
-                          : ( GENERIC_READ(),
-                              FILE_SHARE_READ() | FILE_SHARE_WRITE(),
-                              [], OPEN_EXISTING()
-                          )
-                        ),
-                        0,
-                        []
+                           encode(q[UTF-16LE], $self->path . qq[\0]),
+                           (($mode &= O_WRONLY)
+                            ? (GENERIC_WRITE(),
+                               FILE_SHARE_READ() | FILE_SHARE_WRITE(),
+                               [], OPEN_ALWAYS()
+                                )
+                            : (GENERIC_READ(),
+                               FILE_SHARE_READ() | FILE_SHARE_WRITE(),
+                               [], OPEN_EXISTING()
+                            )
+                           ),
+                           0,
+                           []
                 );
-                my $fd = OsFHandleOpenFd( $h, $mode );
+                my $fd = OsFHandleOpenFd($h, $mode);
                 return if $fd < 0;
                 $self->_use_unicode_handle($h);
                 return
-                    CORE::open( $handle{$self},
-                                (  ( $mode &= O_WRONLY )
-                                   ? q[>&]
-                                   : q[<&]
-                                ),
-                                $fd
+                    CORE::open($handle{$self},
+                               (($mode &= O_WRONLY)
+                                ? q[>&]
+                                : q[<&]
+                               ),
+                               $fd
                     );
             }
-            sysopen( $handle{$self}, $self->path, $mode, $perms );
+            sysopen($handle{$self}, $self->path, $mode, $perms);
         }
 
         sub _sysclose {
             my ($self) = @_;
-            if ( $self->session->client->use_unicode
-                 and defined $self->_use_unicode_handle )
-            {
-                require Win32API::File;
+            $session{$self}->client->_do_callback(
+                                       q[log], TRACE,
+                                       sprintf(q[Entering %s for %s],
+                                               [caller 0]->[3], $$self
+                                       )
+            );
+            if ($self->session->client->use_unicode
+                and defined $self->_use_unicode_handle)
+            {   require Win32API::File;
                 Win32API::File->import(qw[:ALL]);
-                my $OS_FH = CloseHandle( $self->_use_unicode_handle );
+                my $OS_FH = CloseHandle($self->_use_unicode_handle);
                 delete $unicode_filehandle{$self};
             }
-            return CORE::close( $handle{$self} )
+            return CORE::close($handle{$self})
                 and delete $handle{$self}
                 and $open_mode{$self} = undef;
         }
@@ -409,7 +562,7 @@ __END__
 
 =head1 NAME
 
-Net::BitTorrent::Session::File - Single file class
+Net::BitTorrent::Session::File - File class
 
 =head1 CONSTRUCTOR
 
@@ -517,8 +670,6 @@ Returns when the file was last written to.
 Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
 
 CPAN ID: SANKO
-
-ProperNoun on Freenode
 
 =head1 LICENSE AND LEGAL
 
