@@ -1,16 +1,10 @@
 ---
 name: Net-BitTorrent
-version: 0.010
+version: 0.012
 author:
   - 'Sanko Robinson <sanko@cpan.org>'
 abstract: BitTorrent peer-to-peer protocol
 license: perl
-resources:
-  MailingList: http://groups.google.com/group/net-bittorrent-discuss
-  bugtracker: http://code.google.com/p/net-bittorrent/issues/list
-  homepage: http://net-bittorrent.googlecode.com/
-  license: http://dev.perl.org/licenses/
-  repository: http://net-bittorrent.googlecode.com/svn/trunk/
 requires:
   Carp: 1.08
   Cwd: 0
@@ -30,34 +24,6 @@ recommends:
   Encode: 0
   Win32API::File: 0.1
   utf8: 0
-provides:
-  Net::BitTorrent:
-    file: lib/Net/BitTorrent.pm
-    version: 0.010
-  Net::BitTorrent::Session:
-    file: lib/Net/BitTorrent/Session.pm
-    version: 0.010
-  Net::BitTorrent::Session::File:
-    file: lib/Net/BitTorrent/Session/File.pm
-    version: 0.010
-  Net::BitTorrent::Session::Peer:
-    file: lib/Net/BitTorrent/Session/Peer.pm
-    version: 0.010
-  Net::BitTorrent::Session::Peer::Request:
-    file: lib/Net/BitTorrent/Session/Peer/Request.pm
-    version: 0.010
-  Net::BitTorrent::Session::Piece:
-    file: lib/Net/BitTorrent/Session/Piece.pm
-    version: 0.010
-  Net::BitTorrent::Session::Piece::Block:
-    file: lib/Net/BitTorrent/Session/Piece/Block.pm
-    version: 0.010
-  Net::BitTorrent::Session::Tracker:
-    file: lib/Net/BitTorrent/Session/Tracker.pm
-    version: 0.010
-  Net::BitTorrent::Util:
-    file: lib/Net/BitTorrent/Util.pm
-    version: 0.010
 generated_by: 'Sanko Robinson <sanko@cpan.org>'
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
@@ -68,3 +34,37 @@ keywords:
   - peer
   - p2p
   - torrent
+provides:
+  Net::BitTorrent:
+    file: lib/Net/BitTorrent.pm
+    version: 0.012
+  Net::BitTorrent::Session:
+    file: lib/Net/BitTorrent/Session.pm
+    version: 0.012
+  Net::BitTorrent::Session::File:
+    file: lib/Net/BitTorrent/Session/File.pm
+    version: 0.012
+  Net::BitTorrent::Session::Peer:
+    file: lib/Net/BitTorrent/Session/Peer.pm
+    version: 0.012
+  Net::BitTorrent::Session::Peer::Request:
+    file: lib/Net/BitTorrent/Session/Peer/Request.pm
+    version: 0.012
+  Net::BitTorrent::Session::Piece:
+    file: lib/Net/BitTorrent/Session/Piece.pm
+    version: 0.012
+  Net::BitTorrent::Session::Piece::Block:
+    file: lib/Net/BitTorrent/Session/Piece/Block.pm
+    version: 0.012
+  Net::BitTorrent::Session::Tracker:
+    file: lib/Net/BitTorrent/Session/Tracker.pm
+    version: 0.012
+  Net::BitTorrent::Util:
+    file: lib/Net/BitTorrent/Util.pm
+    version: 0.012
+resources:
+  MailingList: http://groups.google.com/group/net-bittorrent-discuss
+  bugtracker: http://code.google.com/p/net-bittorrent/issues/list
+  homepage: http://net-bittorrent.googlecode.com/
+  license: http://dev.perl.org/licenses/
+  repository: http://net-bittorrent.googlecode.com/svn/trunk/

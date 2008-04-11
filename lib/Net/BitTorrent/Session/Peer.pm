@@ -76,7 +76,7 @@ use warnings;
 
                 # perldoc perlipc
                 socket(my ($socket),
-                       &PF_INET, &SOCK_STREAM, getprotobyname(q[tcp]))
+                       PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
                     or next PORT;
                 if ($^O eq q[MSWin32]) {
                     ioctl($socket, 0x8004667e, pack(q[I], 1));
@@ -86,7 +86,7 @@ use warnings;
                     $args->{q[address]}, 2;
                 connect($socket,
                         pack(q[Sna4x8],
-                             &AF_INET,
+                             AF_INET,
                              $peerport,
                              join(q[],
                                   map { chr $_ } ($ip =~ m[(\d+)]g))
@@ -1076,7 +1076,7 @@ use warnings;
                         }
                         my ($messageid, $data)
                             = unpack(q[ca*], $packet);
-                        my ($_content) = bdecode($data);
+                        my $_content = bdecode($data);
                         %ref = (messageid => $messageid,
                                 packet    => $_content);
 

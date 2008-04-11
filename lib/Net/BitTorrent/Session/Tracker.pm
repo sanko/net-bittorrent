@@ -445,7 +445,7 @@ use warnings;
                 )
                 or (length($body))
                 )
-            {   my ($decoded_data) = bdecode($body);
+            {   my $decoded_data = bdecode($body);
                 if (defined $decoded_data) {
                     if (defined $decoded_data->{q[failure reason]}) {
                         $self->client->_do_callback(q[tracker_error],

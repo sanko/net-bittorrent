@@ -125,7 +125,7 @@ use warnings;
                         $peer_id{$self} = pack(
                             q[a20],
                             (sprintf(
-                                 q[NB%03dS-%8s%5s],
+                                 q[NB%03dC-%8s%5s],
                                  (q[$Rev$] =~ m[(\d+)]g),
                                  (  join q[],
                                     map {
@@ -1104,7 +1104,7 @@ END
         }
         {
             sub _ext_FastPeers  {0}
-            sub _ext_ExtProtocol {1}
+            sub _ext_ExtProtocol {0}
 
             sub _build_reserved {
                 my ($self) = @_;

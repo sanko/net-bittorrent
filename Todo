@@ -1,49 +1,38 @@
 TODO list for Perl module Net::BitTorrent
 
 High priorities:
-- Documentation
-  + Incomplete/missing
-    - Net::BitTorrent
-      - callbacks are still undocumented
+--------------------
 - Complete callback system
-- Endgame (untested)
-- Trackers need the correct event param
+- Fast Peers
+- Improve handling of slow pieces
 
 Short term goals:
-- The return of Fast Extension aka 'Fast Peers'
-- Bugs
-  + Cannot remove torrents that have open handles (I'm lazy)
-- Improve handling of slow pieces
-- client.pl?
-  + -skip_hashcheck should try to load the bitfield from disk?
-  + occasional storage of the bitfield to disk on hash_pass?
-- finish test suite
-- limit number of unchoked peers
-
-Long term goals:
+--------------------
+- Full Multi-tracker spec compliance
+- Complete test suite
+- DHT/PEX
 - Internal bans for 'bad' peers
   + Penalty (and eventual ban) for peers who always seem involved
     with bad pieces
-- taint safe
-- Disconnect when both are seeds
-- IP-filter based bans
+- IP-filter
+- Limits for transfer bandwidth
+
+Long term goals:
+--------------------
 - improve file handling
   + .piece file to store incoming blocks
-- Limits for transfer bandwidth
+- Wire protocol encryption (?)
 - UDP trackers
-- Extensions
-  + DHT/PEX
-  + Wire protocol encryption?
-  + Extension protocol?
-  + Extension Negotiation Protocol?
-  + BitComet Extension Protocol?
-- N::B::Lite - barebones client?
+- N::B::Lite - barebones client (not quite ::Tiny)
   + Single class
   + No extentions
   + Trimmed API
 - gui-client.pl?
   + very light gui example using perl/TK
-- perlcritic severity=stern?
+
+Duke Nukem Forever:
+--------------------
+- perlcritic severity=stern
 - non-blocking hash_check()
 
 $Id$

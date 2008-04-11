@@ -67,7 +67,7 @@ use warnings;
                         == ((stat($FH))[7])
                         or return;    # error
                     close $FH;
-                    my ($_content) = bdecode($_data);
+                    my $_content = bdecode($_data);
                     my $infohash = Digest::SHA::sha1_hex(
                                        bencode($_content->{q[info]}));
                     if ($infohash !~ m[^([0-9a-f]{40})$]) {

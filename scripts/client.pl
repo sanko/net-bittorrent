@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# C:\Temp\pearl-jam-life-wasted-video.torrent -store "c:\Temp"
+
 use strict;
 use warnings;
 use Getopt::Long;
@@ -116,11 +116,12 @@ basic.pl - Very basic BitTorrent client
 basic [options] [file ...]
 
  Options:
-   -torrent   .torrent file to load
-   -port      port number opened to incoming connections
-   -store     base directory to store downloaded files
-   -help      brief help message
-   -man       full documentation
+   -torrent         .torrent file to load
+   -port            port number opened to incoming connections
+   -store           base directory to store downloaded files
+   -skip_hashcheck  skip integrity check at start
+   -help            brief help message
+   -man             full documentation
 
 =head1 OPTIONS
 
@@ -145,6 +146,11 @@ will be downloaded using this as the base directory.  Single file
 torrents will go directly into this directory, multifile torrents
 will create a directory within this and download there.  By default,
 this is the current working directory.
+
+=item B<-skip_hashcheck>
+
+If found, the files will not be checked for integrity and we assume
+that we have none of the data of this torrent.
 
 =item B<-help>
 

@@ -1,10 +1,8 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-
 use File::Find;
 use Module::Build;
-
 my @search = qw[t/000_basic/ t/100_data_parsing/
     t/200_classes/ t/400_broken_data/ t/900_etc/];
 if (    # http://cpantest.grango.org/wiki/CPANAuthorNotes
@@ -18,20 +16,18 @@ if (    # http://cpantest.grango.org/wiki/CPANAuthorNotes
    simulate typical swarms.  By design, no data will be
    transferred to remote systems during these tests.
 
-   NOTE: These tests can be painfully slow and may fail due to
-   restrictive firewalling, local weather conditions, or other
-   connectivity problems.
+   NOTE: These tests can be painfully slow, redundant, and may
+   fail due to restrictive firewalling, solar flare activity or
+   other connectivity problems.
   *****************************************************************
 
 Do you want to perform these tests in addition to core tests? [no] ]
     )
     and readline(STDIN) =~ m[^\s*(y)]i
     )
-{
-    push @search, q[t/500_full_swarm/];
+{   push @search, q[t/500_full_swarm/];
 }
 my @tests;
-
 find \&find_cb, sort @search;
 my $mb = Module::Build->new(
     module_name       => q[Net::BitTorrent],
@@ -41,33 +37,34 @@ my $mb = Module::Build->new(
     dist_version_from => q[lib/Net/BitTorrent.pm],
 
     #create_makefile_pl => q[passthrough],
-    sign           => 0, # chokes on build.bat on win32
-    build_requires => { q[Module::Build] => 0.2805,    # non-CORE
-                        q[Test::More]    => 0.72 # tested on 0.74
-                        #q[Test::Signature]   => 1.04,
-                        #q[Module::Signature] => 0.22,
+    sign => 0,    # chokes on build.bat on win32
+    build_requires => {
+        q[Module::Build] => 0.2805,    # non-CORE
+        q[Test::More]    => 0.72       # dev on 0.74
+                                       #q[Test::Signature]   => 1.04,
+                                       #q[Module::Signature] => 0.22,
     },
     requires => {
-          q[Exporter]     => 0,          # tested on 5.62
-          q[File::Spec]   => 0,          # Tested on 3.2701
-          q[Carp]         => 0,          # tested on
-          q[Cwd]          => 0,          # tested on
-          q[Time::HiRes]  => 0,          # tested on 1.9712
-          q[Fcntl]        => 0,          # tested on 1.06
-          q[Digest::SHA]  => 5.45,       # tested on 5.45|CORE in 5.10
-          q[version]      => 0.74,       # tested on 0.74|CORE in 5.10
-          q[Carp]         => 1.08,       # tested on 1.08
-          q[Scalar::Util] => 1.19,       # tested on 1.19
-          q[Socket]       => 1.80,       # tested on 1.80
+             q[Exporter]     => 0,          # dev on 5.62
+             q[File::Spec]   => 0,          # dev on 3.2701
+             q[Carp]         => 0,          # dev on
+             q[Cwd]          => 0,          # dev on
+             q[Time::HiRes]  => 0,          # dev on 1.9712
+             q[Fcntl]        => 0,          # dev on 1.06
+             q[Digest::SHA]  => 5.45,       # dev on 5.45|CORE in 5.10
+             q[version]      => 0.74,       # dev on 0.74|CORE in 5.10
+             q[Carp]         => 1.08,       # dev on 1.08
+             q[Scalar::Util] => 1.19,       # dev on 1.19
+             q[Socket]       => 1.80,       # dev on 1.80
     },
     recommends => {
         q[Data::Dumper] => 0,
-        (  $^O eq q[MSWin32]
-           ? ( q[Encode] => 0,
-               q[utf8] => 0, # utf8::is_utf8 internal as of Perl 5.8.1
-               q[Win32API::File] => 0.10
-               )
-           : ()
+        ($^O eq q[MSWin32]
+         ? (q[Encode] => 0,
+            q[utf8]   => 0,  # utf8::is_utf8 internal as of Perl 5.8.1
+            q[Win32API::File] => 0.10
+             )
+         : ()
         )
     },
     test_files => \@tests,
@@ -85,11 +82,11 @@ my $mb = Module::Build->new(
         generated_by => q[Sanko Robinson <sanko@cpan.org>]    # lies
     },
 );
-
 $mb->create_build_script;
 
-sub can_talk_to_ourself{
-   # Check if we should try to run tests that talk to ourself
+sub can_talk_to_ourself {
+
+    # Check if we should try to run tests that talk to ourself
     system(qq("$^X" t/data/etc/talk-to-ourself.pl));
     return $? ? 0 : 1;
 }
