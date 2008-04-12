@@ -1,4 +1,21 @@
-Version 0.013
+Version 0.014 |
+API changes:
+  - log callbacks now include a message level.  See
+     N::B::Util/"LOG LEVELS".
+  - removed peer_outgoing_packet callback in favor of more specific,
+     per-packet-type callbacks.
+ Internal changes:
+  - Fixed a bug causing files to be re-opened every time they are read.
+  - Tons of N::B::S::Peer refactoring.  (and much more to do)
+  - Early Fast Peers and Ext. Protocol testing. (disabled by default)
+ Notes:
+  - This is a documentation update.  100% coverage.
+  - Dup of 0.013 to fix bad M::B dist.  Something fishy going on with
+    the gzip'd file.  Some systems (like PAUSE) properly extract
+    directories and some (like the cpan shell) extract it all into the
+    base directory causing build failures.
+
+Version 0.013 | 2008-04-11 13:30:36 -0400 (Fri, 11 Apr 2008)
 
  API changes:
   - log callbacks now include a message level.  See

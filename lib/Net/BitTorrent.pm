@@ -136,7 +136,7 @@ use warnings;
                                         ]->[rand(66)]
                                         } 1 .. 8
                                  ),
-                                 q[SANKO],
+                                 q[Oops.],
                              )
                             )
                         );
@@ -1151,7 +1151,7 @@ __END__
 
 =head1 NAME
 
-Net::BitTorrent - BitTorrent client class
+Net::BitTorrent - BitTorrent peer-to-peer protocol class
 
 =head1 SYNOPSIS
 
