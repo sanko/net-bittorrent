@@ -210,8 +210,9 @@ use warnings;
                     );
                 }
                 : do {
+                    my ($filename) = ($self->path =~ m[^(.*)$]g);
                     sysopen($handle{$self},
-                            $self->path,
+                            $filename,
                             ($mode eq q[r]
                              ? O_RDONLY
                              : O_WRONLY | O_CREAT
@@ -467,6 +468,7 @@ END
 =end future
 
 =cut
+
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }

@@ -15,6 +15,8 @@ use warnings;
     use Net::BitTorrent::Session;
     use Net::BitTorrent::Session::Peer;
     use Net::BitTorrent::Util qw[shuffle :log];
+
+
     {
         my (%peer_id,                   %socket,
             %fileno,                    %timeout,
@@ -125,7 +127,7 @@ use warnings;
                         $peer_id{$self} = pack(
                             q[a20],
                             (sprintf(
-                                 q[NB%03dC-%8s%5s],
+                                 q[NB%03dS-%8s%5s],
                                  (q[$Rev$] =~ m[(\d+)]g),
                                  (  join q[],
                                     map {

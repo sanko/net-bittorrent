@@ -1,6 +1,6 @@
 ---
 name: Net-BitTorrent
-version: 0.013
+version: 0.015
 author:
   - 'Sanko Robinson <sanko@cpan.org>'
 abstract: BitTorrent peer-to-peer protocol
@@ -33,7 +33,7 @@ recommends:
 provides:
   Net::BitTorrent:
     file: lib/Net/BitTorrent.pm
-    version: 0.013
+    version: 0.015
   Net::BitTorrent::Session:
     file: lib/Net/BitTorrent/Session.pm
     version: 0.013

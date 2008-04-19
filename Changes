@@ -1,5 +1,5 @@
-Version 0.014 |
-API changes:
+Version 0.015 | 2008-04-11 20:00:26 -0400 (Fri, 11 Apr 2008)
+ API changes:
   - log callbacks now include a message level.  See
      N::B::Util/"LOG LEVELS".
   - removed peer_outgoing_packet callback in favor of more specific,
