@@ -11,12 +11,11 @@ use warnings;
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
     use Socket qw[PF_INET AF_INET SOCK_STREAM INADDR_ANY];
+    use Scalar::Util qw[weaken];
     use Time::HiRes qw[sleep];
     use Net::BitTorrent::Session;
     use Net::BitTorrent::Session::Peer;
     use Net::BitTorrent::Util qw[shuffle :log];
-
-
     {
         my (%peer_id,                   %socket,
             %fileno,                    %timeout,
@@ -25,7 +24,9 @@ use warnings;
             %maximum_peers_per_session, %maximum_peers_per_client,
             %connections,               %callbacks,
             %sessions,                  %use_unicode,
-            %debug_level
+            %debug_level,               %pulse,
+            %kbps_up,                   %kbps_down,
+            %k_up,                      %k_down
         );
 
         sub new {
@@ -120,6 +121,18 @@ use warnings;
                                            ? $args->{q[Timeout]}
                                            : 5
                         );
+                        $kbps_up{$self} = (defined $args->{q[kbps_up]}
+                                           ? $args->{q[kbps_up]}
+                                           : 0
+                        );
+                        $kbps_down{$self} = (
+                                         defined $args->{q[kbps_down]}
+                                         ? $args->{q[kbps_down]}
+                                         : 0
+                        );
+                        $k_up{$self}   = 0;
+                        $k_down{$self} = 0;
+                        $self->_set_pulse($self, time + 1);
                         $use_unicode{$self} = 0;
                         $debug_level{$self} = ERROR;
                         $socket{$self}      = $socket;
@@ -127,7 +140,7 @@ use warnings;
                         $peer_id{$self} = pack(
                             q[a20],
                             (sprintf(
-                                 q[NB%03dS-%8s%5s],
+                                 q[NB%03dC-%8s%5s],
                                  (q[$Rev$] =~ m[(\d+)]g),
                                  (  join q[],
                                     map {
@@ -182,7 +195,7 @@ use warnings;
             return $fileno{$self};
         }
 
-        sub use_unicode {
+        sub use_unicode {    # Experimental
             my ($self, $value) = @_;
             $self->_do_callback(q[log], TRACE,
                                 sprintf(q[Entering %s for %s],
@@ -392,43 +405,46 @@ use warnings;
             );
         }
 
-        sub _add_connection {
-            my ($self, $connection) = @_;
+        sub kbps_up {
+            my ($self, $value) = @_;
             $self->_do_callback(q[log], TRACE,
                                 sprintf(q[Entering %s for %s],
                                         [caller 0]->[3], $$self
                                 )
             );
-            return $connections{$self}{$connection->_fileno}
-                = $connection;
+            return (
+                defined $value
+                ? do {
+                    $self->_do_callback(q[log], WARN,
+                              q[kbps_up is malformed; requires float])
+                        and return
+                        unless $value
+                            =~ m[^([+]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+]?\d+))?$];
+                    $kbps_up{$self} = $value;
+                    }
+                : $kbps_up{$self}
+            );
         }
 
-        sub _remove_connection {
-            my ($self, $connection) = @_;
+        sub kbps_down {
+            my ($self, $value) = @_;
             $self->_do_callback(q[log], TRACE,
                                 sprintf(q[Entering %s for %s],
                                         [caller 0]->[3], $$self
                                 )
             );
-            return
-                if not
-                    defined $connections{$self}{$connection->_fileno};
-            return delete $connections{$self}{$connection->_fileno};
-        }
-
-        sub _connections {
-            my ($self) = @_;
-            $self->_do_callback(q[log], TRACE,
-                                sprintf(q[Entering %s for %s],
-                                        [caller 0]->[3], $$self
-                                )
+            return (
+                defined $value
+                ? do {
+                    $self->_do_callback(q[log], WARN,
+                              q[kbps_up is malformed; requires float])
+                        and return
+                        unless $value
+                            =~ m[^([+]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+]?\d+))?$];
+                    $kbps_down{$self} = $value;
+                    }
+                : $kbps_down{$self}
             );
-            $self->_do_callback(
-                q[log],
-                WARN,
-                q[ARG! ...s. Too many of them for Net::BitTorrent::_connections]
-            ) if @_ > 1;
-            return values %{$connections{$self}};
         }
 
         sub do_one_loop {
@@ -438,9 +454,6 @@ use warnings;
                                         [caller 0]->[3], $$self
                                 )
             );
-            for my $session (shuffle @{$sessions{$self}}) {
-                $session->_pulse if $session->_next_pulse < time;
-            }
             grep {
                 $_->_disconnect(
                     q[Connection timed out before established connection]
@@ -471,7 +484,10 @@ use warnings;
                 = select($rin, $win, $ein, $timeout);
             if ($nfound and $nfound != -1) {
             POP_SOCKET:
-                foreach my $fileno (keys %{$connections{$self}}) {
+                foreach
+                    my $fileno (shuffle keys %{$connections{$self}})
+                {   next POP_SOCKET
+                        if not defined $connections{$self}{$fileno};
                     if (vec($ein, $fileno, 1)
                         or not $connections{$self}{$fileno}->_socket)
                     {
@@ -479,18 +495,19 @@ use warnings;
                             and (($^E != 10036) and ($^E != 10035)))
                         {   $connections{$self}{$fileno}
                                 ->_disconnect($^E);
+                            next POP_SOCKET;
                         }
-                        next POP_SOCKET;
                     }
                     elsif ($fileno eq $fileno{$self}) {
                         if (vec($rin, $fileno, 1)) {
                             accept(my ($new_socket), $socket{$self})
                                 or $self->_do_callback(q[log], ERROR,
                                    q[Failed to accept new connection])
-                                and return;
+                                and next POP_SOCKET;
                             if (scalar(
                                     grep {
-                                        $_->isa(
+                                        defined $_
+                                            and $_->isa(
                                              q[Net::BitTorrent::Peer])
                                         } values
                                         %{$connections{$self}}
@@ -514,598 +531,167 @@ use warnings;
                         my $read  = vec($rin, $fileno, 1);
                         my $write = vec($win, $fileno, 1);
                         if ($read or $write) {
-                            $connections{$self}{$fileno}
-                                ->_process_one(((2**15) * $read),
-                                               ((2**15) * $write));
+                            my ($this_down, $this_up)
+                                = $connections{$self}{$fileno}
+                                ->_process_one(
+                                  ( (   $kbps_down{$self}
+                                        ? (($kbps_down{$self} * 1024
+                                           ) - $k_down{$self}
+                                            )
+                                        : 2**15
+                                    ) * $read
+                                  ),
+                                  (($kbps_up{$self}
+                                    ? (($kbps_up{$self} * 1024)
+                                       - $k_up{$self})
+                                    : 2**15
+                                   ) * $write
+                                  ),
+                                );
+                            $k_down{$self} += $this_down || 0;
+                            $k_up{$self}   += $this_up   || 0;
                         }
                     }
+                }
+            }
+            for my $_pulse (values %{$pulse{$self}}) {
+                if ($_pulse->{q[time]} <= time
+                    and defined $_pulse->{q[object]})
+                {   my $obj = $_pulse->{q[object]};
+                    $self->_del_pulse($obj);
+                    $obj->_pulse;
                 }
             }
             sleep($timeleft) if $timeleft;    # save the CPU
             return 1;
         }
+        {    # Connections. Trackers, Peers, ...even the client itself
 
-        sub sessions {
-            my ($self, $value) = @_;
-            $self->_do_callback(q[log], TRACE,
-                                sprintf(q[Entering %s for %s],
-                                        [caller 0]->[3], $$self
-                                )
-            );
-            return ($sessions{$self} ? $sessions{$self} : []);
-        }
-
-        sub add_session {
-            my ($self, $args) = @_;
-            $self->_do_callback(q[log], TRACE,
-                                sprintf(q[Entering %s for %s],
-                                        [caller 0]->[3], $$self
-                                )
-            );
-            $args->{q[client]} = $self;
-            my $session = Net::BitTorrent::Session->new($args);
-            if ($session) {
-                push @{$sessions{$self}}, $session;
-                $session->hash_check
-                    unless $args->{q[skip_hashcheck]};
+            sub _add_connection {
+                my ($self, $connection) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                return $connections{$self}{$connection->_fileno}
+                    = $connection;
             }
-            return $session;
-        }
 
-        sub remove_session {
-            my ($self, $session) = @_;
-            $self->_do_callback(q[log], TRACE,
-                                sprintf(q[Entering %s for %s],
-                                        [caller 0]->[3], $$self
-                                )
-            );
-            $session->trackers->[0]->announce(q[stopped])
-                if scalar @{$session->trackers};
-            $session->close_files;
-            return $sessions{$self}
-                = [grep { $session ne $_ } @{$sessions{$self}}];
-        }
-
-        sub _locate_session {
-            my ($self, $infohash) = @_;
-            $self->_do_callback(q[log], TRACE,
-                                sprintf(q[Entering %s for %s],
-                                        [caller 0]->[3], $$self
-                                )
-            );
-            for my $session (@{$sessions{$self}}) {
-                return $session if $session->infohash eq $infohash;
+            sub _remove_connection {
+                my ($self, $connection) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                return
+                    if not
+                    defined $connections{$self}{$connection->_fileno};
+                return
+                    delete $connections{$self}{$connection->_fileno};
             }
-            return;
-        }
 
-        sub as_string {
-            my ($self, $advanced) = @_;
-            $self->_do_callback(q[log], TRACE,
-                                sprintf(q[Entering %s for %s],
-                                        [caller 0]->[3], $$self
-                                )
-            );
-
-=pod
-
-=begin blarg
-
-            my %_data = (
-                socket                    => $socket{$self},
-                use_unicode               => $use_unicode{$self},
-                Timeout            => $Timeout{$self},
-                q[objects with sockets]   => $connections{$self},
-                callbacks                 => $callbacks{$self}
-            );
-
-=end blarg
-
-=cut
-
-            my @values = ($peer_id{$self},
-                          $self->sockaddr,
-                          $self->sockport,
-                          $maximum_peers_per_client{$self},
-                          $maximum_peers_per_session{$self},
-                          $maximum_peers_half_open{$self},
-                          $maximum_buffer_size{$self},
-                          $maximum_requests_size{$self},
-                          $maximum_requests_per_peer{$self},
-            );
-            s/(^[-+]?\d+?(?=(?>(?:\d{3})+)(?!\d))|\G\d{3}(?=\d))/$1,/g
-                for @values[3 .. 8];
-            my $dump = sprintf( <<'END', @values);
-Net::BitTorrent (%20s)
-======================================
-Basic Information
-  Bind address:                  %s:%d
-  Limits:
-    Number of peers:             %s
-    Number of peers per session: %s
-    Number of half-open peers:   %s
-    Amount of unparsed data:     %s bytes
-    Size of incoming requests:   %s bytes
-    Number of requests per peer: %s
-
-END
-            if ($advanced) {
-                my @adv_values = (scalar(@{$sessions{$self}}));
-                $dump .= sprintf( <<'END', @adv_values);
-Advanced Information
-  Loaded sessions: (%d torrents)
-END
-                $dump .= join qq[\n], map {
-                    my $session = $_->as_string($advanced);
-                    $session =~ s|\n|\n    |g;
-                    q[ ] x 4 . $session
-                } @{$sessions{$self}};
+            sub _connections {
+                my ($self) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                $self->_do_callback(q[log], WARN,
+                    q[ARG! ...s. Too many of them for Net::BitTorrent::_connections]
+                ) if @_ > 1;
+                return values %{$connections{$self}};
             }
-            return print STDERR qq[$dump\n] unless defined wantarray;
-            return $dump;
         }
-        {    # Callback system | So much for code reuse...
+        {    # Session related subs
+
+            sub sessions {
+                my ($self, $value) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                return ($sessions{$self} ? $sessions{$self} : []);
+            }
+
+            sub add_session {
+                my ($self, $args) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                $args->{q[client]} = $self;
+                my $session = Net::BitTorrent::Session->new($args);
+                if ($session) {
+                    push @{$sessions{$self}}, $session;
+                    $session->hash_check
+                        unless $args->{q[skip_hashcheck]};
+                }
+                return $session;
+            }
+
+            sub remove_session {
+                my ($self, $session) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                $session->trackers->[0]->announce(q[stopped])
+                    if scalar @{$session->trackers};
+                $session->close_files;
+                return $sessions{$self}
+                    = [grep { $session ne $_ } @{$sessions{$self}}];
+            }
+
+            sub _locate_session {
+                my ($self, $infohash) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                for my $session (@{$sessions{$self}}) {
+                    return $session
+                        if $session->infohash eq $infohash;
+                }
+                return;
+            }
+        }
+        {    # Callback system
 
             sub _do_callback {
-                my ($self, $callback, @params) = @_;
-                if ($callback eq q[log]) {
+                my ($self, $type, @params) = @_;
+                if ($type eq q[log]) {
                     return if $debug_level{$self} < $params[0];
                 }
-                if (ref $callbacks{$self}{$callback} ne q[CODE]) {
-                    $self->_do_callback(
-                         q[log], DEBUG,
-                         sprintf(q[Unhandled callback '%s'], $callback
-                         )
-                    ) if $callback ne q[log];
+                if (ref $callbacks{$self}{$type} ne q[CODE]) {
+                    $self->_do_callback(q[log], DEBUG,
+                           sprintf(q[Unhandled callback '%s'], $type))
+                        if $type ne q[log];
                     return;
                 }
-                return &{$callbacks{$self}{$callback}}($self,
-                                                       @params);
+                return &{$callbacks{$self}{$type}}($self, @params);
             }
 
-            sub set_callback_on_log {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[log]} = $coderef;
-            }
-
-            sub set_callback_on_peer_connect {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_connect]} = $coderef;
-            }
-
-            sub set_callback_on_peer_disconnect {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_disconnect]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_keepalive {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_keepalive]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_keepalive {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_keepalive]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_data {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_data]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_data {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_data]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_packet {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_packet]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_handshake {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_handshake]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_handshake {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_handshake]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_choke {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_choke]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_choke {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_choke]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_unchoke {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_unchoke]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_unchoke {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_unchoke]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_interested {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_interested]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_interested {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_interested]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_disinterested {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}
-                    {q[peer_incoming_disinterested]} = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_disinterested {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}
-                    {q[peer_outgoing_disinterested]} = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_have {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_have]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_have {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_have]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_bitfield {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_bitfield]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_bitfield {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_bitfield]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_request {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_request]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_request {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_request]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_block {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_block]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_block {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_block]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_incoming_cancel {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_incoming_cancel]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_peer_outgoing_cancel {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[peer_outgoing_cancel]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_file_read {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[file_read]} = $coderef;
-            }
-
-            sub set_callback_on_file_write {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[file_write]} = $coderef;
-            }
-
-            sub set_callback_on_file_open {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[file_open]} = $coderef;
-            }
-
-            sub set_callback_on_file_close {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[file_close]} = $coderef;
-            }
-
-            sub set_callback_on_file_error {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[file_error]} = $coderef;
-            }
-
-            sub set_callback_on_piece_hash_pass {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[piece_hash_pass]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_piece_hash_fail {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[piece_hash_fail]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_block_write {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[block_write]} = $coderef;
-            }
-
-            sub set_callback_on_tracker_connect {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_connect]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_disconnect {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_disconnect]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_scrape {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_scrape]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_announce {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_announce]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_scrape_okay {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_scrape_okay]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_announce_okay {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_announce_okay]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_incoming_data {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_incoming_data]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_outgoing_data {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_outgoing_data]}
-                    = $coderef;
-            }
-
-            sub set_callback_on_tracker_error {
-                my ($self, $coderef) = @_;
-                return unless defined $coderef;
-                $self->_do_callback(q[log], WARN,
-                                    q[callback is malformed])
-                    unless ref $coderef eq q[CODE];
-                return $callbacks{$self}{q[tracker_error]} = $coderef;
+            sub set_callback {
+                my ($self, $type, $coderef) = @_;
+                return unless @_ == 3;
+                return unless defined $type;
+                if (ref $coderef ne q[CODE]) {
+                    $self->_do_callback(q[log], WARN,
+                                        q[callback is malformed]);
+                    return;
+                }
+                return $callbacks{$self}{$type} = $coderef;
             }
         }
-        {
-            sub _ext_FastPeers  {0}
+        {    # Extension information
+            sub _ext_FastPeers   {0}
             sub _ext_ExtProtocol {0}
 
             sub _build_reserved {
@@ -1121,6 +707,88 @@ END
                 $reserved[5] |= 0x10
                     if $self->_ext_ExtProtocol;
                 return join q[], map {chr} @reserved;
+            }
+        }
+        {    # Internal scheduling
+
+            sub _set_pulse {
+                my ($self, $obj, $time) = @_;
+                $pulse{$self}{$obj} = {object => $obj,
+                                       time   => $time
+                };
+                return weaken $pulse{$self}{$obj}{q[object]};
+            }
+
+            sub _del_pulse {
+                my ($self, $obj) = @_;
+                return delete $pulse{$self}{$obj};
+            }
+
+            sub _get_pulse {
+                my ($self, $obj) = @_;
+                return
+                    defined $pulse{$self}{$obj}
+                    ? $pulse{$self}{$obj}{q[time]}
+                    : 0;
+            }
+
+            sub _pulse {
+                my ($self) = @_;
+                $k_down{$self} = 0;
+                $k_up{$self}   = 0;
+                $self->_set_pulse($self, time + 1);
+            }
+        }
+        {    # Debugging
+
+            sub as_string {
+                my ($self, $advanced) = @_;
+                $self->_do_callback(q[log], TRACE,
+                                    sprintf(q[Entering %s for %s],
+                                            [caller 0]->[3], $$self
+                                    )
+                );
+                my @values = ($peer_id{$self},
+                              $self->sockaddr,
+                              $self->sockport,
+                              $maximum_peers_per_client{$self},
+                              $maximum_peers_per_session{$self},
+                              $maximum_peers_half_open{$self},
+                              $maximum_buffer_size{$self},
+                              $maximum_requests_size{$self},
+                              $maximum_requests_per_peer{$self},
+                );
+                s/(^[-+]?\d+?(?=(?>(?:\d{3})+)(?!\d))|\G\d{3}(?=\d))/$1,/g
+                    for @values[3 .. 8];
+                my $dump = sprintf( <<'END', @values);
+Net::BitTorrent (%20s)
+======================================
+Basic Information
+  Bind address:                  %s:%d
+  Limits:
+    Number of peers:             %s
+    Number of peers per session: %s
+    Number of half-open peers:   %s
+    Amount of unparsed data:     %s bytes
+    Size of incoming requests:   %s bytes
+    Number of requests per peer: %s
+
+END
+                if ($advanced) {
+                    my @adv_values = (scalar(@{$sessions{$self}}));
+                    $dump .= sprintf( <<'END', @adv_values);
+Advanced Information
+  Loaded sessions: (%d torrents)
+END
+                    $dump .= join qq[\n], map {
+                        my $session = $_->as_string($advanced);
+                        $session =~ s|\n|\n    |g;
+                        q[ ] x 4 . $session
+                    } @{$sessions{$self}};
+                }
+                return print STDERR qq[$dump\n]
+                    unless defined wantarray;
+                return $dump;
             }
         }
         DESTROY {
@@ -1142,10 +810,15 @@ END
             #grep { $self->remove_session($_) } @{$sessions{$self}};
             delete $sessions{$self};
             delete $fileno{$self};
+            delete $kbps_up{$self};
+            delete $kbps_down{$self};
+            delete $k_up{$self};
+            delete $k_down{$self};
             return 1;
         }
     }
 }
+1;
 1;
 __END__
 
@@ -1160,21 +833,19 @@ Net::BitTorrent - BitTorrent peer-to-peer protocol class
     use Net::BitTorrent;
 
     sub hash_pass {
-        my ( $self, $piece ) = @_;
-        printf( qq[on_hash_pass: piece number %04d of %s\n],
-                $piece->index, $piece->session );
+        my ($self, $piece) = @_;
+        printf(qq[hash_pass: piece number %04d of %s\n],
+               $piece->index, $piece->session);
     }
 
     my $client = Net::BitTorrent->new();
-
-    $client->set_callback_on_piece_hash_pass( \&hash_pass );
+    $client->set_callback(q[piece_hash_pass], \&hash_pass);
 
     # ...
     # set various callbacks if you so desire
     # ...
 
-    my $torrent
-        = $client->add_session( { path => q[a.legal.torrent] } )
+    my $torrent = $client->add_session({path => q[a.legal.torrent]})
         or die q[Cannot load .torrent];
 
     while (1) {
@@ -1195,8 +866,8 @@ capable of handling several concurrent .torrent sessions.
 
 =item C<new ( { [ARGS] } )>
 
-Creates a C<Net::BitTorrent> object.  C<new ( )> accepts arguments as a
-hash, using key-value pairs, all of which are optional.  The most
+Creates a C<Net::BitTorrent> object.  C<new ( )> accepts arguments as
+a hash, using key-value pairs, all of which are optional.  The most
 common are:
 
 =over 4
@@ -1222,7 +893,7 @@ Though the default in most clients is a random port in the 6881-6889
 range, BitTorrent has not been assigned a port number or range by the
 IANA.  Nor is such a standard needed.
 
-Default: 0 (any avalible)
+Default: 0 (any available)
 
 =item C<Timeout>
 
@@ -1235,7 +906,7 @@ Default: C<5.0>
 
 Besides these, there are a number of advanced options that can be set
 via the constructor.  Use these with caution as they can greatly
-affect the basic functionality and usefullness of the module.
+affect the basic functionality and usefulness of the module.
 
 =over 4
 
@@ -1285,6 +956,18 @@ Default: C<32768> (C<2**15>)
 Maximum number of requested blocks we keep in queue with each peer.
 
 Default: C<10>
+
+=item C<kbps_up>
+
+Maximum amount of data transfered per second to remote hosts.
+
+Default: C<0> (unlimited)
+
+=item C<kbps_down>
+
+Maximum amount of data transfered per second from remote hosts.
+
+Default: C<0> (unlimited)
 
 =back
 
@@ -1408,6 +1091,22 @@ each peer.
 
 Default: C<10>
 
+=item C<kbps_up ( [NEW VALUE] )>
+
+Mutator to get/set the maximum amount of data transfered per second to
+remote hosts.  This rate limits both peers and trackers.  To remove
+transfer limits, set this value to C<0>.
+
+Default: C<0> (unlimited)
+
+=item C<kbps_down ( [NEW VALUE] )>
+
+Mutator to get/set the maximum amount of data transfered per second
+from remote hosts.  This rate limits both peers and trackers.  To
+remove transfer limits, set this value to C<0>.
+
+Default: C<0> (unlimited)
+
 =item C<peer_id ( )>
 
 Returns the Peer ID generated to identify this C<Net::BitTorrent>
@@ -1475,10 +1174,16 @@ L<http://groups.google.com/group/perl.unicode/msg/86ab5af239975df7>
 
 =head1 CALLBACKS
 
+=over
+
+=item C<set_callback( TYPE, CODEREF )>
+
 C<Net::BitTorrent> provides a convenient callback system.  To set a
-callback, use the equivalent C<set_callback_on_[action]> method.  For
-example, to catch all attempts to read from a file, use
-C<$client-E<gt>set_callback_on_file_read(\&on_read)>.
+callback, use the C<set_callback( )> method.  For example, to catch
+all attempts to read from a file, use
+C<$client-E<gt>set_callback( 'file_read', \&on_read )>.
+
+=back
 
 Here is the current list of events fired by C<Net::BitTorrent> and
 related classes as well as a brief description (soon) of them:
@@ -1497,111 +1202,111 @@ other callbacks.
 
 =over
 
-=item C<set_callback_on_peer_connect ( CODEREF )>
+=item C<peer_connect>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_disconnect ( CODEREF )>
+=item C<peer_disconnect>
 
 Callback arguments: ( CLIENT, PEER, [REASON] )
 
-=item C<set_callback_on_peer_incoming_bitfield ( CODEREF )>
+=item C<peer_incoming_bitfield>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_incoming_block ( CODEREF )>
+=item C<peer_incoming_block>
 
 Callback arguments: ( CLIENT, PEER, BLOCK )
 
-=item C<set_callback_on_peer_incoming_cancel ( CODEREF )>
+=item C<peer_incoming_cancel>
 
 Callback arguments: ( CLIENT, PEER, REQUEST )
 
-=item C<set_callback_on_peer_incoming_choke ( CODEREF )>
+=item C<peer_incoming_choke>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_incoming_data ( CODEREF )>
+=item C<peer_incoming_data>
 
 Callback arguments: ( CLIENT, PEER, LENGTH )
 
-=item C<set_callback_on_peer_incoming_disinterested ( CODEREF )>
+=item C<peer_incoming_disinterested>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_incoming_handshake ( CODEREF )>
+=item C<peer_incoming_handshake>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_incoming_have ( CODEREF )>
+=item C<peer_incoming_have>
 
 Callback arguments: ( CLIENT, PEER, INDEX )
 
-=item C<set_callback_on_peer_incoming_interested ( CODEREF )>
+=item C<peer_incoming_interested>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_incoming_keepalive ( CODEREF )>
+=item C<peer_incoming_keepalive>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_incoming_packet ( CODEREF )>
+=item C<peer_incoming_packet>
 
 Callback arguments: ( CLIENT, PEER, PACKET )
 
-=item C<set_callback_on_peer_incoming_request ( CODEREF )>
+=item C<peer_incoming_request>
 
 Callback arguments: ( CLIENT, PEER, REQUEST )
 
-=item C<set_callback_on_peer_incoming_unchoke ( CODEREF )>
+=item C<peer_incoming_unchoke>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_outgoing_bitfield ( CODEREF )>
+=item C<peer_outgoing_bitfield>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_outgoing_block ( CODEREF )>
+=item C<peer_outgoing_block>
 
 Callback arguments: ( CLIENT, PEER, REQUEST )
 
-=item C<set_callback_on_peer_outgoing_cancel ( CODEREF )>
+=item C<peer_outgoing_cancel>
 
 Callback arguments: ( CLIENT, PEER, BLOCK )
 
-=item C<set_callback_on_peer_outgoing_choke ( CODEREF )>
+=item C<peer_outgoing_choke>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_outgoing_data ( CODEREF )>
+=item C<peer_outgoing_data>
 
 Callback arguments: ( CLIENT, PEER, LENGTH )
 
-=item C<set_callback_on_peer_outgoing_disinterested ( CODEREF )>
+=item C<peer_outgoing_disinterested>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_outgoing_handshake ( CODEREF )>
+=item C<peer_outgoing_handshake>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_outgoing_have ( CODEREF )>
+=item C<peer_outgoing_have>
 
 Callback arguments: ( CLIENT, PEER, INDEX )
 
-=item C<set_callback_on_peer_outgoing_interested ( CODEREF )>
+=item C<peer_outgoing_interested>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_outgoing_keepalive ( CODEREF )>
+=item C<peer_outgoing_keepalive>
 
 Callback arguments: ( CLIENT, PEER )
 
-=item C<set_callback_on_peer_outgoing_request ( CODEREF )>
+=item C<peer_outgoing_request>
 
 Callback arguments: ( CLIENT, PEER, BLOCK )
 
-=item C<set_callback_on_peer_outgoing_unchoke ( CODEREF )>
+=item C<peer_outgoing_unchoke>
 
 Callback arguments: ( CLIENT, PEER )
 
@@ -1614,39 +1319,39 @@ L<Net::BitTorrent::Tracker|Net::BitTorrent::Tracker> objects.
 
 =over
 
-=item C<set_callback_on_tracker_announce ( CODEREF )>
+=item C<tracker_announce>
 
 Callback arguments: ( CLIENT, TRACKER )
 
-=item C<set_callback_on_tracker_announce_okay ( CODEREF )>
+=item C<tracker_announce_okay>
 
 Callback arguments: ( CLIENT, TRACKER )
 
-=item C<set_callback_on_tracker_connect ( CODEREF )>
+=item C<tracker_connect>
 
 Callback arguments: ( CLIENT, TRACKER )
 
-=item C<set_callback_on_tracker_disconnect ( CODEREF )>
+=item C<tracker_disconnect>
 
 Callback arguments: ( CLIENT, TRACKER )
 
-=item C<set_callback_on_tracker_error ( CODEREF )>
+=item C<tracker_error>
 
 Callback arguments: ( CLIENT, TRACKER, MESSAGE )
 
-=item C<set_callback_on_tracker_incoming_data ( CODEREF )>
+=item C<tracker_incoming_data>
 
 Callback arguments: ( CLIENT, TRACKER, LENGTH )
 
-=item C<set_callback_on_tracker_outgoing_data ( CODEREF )>
+=item C<tracker_outgoing_data>
 
 Callback arguments: ( CLIENT, TRACKER, LENGTH )
 
-=item C<set_callback_on_tracker_scrape ( CODEREF )>
+=item C<tracker_scrape>
 
 Callback arguments: ( CLIENT, TRACKER )
 
-=item C<set_callback_on_tracker_scrape_okay ( CODEREF )>
+=item C<tracker_scrape_okay>
 
 Callback arguments: ( CLIENT, TRACKER )
 
@@ -1660,23 +1365,23 @@ objects.
 
 =over
 
-=item C<set_callback_on_file_close ( CODEREF )>
+=item C<file_close>
 
 Callback arguments: ( CLIENT, FILE )
 
-=item C<set_callback_on_file_error ( CODEREF )>
+=item C<file_error>
 
 Callback arguments: ( CLIENT, FILE, [REASON] )
 
-=item C<set_callback_on_file_open ( CODEREF )>
+=item C<file_open>
 
 Callback arguments: ( CLIENT, FILE )
 
-=item C<set_callback_on_file_read ( CODEREF )>
+=item C<file_read>
 
 Callback arguments: ( CLIENT, FILE, LENGTH )
 
-=item C<set_callback_on_file_write ( CODEREF )>
+=item C<file_write>
 
 Callback arguments: ( CLIENT, FILE, LENGTH )
 
@@ -1690,11 +1395,11 @@ objects.
 
 =over
 
-=item C<set_callback_on_piece_hash_fail ( CODEREF )>
+=item C<piece_hash_fail>
 
 Callback arguments: ( CLIENT, PIECE )
 
-=item C<set_callback_on_piece_hash_pass ( CODEREF )>
+=item C<piece_hash_pass>
 
 Callback arguments: ( CLIENT, PIECE )
 
@@ -1708,7 +1413,7 @@ objects.
 
 =over
 
-=item C<set_callback_on_block_write ( CODEREF )>
+=item C<block_write>
 
 Callback arguments: ( CLIENT, BLOCK )
 
@@ -1721,7 +1426,7 @@ specific.
 
 =over
 
-=item C<set_callback_on_log ( CODEREF )>
+=item C<log>
 
 Callback arguments: ( CLIENT, LEVEL, STRING )
 
@@ -1729,9 +1434,9 @@ See also: L<LOG LEVELS|Net::BitTorrent::Util/"LOG LEVELS">
 
 =back
 
-=head1 IMPLEMENTED EXTENTIONS
+=head1 IMPLEMENTED EXTENSIONS
 
-Um, none yet.  Fast Peers soon.
+Um, none yet.
 
 =head1 BUGS
 
@@ -1776,6 +1481,10 @@ This list of bugs is incomplete.
 
 =back
 
+Found bugs should be reported through
+L<http://code.google.com/p/net-bittorrent/issues/list>.  Please
+include as much information as possible.
+
 =head1 NOTES
 
 =head2 Availability and Support
@@ -1815,6 +1524,10 @@ they come bundled with the distribution.
 
 Changes to documented or well established parts will be clearly
 listed and archived in the F<CHANGES> file.
+
+Functions and parameters that are
+all_lower_case_and_contain_underscores are typically experimental and
+have a very good chance of being depreciated in a future version.
 
 =item * B<All undocumented functionality is subject to change without notice.>
 
@@ -1881,7 +1594,7 @@ jibba jabba.
 L<Net::BitTorrent::PeerID|Net::BitTorrent::PeerID> - The standard used
 to identify C<Net::BitTorrent> in the wild.
 
-=head1 ACKNOWLEDGEMENTS
+=head1 ACKNOWLEDGMENTS
 
 Bram Cohen, for designing the base protocol and letting the community
 decide what to do with it.

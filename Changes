@@ -1,20 +1,30 @@
-Version 0.015 | 2008-04-11 20:00:26 -0400 (Fri, 11 Apr 2008)
+Version 0.018 |
+
  API changes:
-  - log callbacks now include a message level.  See
-     N::B::Util/"LOG LEVELS".
-  - removed peer_outgoing_packet callback in favor of more specific,
-     per-packet-type callbacks.
+  - Old style set_callback_* syntax is depreciated.
+  - New methods: kbps_up, kbps_down
+  - New optional parameters for N::B::new(): kbps_up, kbps_down
+
  Internal changes:
-  - Fixed a bug causing files to be re-opened every time they are read.
-  - Tons of N::B::S::Peer refactoring.  (and much more to do)
-  - Early Fast Peers and Ext. Protocol testing. (disabled by default)
+  - Fixed crash bug in N::B::S::Peer during endgame
+
  Notes:
-  - This is a documentation update.  100% coverage.
+  - Upgrade is strongly recommended.
+  - No longer causes taint warnings.
+  - perl 5.8.1 required.  This is based solely on available CPAN
+      Reporter PASS/FAIL tests and may not be a true representative
+      value.
+
+---
+Version 0.015 | 2008-04-11 20:00:26 -0400 (Fri, 11 Apr 2008)
+
+ Notes:
   - Dup of 0.013 to fix bad M::B dist.  Something fishy going on with
     the gzip'd file.  Some systems (like PAUSE) properly extract
     directories and some (like the cpan shell) extract it all into the
     base directory causing build failures.
 
+---
 Version 0.013 | 2008-04-11 13:30:36 -0400 (Fri, 11 Apr 2008)
 
  API changes:

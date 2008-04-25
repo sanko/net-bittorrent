@@ -3,36 +3,37 @@ TODO list for Perl module Net::BitTorrent
 High priorities:
 --------------------
 - Complete callback system
-- Fast Peers
 - Improve handling of slow pieces
+- Per-session transfer limits
 
 Short term goals:
 --------------------
-- Full Multi-tracker spec compliance
-- Complete test suite
 - DHT/PEX
-- Internal bans for 'bad' peers
-  + Penalty (and eventual ban) for peers who always seem involved
-    with bad pieces
-- IP-filter
-- Limits for transfer bandwidth
+- UDP trackers
+- Fast Peers
 
 Long term goals:
 --------------------
 - improve file handling
   + .piece file to store incoming blocks
 - Wire protocol encryption (?)
-- UDP trackers
-- N::B::Lite - barebones client (not quite ::Tiny)
-  + Single class
-  + No extentions
-  + Trimmed API
-- gui-client.pl?
+- IP-filter
+- scripts/gui-client.pl?
   + very light gui example using perl/TK
+  + I need more example scripts in general
+- Internal bans for 'bad' peers
+  + Penalty (and eventual ban) for peers who always seem involved
+    with bad pieces
+- Complete test suite
+- Full Multi-tracker spec compliance
 
 Duke Nukem Forever:
 --------------------
 - perlcritic severity=stern
 - non-blocking hash_check()
+- N::B::Lite - bare bones client (not quite ::Tiny)
+  + Single class
+  + No extensions
+  + Trimmed API
 
 $Id$

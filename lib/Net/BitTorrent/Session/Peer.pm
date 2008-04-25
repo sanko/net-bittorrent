@@ -43,8 +43,7 @@ use warnings;
         );
 
         # statistics
-        my (%uploaded, %downloaded, %next_pulse,
-            %previous_incoming_data);
+        my (%uploaded, %downloaded, %previous_incoming_data);
 
         sub new {
             my ($class, $args) = @_;
@@ -128,9 +127,8 @@ use warnings;
             $previous_incoming_block{$self} = time;    # lies
             $previous_incoming_data{$self}  = time;    # lies
             $outgoing_requests{$self}       = [];
-
-            #$incoming_requests{$self}       = {};
-            $next_pulse{$self}     = time + 5;
+            $incoming_requests{$self}       = [];
+            $client{$self}->_set_pulse($self, time + 5);
             $queue_outgoing{$self} = q[];
             $queue_incoming{$self} = q[];
             $bitfield{$self}       = q[];
@@ -146,67 +144,56 @@ use warnings;
 
                 sub bitfield {
                     my ($self) = @_;
-
                     return $bitfield{$self};
                 }
 
                 sub client {
                     my ($self) = @_;
-
                     return $client{$self};
                 }
 
                 sub downloaded {
                     my ($self) = @_;
-
                     return $downloaded{$self};
                 }
 
                 sub is_choked {
                     my ($self) = @_;
-
                     return $is_choked{$self};
                 }
 
                 sub is_choking {
                     my ($self) = @_;
-
                     return $is_choking{$self};
                 }
 
                 sub incoming_connection {
                     my ($self) = @_;
-
                     return $incoming_connection{$self};
                 }
 
                 sub is_interested {
                     my ($self) = @_;
-
                     return $is_interested{$self};
                 }
 
                 sub is_interesting {
                     my ($self) = @_;
-
                     return $is_interesting{$self};
                 }
 
                 sub outgoing_requests {
                     my ($self) = @_;
-
                     return $outgoing_requests{$self};
                 }
 
                 sub peer_id {
                     my ($self) = @_;
-
                     return $peer_id{$self};
                 }
 
                 sub peerhost {
                     my ($self) = @_;
-
                     if (not defined $peerhost{$self}
                         and $connected{$self})
                     {   my (undef, undef, @address)
@@ -219,7 +206,6 @@ use warnings;
 
                 sub peerport {
                     my ($self) = @_;
-
                     if (not defined $peerport{$self}
                         and $connected{$self})
                     {   (undef, $peerport{$self}, undef)
@@ -231,19 +217,16 @@ use warnings;
 
                 sub reserved {
                     my ($self) = @_;
-
                     return $reserved{$self};
                 }
 
                 sub session {
                     my ($self) = @_;
-
                     return $session{$self};
                 }
 
                 sub uploaded {
                     my ($self) = @_;
-
                     return $uploaded{$self};
                 }
             }
@@ -251,43 +234,31 @@ use warnings;
 
                 sub _connected {
                     my ($self) = @_;
-
                     return $connected{$self};
                 }
 
                 sub _fileno {
                     my ($self) = @_;
-
                     return $fileno{$self};
                 }
 
                 sub _socket {
                     my ($self) = @_;
-
                     return $socket{$self};
-                }
-
-                sub _next_pulse {
-                    my ($self) = @_;
-
-                    return $next_pulse{$self};
                 }
 
                 sub _connection_timestamp {
                     my ($self) = @_;
-
                     return $connection_timestamp{$self};
                 }
 
                 sub _queue_outgoing {
                     my ($self) = @_;
-
                     return $queue_outgoing{$self};
                 }
 
                 sub _queue_incoming {
                     my ($self) = @_;
-
                     return $queue_incoming{$self};
                 }
             }
@@ -296,7 +267,6 @@ use warnings;
 
             sub as_string {
                 my ($self, $advanced) = @_;
-
                 my $dump = $self . q[ [TODO]];
                 return print STDERR qq[$dump\n]
                     unless defined wantarray;
@@ -306,12 +276,7 @@ use warnings;
         {    # Private Methods
 
             sub _process_one {
-                my $self = shift;
-                my $read = shift
-                    ; # length (>= 0) we should read from this peer...
-                my $write = shift
-                    ;  # ...or write. In the future, this is how we'll
-                       # limit bandwidth.
+                my ($self, $read, $write) = @_;
                 $client{$self}->_do_callback(
                                        q[log], TRACE,
                                        sprintf(q[Entering %s for %s],
@@ -334,7 +299,7 @@ use warnings;
                     }
                     else { $self->_disconnect($^E); goto RETURN; }
                 }
-                if ($read) {
+                if ($read and defined $socket{$self}) {
                     $actual_read =
                         sysread($socket{$self},
                                 $queue_incoming{$self},
@@ -604,8 +569,12 @@ use warnings;
                             return;
                         }
                         $is_choking{$self} = 0;
-                        $next_pulse{$self}
-                            = min($next_pulse{$self}, time + 2);
+                        $client{$self}->_set_pulse(
+                                 $self,
+                                 min(time + 2,
+                                     $client{$self}->_get_pulse($self)
+                                 )
+                        );
                         $client{$self}
                             ->_do_callback(q[peer_incoming_unchoke],
                                            $self);
@@ -1150,9 +1119,13 @@ use warnings;
                                 @{$outgoing_requests{$self}}
                                     = grep { $_ ne $block }
                                     @{$outgoing_requests{$self}};
-                                $next_pulse{$self}
-                                    = min((time + 5),
-                                          $next_pulse{$self});
+                                $client{$self}->_set_pulse(
+                                           $self,
+                                           min(time + 5,
+                                               $client{$self}
+                                                   ->_get_pulse($self)
+                                           )
+                                );
                                 $downloaded{$self} += length $data;
                                 $session{$self}
                                     ->_inc_downloaded(length $data);
@@ -1497,7 +1470,7 @@ use warnings;
                     );
                     return
                         if not $extentions{$self}{q[supported]}
-                            {q[FastPeers]};
+                        {q[FastPeers]};
                     return if not $client{$self}->_ext_FastPeers;
                     $queue_outgoing{$self} .= pack(q[Nc], 5, 14);
                     $client{$self}
@@ -1516,7 +1489,7 @@ use warnings;
                     );
                     return
                         if not $extentions{$self}{q[supported]}
-                            {q[FastPeers]};
+                        {q[FastPeers]};
                     return if not $client{$self}->_ext_FastPeers;
                     $queue_outgoing{$self} .= pack(q[Nc], 5, 15);
                     $client{$self}
@@ -1535,7 +1508,7 @@ use warnings;
                     );
                     return
                         if not $extentions{$self}{q[supported]}
-                            {q[ExtProtocol]};
+                        {q[ExtProtocol]};
                     return if not $client{$self}->_ext_ExtProtocol;
                     my $packet
                         = pack(q[ca*], $messageID, bencode $data);
@@ -1634,8 +1607,12 @@ use warnings;
                 $uploaded{$self} += $request->length;
                 $session{$self}->_inc_uploaded($request->length);
             }
-            return $next_pulse{$self}
-                = min(time + 10, $next_pulse{$self});
+            return
+                $client{$self}->_set_pulse($self,
+                    min(time + 10, $client{$self}->_get_pulse($self)))
+
+                #return $next_pulse{$self}
+                #    = min(time + 10, $next_pulse{$self});
         }
         {    # Actions
 
@@ -1650,8 +1627,10 @@ use warnings;
                 $block->_remove_peer($self);
                 @{$outgoing_requests{$self}} = grep { $_ ne $block }
                     @{$outgoing_requests{$self}};
-                $next_pulse{$self}
-                    = min((time + 5), $next_pulse{$self});
+                $client{$self}->_set_pulse($self,
+                    min(time + 5, $client{$self}->_get_pulse($self)));
+
+             #$next_pulse{$self}= min((time + 5), $next_pulse{$self});
                 return $self->_build_packet_cancel($block);
             }
 
@@ -1931,6 +1910,8 @@ use warnings;
         }
         DESTROY {
             my ($self) = @_;
+            $client{$self}->_del_pulse($self)
+                if defined $client{$self};
             delete $client{$self};
             delete $peer_id{$self};
             delete $bitfield{$self};
@@ -1957,7 +1938,6 @@ use warnings;
             delete $previous_incoming_block{$self};
             delete $downloaded{$self};
             delete $uploaded{$self};
-            delete $next_pulse{$self};
             delete $fileno{$self};
             delete $peerhost{$self};
             delete $peerport{$self};

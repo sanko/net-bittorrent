@@ -25,7 +25,7 @@ use warnings;
             %connection_timestamp, %scrape_complete,
             %scrape_incomplete,    %scrape_downloaded,
             %connected,            %queue_outgoing,
-            %queue_incoming,       %next_pulse
+            %queue_incoming
         );
 
         sub new {
@@ -46,173 +46,78 @@ use warnings;
                 $scrape_incomplete{$self}    = 0;
                 $scrape_downloaded{$self}    = 0;
                 $connected{$self}            = 0;
-                $next_pulse{$self}           = time;
+                $session{$self}->client->_set_pulse($self, time + 10);
             }
             return $self;
         }
 
         sub urls {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $urls{$self};
         }
 
         sub _fileno {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $fileno{$self};
         }
 
         sub _socket {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $socket{$self};
         }
 
         sub session {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $session{$self};
         }
 
         sub client {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $session{$self}->client;
         }
 
         sub _connection_timestamp {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $connection_timestamp{$self};
         }
 
         sub _scrape_complete {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $scrape_complete{$self};
         }
 
         sub _scrape_incomplete {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $scrape_incomplete{$self};
         }
 
         sub _scrape_downloaded {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $scrape_downloaded{$self};
         }
 
         sub _connected {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $connected{$self};
         }
 
         sub _queue_outgoing {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $queue_outgoing{$self};
         }
 
         sub _queue_incoming {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $queue_incoming{$self};
-        }
-
-        sub _next_pulse {
-            my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
-            return $next_pulse{$self};
         }
 
         sub _next_announce {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $next_announce{$self};
         }
 
         sub _next_scrape {
             my ($self) = @_;
-            $session{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $next_scrape{$self};
         }
 
@@ -232,11 +137,12 @@ use warnings;
                 elsif ($next_announce{$self} <= time) {
                     $self->announce;
                     $next_announce{$self} = time + 120;
-                    $next_pulse{$self}    = time + 125;
+                    $session{$self}
+                        ->client->_set_pulse($self, time + 125);
                 }
             }
-            $next_pulse{$self}
-                = min($next_announce{$self}, $next_scrape{$self});
+            $session{$self}->client->_set_pulse($self,
+                     min($next_announce{$self}, $next_scrape{$self}));
             return 1;
         }
 
@@ -572,7 +478,7 @@ use warnings;
                                        )
             );
             my ($actual_read, $actual_write) = (0, 0);
-            if ($write) {
+            if ($write and defined $socket{$self}) {
                 $actual_write =
                     syswrite($socket{$self},
                              substr($queue_outgoing{$self},
@@ -585,9 +491,9 @@ use warnings;
                         ->client->_do_callback(q[tracker_data_out],
                                                $self, $actual_write);
                 }
-                else { $self->_disconnect; return (0, 0); }
+                else { $self->_disconnect; goto RETURN; }
             }
-            if ($read) {
+            if ($read and defined $socket{$self}) {
                 $actual_read =
                     sysread($socket{$self},
                             $queue_incoming{$self},
@@ -608,10 +514,10 @@ use warnings;
                 }
                 else {
                     $self->_disconnect();
-                    return (0, 0);
                 }
             }
-            return;
+        RETURN:
+            return ($actual_read, $actual_write);
         }
 
         sub _parse_packet {
@@ -652,7 +558,7 @@ use warnings;
                 $scrape_downloaded{$self},
                 $next_scrape{$self} - time,
                 $next_announce{$self} - time,
-                $next_pulse{$self} - time,
+                $session{$self}->client->_get_pulse($self) - time,
             );
             $_ = (sprintf q[%dm %ss%s],
                   int(abs($_) / 60),
@@ -687,6 +593,9 @@ END
         }
         DESTROY {
             my $self = shift;
+            $session{$self}->client->_del_pulse($self)
+                if defined $session{$self}
+                    and defined $session{$self}->client;
             delete $urls{$self};
             delete $socket{$self};
             delete $session{$self};
@@ -697,7 +606,6 @@ END
             delete $scrape_complete{$self};
             delete $scrape_incomplete{$self};
             delete $scrape_downloaded{$self};
-            delete $next_pulse{$self};
             delete $connected{$self};
             delete $queue_outgoing{$self};
             delete $queue_incoming{$self};

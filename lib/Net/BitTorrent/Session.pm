@@ -19,11 +19,10 @@ use warnings;
     use Net::BitTorrent::Session::File;
     use Net::BitTorrent::Session::Tracker;
     {
-        my (%next_pulse,  %path,     %base_dir,   %private,
-            %piece_count, %infohash, %block_size, %piece_size,
-            %total_size,  %uploaded, %downloaded, %trackers,
-            %client,      %files,    %pieces,     %nodes,
-            %endgame
+        my (%path,     %base_dir,   %private,    %piece_count,
+            %infohash, %block_size, %piece_size, %total_size,
+            %uploaded, %downloaded, %trackers,   %client,
+            %files,    %pieces,     %nodes,      %endgame
         );
 
         sub new {
@@ -130,7 +129,7 @@ use warnings;
                     ];
 
                     # defaults
-                    $next_pulse{$self} = time + 5;
+                    $client{$self}->_set_pulse($self, time + 5);
                     $downloaded{$self} = 0;
                     $uploaded{$self}   = 0;
                     $block_size{$self} = (
@@ -214,101 +213,42 @@ use warnings;
 
         sub hash_check {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             for my $piece (@{$pieces{$self}}) { $piece->verify }
             return 1;
         }
 
-        sub _next_pulse {
-            my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
-            return $next_pulse{$self};
-        }
-
         sub path {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $path{$self};
         }
 
         sub base_dir {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return File::Spec->rel2abs($base_dir{$self});
         }
 
         sub private {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $private{$self};
         }
 
         sub infohash {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $infohash{$self};
         }
 
         sub client {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $client{$self};
         }
 
         sub pieces {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $pieces{$self};
         }
 
         sub trackers {
             my ($self) = @_;
-            $client{$self}->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
             return $trackers{$self};
         }
 
@@ -486,13 +426,7 @@ use warnings;
                                                [caller 0]->[3], $$self
                                        )
             );
-            for my $tier (@{$trackers{$self}}) {
-                $tier->_pulse if $tier->_next_pulse < time;
-            }
             my @peers = $self->peers;
-            for my $peer (@peers) {
-                $peer->_pulse if $peer->_next_pulse < time;
-            }
 
 # TODO: review the following block ===================================
 #for my $file (@{$files{$self}}) {
@@ -538,7 +472,7 @@ use warnings;
                         if $new_peer;
                 }
             }
-            return $next_pulse{$self} = time + 3;
+            $client{$self}->_set_pulse($self, time + 3);
         }
 
         sub _check_endgame_status {
@@ -692,6 +626,8 @@ use warnings;
         }
         DESTROY {
             my ($self) = @_;
+            $client{$self}->_del_pulse($self)
+                if defined $client{$self};
             delete $path{$self};
             delete $base_dir{$self};
             delete $private{$self};
@@ -708,7 +644,6 @@ use warnings;
             delete $pieces{$self};
             delete $endgame{$self};
             delete $nodes{$self};
-            delete $next_pulse{$self};
             return 1;
         }
 

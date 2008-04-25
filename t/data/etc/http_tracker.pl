@@ -62,9 +62,9 @@ while ( my $paddr = accept( my ($client), $httpd ) ) {
             }
             else {    # TODO: scrape
             }
-            use Data::Dump qw[pp];
-            warn pp \%hash;
-            warn pp \%tracker_data;
+            #use Data::Dump qw[pp];
+            #warn pp \%hash;
+            #warn pp \%tracker_data;
             syswrite( $client,
                       sprintf
                           <<END, scalar gmtime, bencode( \%reply ) ); }

@@ -6,7 +6,6 @@ use Pod::Usage;
 use Carp qw[cluck croak carp];
 use lib q[../lib];
 use Net::BitTorrent;
-
 $|++;
 my $man            = 0;
 my $help           = 0;
@@ -51,7 +50,7 @@ $SIG{q[INT]} = sub {    # One Ctrl-C combo shows status.  Two exits.
 sub hashpass {
     my ($self, $piece) = @_;
     my $session = $piece->session;
-    return printf qq[on_hashpass: %04d|%s|%4d/%4d|%3.2f%%\n],
+    return printf qq[hashpass: %04d|%s|%4d/%4d|%3.2f%%\n],
         $piece->index,
         $$session,
         (scalar grep { $_->check } @{$session->pieces}),
@@ -79,11 +78,11 @@ sub block_in {
                $block->offset,  $block->length,
         );
 }
-$client->set_callback_on_peer_incoming_block(\&block_in);
-$client->set_callback_on_peer_outgoing_request(\&request_out);
-$client->set_callback_on_piece_hash_pass(\&hashpass);
+$client->set_callback(q[peer_incoming_block],   \&block_in);
+$client->set_callback(q[peer_outgoing_request], \&request_out);
+$client->set_callback(q[piece_hash_pass],       \&hashpass);
 
-#$client->set_callback_on_log( sub { shift; shift; warn shift; } );
+#$client->set_callback(q[log], sub { shift; shift; warn shift; } );
 #$client->debug_level(1000);
 for my $dot_torrent (sort @dot_torrents) {
     next if not -e $dot_torrent;

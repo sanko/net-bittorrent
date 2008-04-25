@@ -2,31 +2,29 @@ NAME
     Net::BitTorrent - BitTorrent peer-to-peer protocol
 
 SYNOPSIS
-        use Net::BitTorrent;
+    use Net::BitTorrent;
 
-        sub hash_pass {
-            my ( $self, $piece ) = @_;
-            printf( qq[on_hash_pass: piece number %04d of %s\n],
-                    $piece->index, $piece->session );
-        }
+    sub hash_pass {
+        my ($self, $piece) = @_;
+        printf(qq[hash_pass: piece number %04d of %s\n],
+               $piece->index, $piece->session);
+    }
 
-        my $client = Net::BitTorrent->new();
+    my $client = Net::BitTorrent->new();
+    $client->set_callback(q[piece_hash_pass], \&hash_pass);
 
-        $client->set_callback_on_piece_hash_pass( \&hash_pass );
+    # ...
+    # set various callbacks if you so desire
+    # ...
 
-        # ...
-        # set various callbacks if you so desire
-        # ...
+    my $torrent = $client->add_session({path => q[a.legal.torrent]})
+        or die q[Cannot load .torrent];
 
-        my $torrent
-            = $client->add_session( { path => q[a.legal.torrent] } )
-            or die q[Cannot load .torrent];
+    while (1) {
+        $client->do_one_loop();
 
-        while (1) {
-            $client->do_one_loop();
-
-            # Etc.
-        }
+        # Etc.
+    }
 
 DESCRIPTION
     "Net::BitTorrent" is a class based implementation of the latest
@@ -41,6 +39,12 @@ INSTALLATION
       ./Build
       ./Build test
       ./Build install
+
+BUGS
+    Please see the Todo file included with this distribution. Found
+    bugs that are not already listed should be reported through
+    L<http://code.google.com/p/net-bittorrent/issues/list>.  Please
+    include as much information as possible.
 
 AUTHOR
     Sanko Robinson <sanko@cpan.org> - <http://sankorobinson.com/>
