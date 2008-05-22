@@ -1,4 +1,46 @@
-Version 0.018 |
+Version 0.020 |
+
+ API changes:
+  - Experimental N::B::use_unicode() has been removed as wide char filenames
+      are now handled transparently on Win32.
+  - New accessor: N::B::Session::name() - see N::B::Session docs
+  - New methods for alternative event processing:
+    + N::B::process_connections() - implement your own select() statement
+    + N::B::process_timers() - easily keep internal timers up to date
+  - Experimental kbps_up and kbps_down methods and N::B::new() parameters have
+      been renamed properly: kBps_up, kBps_down.  Bits.  Bytes.  It happens.
+
+ Issues resolved:
+  - #1: Line 231 Piece.pm - Check existence of $self->session->files->[$f]->size
+    + New .torrent metadata integrity checks during add_session() and piece
+        read/write.
+    + Log warning and undef returned when N::B::add_session() is handed a
+        .torrent that does not contain files. (eh, it's a start)
+
+ Internal changes:
+  - Plenty of layout and ideology changes.  None of which immediately affect
+      usability or behavior.
+  - Extended charset filenames are now handled properly on Win32.
+    + Depends on properly encoded utf8 metadata (and the J-Pop fans rejoice)
+  - (The piece containing) Outgoing blocks are verified for integrity before
+      being sent to remote peers.  Just in case.
+
+ Notes:
+  - Upgrade is recommended in general.
+  - Upgrade is strongly recommended for Win32 systems.
+  - New sample code: scripts/web-gui.pl
+    + µTorrent WebUI-like demo of alternative event processing.
+  - To keep N::B from growing too messy and to make co-development attractive,
+      I'm imposing some coding standards, defining what should be internal,
+      and deciding how N::B should behave.  Between that and the nice weather,
+      the addition of new features (DHT, UDP trackers, etc.) will be pushed
+      back a bit.  The next few releases will probably be bugfix, API, and
+      base protocol-behavioral changes.
+  - Documentation rework in progress.
+  - What's the cutoff for apologizing for things you said in high school?
+
+---
+Version 0.018 | 2008-04-24 21:14:52 -0400 (Thu, 24 Apr 2008)
 
  API changes:
   - Old style set_callback_* syntax is depreciated.
@@ -10,6 +52,8 @@ Version 0.018 |
 
  Notes:
   - Upgrade is strongly recommended.
+  - New feature: Transfer limits to control how much bandwidth N::B is
+      allowed to use.
   - No longer causes taint warnings.
   - perl 5.8.1 required.  This is based solely on available CPAN
       Reporter PASS/FAIL tests and may not be a true representative

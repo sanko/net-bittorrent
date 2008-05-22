@@ -1,8 +1,6 @@
 Build.PL
 Changes
 lib/Net/BitTorrent.pm
-lib/Net/BitTorrent/FAQ.pod
-lib/Net/BitTorrent/PeerID.pod
 lib/Net/BitTorrent/Session.pm
 lib/Net/BitTorrent/Session/File.pm
 lib/Net/BitTorrent/Session/Peer.pm
@@ -13,10 +11,12 @@ lib/Net/BitTorrent/Session/Tracker.pm
 lib/Net/BitTorrent/Util.pm
 LICENSE
 Makefile.PL
-MANIFEST			This list of files
+MANIFEST
 META.yml
+Notes.pod
 README
 scripts/client.pl
+scripts/web-gui.pl
 t/000_basic/005_signature.t
 t/000_basic/010_load_prerequisites.t
 t/000_basic/020_load.t
@@ -30,6 +30,7 @@ t/100_data_parsing/116_uncompact.t
 t/100_data_parsing/117_uncompact_bad.t
 t/200_classes/210_NB/211_new.t
 t/200_classes/220_NBS/221_new.t
+t/200_classes/220_NBS/225_unicode.t
 t/200_classes/230_NBSF/231_new.t
 t/200_classes/240_NBSP/241_new.t
 t/200_classes/250_NBSPR/251_new.t
@@ -66,4 +67,5 @@ t/data/miniswarm/seed/2183742557_5c9a91727d_m.jpg
 t/data/miniswarm/seed/credit.txt
 t/data/torrents/example-A.torrent
 t/data/torrents/miniswarm.torrent
-Todo
+t/data/torrents/unicode.torrent
+Todo.pod

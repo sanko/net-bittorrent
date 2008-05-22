@@ -4,7 +4,6 @@ use warnings;
 {
 
     BEGIN {
-        use vars qw[$VERSION];
         use version qw[qv];
         our $SVN
             = q[$Id$];
@@ -24,10 +23,8 @@ use warnings;
                 and defined $args->{q[length]})
             {   $self =
                     bless \sprintf(q[R I:%d:O:%d:L:%d],
-                                   $args->{q[index]},
-                                   $args->{q[offset]},
-                                   $args->{q[length]}
-                    ),
+                                   $args->{q[index]}, $args->{q[offset]},
+                                   $args->{q[length]}),
                     $class;
                 $peer{$self}      = $args->{q[peer]};
                 $index{$self}     = $args->{q[index]};
@@ -40,100 +37,64 @@ use warnings;
 
         sub peer {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $peer{$self};
         }
 
         sub session {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $peer{$self}->session;
         }
 
         sub client {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $peer{$self}->session->client;
         }
 
         sub index {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $index{$self};
         }
 
         sub offset {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $offset{$self};
         }
 
         sub length {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $length{$self};
         }
 
         sub timestamp {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $timestamp{$self};
         }
 
         sub piece {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $peer{$self}->session->pieces->[$index{$self}];
         }
 
         sub _build_packet_args {    # unused
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return (index  => $index{$self},
                     offset => $offset{$self},
                     length => $length{$self},
@@ -143,24 +104,15 @@ use warnings;
 
         sub _read {
             my ($self) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
-            return $self->piece->_read($offset{$self},
-                                       $length{$self});
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
+            return $self->piece->_read($offset{$self}, $length{$self});
         }
 
         sub as_string {
             my ($self, $advanced) = @_;
-            $peer{$self}->client->_do_callback(
-                                       q[log], TRACE,
-                                       sprintf(q[Entering %s for %s],
-                                               [caller 0]->[3], $$self
-                                       )
-            );
+            $peer{$self}->client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
@@ -251,27 +203,28 @@ Returns the time when the request was made.
 
 =back
 
-=head1 AUTHOR
+=head1 Author
 
-Sanko Robinson <sanko@cpan.org> - L<http://sankorobinson.com/>
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
 
-=head1 LICENSE AND LEGAL
+=head1 License and Legal
 
 Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.  See
-L<http://www.perl.com/perl/misc/Artistic.html> or the F<LICENSE> file
-included with this module.
+it under the same terms as Perl 5.10 (or higher).  See
+http://www.perl.com/perl/misc/Artistic.html or the F<LICENSE> file
+included with this distribution.
 
-All POD documentation is covered by the Creative Commons
-Attribution-Noncommercial-Share Alike 3.0 License
-(L<http://creativecommons.org/licenses/by-nc-sa/3.0/us/>).
+All POD documentation is covered by the Creative Commons Attribution-
+Noncommercial-Share Alike 3.0 License
+(http://creativecommons.org/licenses/by-nc-sa/3.0/us/).
 
-Neither this module nor the L<AUTHOR|/AUTHOR> is affiliated with
+Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
+
 
 =for svn $Id$
 

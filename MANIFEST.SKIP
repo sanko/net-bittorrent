@@ -42,3 +42,11 @@ commit.changes.txt
 ^commit\..*
 
 t/data/etc/http_tracker.pl
+
+NOTES
+scripts/poe.pl
+scripts/test.pl
+scripts/web-gui-poe.pl
+scripts/webui.zip
+STYLE
+STYLE.pod

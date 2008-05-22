@@ -1,0 +1,559 @@
+=head1 Net::BitTorrent::Notes - Annotated Guide to the Ins and Outs of Net::BitTorrent
+
+L<Net::BitTorrent|Net::BitTorrent> is a mess.
+
+But it doesn't have to be!  This document is a first draft attempt at
+defining a roadmap for future C<Net::BitTorrent> development and a
+behavioral reference for third-party client developers.  There are bits in
+here that may eventually make it into a recipe book for users too.
+
+Note: C<Net::BitTorrent::Notes> and the ideas behind it are a work in
+progress.
+
+=head1 Net::BitTorrent's Way-too-Obvious Class Hierarchy
+
+                    Net::BitTorrent
+                          |
+                Net::BitTorrent::Session
+               /      /   |      \
+   N::B::S::Tracker  /    | N::B::S::Piece
+                    /     |       /
+            N::B::S::File | N::B::S::P::Block
+                          |
+                     N::B::S::Peer
+                           \
+                    N::B::S::P::Request
+
+See Also: L<Class Pseudo-structures|/"Class Pseudo-structures">
+
+=head1 Installation
+
+This distribution uses C<Module::Build> for installation, so use the
+following procedure:
+
+  perl Build.PL
+  ./Build
+  ./Build test
+  ./Build install
+
+If you would like to contribute automated test reports (and I hope
+you do), first install C<CPAN::Reporter> from the CPAN shell and then
+install C<Net::BitTorrent>:
+
+ $ cpan
+ cpan> install CPAN::Reporter
+ cpan> reload cpan
+ cpan> o conf init test_report
+   [...follow the CPAN::Reporter setup prompts...]
+ cpan> o conf commit
+ cpan> install Net::BitTorrent
+
+For more on becoming a CPAN tester and why this is useful, please see
+the L<CPAN::Reporter|CPAN::Reporter/"DESCRIPTION"> documentation,
+L<http://cpantesters.perl.org/>, and the CPAN Testers Wiki
+(L<http://cpantest.grango.org/>)
+
+=head2 Prerequisites
+
+C<Net::BitTorrent> requires L<version|version> and
+L<Digest::SHA|Digest::SHA>.  On Win32, we require
+L<Win32API::File|Win32API::File> and L<Encode|Encode> when handling
+.torrents holding files with extended charset filenames.*  As of perl
+5.10, all of these modules are are CORE; they come bundled with the
+distribution.
+
+I have listed these modules as prerequisites in Build.PL so, unless you
+answer 'no' when prompted, the CPAN shell should automagically install
+them for you.
+
+* We also use the internal C<utf8()> functions which didn't appear until
+perl 5.8.1.  See L<Portability Hacks|/"Portability Hacks">.
+
+=head1 Portability Hacks
+
+Net::BitTorrent aims to be portable between the big three OS (Win32,
+Linux [*buntu], MacOS X);  When possible, this should be achieved without
+a glut of code using easily obtained third-party modules.  Core modules
+are considered first followed by well tested CPAN modules.  Modules that
+prevent broad use (ie. fails to install on a majority of systems) will
+not be considered.
+
+There will be times, though, that C<$^O>-based clutter (and, eventually,
+OS-based subclassing) is needed.  Here is a list of both stable and
+experimental workarounds by OS:
+
+=over 2
+
+=item MSWin32
+
+=over 2
+
+=item Extended charset filename support
+
+[TODO]
+
+=back
+
+=back
+
+=head1 How Do I...
+
+Parts that aren't handled internally are described here with sample code
+to get you started.  In the future, this will probably be in a separate
+recipe book.
+
+=head2 Pause and Resume a .torrent Session
+
+[TODO]
+
+=head2 Stop and Resume a .torrent Session
+
+[TODO]
+
+=head2 Quick Resume a .torrent Session Between Client Sessions
+
+Early versions of N::B had resume built in but it was removed for various
+reasons.  Adding this yourself is trivial, fortunately.  For each
+torrent, store the bitfield, nodes (compact list of peers), piece
+priorities, and the modified times for each file just to be safe.  Oh,
+and a list of the current 'working' pieces and their progress.  Add to
+that some sort of verification scheme to be sure you're loading
+information that hasn't been tampered with or corrupted.  Then, when you
+load the torrent, set the C<skip_hashcheck> parameter to a C<true> value
+and reload the torrent with your stored data.
+
+[TODO]
+
+=head2 Set File Priorities
+
+See L<Net::BitTorrent::Session::File/"priority( [NEWVAL] )">.
+
+=head2 Implement My Own Event Loop
+
+[TODO]
+
+=head1 Class Pseudo-structures
+
+=head2 C<Net::BitTorrent>
+
+ Net::BitTorrent = {
+    peer_id                   => string
+    socket                    => GLOB
+    maximum_peers_per_client  => integer
+    maximum_peers_per_session => integer
+    maximum_peers_half_open   => integer
+    maximum_buffer_size       => integer
+    maximum_requests_size     => integer
+    maximum_requests_per_peer => integer
+    timeout                   => integer
+    debug_level               => integer
+    connections               => array, # N::B and N::B::Session objects
+    callbacks                 => hash,  # key:value::(str)type:coderef
+    sessions                  => array, # N::B::Session objects
+    fileno                    => integer
+    kBps_up                   => integer
+    kBps_down                 => integer
+    k_up                      => integer
+    k_down                    => integer
+}
+
+=head2 C<Net::BitTorrent::Session>
+
+ Net::BitTorrent::Session = { [TODO] }
+
+=head2 C<Net::BitTorrent::Session::Tracker>
+
+ Net::BitTorrent::Session::Tracker = { [TODO] }
+
+=head2 C<Net::BitTorrent::Session::Peer>
+
+ Net::BitTorrent::Session::Peer = { [TODO] }
+
+=head2 C<Net::BitTorrent::Session::Peer::Request>
+
+ Net::BitTorrent::Session::Peer::Request = { [TODO] }
+
+=head2 C<Net::BitTorrent::Session::File>
+
+ Net::BitTorrent::Session::File = { [TODO] }
+
+=head2 C<Net::BitTorrent::Session::Piece>
+
+ Net::BitTorrent::Session::Piece = { [TODO] }
+
+=head2 C<Net::BitTorrent::Session::Piece::Block>
+
+ Net::BitTorrent::Session::Piece::Block = { [TODO] }
+
+=head1 Net::BitTorrent Internals
+
+This section describes all the behind the scenes stuff that makes
+C<Net::BitTorrent> work.  Or not work.  It depends.
+
+=head2 Peer ID Generation
+
+This section describes and provides examples of the Peer ID format used
+by the current release of the C<Net::BitTorrent> module.
+
+=head3 Format
+
+This non-standard format was developed to be URL-safe, unique to the
+implementation, and "human parsable."
+
+There are three distinct sections to the Peer IDs generated: the
+L<header|/Header>, the L<mid-section|/Mid-section>, and the
+L<signature|/Signature>.  Consider this example:
+
+ NB004S-rogzGB1v--SVN
+
+Here, C<NB004S> is the header, C<-rogzGB1v> is the mid-section, and
+C<--SVN> is the trailing signature.
+
+=head4 Header
+
+Two uppercase characters ('C<NB>') followed by three digits representing
+the SVN revision number with leading zeros, a single character
+potentially indicating stability and how the release was obtained, and a
+single hyphen (C<->).
+
+If the client is a CPAN build, the sixth byte is the capital letter
+'C<C>'.  If the client is running a version checked out from public SVN
+(considered unstable), the sixth byte is the capital letter 'S'.  Any
+other characters in the sixth byte are unsupported and may indicate a bad
+client.
+
+=head4 Mid-section
+
+Following that are eight random characters in the following range:
+
+ ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~
+
+That is, all uppercase and lowercase letters, decimal digits, as well as
+the hyphen, period, underscore, and tilde (66 total).  These are all
+characters allowed in a URL without encoded (referred to as "Unreserved
+Characters in [rfc://3986]) to reduce weight on the tracker during
+announce.  On a popular tracker, every bit (and byte) helps.
+
+This section is inspired by the pseudo-base64 set used by SHADOW's
+BitTornado client.
+
+=head4 Signature
+
+The final five characters may be random or static and should not be used
+in identifying the version of the client software.  Some early versions
+even have my name in this spot.  .:shrugs:.
+
+=head3 CPAN Version Numbers
+
+Stable CPAN releases will have the sixth byte set to 'C<C>' (capital
+letter 'c').
+
+Unstable releases (referred to as DEVELOPER releases on PAUSE) on CPAN
+will have this bit set as if the user checked the source out from SVN,
+that is, the sixth byte will be 'C<S>' (capital letter 's').  These will
+be released on CPAN with version numbers matching C<m[\d\.\d+_\d]>.  See
+the PAUSE FAQ section entitled "Developer Releases"
+(L<http://www.cpan.org/modules/04pause.html>).
+
+Version numbers will be some value less than one with the revision number
+in the three significant decimal places.  Eventually, I would like to
+make a v1.0 release of Net::BitTorrent on CPAN.  The information in this
+document and the means of generating the module's version number will
+need to reflect that.
+
+=head3 Examples
+
+=over
+
+=item C<NB393C-04.9EraQ--SVN>
+
+This would be the stable CPAN release C<v0.393>.  The C<--SVN> signature
+should be ignored.
+
+=item C<NB003X-9E-ayR6b-BTE<lt>3>
+
+Improper Peer ID; the sixth bit is neither 'C' nor 'S'.  Possibly fake.
+
+=item C<NB065S--09Egae69sy8W>
+
+Completely legal Peer ID generated by SVN/Dev r65.
+
+=back
+
+=head2 Handling of Errors and Bad Data
+
+[TODO]
+
+=head3 .torrent Metadata
+
+[TODO]
+
+=head3 Incoming Protocol Data
+
+[TODO]
+
+=head3 Disk Access Errors
+
+[TODO]
+
+=head2 Piece Selection
+
+[TODO]
+
+=head2 Outgoing Requests
+
+[TODO]
+
+=head3 Queuing
+
+[TODO]
+
+=head3 Slow Blocks
+
+[TODO]
+
+=head3 Endgame
+
+[TODO]
+
+=head2 Incoming Requests
+
+[TODO]
+
+=head3 Queuing
+
+[TODO]
+
+=head3 Rejections (Fast Ext)
+
+[TODO]
+
+=head2 Trackers
+
+[TODO]
+
+=head3 Multi-tracker .torrents
+
+[TODO]
+
+=head3 UDP Trackers
+
+[TODO]
+
+=head2 Fast Set Advertising
+
+[TODO]
+
+=head2 IPv6-Related Information
+
+When will L<IO::Socket::INET6|IO::Socket::INET6> or L<Socket6|Socket6> be
+CORE?
+
+=head2 Implemented Extensions
+
+[TODO]
+
+=head1 Do Your Part
+
+=head2 Automated Testing
+
+[TODO]
+
+=head2 Bug Reporting
+
+Right now, the best way to contribute would be through bug reports and
+patch submissions.
+
+Before creating a new report through C<Net::BitTorrent>'s
+L<Issue Tracker|/"Issue Tracker">, please review the following list:
+
+=over 2
+
+=item *
+
+Make sure you are using the most recent release of C<Net::BitTorrent>.
+This may mean checking out the latest svn commit.  All patches should be
+made against the most recent revision and well tested.  For a list of svn
+clients, some of which make patch creation a little easier, see
+L<http://subversion.tigris.org/links.html#clients>.
+
+=item *
+
+Make sure the bug is reproducible.
+
+=item *
+
+Please write in clear English.
+
+=item *
+
+Include as much detail as possible when describing the bug.  Provide
+"baby steps" to describe exactly how to replicate the bug.  Sample code
+is welcome.  Net::BitTorrent's issue tracker also allows attachments so,
+if relevant, also include the .torrent file regardless of its content.
+
+=item *
+
+Search the list of open and resolved issues to make sure the flaw hasn't
+already been reported.  If it has, you can star the issue to stay up to
+date.  You'll know what I mean by 'star' it when you get there...  I can
+see how many people have stars on a particular issue and popular bugs get
+priority.
+
+=item *
+
+Issues are open to the public, so don't include passwords or other
+confidential information.  Beyond that, you can never provide too much
+information in a bug report.
+
+=item *
+
+One bug is one bug report.  Please do not include multiple, separate
+issues in one report unless they are explicitly related to each other.
+
+=item *
+
+If the bug is related to one .torrent in particular, please attach it to
+your report.
+
+=item *
+
+It never hurts to do a little homework.  If you run into a problem, find
+the place that's causing trouble and manage to fix it, please attach a
+patch (diff against the latest svn revision) or at least a very good
+description (with code) of what you did.
+
+=item *
+
+Star the issue so you can stay up to date with my progress.
+
+=item *
+
+Look over your report before submission to be sure you've included as
+much detail as possible.  Seriously.  Get up, have a drink of water, come
+back, read over it again to make sure you've included everything you
+intended, and then submit.
+
+=back
+
+=head2 Co-Development and Patch Submission
+
+C<Net::BitTorrent> is too large for just one person to hack on.  If
+you're Perl proficient and would like to help, you can start by fixing
+problems reported in the L<Issue Tracker|/"Issue Tracker"> and bugs you
+find on your own.  When I decide to start looking for co-devs, you'll
+already have your foot in the door.
+
+Please submit patches for review by attaching it through the
+C<Net::BitTorrent> L<Issue Tracker|/"Issue Tracker">.  If it's a patch to
+fix an existing Issue, use that thread.  Otherwise, create a new Issue.
+Minor patches get your name in the changelog.  Major (security,
+especially) patches get your name in the
+L<Acknowledgments|Net::BitTorrent/Acknowledgments> section.  Oooo.
+Ahhh.
+
+=head1 See Also
+
+=over 2
+
+=item Support and Information Links for C<Net::BitTorrent>
+
+=over 4
+
+=item The Project's Website
+
+Until I create something better on my own site, for wiki and subversion
+repository access, please visit the project's home:
+http://net-bittorrent.googlecode.com/.
+
+=item Receive SVN Commit and Issue Tracker Updates
+
+The preferred way is to subscribe to one of the feeds of the announce
+group.  Both ATOM 1.0 and RSS 2.0 feeds are provided; see
+L<http://groups.google.com/group/net-bittorrent-announce/feeds> for a
+list.
+
+To have each message delivered to your mailbox, subscribe to the read
+only announce group by visiting
+L<http://groups.google.com/group/net-bittorrent-announce>.
+
+=item Public Mailinglist
+
+Rather than contacting me directly (which you're welcome to do, it's
+just nice having a searchable, public archive), general questions and
+comments should be posted to the C<Net::BitTorrent> mailing list.  To
+subscribe to the list or view the archive, visit
+L<http://groups.google.com/group/net-bittorrent-discuss>.
+
+=item Issue Tracker
+
+Use L<http://code.google.com/p/net-bittorrent/issues/list> for bug
+tracking.  Please include as much information as possible.
+
+=item Stalk Me While I Tinker
+
+Follow C<Net::BitTorrent>'s development on Twitter:
+http://twitter.com/Net_BitTorrent.
+
+=back
+
+=item Other Recommend Open Source BitTorrent Clients
+
+=over 4
+
+=item *
+
+libtorrent (L<http://www.rasterbar.com/products/libtorrent/>) is covered
+by the The BSD License.
+
+=item *
+
+Bitflu (L<http://bitflu.workaround.ch/>) is a full client written in
+(*nix oriented) Perl and available under the Perl/Artistic License.
+
+=item *
+
+btpeer (L<http://www.alhem.net/project/btpeer/>) is "a collection of
+classes implementing the core client functionality of the BitTorrent
+protocol" and has been released under the GPL.
+
+=item *
+
+Arctic (L<http://dev.int64.org/arctic.html>) is a minimal client based on
+libtorrent, written in C++ and released under the MIT License.
+
+=back
+
+=item RFC 3986 (URI: Generic Syntax)
+
+Section 2.3. "Unreserved Characters"
+(L<http://tools.ietf.org/html/rfc3986#section-2.3>)
+
+=item PAUSE FAQ sub-section entitled "Developer Releases"
+
+(L<http://www.cpan.org/modules/04pause.html>)
+
+=back
+
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 Disclaimer and Legal
+
+Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This document and the specifications behind it are subject to change.
+
+This original documentation is covered by the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 License (United States
+jurisdiction).
+
+Neither this module nor the L<Author|/Author> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

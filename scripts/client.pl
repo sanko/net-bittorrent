@@ -23,8 +23,7 @@ GetOptions(q[help|?]             => \$help,
 ) or pod2usage(2);
 
 if (not scalar @dot_torrents and scalar @ARGV) {
-    push @dot_torrents, shift @ARGV
-        while (defined $ARGV[0] and -f $ARGV[0]);
+    push @dot_torrents, shift @ARGV while (defined $ARGV[0] and -f $ARGV[0]);
 }
 pod2usage(1) if $help or not scalar @dot_torrents;
 pod2usage(-verbose => 2) if $man;
@@ -84,9 +83,10 @@ $client->set_callback(q[piece_hash_pass],       \&hashpass);
 
 #$client->set_callback(q[log], sub { shift; shift; warn shift; } );
 #$client->debug_level(1000);
+
 for my $dot_torrent (sort @dot_torrents) {
     next if not -e $dot_torrent;
-    printf qq[Loading '%s'...\n], $dot_torrent;
+    printf q[Loading '%s'...], $dot_torrent;
     my $session =
         $client->add_session({path           => $dot_torrent,
                               base_dir       => $basedir,
@@ -95,13 +95,14 @@ for my $dot_torrent (sort @dot_torrents) {
         )
         or carp sprintf q[Cannot load .torrent (%s): %s],
         $dot_torrent, $^E;
+    printf qq[ OK. Infohash = %s\n], $$session;
 }
 while (scalar $client->sessions > 0) { $client->do_one_loop }
 __END__
 
 =pod
 
-=head1 NAME
+=head1 Name
 
 basic.pl - Very basic BitTorrent client
 
@@ -117,7 +118,7 @@ basic [options] [file ...]
    -help            brief help message
    -man             full documentation
 
-=head1 OPTIONS
+=head1 Options
 
 =over 8
 
@@ -130,21 +131,21 @@ You may pass several -torrent parameters and load more than one
 
 =item B<-port>
 
-Port number opened to the world for incoming connections.  This
-defaults to C<0> and lets IO::Socket bind to a random, unused port.
+Port number opened to the world for incoming connections.  This defaults
+to C<0> and lets IO::Socket bind to a random, unused port.
 
 =item B<-store>
 
-Relative or absolute directory to store downloaded files.  All files
-will be downloaded using this as the base directory.  Single file
-torrents will go directly into this directory, multifile torrents
-will create a directory within this and download there.  By default,
-this is the current working directory.
+Relative or absolute directory to store downloaded files.  All files will
+be downloaded using this as the base directory.  Single file torrents
+will go directly into this directory, multifile torrents will create a
+directory within this and download there.  By default, this is the
+current working directory.
 
 =item B<-skip_hashcheck>
 
-If found, the files will not be checked for integrity and we assume
-that we have none of the data of this torrent.
+If found, the files will not be checked for integrity and we assume that
+we have none of the data of this torrent.
 
 =item B<-help>
 
@@ -156,7 +157,7 @@ Print the manual page and exit.
 
 =back
 
-=head1 DESCRIPTION
+=head1 Description
 
 This is a B<very> basic demonstration of a full
 C<Net::BitTorrent>-based client.

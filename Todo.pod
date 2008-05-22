@@ -1,0 +1,131 @@
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
+
+=head1 High priorities
+
+=over 2
+
+=item * Verify complete callback system
+
+=item * Define the direction the project will take in the future
+
+=back
+
+=head1 Short term goals
+
+=over 2
+
+=item * Complete test suite
+
+=item * Improve detection of bad .torrent metadata.
+
+=item * Improve handling of slow pieces
+
+=item * Per-session transfer limits
+
+=back
+
+=head1 Long term goals
+
+=over 2
+
+=item * Net::BitTorrent::Notes - Description of N::B's internals
+
+=over 2
+
+=item * Data layout
+
+=item * Behavior
+
+=item * Shortfalls
+
+=back
+
+=item * improve file handling
+
+=over 2
+
+=item * .piece file to store incoming blocks
+
+=back
+
+=item * Wire protocol encryption (?)
+
+=item * IP-filter
+
+=over 2
+
+=item * Not internal.  A callback, perhaps.
+
+=back
+
+=item * scripts/gui-client.pl?
+
+=over 2
+
+=item * very light gui example using perl/TK
+
+=back
+
+=item *  Internal bans for 'bad' peers
+
+=over 2
+
+=item * Penalty (and eventual ban) for peers who always seem involved with bad pieces
+
+=back
+
+=item * Full Multi-tracker spec compliance
+
+=item * PoCo::BitTorrent
+
+=over 2
+
+=item * Not to be confused with the other PoCo::BitTorrent
+
+=back
+
+=item * Params::Validate?
+
+=item * DHT/PEX
+
+=item * UDP trackers
+
+=item * Fast Peers
+
+=back
+
+=head1 Duke Nukem: Forever
+
+=over 2
+
+=item * perlcritic severity=stern
+
+=item * non-blocking hash_check()
+
+=over 2
+
+=item * This is actually possible now with a bit of work.
+
+=back
+
+=item * N::B::Lite - bare bones client (nowhere near ::Tiny)
+
+=over 2
+
+=item * Single class
+
+=item * No extensions
+
+=item * Trimmed API
+
+=back
+
+=back
+
+=for svn $Id$
+
+=cut

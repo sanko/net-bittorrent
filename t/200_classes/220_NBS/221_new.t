@@ -12,7 +12,6 @@ use Net::BitTorrent::Session;
     package Fake::BitTorrent;    # Real N::B will try to open a port
     sub new { return bless [q[Fake Net::BitTorrent object!]]; }
     sub connections  { }
-    sub use_unicode  { }
     sub _do_callback { }
     sub _set_pulse   { }
     sub _del_pulse   { }
@@ -32,7 +31,7 @@ SKIP: {
                 new Net::BitTorrent::Session(
                    {path   => q[./t/data/torrents/example-A.torrent],
                     client => $client,
-                    skip_hashcheck => 1,
+                    #skip_hashcheck => 1,
                     base_dir       => tempdir(CLEANUP => 1)
                    }
                 );

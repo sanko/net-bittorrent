@@ -26,37 +26,33 @@ if (my $pid = fork) {
 
         for my $chr (1 .. $seeds) {
             $client{q[seed_] . $chr} = new Net::BitTorrent(
-                         {LocalAddr => q[127.0.0.1], Timeout => 0.1});
+                                 {LocalAddr => q[127.0.0.1], Timeout => 0.1});
             skip(sprintf(q[Failed to create seed_%s], $chr),
-                 $test_builder->{Expected_Tests}
-                     - $test_builder->{Curr_Test}
+                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
             ) if not $client{q[seed_] . $chr};
             my $session = $client{q[seed_] . $chr}->add_session(
-                   {path => q[./t/data/torrents/miniswarm.torrent],
-                    base_dir => q[./t/data/miniswarm/]
-                   }
+                           {path => q[./t/data/torrents/miniswarm.torrent],
+                            base_dir => q[./t/data/miniswarm/]
+                           }
             );
             skip(sprintf(q[Failed to load session for seed_%s], $chr),
-                 $test_builder->{Expected_Tests}
-                     - $test_builder->{Curr_Test}
+                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
             ) if not $session;
-            ok(scalar($session->complete),
-                sprintf(q[seed_%s ok], $chr));
+            ok(scalar($session->complete), sprintf(q[seed_%s ok], $chr));
             my $tracker = qq[http://127.0.0.1:$port/announce];
             $session->add_tracker([$tracker]);
         }
         for my $chr (1 .. $leeches) {
             $client{$chr} = new Net::BitTorrent(
-                         {LocalAddr => q[127.0.0.1], Timeout => 0.1});
+                                 {LocalAddr => q[127.0.0.1], Timeout => 0.1});
             $client{$chr}->set_callback(q[peer_disconnect],
-                                   sub { shift; shift; warn shift; });
+                                        sub { shift; shift; warn shift; });
 
-           #$client{$chr}->set_callback(q[log],
-           #                       sub { shift; shift; warn shift; });
-           #$client{$chr}->debug_level(1000);
+            #$client{$chr}->set_callback(q[log],
+            #                       sub { shift; shift; warn shift; });
+            #$client{$chr}->debug_level(1000);
             skip(sprintf(q[Failed to create leech_%s], $chr),
-                 $test_builder->{Expected_Tests}
-                     - $test_builder->{Curr_Test}
+                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
             ) if not $client{$chr};
             $client{$chr}->set_callback(
                 q[piece_hash_pass],
@@ -64,61 +60,56 @@ if (my $pid = fork) {
                     my ($self, $piece) = @_;
                     my $session = $piece->session;
                     my $completion = (
-                         (((scalar grep { $_->priority and $_->check }
-                                @{$session->pieces}
-                           ) / (scalar @{$session->pieces})
-                          )
-                         ) * 100
+                        (((scalar grep {
+                               $_->priority and $_->check
+                               } @{$session->pieces}
+                          ) / (scalar @{$session->pieces})
+                         )
+                        ) * 100
                     );
                     my $line =
-                        sprintf(
-                            q[(%02d|%02d) [%s] %.2f%%],
-                            $chr,
-                            $piece->index,
-                            join(
-                                q[],
-                                map ((  $_->check
-                                      ? $piece->index == $_->index
-                                              ? q[*]
-                                              : q[|]
-                                      : scalar $_->working ? q[.]
-                                      : q[ ]
-                                    ),
-                                    @{$session->pieces})
-                            ),
-                            $completion
+                        sprintf(q[(%02d|%02d) [%s] %.2f%%],
+                                $chr,
+                                $piece->index,
+                                join(q[],
+                                     map ((   $_->check
+                                            ? $piece->index == $_->index
+                                                    ? q[*]
+                                                    : q[|]
+                                            : scalar $_->working ? q[.]
+                                            : q[ ]
+                                          ),
+                                          @{$session->pieces})
+                                ),
+                                $completion
                         );
 
                     #diag($line);
-                    ok($session->complete,
-                        sprintf(q[peer_%s complete], $chr))
+                    ok($session->complete, sprintf(q[peer_%s complete], $chr))
                         if $session->complete;
                     return;
                 }
             );
             my $session =
                 $client{$chr}->add_session(
-                   {path => q[./t/data/torrents/miniswarm.torrent],
-                    base_dir =>
-                        File::Temp::tempdir(
-                                  sprintf(q[miniswarm_%s_XXXX], $chr),
-                                  CLEANUP => 1,
-                                  TMPDIR  => 1
-                        ),
-                    skip_hashcheck => 1
-                   }
+                           {path => q[./t/data/torrents/miniswarm.torrent],
+                            base_dir =>
+                                File::Temp::tempdir(
+                                          sprintf(q[miniswarm_%s_XXXX], $chr),
+                                          CLEANUP => 1,
+                                          TMPDIR  => 1
+                                ),
+                            skip_hashcheck => 1
+                           }
                 );
-            skip(sprintf(q[Failed to load session for leech_%s], $chr
-                 ),
-                 $test_builder->{Expected_Tests}
-                     - $test_builder->{Curr_Test}
+            skip(sprintf(q[Failed to load session for leech_%s], $chr),
+                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
             ) if not $session;
             my $tracker = qq[http://127.0.0.1:$port/announce];
             $session->add_tracker([$tracker]);
         }
-        while ($test_builder->{Curr_Test}
-               < $test_builder->{Expected_Tests})
-        {   grep { $_->do_one_loop } values %client;
+        while ($test_builder->{Curr_Test} < $test_builder->{Expected_Tests}) {
+            grep { $_->do_one_loop } values %client;
         }
         grep {
             $_->remove_session($_->sessions->[0])
@@ -136,8 +127,7 @@ else {
         my %tracker_data;
         my $port = 0;
         my $host = q[127.0.0.1];
-        socket(my ($httpd),
-               PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
+        socket(my ($httpd), PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
             || die(q[socket]);
         setsockopt($httpd, SOL_SOCKET, SO_REUSEADDR, 1)
             || die(q[setsockopt]);
@@ -147,8 +137,7 @@ else {
                   (join q[], map { chr $_ } ($host =~ m[(\d+)]g)))
         ) || die(q[bind]);
         listen($httpd, SOMAXCONN) || die(q[listen]);
-        (undef, $port, undef)
-            = unpack(q[SnC4x8], getsockname($httpd));
+        (undef, $port, undef) = unpack(q[SnC4x8], getsockname($httpd));
         syswrite $PARENT, qq[p:$port];
         close $PARENT;
 
@@ -156,8 +145,8 @@ else {
             my $gotten = q[];
             while (sysread($client, my ($data), 1024)) {
                 $gotten .= $data;
-                if ($data =~ m[^GET\s+(/(announce|scrape)\?([^\s]*))])
-                {   my $type = $2;
+                if ($data =~ m[^GET\s+(/(announce|scrape)\?([^\s]*))]) {
+                    my $type = $2;
                     my %hash = split m[[=&]], $3;
                     $hash{q[info_hash]}
                         =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
@@ -168,18 +157,15 @@ else {
                         $hash{q[peer_id]}
                             =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
                         %reply = (
-                              interval => 1500,
-                              peers => $tracker_data{$hash{info_hash}}
-                                  || q[]
+                               interval => 1500,
+                               peers => $tracker_data{$hash{info_hash}} || q[]
                         );
                         $tracker_data{$hash{info_hash}}
-                            = compact(
-                                   ((join q[.], @address) . q[:]
-                                        . $hash{port}
-                                   ),
-                                   uncompact(
-                                       $tracker_data{$hash{info_hash}}
-                                   )
+                            = compact(((join q[.], @address) . q[:]
+                                       . $hash{port}),
+                                      uncompact(
+                                               $tracker_data{$hash{info_hash}}
+                                      )
                             );
                     }
                     else {    # TODO: scrape

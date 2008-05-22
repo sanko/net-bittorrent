@@ -1,6 +1,6 @@
 ---
 name: Net-BitTorrent
-version: 0.017
+version: 0.018
 author:
   - 'Sanko Robinson <sanko@cpan.org>'
 abstract: BitTorrent peer-to-peer protocol
@@ -17,6 +17,7 @@ requires:
   Digest::SHA: 5.45
   Exporter: 0
   Fcntl: 0
+  File::Path: 0
   File::Spec: 0
   Module::Build: 0.2805
   Scalar::Util: 1.19
@@ -27,25 +28,35 @@ requires:
   version: 0.74
 build_requires:
   Module::Build: 0.2805
+  Pod::Coverage: 0.19
   Test::More: 0.72
+  Test::Perl::Critic: 0
+  Test::Pod: 1
+  Test::Pod::Coverage: 1.08
 recommends:
   Data::Dumper: 0
   Encode: 0
+  Pod::Coverage: 0.19
+  Test::Perl::Critic: 0
+  Test::Pod: 1
+  Test::Pod::Coverage: 1.08
+  Win32: 0
   Win32API::File: 0.1
+  perl: 5.8.7
   utf8: 0
 provides:
   Net::BitTorrent:
     file: lib/Net/BitTorrent.pm
-    version: 0.017
+    version: 0.018
   Net::BitTorrent::Session:
     file: lib/Net/BitTorrent/Session.pm
-    version: 0.013
+    version: 0.018
   Net::BitTorrent::Session::File:
     file: lib/Net/BitTorrent/Session/File.pm
     version: 0.017
   Net::BitTorrent::Session::Peer:
     file: lib/Net/BitTorrent/Session/Peer.pm
-    version: 0.017
+    version: 0.018
   Net::BitTorrent::Session::Peer::Request:
     file: lib/Net/BitTorrent/Session/Peer/Request.pm
     version: 0.012
@@ -57,7 +68,7 @@ provides:
     version: 0.012
   Net::BitTorrent::Session::Tracker:
     file: lib/Net/BitTorrent/Session/Tracker.pm
-    version: 0.013
+    version: 0.018
   Net::BitTorrent::Util:
     file: lib/Net/BitTorrent/Util.pm
     version: 0.012
