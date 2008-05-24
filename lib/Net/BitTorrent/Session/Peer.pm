@@ -1355,7 +1355,7 @@ __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
 Net::BitTorrent::Session::Peer - Remote BitTorrent Peer
 

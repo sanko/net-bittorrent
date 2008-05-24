@@ -1,6 +1,6 @@
 ---
 name: Net-BitTorrent
-version: 0.018
+version: 0.020
 author:
   - 'Sanko Robinson <sanko@cpan.org>'
 abstract: BitTorrent peer-to-peer protocol
@@ -28,18 +28,10 @@ requires:
   version: 0.74
 build_requires:
   Module::Build: 0.2805
-  Pod::Coverage: 0.19
   Test::More: 0.72
-  Test::Perl::Critic: 0
-  Test::Pod: 1
-  Test::Pod::Coverage: 1.08
 recommends:
   Data::Dumper: 0
   Encode: 0
-  Pod::Coverage: 0.19
-  Test::Perl::Critic: 0
-  Test::Pod: 1
-  Test::Pod::Coverage: 1.08
   Win32: 0
   Win32API::File: 0.1
   perl: 5.8.7
@@ -47,31 +39,31 @@ recommends:
 provides:
   Net::BitTorrent:
     file: lib/Net/BitTorrent.pm
-    version: 0.018
+    version: 0.020
   Net::BitTorrent::Session:
     file: lib/Net/BitTorrent/Session.pm
-    version: 0.018
+    version: 0.020
   Net::BitTorrent::Session::File:
     file: lib/Net/BitTorrent/Session/File.pm
-    version: 0.017
+    version: 0.020
   Net::BitTorrent::Session::Peer:
     file: lib/Net/BitTorrent/Session/Peer.pm
-    version: 0.018
+    version: 0.020
   Net::BitTorrent::Session::Peer::Request:
     file: lib/Net/BitTorrent/Session/Peer/Request.pm
-    version: 0.012
+    version: 0.020
   Net::BitTorrent::Session::Piece:
     file: lib/Net/BitTorrent/Session/Piece.pm
-    version: 0.012
+    version: 0.020
   Net::BitTorrent::Session::Piece::Block:
     file: lib/Net/BitTorrent/Session/Piece/Block.pm
-    version: 0.012
+    version: 0.020
   Net::BitTorrent::Session::Tracker:
     file: lib/Net/BitTorrent/Session/Tracker.pm
-    version: 0.018
+    version: 0.020
   Net::BitTorrent::Util:
     file: lib/Net/BitTorrent/Util.pm
-    version: 0.012
+    version: 0.020
 generated_by: 'Sanko Robinson <sanko@cpan.org>'
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

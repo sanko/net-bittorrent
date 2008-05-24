@@ -85,6 +85,7 @@ use warnings;
             $session{$self}->client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             close $socket{$self};
+            $self->client->_do_callback(q[tracker_disconnect], $self);
             $session{$self}->client->_remove_connection($self);
             delete $socket{$self};
             delete $fileno{$self};
@@ -98,6 +99,7 @@ use warnings;
             my ($self) = @_;
             $session{$self}->client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
+            $self->client->_do_callback(q[tracker_scrape], $self);
             if ($urls{$self}->[0] =~ m[^http:]) {
                 my $infohash = $session{$self}->infohash;
                 my $peer_id  = $session{$self}->client->peer_id;
@@ -115,9 +117,8 @@ use warnings;
             elsif ($urls{$self}->[0] =~ m[^udp:]) {
                 return $self->_udp_connect;
             }
-            else {
-                carp q[Unsupported tracker];
-            }
+            $self->client->_do_callback(q[tracker_error],
+                                        q[Unsupported tracker]);
             return;
         }
 
@@ -168,6 +169,7 @@ use warnings;
             else {
                 carp q[Unsupported tracker];
             }
+            $self->client->_do_callback(q[tracker_announce], $self);
             return 1;
         }
 
@@ -278,6 +280,8 @@ use warnings;
                                   ),
                                   900
                             ) + time;
+                        $self->client->_do_callback(q[tracker_scrape_okay],
+                                                    $self);
                     }
                     else {
                         if (ref $decoded_data->{q[peers]} eq q[ARRAY])
@@ -298,6 +302,8 @@ use warnings;
                                    : 0
                                   )
                             ) + time;
+                        $self->client->_do_callback(q[tracker_announce_okay],
+                                                    $self);
                     }
                 }
                 return $self->_disconnect;
@@ -309,7 +315,7 @@ use warnings;
             my ($self) = @_;
             $session{$self}->client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            $self->client->_do_callback(q[tracker_error],
+            $self->client->_do_callback(q[tracker_error], $self,
                                         q[UDP trackers are unsupported.]);
             return 0;
         }
@@ -318,7 +324,7 @@ use warnings;
             my ($self) = @_;
             $session{$self}->client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            $self->client->_do_callback(q[tracker_error],
+            $self->client->_do_callback(q[tracker_error], $self,
                                         q[UDP trackers are unsupported.]);
             return 0;
         }
@@ -336,7 +342,7 @@ use warnings;
             my ($self) = @_;
             $session{$self}->client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            $self->client->_do_callback(q[tracker_error],
+            $self->client->_do_callback(q[tracker_error], $self,
                                         q[UDP trackers are unsupported.]);
             return 0;
         }
@@ -345,7 +351,7 @@ use warnings;
             my ($self) = @_;
             $session{$self}->client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            $self->client->_do_callback(q[tracker_error],
+            $self->client->_do_callback(q[tracker_error], $self,
                                         q[UDP trackers are unsupported.]);
             return 0;
         }
@@ -362,8 +368,8 @@ use warnings;
                              $write);
                 if ($actual_write) {
                     $session{$self}
-                        ->client->_do_callback(q[tracker_data_out], $self,
-                                               $actual_write);
+                        ->client->_do_callback(q[tracker_outgoing_data],
+                                               $self, $actual_write);
                 }
                 else { $self->_disconnect; goto RETURN; }
             }
@@ -380,10 +386,12 @@ use warnings;
                 if ($actual_read) {
                     if (not $connected{$self}) {
                         $connected{$self} = 1;
+                        $session{$self}
+                            ->client->_do_callback(q[tracker_connect], $self);
                     }
                     $session{$self}
-                        ->client->_do_callback(q[tracker_data_in], $self,
-                                               $actual_read);
+                        ->client->_do_callback(q[tracker_incoming_data],
+                                               $self, $actual_read);
                     $self->_parse_packet;
                 }
                 else {
@@ -484,7 +492,7 @@ __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
 Net::BitTorrent::Session::Tracker - Single Tier of BitTorrent Trackers
 

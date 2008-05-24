@@ -1,4 +1,10 @@
-=head1 Net::BitTorrent::Notes - Annotated Guide to the Ins and Outs of Net::BitTorrent
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Notes - Annotated Guide to the Ins and Outs of Net::BitTorrent
+
+=head1 Description
 
 L<Net::BitTorrent|Net::BitTorrent> is a mess.
 

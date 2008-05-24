@@ -162,9 +162,9 @@ __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
-Net::BitTorrent::Util - Utility functions
+Net::BitTorrent::Util - BitTorrent Related Utility Functions
 
 =head1 Importing From Net::BitTorrent::Util
 

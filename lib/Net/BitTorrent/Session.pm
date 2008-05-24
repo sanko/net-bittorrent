@@ -623,7 +623,7 @@ __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
 Net::BitTorrent::Session - Class Representing a Single .torrent File
 

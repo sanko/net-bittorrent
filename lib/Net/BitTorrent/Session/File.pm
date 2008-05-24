@@ -400,7 +400,7 @@ __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
 Net::BitTorrent::Session::File - BitTorrent File I/O Class
 

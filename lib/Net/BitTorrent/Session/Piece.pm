@@ -303,7 +303,7 @@ __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
 Net::BitTorrent::Session::Piece - Single piece
 

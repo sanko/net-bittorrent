@@ -1,6 +1,7 @@
 use strict;
 use warnings;
 use CGI qw[];
+use Time::HiRes qw[sleep time];
 use Archive::Zip qw[:ERROR_CODES];
 use JSON qw[to_json];
 use lib q[../lib];
@@ -44,21 +45,22 @@ while (1) {
             if $object ne $bittorrent and $object->_queue_outgoing;
     }
     $ein = $rin | $win;
-    my ($nfound) = select($rin, $win, $ein, 1);
-    $bittorrent->process_timers;    # Don't forget this!
+    my ($nfound, $timeleft) = select($rin, $win, $ein, 1);
+    my $time = time + $timeleft;
+    $bittorrent->process_timers();    # Don't forget this!
     $bittorrent->process_connections(\$rin, \$win, \$ein)
         if $nfound and $nfound != -1;
     new_http() if vec($rin, fileno($server), 1);
+    sleep($time - time) if $time - time > 0;    # save the CPU
 }
 
 # Wow, that was easy...
 sub new_http {
     my $client = $server->accept;
     while ($client and my $r = $client->get_request(1)) {
-
-        # warn $r->url;
-        if (                        #$r->method eq q[GET]
-                                    #and
+        warn $r->url;
+        if (                                    #$r->method eq q[GET]
+                                                #and
             $r->url->path =~ m[^/gui(?:/.+)?]
             )
         {
@@ -113,25 +115,27 @@ sub action {
     my %return = (build => 9704);    # lies
     if ($query->param(q[action]) eq q[getsettings]) {
         $return{q[settings]} = [
-            [q[bind_port],           0, 9000],
-            [q[conns_globally],      0, 200],
-            [q[conns_per_torrent],   0, 100],
-            [q[enable_scrape],       0, 1],
-            [q[max_dl_rate],         0, 0],
-            [q[max_ul_rate],         0, 8],
-            [q[net.bind_ip],         2, q[]],
-            [q[net.max_halfopen],    0, 8],
-            [q[reload_freq],         0, 0],
-            [q[tracker_ip],          2, q[]],
-            [q[webui.cookie],        2, q[{}]],
+            [q[bind_port],      0, $bittorrent->sockport()],
+            [q[net.bind_ip],    2, $bittorrent->sockaddr()],
+            [q[conns_globally], 0, $bittorrent->maximum_peers_per_client()],
+            [q[conns_per_torrent], 0,
+             $bittorrent->maximum_peers_per_session()
+            ],
+            [q[enable_scrape],    0, 1],
+            [q[max_dl_rate],      0, $bittorrent->kBps_down()],
+            [q[max_ul_rate],      0, $bittorrent->kBps_up()],
+            [q[net.max_halfopen], 0, $bittorrent->maximum_peers_half_open()],
+            [q[reload_freq],      0, 1],
+            [q[tracker_ip],       2, q[]],
+            [q[webui.cookie],     2, q[{}]],
             [q[webui.enable_guest],  0, 0],
             [q[webui.enable_listen], 0, 1],
             [q[webui.guest],         2, q[guest]],
+            [q[webui.username],      2, $USER],
             [q[webui.password],      2, $PASS],
             [q[webui.port],          0, $PORT],
 
             #[q[webui.restrict],      2, q[]],
-            [q[webui.username], 2, $USER]
         ];
     }
     elsif ($query->param(q[action]) eq q[start]) {
@@ -233,10 +237,11 @@ sub action {
         # to the file to upload to µTorrent.
         my $dot_torrent = read_post($client, $request->content_length || 0);
         printf q[Loading '%s'...], $dot_torrent;
-        my $session =
-            $bittorrent->add_session({path           => $dot_torrent,
-                                      skip_hashcheck => 1
-                                     }
+        my $session = $bittorrent->add_session(
+            {path => $dot_torrent,
+
+             #skip_hashcheck => 1
+            }
             )
             or warn sprintf q[Cannot load .torrent (%s): %s],
             $dot_torrent, $^E;
@@ -311,11 +316,12 @@ sub list {
                             # 128 = Loaded
             $session->name, # NAME
             $session->total_size,    # SIZE
-            (    # PERCENT PROGRESS (integer in 1/10 of a percent)
-               ((  (scalar grep { $_->check } @{$session->pieces})
-                 / (scalar @{$session->pieces})
-                )
-               ) * 100
+            sprintf(
+                q[3.2f],    # PERCENT PROGRESS (integer in 1/10 of a percent)
+                ((  (scalar grep { $_->check } @{$session->pieces})
+                  / (scalar @{$session->pieces})
+                 )
+                    ) * 1000
             ),
             $session->downloaded,    # DOWNLOADED (integer in bytes)
             $session->uploaded,      # UPLOADED (integer in bytes)
@@ -359,7 +365,7 @@ sub read_post {                  # bad idea - Let CGI do this...
     my $data = q[];
     if ($length) {
         while (length($data) < $length) {
-            last unless sysread($client, my ($buf), 512);
+            last unless sysread($client, my ($buf), 1024 * 16);
             $data .= $buf;
         }
     }

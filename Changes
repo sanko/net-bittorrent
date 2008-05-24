@@ -1,4 +1,22 @@
-Version 0.020 |
+Version 0.022 |
+
+ API changes:
+  - Callback system is complete.
+    + N::B::S::Tracker was the holdup...
+
+ Issues resolved:
+  - None
+
+ Internal changes:
+  - None
+
+ Notes:
+  - Upgrade is not required in general but recommended for heavy callback users.
+  - More POD tweaks.
+  - Very few changes to scripts/web-gui.pl.  These are untested changes, btw.
+
+---
+Version 0.020 | 2008-05-22 19:09:05 -0400 (Thu, 22 May 2008)
 
  API changes:
   - Experimental N::B::use_unicode() has been removed as wide char filenames

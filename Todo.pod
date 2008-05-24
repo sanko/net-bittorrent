@@ -8,8 +8,6 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over 2
 
-=item * Verify complete callback system
-
 =item * Define the direction the project will take in the future
 
 =back

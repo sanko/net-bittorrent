@@ -137,7 +137,7 @@ __END__
 
 Net::BitTorrent::Session::Peer::Request - Incoming request
 
-=head1 CONSTRUCTOR
+=head1 Constructor
 
 =over 4
 
@@ -148,7 +148,7 @@ constructor should not be used directly.
 
 =back
 
-=head1 METHODS
+=head1 Methods
 
 =over 4
 
