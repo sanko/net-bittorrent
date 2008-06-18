@@ -60,6 +60,9 @@ use warnings;
                         or return;    # error
                     close $FH;
                     my $_content = bdecode($_data);
+
+#use Data::Dump qw[pp];warn pp $_content;
+
                     my $infohash = Digest::SHA::sha1_hex(
                                                bencode($_content->{q[info]}));
                     if ($infohash !~ m[^([0-9a-f]{40})$]) {
@@ -100,7 +103,7 @@ use warnings;
                         ) - 1;
                     $piece_size{$self}
                         = $_content->{q[info]}{q[piece length]};
-                    $private{$self} = $_content->{q[private]} ? 1 : 0;
+                    $private{$self} = $_content->{q[info]}{q[private]} ? 1 : 0;
                     $name{$self} = (   $_content->{q[info]}{q[name.utf-8]}
                                     || $_content->{q[info]}{q[name]});
                     my $x = 0;
@@ -130,8 +133,9 @@ use warnings;
                     );
                     if (defined($_content->{q[nodes]})
                         and ref $_content->{q[nodes]} eq q[ARRAY])
-                    {   $nodes{$self} = compact(map { join q[:], @$_ }
-                                                @{$_content->{q[nodes]}});
+                    {   for my $node (@{$_content->{q[nodes]}}) {
+                            $client{$self}->dht->add_node(join q[:],  @$node);
+                        }
                     }
                     if (defined($_content->{q[announce-list]})
                         and ref $_content->{q[announce-list]} eq q[ARRAY])
@@ -193,11 +197,6 @@ use warnings;
                              } @{$_content->{q[info]}{q[files]}}
                         ]
                         );
-
-
-
-
-
                     if ($files{$self} eq []) {
                         carp(q[Broken torrent: No files contained in .torrent]
                         );
@@ -359,23 +358,19 @@ use warnings;
             return if not defined $peer->bitfield;
             my $piece = undef;
 
-        # TODO:  needs work... ###############################################
+            # TODO: needs work...
             my $free_blocks = 0;
             my $free_slots  = 0;
-            grep {
-                $free_blocks
-                    += scalar grep { scalar $_->peers == 0 }
-                    values %{$_->blocks}
-                }
-                grep { $_->working } @{$pieces{$self}};
-            grep {
+            for (grep { $_->working } @{$pieces{$self}}) {
+                $free_blocks += scalar grep { scalar $_->peers == 0 }
+                    values %{$_->blocks};
+            }
+            for ($self->peers) {
                 $free_slots
                     += ($client{$self}->maximum_requests_per_peer
                         - scalar(@{$_->outgoing_requests}))
-                    if not $_->is_choking
-            } $self->peers;
-
-        # ...major work ######################################################
+                    if not $_->is_choking;
+            }
             my $max_working = (($free_blocks < $free_slots)
                           + (scalar(grep { $_->working } @{$pieces{$self}})));
             my @weights = (

@@ -1,4 +1,13 @@
-Version 0.022 |
+Version 0.02X |
+
+ API changes:
+
+ Internal changes:
+  - DHT
+
+ Notes:
+
+Version 0.022 | 2008-05-24 10:31:26 -0400 (Sat, 24 May 2008)
 
  API changes:
   - Callback system is complete.

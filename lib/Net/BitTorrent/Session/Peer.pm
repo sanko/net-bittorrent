@@ -13,8 +13,9 @@ use warnings;
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use Carp qw[carp];
     use Digest::SHA qw[sha1_hex];
+    use lib q[../../../../lib/];
     use Net::BitTorrent::Session::Peer::Request;
-    use Net::BitTorrent::Util qw[min :bencode :log];
+    use Net::BitTorrent::Util qw[min :bencode :log compact];
 
     # identification
     my (%client,   %fileno,   %socket,   %peer_id, %session,
@@ -28,11 +29,20 @@ use warnings;
         %incoming_connection,         %connection_timestamp,
         %previous_incoming_block,     %previous_outgoing_request,
         %previous_outgoing_keepalive, %connected,
-        %extentions
+        %listening_port,
     );
 
     # statistics
     my (%uploaded, %downloaded, %previous_incoming_data);
+
+    # ext - support
+    my (%_supports_DHT,         %_supports_FastPeers,
+        %_supports_ExtProtocol, %_supports_Encryption,
+        %_supports_BitComet
+    );
+
+    # ext - data
+    my (%_fastset_out, %_fastset_in);
 
     sub new {
         my ($class, $args) = @_;
@@ -81,9 +91,10 @@ use warnings;
             $client{$self}              = $args->{q[session]}->client;
             $incoming_connection{$self} = 0;
             $self->_init($socket);
-            $self->_build_packet_handshake();
-            $peerhost{$self} = $ip;
-            $peerport{$self} = $peerport;
+            $self->_build_packet_handshake;
+            $peerhost{$self}       = $ip;
+            $peerport{$self}       = $peerport;
+            $listening_port{$self} = $peerport;
         }
         return $self;
     }
@@ -219,6 +230,7 @@ use warnings;
         my (%ref, $type);
         if (unpack(q[c], $queue_incoming{$self}) == 0x13) {
             %ref = $self->_parse_packet_handshake($queue_incoming{$self});
+            $self->_build_packet_port;
         }
         else {
             return
@@ -238,10 +250,9 @@ use warnings;
                 6   => \&_parse_packet_request,
                 7   => \&_parse_packet_piece,
                 8   => \&_parse_packet_cancel,
-
-                #9 => \&_parse_packet_port,
-                14 => \&_parse_packet_have_all,
-                15 => \&_parse_packet_have_none,
+                9   => \&_parse_packet_port,
+                14  => \&_parse_packet_have_all,
+                15  => \&_parse_packet_have_none,
 
                 #16 => \&_parse_packet_reject,
                 #17 => \&_parse_packet_allowed_fast,
@@ -251,6 +262,8 @@ use warnings;
                 %ref = $dispatch{$type}($self, $packet_len, $packet);
             }
             else {
+                use Data::Dump qw[pp];
+                die pp $packet;
                 $self->_disconnect(q[Unknown or malformed packet]);
             }
         }
@@ -470,20 +483,17 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
-        if (q[TODO: I'll get to this one day...]) {
-            $self->_disconnect(q[We don't support PORT messages. Yet.]);
-            return;
-        }
         if ($packet_len != 3) {
             $self->_disconnect(q[Incorrect packet length for PORT message]);
             return;
         }
-        my ($listen_port) = unpack(q[N], $packet);
-        %ref = (listen_port => $listen_port);
-
-        # Do stuff here.
-        return %ref;
+        $listening_port{$self} = unpack(q[n], $packet);
+        $self->session->append_nodes(
+                 compact(
+                     sprintf q[%s:%d], $self->peerhost, $listening_port{$self}
+                 )
+        );
+        return;
     }
 
     sub _parse_packet_have_all {
@@ -494,7 +504,7 @@ use warnings;
                                      )
         );
         my %ref;
-        if (!$extentions{$self}{q[supported]}{q[FastPeers]}) {
+        if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a HAVE ALL message]
             );
@@ -519,7 +529,7 @@ use warnings;
                                      )
         );
         my %ref;
-        if (!$extentions{$self}{q[supported]}{q[FastPeers]}) {
+        if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a HAVE NONE message]
             );
@@ -544,7 +554,7 @@ use warnings;
                                      )
         );
         my %ref;
-        if (!$extentions{$self}{q[supported]}{q[FastPeers]}) {
+        if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a REJECT message]
             );
@@ -572,7 +582,7 @@ use warnings;
                                      )
         );
         my %ref;
-        if (!$extentions{$self}{q[supported]}{q[FastPeers]}) {
+        if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us an ALLOWED FAST message]
             );
@@ -597,7 +607,7 @@ use warnings;
                                      )
         );
         my %ref;
-        if ($extentions{$self}{q[supported]}{q[ExtProtocol]}) {
+        if ($_supports_ExtProtocol{$self}) {
             $self->_disconnect(
                 q[User does not support the Ext. Protocol but has sent an Ext. Protocol packet]
             );
@@ -611,6 +621,10 @@ use warnings;
         my $_content = bdecode($data);
         %ref = (messageid => $messageid,
                 packet    => $_content);
+        #use Data::Dump qw[pp];
+        #warn pp \%ref;
+        #warn pp $_content;
+        #warn pp $data;
 
         # messageid:
         #  0 = handshake
@@ -689,6 +703,7 @@ use warnings;
             $client{$self}->_do_callback(q[peer_connect], $self);
             $self->_action_send_bitfield;
             $self->_action_send_ExtProtocol;
+            $self->_build_packet_port;
             $self->_action_send_fastset;
         }
         %ref = (protocol  => $protocol_name,
@@ -696,6 +711,8 @@ use warnings;
                 info_hash => $info_hash,
                 peer_id   => $peer_id,
         );
+        #use Data::Dump qw[pp];
+        #warn pp \%ref;
         $client{$self}->_do_callback(q[peer_incoming_handshake], $self);
 
         # Do stuff here.
@@ -828,26 +845,19 @@ use warnings;
                                      )
         );
         my ($reserved) = [map {ord} split(q[], $reserved{$self})];
-        $extentions{$self} = {
-                    data => {FastPeers => {outgoing_fastset => [],
-                                           incoming_fastset => []
-                             }
-                    },
-                    supported => {
-                        BitComet => ($reserved->[1] . $reserved->[1] eq q[ex])
-                        ? 1
-                        : 0,
-                        DHT => $reserved->[7] &= 0x01 ? 1 : 0,
-                        Encryption  => 0,
-                        ExtProtocol => $reserved->[5] &= 0x10 ? 1 : 0,
-                        FastPeers   => $reserved->[7] &= 0x04 ? 1 : 0,
-                        PEX         => 0
-                    }
-        };
+        $_supports_DHT{$self}         = ($reserved->[7] &= 0x01 ? 1 : 0);
+        $_supports_FastPeers{$self}   = ($reserved->[7] &= 0x04 ? 1 : 0);
+        $_supports_ExtProtocol{$self} = ($reserved->[5] &= 0x10 ? 1 : 0);
+        $_supports_Encryption{$self} = 0;    # ...todo
+        $_supports_BitComet{$self}
+            = (($reserved->[1] . $reserved->[1] eq q[ex]) ? 1 : 0);
+        $_fastset_out{$self} = [] if $_supports_FastPeers{$self};
+        $_fastset_in{$self}  = [] if $_supports_FastPeers{$self};
+        $client{$self}->dht->add_node($$self) if $_supports_DHT{$self};
         return 1;
     }
 
-    sub _build_packet {    # refactor out of existance
+    sub _build_packet {                      # refactor out of existance
         my ($self, $packet) = @_;
         $client{$self}->_do_callback(q[log], TRACE,
                                      sprintf(q[Entering %s for %s],
@@ -952,10 +962,23 @@ use warnings;
         return 1;
     }
 
+    sub _build_packet_port {
+        my ($self) = @_;
+        return
+            if not $_supports_DHT{$self};
+        return if not $client{$self}->_ext_DHT;
+        #warn q[OUTGOING PORT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
+        my $packed = pack(q[n], $self->client->dht->sockport);
+        $queue_outgoing{$self}
+            .= pack(q[Nca*], length($packed) + 1, 9, $packed);
+        $client{$self}->_do_callback(q[peer_outgoing_port], $self);
+        return 1;
+    }
+
     sub _build_packet_have_all {
         my ($self) = @_;
         return
-            if not $extentions{$self}{q[supported]}{q[FastPeers]};
+            if not $_supports_FastPeers{$self};
         return if not $client{$self}->_ext_FastPeers;
         $queue_outgoing{$self} .= pack(q[Nc], 5, 14);
         $client{$self}->_do_callback(q[peer_outgoing_have_all], $self);
@@ -965,7 +988,7 @@ use warnings;
     sub _build_packet_have_none {
         my ($self) = @_;
         return
-            if not $extentions{$self}{q[supported]}{q[FastPeers]};
+            if not $_supports_FastPeers{$self};
         return if not $client{$self}->_ext_FastPeers;
         $queue_outgoing{$self} .= pack(q[Nc], 5, 15);
         $client{$self}->_do_callback(q[peer_outgoing_have_none], $self);
@@ -974,16 +997,10 @@ use warnings;
 
     sub _build_packet_ExtProtocol {
         my ($self, $messageID, $data) = @_;
-        return
-            if not $extentions{$self}{q[supported]}{q[ExtProtocol]};
+         return
+            if not $_supports_ExtProtocol{$self};
         return if not $client{$self}->_ext_ExtProtocol;
-        my $packet = pack(q[ca*], $messageID, bencode $data);
-
-# {
-#  messageid => 0,
-#  packet    => { e => 0, "m" => { ut_pex => 1 }, p => 21901, v => "\xC2\xB5Torrent 1.7.7" },
-#}
-#{ v => "Net::BitTorrent r0.010" }
+         my $packet = pack(q[ca*], $messageID, bencode $data);
         $queue_outgoing{$self}
             .= pack(q[Nca*], length($packet) + 1, 20, $packet);
         $client{$self}->_do_callback(q[peer_outgoing_extended], $self);
@@ -1189,11 +1206,11 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        if (    $extentions{$self}{q[supported]}{q[FastPeers]}
+        if (    $_supports_FastPeers{$self}
             and $client{$self}->_ext_FastPeers)
         {   my $good = 0;
             if ($session{$self}->complete) {
-                $self->_build_packetha_have_all;
+                $self->_build_packet_have_all;
                 $good++;
             }
             elsif (not(scalar(grep { $_->check } @{$session{$self}->pieces})))
@@ -1221,8 +1238,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        return
-            if not $extentions{$self}{q[supported]}{q[FastPeers]};
+        return if not $_supports_FastPeers{$self};
         return if not $client{$self}->_ext_FastPeers;
         $self->_generate_fast_set;
         $client{$self}->_do_callback(q[log], TRACE,
@@ -1230,8 +1246,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        for my $index (
-            @{$extentions{$self}{q[data]}{q[FastPeers]}{q[outgoing_fastset]}})
+        for my $index (@{$_fastset_out{$self}})
         {    #$self->_build_packet_allowed_fast($index)
                 #    if $session{$self}->pieces->[$index]->check
                 #        #and $peer->does not have
@@ -1247,15 +1262,27 @@ use warnings;
                                      )
         );
         return
-            if not $extentions{$self}{q[supported]}{q[ExtProtocol]};
+            if not $_supports_ExtProtocol{$self};
         return if not $client{$self}->_ext_ExtProtocol;
         $client{$self}->_do_callback(q[log], TRACE,
                                      sprintf(q[Entering %s for %s],
                                              [caller 0]->[3], $$self
                                      )
         );
-        $self->_build_packet_ExtProtocol(0,
-                     {v => q[Net::BitTorrent r] . $Net::BitTorrent::VERSION});
+         $self->_build_packet_ExtProtocol(
+            0,
+            {m => {ut_pex => 1, q[µT_PEX] => 2},
+             (    # is incoming ? ():
+                (p => $client{$self}->sockport)
+             ),
+             v      => q[Net::BitTorrent r] . $Net::BitTorrent::VERSION,
+             yourip => pack(q[C4], ($self->peerhost =~ m[(\d+)]g)),
+             reqq => 30    # XXX - Lies.  It's on my todo list...
+                   # reqq == An integer, the number of outstanding request messages
+                   # this client supports without dropping any.  The default in in
+                   # libtorrent is 250.
+            }
+        );
         return;
 
 # {
@@ -1311,8 +1338,7 @@ use warnings;
                     unless grep { $_ == $index } @a;
             }
         }
-        return $extentions{$self}{q[data]}{q[FastPeers]}{q[outgoing_fastset]}
-            = \@a;
+        return $_fastset_out{$self} = \@a;
     }
     DESTROY {
         my ($self) = @_;
@@ -1332,7 +1358,6 @@ use warnings;
         delete $is_interesting{$self};
         delete $is_choking{$self};
         delete $reserved{$self};
-        delete $extentions{$self};
         delete $incoming_connection{$self};
         delete $connection_timestamp{$self};
         delete $connected{$self};
@@ -1347,6 +1372,14 @@ use warnings;
         delete $fileno{$self};
         delete $peerhost{$self};
         delete $peerport{$self};
+        delete $listening_port{$self};
+        delete $_supports_DHT{$self};
+        delete $_supports_FastPeers{$self};
+        delete $_supports_ExtProtocol{$self};
+        delete $_supports_Encryption{$self};
+        delete $_supports_BitComet{$self};
+        delete $_fastset_out{$self};
+        delete $_fastset_in{$self};
         return 1;
     }
 }

@@ -9,11 +9,13 @@ use warnings;
             = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
-    use Socket qw[/F_INET/ /_STREAM/ /_ANY/ SOL_SOCKET /SO_RE/ /SOMAX/];
+    use Socket qw[/F_INET/ /SOCK_/ /_ANY/ SOL_SOCKET /SO_RE/ /SOMAX/];
     use Scalar::Util qw[/weak/];
     use Time::HiRes qw[sleep time];
+    use lib q[../../lib/];
     use Net::BitTorrent::Session;
     use Net::BitTorrent::Session::Peer;
+    use Net::BitTorrent::DHT;
     use Net::BitTorrent::Util qw[shuffle :log];
     my (%peer_id,                   %socket,
         %fileno,                    %timeout,
@@ -24,20 +26,20 @@ use warnings;
         %sessions,                  %use_unicode,
         %debug_level,               %pulse,
         %kBps_up,                   %kBps_down,
-        %k_up,                      %k_down
+        %k_up,                      %k_down,
+        %dht
     );
 
     sub new {
         my ($class, $args) = @_;
+        my $self = undef;
 
         # Let the user pick either LocalHost or LocalAddr like
         # IO::Socket::INET.  ...do I really want to do this?
         $args->{q[LocalAddr]} = $args->{q[LocalHost]}
             if exists $args->{q[LocalHost]}
                 && !exists $args->{q[LocalAddr]};
-        {
-
-            # Allow the user to pass a list of potential port numbers
+        {    # Allow the user to pass a list of potential port numbers
             my @portrange
                 = defined $args->{q[LocalPort]}
                 ? ref $args->{q[LocalPort]} eq q[ARRAY]
@@ -50,14 +52,14 @@ use warnings;
                 defined $socket or next PORT;
 
                 # Whew, everything's okay.  Let's bless this mess.
-                my $self = bless \sprintf(q[%s:%d], $host, $port), $class;
+                $self = bless \sprintf(q[%s:%d], $host, $port), $class;
                 $socket{$self} = $socket;
                 $self->_init();
                 $self->_parse_args($args);
-                return $self;
+                $dht{$self} = Net::BitTorrent::DHT->new({client => $self});
             }
         }
-        return;
+        return $self;
     }
 
     sub _init {
@@ -72,7 +74,7 @@ use warnings;
         $peer_id{$self} = pack(
             q[a20],
             (sprintf(
-                 q[NB%03dC-%8s%5s],
+                 q[NB%03dS-%8s%5s],
                  (q[$Rev$] =~ m[(\d+)]g),
                  (join q[],
                   map {
@@ -160,7 +162,7 @@ use warnings;
                 (defined $port and $port =~ m[^(\d+)$] ? $1 : 0),
                 (defined $host
                      and $host =~ m[^(?:\d+\.?){4}$]
-                 ? (join q[], map { chr $_ } ($host =~ m[(\d+)]g))
+                 ? (pack q[C4], ($host =~ m[(\d+)]g))
                  : INADDR_ANY
                 )
             )
@@ -171,17 +173,17 @@ use warnings;
         return ($_socket, sprintf(q[%d.%d.%d.%d], @_address), $_port);
     }
 
-    sub _change_port {
-        my ($self, $desired_host, $desired_port) = @_;
-        my ($new_socket, @real_host, $real_port)
-            = _open_socket($desired_host, $desired_port);
-        if ($new_socket) {
-            $$self = sprintf q[%d.%d.%d.%d:%d], @real_host, $real_port;
-            return $socket{$self} = $new_socket;
-        }
-        return;
-    }
-
+    #sub _change_port {
+    #    my ($self, $desired_host, $desired_port) = @_;
+    #    my ($new_socket, @real_host, $real_port)
+    #        = _open_socket($desired_host, $desired_port);
+    #    if ($new_socket) {
+    #        $$self = sprintf q[%d.%d.%d.%d:%d], @real_host, $real_port;
+    #        $dht{$self}->_open_socket;
+    #        return $socket{$self} = $new_socket;
+    #    }
+    #    return;
+    #}
     sub maximum_peers_per_client {
         my ($self, $value) = @_;
         return (
@@ -341,6 +343,7 @@ use warnings;
             $_->_disconnect(
                         q[Connection timed out before established connection])
                 if $_ ne $self
+                    and ($_ ne $dht{$self})
                     and (not $_->_connected)
                     and ($_->_connection_timestamp < (time - 60))
         } values %{$connections{$self}};
@@ -352,6 +355,7 @@ use warnings;
             vec($rin, $fileno, 1) = 1;
             vec($win, $fileno, 1) = 1
                 if $fileno ne $fileno{$self}
+                    and $connections{$self}{$fileno} ne $dht{$self}
                     and $connections{$self}{$fileno}->_queue_outgoing;
         }
         my ($nfound, $timeleft)
@@ -451,6 +455,12 @@ use warnings;
                     }
                 }
             }
+            #elsif ($connections{$self}{$fileno} eq $dht{$self}) {
+            #    if (vec($$rin, $fileno, 1)) {
+            #        vec($$rin, $fileno, 1) = 0;
+            #        #die q[Yay!];
+            #    }
+            #}
             else {
                 my $read  = vec($$rin, $fileno, 1);
                 my $write = vec($$win, $fileno, 1);
@@ -479,6 +489,7 @@ use warnings;
         return 1;
     }
     sub peer_id { return $peer_id{$_[0]}; }
+    sub dht     { return $dht{$_[0]}; }
 
     sub sockport {
         return (unpack(q[SnC4x8], getsockname($socket{$_[0]})))[1];
@@ -566,8 +577,9 @@ use warnings;
     }
 
     # Extension information
-    sub _ext_FastPeers   {0}
-    sub _ext_ExtProtocol {0}
+    sub _ext_FastPeers   {1}
+    sub _ext_ExtProtocol {1}
+    sub _ext_DHT         {1}
 
     sub _build_reserved {
         my ($self) = @_;
@@ -576,7 +588,9 @@ use warnings;
             if $self->_ext_FastPeers;
         $reserved[5] |= 0x10
             if $self->_ext_ExtProtocol;
-        return join q[], map {chr} @reserved;
+        $reserved[7] |= 0x01
+            if $self->_ext_DHT;
+         return join q[], map {chr} @reserved;
     }
 
     # Internal scheduling
@@ -609,10 +623,11 @@ use warnings;
 
     sub process_timers {
         my ($self) = @_;
-        for my $_pulse (values %{$pulse{$self}}) {
-            if ($_pulse->{q[time]} <= time
-                and defined $_pulse->{q[object]})
-            {   my $obj = $_pulse->{q[object]};
+        my @timers = values %{$pulse{$self}};
+        for my $timer (@timers) {
+            if ($timer->{q[time]} <= time
+                and defined $timer->{q[object]})
+            {   my $obj = $timer->{q[object]};
                 $self->_del_pulse($obj);
                 $obj->_pulse;
             }
@@ -691,6 +706,9 @@ END
         delete $kBps_down{$self};
         delete $k_up{$self};
         delete $k_down{$self};
+
+        # DHT
+        delete $dht{$self};    # mainline
         return 1;
     }
 }
@@ -1012,6 +1030,10 @@ internally, with trackers, and with remote peers.
 
 See also: theory.org (http://tinyurl.com/4a9cuv)
 
+=item C<dht ( )>
+
+Returns the C<Net::BitTorrent::DHT> object related to this client.
+
 =item C<remove_session ( SESSION )>
 
 Removes a C<Net::BitTorrent::Session> object from the client.
@@ -1039,13 +1061,13 @@ L<Net::BitTorrent::Session|Net::BitTorrent::Session>
 
 =item C<sockaddr ( )>
 
-Return the address part of the sockaddr structure for the socket.
+Return the address part of the sockaddr structure for the TCP socket.
 
 See also: L<IO::Socket::INET/sockaddr>
 
 =item C<sockport ( )>
 
-Return the port number that the socket is using on the local host.
+Return the port number that the TCP socket is using on the local host.
 
 See also: L<IO::Socket::INET/sockport>
 
@@ -1198,6 +1220,10 @@ Callback arguments: ( CLIENT, PEER, BLOCK )
 
 Callback arguments: ( CLIENT, PEER )
 
+=item C<peer_outgoing_port>
+
+Callback arguments: ( CLIENT, PEER )
+
 =back
 
 =head2 Tracker level
@@ -1346,8 +1372,9 @@ This list of bugs is incomplete.
 Found bugs should be reported through
 http://code.google.com/p/net-bittorrent/issues/list.  Please include
 as much information as possible.  For more, see
-"L<I've found a bug!  Now what?|Net::BitTorrent::FAQ/"I've found a bug!  Now what?">"
-in L<Net::BitTorrent::FAQ|Net::BitTorrent::FAQ>.
+L<Net::BitTorrent::Todo|Net::BitTorrent::Todo> and
+"L<Issue Tracker|Net::BitTorrent::Notes/"Issue Tracker">" in
+L<Net::BitTorrent::Notes|Net::BitTorrent::Notes>.
 
 =head1 Notes
 

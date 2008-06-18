@@ -39,9 +39,9 @@ is bdecode(q[i4e]), 4, q[integer];
 is bdecode(q[i0e]), 0, q[zero];
 is bdecode(q[i-0e]) + 0, 0, q[zero w/ sign];
 is bdecode(q[i-10e]), -10,    q[negative integer];
-is bdecode(q[0:]),    q[],    q[zero length string];
+is bdecode(q[0:]),    undef,    q[zero length string];
 is bdecode(q[3:abc]), q[abc], q[string];
 is bdecode(q[10:1234567890]), q[1234567890],
     q[integer cast as string];
-is bdecode(q[02:xy]), q[xy], q[string with leading zero in length];
+is bdecode(q[02:xy]), undef, q[string with leading zero in length];
 is bdecode(q[i03e]),  3,     q[integer with leading zero];

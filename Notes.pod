@@ -75,33 +75,6 @@ them for you.
 * We also use the internal C<utf8()> functions which didn't appear until
 perl 5.8.1.  See L<Portability Hacks|/"Portability Hacks">.
 
-=head1 Portability Hacks
-
-Net::BitTorrent aims to be portable between the big three OS (Win32,
-Linux [*buntu], MacOS X);  When possible, this should be achieved without
-a glut of code using easily obtained third-party modules.  Core modules
-are considered first followed by well tested CPAN modules.  Modules that
-prevent broad use (ie. fails to install on a majority of systems) will
-not be considered.
-
-There will be times, though, that C<$^O>-based clutter (and, eventually,
-OS-based subclassing) is needed.  Here is a list of both stable and
-experimental workarounds by OS:
-
-=over 2
-
-=item MSWin32
-
-=over 2
-
-=item Extended charset filename support
-
-[TODO]
-
-=back
-
-=back
-
 =head1 How Do I...
 
 Parts that aren't handled internally are described here with sample code
@@ -122,11 +95,12 @@ Early versions of N::B had resume built in but it was removed for various
 reasons.  Adding this yourself is trivial, fortunately.  For each
 torrent, store the bitfield, nodes (compact list of peers), piece
 priorities, and the modified times for each file just to be safe.  Oh,
-and a list of the current 'working' pieces and their progress.  Add to
-that some sort of verification scheme to be sure you're loading
-information that hasn't been tampered with or corrupted.  Then, when you
-load the torrent, set the C<skip_hashcheck> parameter to a C<true> value
-and reload the torrent with your stored data.
+and a list of the current 'working' pieces and their progress.  Saving
+the DHT ID and routing table would be a good idea too.  Add to that some
+sort of verification scheme to be sure you're loading information that
+hasn't been tampered with or corrupted.  Then, when you load the torrent,
+set the C<skip_hashcheck> parameter to a C<true> value and reload the
+torrent with your stored data.
 
 [TODO]
 
@@ -138,63 +112,153 @@ See L<Net::BitTorrent::Session::File/"priority( [NEWVAL] )">.
 
 [TODO]
 
-=head1 Class Pseudo-structures
-
-=head2 C<Net::BitTorrent>
-
- Net::BitTorrent = {
-    peer_id                   => string
-    socket                    => GLOB
-    maximum_peers_per_client  => integer
-    maximum_peers_per_session => integer
-    maximum_peers_half_open   => integer
-    maximum_buffer_size       => integer
-    maximum_requests_size     => integer
-    maximum_requests_per_peer => integer
-    timeout                   => integer
-    debug_level               => integer
-    connections               => array, # N::B and N::B::Session objects
-    callbacks                 => hash,  # key:value::(str)type:coderef
-    sessions                  => array, # N::B::Session objects
-    fileno                    => integer
-    kBps_up                   => integer
-    kBps_down                 => integer
-    k_up                      => integer
-    k_down                    => integer
-}
-
-=head2 C<Net::BitTorrent::Session>
-
- Net::BitTorrent::Session = { [TODO] }
-
-=head2 C<Net::BitTorrent::Session::Tracker>
-
- Net::BitTorrent::Session::Tracker = { [TODO] }
-
-=head2 C<Net::BitTorrent::Session::Peer>
-
- Net::BitTorrent::Session::Peer = { [TODO] }
-
-=head2 C<Net::BitTorrent::Session::Peer::Request>
-
- Net::BitTorrent::Session::Peer::Request = { [TODO] }
-
-=head2 C<Net::BitTorrent::Session::File>
-
- Net::BitTorrent::Session::File = { [TODO] }
-
-=head2 C<Net::BitTorrent::Session::Piece>
-
- Net::BitTorrent::Session::Piece = { [TODO] }
-
-=head2 C<Net::BitTorrent::Session::Piece::Block>
-
- Net::BitTorrent::Session::Piece::Block = { [TODO] }
-
 =head1 Net::BitTorrent Internals
 
 This section describes all the behind the scenes stuff that makes
 C<Net::BitTorrent> work.  Or not work.  It depends.
+
+=head2 Class Pseudo-structures
+
+=head3 C<Net::BitTorrent>
+
+ Net::BitTorrent = {
+    peer_id                   => string,
+    socket                    => GLOB,
+    maximum_peers_per_client  => integer,
+    maximum_peers_per_session => integer,
+    maximum_peers_half_open   => integer,
+    maximum_buffer_size       => integer,
+    maximum_requests_size     => integer,
+    maximum_requests_per_peer => integer,
+    timeout                   => integer,
+    debug_level               => integer,
+    connections               => array, # N::B and N::B::Session objects
+    callbacks                 => hash,  # key:value::(str)type:coderef
+    sessions                  => array, # N::B::Session objects
+    fileno                    => integer,
+    kBps_up                   => integer,
+    kBps_down                 => integer,
+    k_up                      => integer,
+    k_down                    => integer,
+ }
+
+=head3 C<Net::BitTorrent::Session>
+
+ Net::BitTorrent::Session = {
+    path                     => string,
+    base_dir                 => string,
+    private                  => bool,    # from metadata
+    infohash                 => string,
+    piece_count              => integer,
+    piece_size               => integer,
+    block_size               => integer, # can be defined by the user
+    total_size               => integer,
+    uploaded                 => integer,
+    downloaded               => integer,
+    trackers                 => array,   # N::B::S::Tracker objects (tiers)
+    client                   => N::B object,
+    files                    => array,   # N::B::S::File objects
+    pieces                   => array,   # N::B::S::Piece objects
+    endgame                  => bool,    # cache value
+    nodes                    => string,  # compacted list of potential peers
+    name                     => string,  # from metadata, not used internally
+ }
+
+=head3 C<Net::BitTorrent::Session::Tracker>
+
+ Net::BitTorrent::Session::Tracker = {
+    urls                     =>
+    socket                   =>
+    session                  =>
+    fileno                   =>
+    next_announce            =>
+    next_scrape              =>
+    connection_timestamp     =>
+    scrape_complete          =>
+    scrape_incomplete        =>
+    scrape_downloaded        =>
+    connected                =>
+    queue_outgoing           =>
+    queue_incoming           =>
+ }
+
+=head3 C<Net::BitTorrent::Session::Peer>
+
+ Net::BitTorrent::Session::Peer = {
+    client                   =>
+    peer_id                  =>
+    bitfield                 =>
+    incoming_requests        =>
+    outgoing_requests        =>
+    session                  =>
+    queue_incoming           =>
+    queue_outgoing           =>
+    is_interested            =>
+    is_choked                =>
+    is_interesting           =>
+    is_choking               =>
+    reserved                 =>
+    extentions               =>
+    incoming_connection      => bool,
+    connection_timestamp     => integer, # time of creation
+    connected                =>
+    socket                   =>
+    previous_outgoing_keepalive =>
+    previous_incoming_data      =>
+    previous_outgoing_request   =>
+    previous_incoming_block  =>
+    downloaded               =>
+    uploaded                 =>
+    fileno                   => integer, # cached value
+    peerhost                 =>
+    peerport                 =>
+ }
+
+=head3 C<Net::BitTorrent::Session::Peer::Request>
+
+ Net::BitTorrent::Session::Peer::Request = {
+    peer                     =>
+    index                    =>
+    offset                   =>
+    length                   =>
+    timestamp                =>
+ }
+
+=head3 C<Net::BitTorrent::Session::File>
+
+ Net::BitTorrent::Session::File = {
+    size                     =>
+    path                     =>
+    piece_range              =>
+    session                  =>
+    handle                   =>
+    win32_handle             => # Win32API::File ID (w/ utf8 filename)
+    open_timestamp           =>
+    open_mode                =>
+    touch_timestamp          =>
+ }
+
+=head3 C<Net::BitTorrent::Session::Piece>
+
+ Net::BitTorrent::Session::Piece = {
+    hash                     =>
+    priority                 =>
+    index                    =>
+    working                  =>
+    blocks                   =>
+    check                    =>
+    session                  =>
+    previous_incoming_block  => integer # timestamp
+ }
+
+=head3 C<Net::BitTorrent::Session::Piece::Block>
+
+ Net::BitTorrent::Session::Piece::Block = {
+    offset                   =>
+    length                   =>
+    piece                    =>
+    peer                     =>
+ }
 
 =head2 Peer ID Generation
 
@@ -304,7 +368,105 @@ Completely legal Peer ID generated by SVN/Dev r65.
 
 =head2 Piece Selection
 
-[TODO]
+To have any symbolance of basic functionality, a BitTorrent client must
+have a good piece selection strategy.  The 'strict priority' based
+algorhythm used by L<Net::BitTorrent|Net::BitTorrent> seems to strike a
+balance between efficiency and speed while keeping the pipes full of
+incoming data.  Here's the pseudocode:
+
+=over 4
+
+=item *
+
+Count the number of unrequested C<$free_blocks> in all working pieces.
+
+=item *
+
+Count how many C<$free_slots> we have open to us.  To calculate this, we
+iterate through all peers who aren't choking us adding the difference
+between the total number of outgoing requests and the user-defined
+C<maximum_requests_per_peer> value.
+
+=item *
+
+C<$max_working> is set to the current number of working pieces plus the
+bool value of C<$free_blocks E<lt> $free_slots>.
+
+=item *
+
+Calculating the priority C<@weights> relys on [TODO]
+
+=begin :reference
+
+ (scalar(grep { $_->working } @{$pieces{$self}})
+                     < $max_working    # TODO: Make this ratio variable
+                )
+                ? (grep {
+                               not $_->check
+                           and $_->priority
+                           and vec($peer->bitfield, $_->index, 1)
+                           and ($_->working
+                                ? (scalar grep { scalar $_->peers == 0 }
+                                   values %{$_->blocks})
+                                : 1
+                           )
+                       } @{$pieces{$self}}
+                    )
+                : (grep {
+                       $_->working    # and $pieces{$self}->[$_->index]
+                           and (scalar grep { scalar $_->peers == 0 }
+                                values %{$_->blocks})
+                       } @{$pieces{$self}}
+                )
+
+=end :reference
+
+If C<@weights> is empty, we return without making a new request.
+
+=item *
+
+Take the sum of all the relative (priority) weights and call it C<$total>
+
+=item *
+
+Take a random number between 0 and 1, and multiply it by C<$total>. Call
+the new number C<$rand_val>
+
+=item *
+
+While C<$rand_val> is positive, iterate through each element of
+C<@weights> and do the following:
+
+=over 4
+
+=item *
+
+Subtract the (priority) weight of the element from C<$rand_val> and
+increment a temporary index C<$i>
+
+=item *
+
+If C<$rand_val> went negative or we run out of values for C<@weights>, we
+exit the loop.
+
+=back
+
+=item *
+
+If C<$weights[$i]> is defined, we set the working value to true and
+request a free L<block|Net::BitTorrent::Session::Piece::Block>.  Blocks
+are requested in order from the beginning of the piece to the end.
+Finally, we re-request any rejected or canceled blocks.
+
+=item *
+
+...otherwise, we return an undefined value.
+
+=back
+
+The language used in this section probably only makes sense to me and
+will require a rewrite.  For the actual code, see
+C<Net::BitTorrent::Session::_pick_piece()>.
 
 =head2 Outgoing Requests
 
@@ -352,12 +514,39 @@ Completely legal Peer ID generated by SVN/Dev r65.
 
 =head2 IPv6-Related Information
 
-When will L<IO::Socket::INET6|IO::Socket::INET6> or L<Socket6|Socket6> be
-CORE?
+L<Socket6|Socket6> does not seem to work with Win32 so... no plans for
+IPv6 right now.
 
 =head2 Implemented Extensions
 
 [TODO]
+
+=head2 Portability Hacks
+
+Net::BitTorrent aims to be portable between the big three OS (Win32,
+Linux [*buntu], MacOS X);  When possible, this should be achieved without
+a glut of code using easily obtained third-party modules.  Core modules
+are considered first followed by well tested CPAN modules.  Modules that
+prevent broad use (ie. fails to install on a majority of systems) will
+not be considered.
+
+There will be times, though, that C<$^O>-based clutter (and, eventually,
+OS-based subclassing) is needed.  Here is a list of both stable and
+experimental workarounds by OS:
+
+=over 2
+
+=item MSWin32
+
+=over 2
+
+=item Extended charset filename support
+
+[TODO]
+
+=back
+
+=back
 
 =head1 Do Your Part
 
@@ -500,6 +689,14 @@ tracking.  Please include as much information as possible.
 
 Follow C<Net::BitTorrent>'s development on Twitter:
 http://twitter.com/Net_BitTorrent.
+
+=item Ohloh
+
+It's open source social networking.  ...I think.  Regardless of it's use,
+Net::BitTorrent has an Ohloh page:
+http://www.ohloh.net/projects/net-bittorrent/
+
+Wait, project cost: $65,430?  Yeah, okay!
 
 =back
 

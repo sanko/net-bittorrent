@@ -1,6 +1,9 @@
 Build.PL
 Changes
 lib/Net/BitTorrent.pm
+lib/Net/BitTorrent/DHT.pm
+lib/Net/BitTorrent/DHT/Node/Azureus.pm
+lib/Net/BitTorrent/DHT/Node/Mainline.pm
 lib/Net/BitTorrent/Session.pm
 lib/Net/BitTorrent/Session/File.pm
 lib/Net/BitTorrent/Session/Peer.pm

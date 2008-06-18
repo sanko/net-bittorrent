@@ -1,6 +1,6 @@
 ---
 name: Net-BitTorrent
-version: 0.020
+version: 0.022
 author:
   - 'Sanko Robinson <sanko@cpan.org>'
 abstract: BitTorrent peer-to-peer protocol
@@ -39,31 +39,40 @@ recommends:
 provides:
   Net::BitTorrent:
     file: lib/Net/BitTorrent.pm
-    version: 0.020
+    version: 0.022
+  Net::BitTorrent::DHT:
+    file: lib/Net/BitTorrent/DHT.pm
+    version: 0.000
+  Net::BitTorrent::DHT::Node::Azureus:
+    file: lib/Net/BitTorrent/DHT/Node/Azureus.pm
+    version: 0.000
+  Net::BitTorrent::DHT::Node::Mainline:
+    file: lib/Net/BitTorrent/DHT/Node/Mainline.pm
+    version: 0.000
   Net::BitTorrent::Session:
     file: lib/Net/BitTorrent/Session.pm
-    version: 0.020
+    version: 0.022
   Net::BitTorrent::Session::File:
     file: lib/Net/BitTorrent/Session/File.pm
-    version: 0.020
+    version: 0.022
   Net::BitTorrent::Session::Peer:
     file: lib/Net/BitTorrent/Session/Peer.pm
-    version: 0.020
+    version: 0.022
   Net::BitTorrent::Session::Peer::Request:
     file: lib/Net/BitTorrent/Session/Peer/Request.pm
-    version: 0.020
+    version: 0.022
   Net::BitTorrent::Session::Piece:
     file: lib/Net/BitTorrent/Session/Piece.pm
-    version: 0.020
+    version: 0.022
   Net::BitTorrent::Session::Piece::Block:
     file: lib/Net/BitTorrent/Session/Piece/Block.pm
-    version: 0.020
+    version: 0.022
   Net::BitTorrent::Session::Tracker:
     file: lib/Net/BitTorrent/Session/Tracker.pm
-    version: 0.020
+    version: 0.022
   Net::BitTorrent::Util:
     file: lib/Net/BitTorrent/Util.pm
-    version: 0.020
+    version: 0.022
 generated_by: 'Sanko Robinson <sanko@cpan.org>'
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

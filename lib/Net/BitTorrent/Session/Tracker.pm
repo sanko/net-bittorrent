@@ -260,7 +260,7 @@ use warnings;
             {   my $decoded_data = bdecode($body);
                 if (defined $decoded_data) {
                     if (defined $decoded_data->{q[failure reason]}) {
-                        $self->client->_do_callback(q[tracker_error],
+                        $self->client->_do_callback(q[tracker_error], $self,
                                           $decoded_data->{q[failure reason]});
                     }
                     elsif (defined $decoded_data->{q[files]}) {
@@ -317,6 +317,7 @@ use warnings;
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             $self->client->_do_callback(q[tracker_error], $self,
                                         q[UDP trackers are unsupported.]);
+            $next_announce{$self} = time + (60 * 15);    # XXX - remove!
             return 0;
         }
 

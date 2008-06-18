@@ -50,8 +50,7 @@ sub hashpass {
     my ($self, $piece) = @_;
     my $session = $piece->session;
     return printf qq[hashpass: %04d|%s|%4d/%4d|%3.2f%%\n],
-        $piece->index,
-        $$session,
+        $piece->index, $$session,
         (scalar grep { $_->check } @{$session->pieces}),
         (scalar @{$session->pieces}),
         ((  (scalar grep { $_->check } @{$session->pieces})
@@ -80,10 +79,10 @@ sub block_in {
 $client->set_callback(q[peer_incoming_block],   \&block_in);
 $client->set_callback(q[peer_outgoing_request], \&request_out);
 $client->set_callback(q[piece_hash_pass],       \&hashpass);
+$client->set_callback(q[tracker_error], sub { shift; shift; warn shift; });
 
 #$client->set_callback(q[log], sub { shift; shift; warn shift; } );
 #$client->debug_level(1000);
-
 for my $dot_torrent (sort @dot_torrents) {
     next if not -e $dot_torrent;
     printf q[Loading '%s'...], $dot_torrent;
@@ -95,7 +94,8 @@ for my $dot_torrent (sort @dot_torrents) {
         )
         or carp sprintf q[Cannot load .torrent (%s): %s],
         $dot_torrent, $^E;
-    printf qq[ OK. Infohash = %s\n], $$session;
+    printf qq[ OK. Infohash = %s%s\n], $$session,
+        ($session->private ? q[ [No DHT]] : q[]);
 }
 while (scalar $client->sessions > 0) { $client->do_one_loop }
 __END__
@@ -108,7 +108,7 @@ basic.pl - Very basic BitTorrent client
 
 =head1 SYNOPSIS
 
-basic [options] [file ...]
+basic.pl [options] [file ...]
 
  Options:
    -torrent         .torrent file to load

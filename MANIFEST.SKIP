@@ -48,5 +48,13 @@ scripts/poe.pl
 scripts/test.pl
 scripts/web-gui-poe.pl
 scripts/webui.zip
+scripts/test-udp.pl
 STYLE
 STYLE.pod
+
+\.wiki
+
+\.avi
+\.mpe?g
+\.mp3
+\.wiki

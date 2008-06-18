@@ -4,12 +4,12 @@ use CGI qw[];
 use Time::HiRes qw[sleep time];
 use Archive::Zip qw[:ERROR_CODES];
 use JSON qw[to_json];
+use HTTP::Daemon qw[];
+use HTTP::Status qw[];
+use IO::Select qw[];
+use MIME::Base64 qw[];
 use lib q[../lib];
-use Net::BitTorrent;
-use HTTP::Daemon;
-use HTTP::Status;
-use IO::Select;
-use MIME::Base64 qw( encode_base64 );
+use Net::BitTorrent qw[];
 $|++;
 
 # Configuration
@@ -18,7 +18,7 @@ my $USER = q[username];
 my $PASS = q[password];
 
 # Stop editing
-my $AUTH = encode_base64($USER . q[:] . $PASS);
+my $AUTH = MIME::Base64::encode_base64($USER . q[:] . $PASS);
 chomp $AUTH;
 -e q[webui.zip] or die <<'END';
 You seem to be missing webui.zip from the µTorrent WebUI project.  Please
@@ -385,9 +385,9 @@ __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
-webgui.pl - Very basic webgui leveraging the µTorrent WebUI project
+web-gui.pl - Very Basic WebGUI Leveraging the µTorrent WebUI Project
 
 =head1 Description
 
@@ -459,9 +459,9 @@ For something so simple, this thing uses a boat load of non-core modules:
 
 Everything.
 
-Seriously.  I haven't written anything beyond initial load and (partial)
-torrent and file lists.  The structure is here if anyone else would like
-to do it.  Hint, hint.
+Seriously.  I haven't written anything beyond initial ui load and
+(partial) torrent and file lists.  The structure is here if anyone else
+would like to do it.  Hint, hint.
 
 =back
 
