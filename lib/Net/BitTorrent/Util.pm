@@ -9,7 +9,6 @@ use warnings;
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
     use List::Util qw[min max shuffle sum];
-    use Carp qw[carp];
     use vars qw[@EXPORT_OK %EXPORT_TAGS];
     use Exporter qw[];
     *import    = *Exporter::import;
@@ -59,8 +58,7 @@ use warnings;
 
     sub bdecode {    # needs new benchmark
         my ($string) = @_;
-
-        #return if not $string;
+        return if not $string;
         if ($string =~ m[^([1-9]\d*):]s) {
             my $return = q[];
             my $size   = $1;
@@ -96,21 +94,21 @@ use warnings;
             }
             return wantarray ? (\%return, $leftover || undef) : \%return;
         }
-        $@ = sprintf q[Bad bencoded data: %s], $string;
+        $@ = sprintf q[Bad bencoded data: %s], ($string||q[]);
         return;
     }
 
     sub compact {    # IPv4 only.  For now.
         my (@peers) = @_;
         if (not @peers) {
-
-            #warn(q[Not enough parameters for compact(ARRAY)]);
+            $@ = q[Not enough parameters for compact(ARRAY)];
             return;
         }
         my $return = q[];
-        my %saw;
-    PEER: for my $peer (grep(!$saw{$_}++, @peers)) {
-            my ($ip, $port) = (  # ...sigh, some (old) trackers do crazy stuff
+        my %seen;
+    PEER: for my $peer (grep(!$seen{$_}++, @peers)) {
+            next if not $peer;
+            my ($ip, $port) = ( # ...sigh, some (old) trackers do crazy things
                 ref $peer eq q[HASH]
                 ? ($peer->{q[ip]}, $peer->{q[port]})
                 : split(q[:], $peer, 2)

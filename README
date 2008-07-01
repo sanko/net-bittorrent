@@ -7,7 +7,7 @@ Synopsis
         sub hash_pass {
             my ($self, $piece) = @_;
             printf(qq[hash_pass: piece number %04d of %s\n],
-                   $piece->index, $piece->session);
+                   $piece->get_index, $piece->get_session);
         }
 
         my $client = Net::BitTorrent->new();
@@ -22,7 +22,6 @@ Synopsis
 
         while (1) {
             $client->do_one_loop();
-
             # Etc.
         }
 
@@ -42,8 +41,8 @@ Installation
 
 Bugs
     Please see the Todo file included with this distribution,
-    perldoc Net::BitTorrent, and perldoc Net::BitTorrent::FAQ for more
-    information.
+    perldoc Net::BitTorrent, and perldoc Net::BitTorrent::TODO, and
+    http://sankorobinson.com/net-bittorrent/ for more information.
 
 Author
     Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/

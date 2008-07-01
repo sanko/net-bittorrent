@@ -6,15 +6,15 @@ use warnings;
     BEGIN {
         use version qw[qv];
         our $SVN = q[$Id$];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev 0$)->numify / 1000;
+        our $VERSION = sprintf q[%.3f], version->new(qw$Rev 23$)->numify / 1000;
     }
     use Socket qw[SOL_SOCKET /F_INET/ SOCK_DGRAM SO_REUSEADDR];
     use Digest::SHA qw[sha1];
-    use Carp qw[carp];
     use lib q[../../../lib/];
     use Net::BitTorrent::Util qw[:log :bencode :compact];
     use Net::BitTorrent::DHT::Node::Mainline qw[];
     use Net::BitTorrent::DHT::Node::Azureus qw[];
+
     #use Data::Dump qw[pp];
     {
         my (%socket, %client, %fileno, %tid, %outstanding_queries);
@@ -36,9 +36,11 @@ use warnings;
                 );
                 $self = bless \$node_id, $class;
                 $client{$self} = $args->{q[client]};
-                $self->_open_socket or return;
+                $self->_open_socket
+                    ;    # ...may fail. I get the odd 10013 winsock error
                 $node_id{$self}       = $node_id;
                 $routing_table{$self} = {};
+                $backup_nodes{$self}  = q[];
                 $tid{$self}           = qq[\0] x 5;    # 26^5 before rollover
                 $client{$self}->_set_pulse($self, time);
             }
@@ -53,33 +55,53 @@ use warnings;
                 or return;
             setsockopt($_socket, SOL_SOCKET, SO_REUSEADDR, pack(q[l], 1))
                 or return;
+            my $addr = $client{$self}->get_sockaddr();
             bind($_socket,
                  pack(q[Sna4x8],
                       AF_INET,
-                      $client{$self}->sockport,
-                      (pack q[C4], ($client{$self}->sockaddr =~ m[(\d+)]g)))
+                      $client{$self}->get_sockport,
+                      (pack q[C4], ($addr =~ m[(\d+)]g)))
             ) or return;
             $fileno{$self} = fileno($_socket);
             $socket{$self} = $_socket;
             return $client{$self}->_add_connection($self);
         }
-        sub client  { return $client{$_[0]}; }
-        sub node_id { return $node_id{$_[0]}; }
-        sub _socket { return $socket{$_[0]}; }
-        sub _fileno { return $fileno{$_[0]}; }
 
-        sub sockport {
+        sub get_client {
+            return $client{$_[0]};
+        }
+
+        sub get_routing_table {
+            return $routing_table{$_[0]};
+        }
+
+        sub get_node_id {
+            return $node_id{$_[0]};
+        }
+
+        sub _get_socket {
+            return $socket{$_[0]};
+        }
+
+        sub _get_fileno {
+            return $fileno{$_[0]};
+        }
+
+        sub _get_queue_outgoing {# no-op
+            return;
+        }
+
+        sub get_sockport {
             return (unpack(q[SnC4x8], getsockname($socket{$_[0]})))[1];
         }
 
-        sub sockaddr {
+        sub get_sockaddr {
             return join q[.],
                 (unpack(q[SnC4x8], getsockname($socket{$_[0]})))[2 .. 5];
         }
 
         sub _pulse {
             my ($self) = @_;
-            warn q[Pulse!];
             {    # get rid of old outgoing packets...
                 my @expired_requests = grep {
                     $outstanding_queries{$self}{$_}->{timestamp}
@@ -91,33 +113,36 @@ use warnings;
             }
             {    # get rid of old, useless DHT nodes...
                 my @expired_nodes = grep {
-                    my $timestamp = $routing_table{$self}{$_}->last_seen;
+                    my $timestamp = $routing_table{$self}{$_}->get_last_seen;
                     ($timestamp < (time - (60 * 30)))
                         or ($timestamp < (time - (60 * 5))
-                         and (not defined $routing_table{$self}{$_}->node_id))
+                         and
+                         (not defined $routing_table{$self}{$_}->get_node_id))
                 } keys %{$routing_table{$self}};
-                while (my $node = shift @expired_nodes) {
-                    $backup_nodes{$self} .=
-                        compact(join q[:],
-                                $routing_table{$self}{$node}->host,
-                                $routing_table{$self}{$node}->port);
+                for my $node (@expired_nodes) {
+
+                    #$backup_nodes{$self} .=
+                    #    compact(sprintf(q[%s:%s],
+                    #                    $routing_table{$self}{$node}->host,
+                    #                    $routing_table{$self}{$node}->port)
+                    #    );
                     delete $routing_table{$self}{$node};
                 }
             }
             my @hosts = sort keys %{$routing_table{$self}};
         NODE: for my $packed_host (@hosts) {
                 my $node = $routing_table{$self}{$packed_host};
-                if (    (not defined $node->node_id)
-                    and ($node->last_seen < (time - (60 * 5))))
+                if (    (not defined $node->get_node_id)
+                    and ($node->get_last_seen < (time - (60 * 5))))
                 {   delete $routing_table{$self}{$packed_host};
                     next NODE;
                 }
-                elsif ($node->last_seen < (time - (60 * 15))) {
+                elsif ($node->get_last_seen < (time - (60 * 15))) {
                     $node->_query_ping;    # ping them again...
                 }
-                elsif ($node->last_get_peers < (time - (60 * 30))) {
-                    for my $session (@{$client{$self}->sessions}) {
-                        if (not $session->private) {
+                elsif ($node->get_last_get_peers < (time - (60 * 30))) {
+                    for my $session (@{$client{$self}->get_sessions}) {
+                        if (not $session->get_private) {
 
                             #$node->_query_announce_peer($session);
                             $node->_query_get_peers($session);
@@ -131,6 +156,7 @@ use warnings;
 
         sub _process_one {
             my ($self, $read, $write) = @_;
+            $self->_open_socket() if not $socket{$self};
             $client{$self}->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             my $packed_host = recv($socket{$self}, my ($data), $read, 0);
@@ -145,8 +171,9 @@ use warnings;
                                               }
                         );
                     my $node = $routing_table{$self}{$packed_host};
-                    if (defined $packet->{q[y]} and $packet->{q[y]} eq q[q]) {
-                        my %dispatch = (ping      => \&_parse_query_ping,
+                    if (defined $packet->{q[y]}
+                        and $packet->{q[y]} eq q[q])
+                    {   my %dispatch = (ping      => \&_parse_query_ping,
                                         find_node => \&_parse_query_find_node,
                                         get_peers => \&_parse_query_get_peers
                         );
@@ -155,8 +182,8 @@ use warnings;
                         {   $dispatch{$packet->{q[q]}}($self, $node, $packet);
                         }
                         else {    # xxx - do something drastic
-                            #use Data::Dump qw[pp];
-                            #die q[Unhandled DHT packet: ] . pp $packet;
+                                  #use Data::Dump qw[pp];
+                                  #die q[Unhandled DHT packet: ] . pp $packet;
                         }
                     }
                     elsif (defined $packet->{q[y]}
@@ -168,85 +195,80 @@ use warnings;
                         if (defined $packet->{q[r]}) {
                             if (defined $outstanding_queries{$self}
                                 {$packet->{q[t]}})
-                            {   #use Data::Dump qw[pp];
-                                #warn sprintf q[Reply!!!!! %s for %s],
-                                #    pp($packet),
-                                #    pp($outstanding_queries{$self}
-                                #       {$packet->{q[t]}});
+                            {     #use Data::Dump qw[pp];
+                                    #warn sprintf q[Reply!!!!! %s for %s],
+                                    #    pp($packet),
+                                    #    pp($outstanding_queries{$self}
+                                    #       {$packet->{q[t]}});
                                 my $type = $outstanding_queries{$self}
                                     {$packet->{q[t]}}{q[type]};
                                 if (defined $dispatch{$type}) {
                                     $dispatch{$type}($self, $node, $packet);
                                 }
-                                else {    # xxx - do something drastic
-                                    #use Data::Dump qw[pp];
-                                    #die q[Unhandled DHT reply: ] . pp $packet;
+                                elsif (require Data::Dumper)
+                                {    # xxx - do something drastic
+                                    warn q[Unhandled DHT reply: ]
+                                        . Data::Dumper::Dump($packet);
                                 }
                                 delete $outstanding_queries{$self}
                                     {$packet->{q[t]}};
                             }
                         }
-                        else {            # xxx - do something drastic
-                            #use Data::Dump qw[pp];
-                            #warn q[Unhandled DHT packet: ] . pp $packet;
+                        elsif (require Data::Dumper)
+                        {            # xxx - do something drastic
+                            warn q[Unhandled DHT reply: ]
+                                . Data::Dumper::Dump($packet);
                         }
                     }
                 }
-                else {                    # might be AZ... might be garbage... or both.
-                    #warn pp $data;
-                    if (not defined $routing_table{$self}{$packed_host}  or
-                    not $routing_table{$self}{$packed_host}->isa(q[Net::BitTorrent::DHT::Node::Azureus]) ) {
-                    $routing_table{$self}{$packed_host} =
-                        Net::BitTorrent::DHT::Node::Azureus->new(
+                else {    # might be AZ... might be garbage... or both.
+                          #warn pp $data;
+                    if (   not defined $routing_table{$self}{$packed_host}
+                        or not $routing_table{$self}{$packed_host}
+                        ->isa(q[Net::BitTorrent::DHT::Node::Azureus]))
+                    {   $routing_table{$self}{$packed_host}
+                            = Net::BitTorrent::DHT::Node::Azureus->new(
                                               {dht         => $self,
                                                packed_host => $packed_host,
                                                node_id     => undef
                                               }
-                        );}
+                            );
+                    }
                     my $node = $routing_table{$self}{$packed_host};
+
                     # XXX - Do stuff with the node
                 }
             }
             return (length($data), 0);
         }
-        sub _parse_query_ping { $_[1]->_reply_ping($_[2]); }
-        sub _parse_reply_ping { $_[1]->_parse_reply_ping($_[2]); }
+        sub _parse_query_ping      { $_[1]->_reply_ping($_[2]); }
+        sub _parse_reply_ping      { $_[1]->_parse_reply_ping($_[2]); }
+        sub _parse_query_find_node { $_[1]->_parse_query_find_node($_[2]); }
+        sub _parse_query_get_peers { $_[1]->_parse_query_get_peers($_[2]); }
+        sub _parse_reply_find_node { $_[1]->_parse_reply_find_node($_[2]); }
+        sub _parse_reply_get_peers { $_[1]->_parse_reply_get_peers($_[2]); }
 
-        sub _parse_query_find_node {
-            $_[1]->_parse_query_find_node($_[2]);
-        }
-
-        sub _parse_query_get_peers {
-            $_[1]->_parse_query_get_peers($_[2]);
-        }
-
-        sub _parse_reply_find_node {
-            $_[1]->_parse_reply_find_node($_[2]);
-        }
-
-        sub _parse_reply_get_peers {
-            $_[1]->_parse_reply_get_peers($_[2]);
-        }
-
-        sub find_nodes {
+        sub locate_nodes_near_target {
             my ($self, $target) = @_;
             return [
                 sort {
-                    ($a->node_id ^ $target) cmp($b->node_id ^ $target)
-                    } values %{$routing_table{$self}}
+                    ($a->get_node_id ^ $target) cmp($b->get_node_id ^ $target)
+                    } grep { defined $_->get_node_id }
+                    values %{$routing_table{$self}}
             ]->[0 .. 8];
         }
 
         sub _send {
             my ($self, $args) = @_;
+            $self->_open_socket() if not $socket{$self};
             $client{$self}->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return if not defined $args->{q[node]};
             return
-                if defined $args->{q[node]}->node_id
-                    and $args->{q[node]}->node_id eq $node_id{$self};
+                if defined $args->{q[node]}->get_node_id
+                    and $args->{q[node]}->get_node_id eq $node_id{$self};
             defined(send($socket{$self}, $args->{q[packet]},
-                         0,              $args->{q[node]}->packed_host
+                         0,              $args->{q[node]}->get_packed_host
                     )
             ) or return;
             if (defined $args->{q[t]} and defined $args->{q[type]})
@@ -280,21 +302,24 @@ use warnings;
             my ($self, $node) = @_;
             $client{$self}->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            my ($host, $port) = split q[:], $node, 2;
-            my $packed_host = pack(q[Sna4x8],
-                                   AF_INET, $port,
-                                   join(q[],
-                                        map { chr $_ } ($host =~ m[(\d+)]g))
-            );
+            if (scalar(keys %{$routing_table{$self}}) < 300)
+            {    # xxx - make this max variable
+                my ($host, $port) = split q[:], $node, 2;
+                my $packed_host =
+                    pack(q[Sna4x8],
+                         AF_INET, $port,
+                         join(q[], map { chr $_ } ($host =~ m[(\d+)]g)));
 
-            # XXX - ...we really need to figure out what sort of peer this is
-            return $routing_table{$self}{$packed_host} ||=
-                Net::BitTorrent::DHT::Node::Mainline->new(
+                # We figure out what sort of node this is after the 1st packet
+                return $routing_table{$self}{$packed_host} ||=
+                    Net::BitTorrent::DHT::Node::Mainline->new(
                                               {dht         => $self,
                                                packed_host => $packed_host,
                                                node_id     => undef
                                               }
-                );
+                    );
+            }
+            return $backup_nodes{$self} .= compact($node);
         }
 
         sub as_string {
@@ -326,7 +351,7 @@ __END__
 
 =head1 NAME
 
-Net::BitTorrent::DHT - Mainline (Kademlia based) Distributed Hash Table
+Net::BitTorrent::DHT - Kademlia based Distributed Hash Table
 
 =head1 Constructor
 
@@ -343,22 +368,39 @@ used directly.
 
 =over 4
 
-=item C<client ( )>
+=item C<get_client ( )>
 
 Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
-peer.
+DHT object.
 
-=item C<sockaddr ( )>
+=item C<get_sockaddr ( )>
 
 Return the address part of the sockaddr structure for the UDP socket.
 
-See also: L<Net::BitTorrent/sockaddr>
+See also: L<Net::BitTorrent|Net::BitTorrent/"get_sockaddr ( )">
 
-=item C<sockport ( )>
+=item C<get_sockport ( )>
 
 Return the port number that the UDP socket is using on the local host.
 
-See also: L<Net::BitTorrent/sockport>
+See also: L<Net::BitTorrent|Net::BitTorrent/"get_sockport ( )">
+
+=item C<add_node ( )>
+
+TODO
+
+=item C<get_node_id ( )>
+
+Get the Node ID used to identify this L<client|/"get_client( )"> in the
+DHT swarm.
+
+=item C<get_routing_table ( )>
+
+TODO
+
+=item C<locate_nodes_near_target ( )>
+
+TODO
 
 =item C<as_string ( [ VERBOSE ] )>
 
@@ -366,7 +408,7 @@ Returns a 'ready to print' dump of the C<Net::BitTorrent::DHT> object's
 data structure.  If called in void context, the structure is printed to
 C<STDERR>.
 
-See also: L<Net::BitTorrent/as_string>
+See also: L<Net::BitTorrent|Net::BitTorrent/as_string>
 
 =back
 

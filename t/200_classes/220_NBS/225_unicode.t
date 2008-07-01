@@ -41,11 +41,11 @@ SKIP: {
                 q[c74fbd947223503fa16caec93ca24265698d8d5e],
                 q[bdecode | Infohash]
             );
-            my $piece = ($session->pieces())[0]->[0];
+            my $piece = ($session->get_pieces())[0]->[0];
             ok($piece->_write(q[Sanko     here.]), q[W | All data (bad)]);
-            isn't($piece->verify, 1, q[H | Fail]);
+            isn't($piece->get_verified_integrity, 1, q[H | Fail]);
             ok($piece->_write(q[was], 6), q[W | Missing data (good)]);
-            is($piece->verify, 1, q[H | Pass]);
+            is($piece->get_verified_integrity, 1, q[H | Pass]);
             is($piece->_read(0, 5), q[Sanko], q[R | My name]);
             is($piece->_read(80), undef, q[R | Reading too much data failed]);
             ok($session->close_files, q[Close open files]);

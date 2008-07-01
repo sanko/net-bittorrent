@@ -10,13 +10,11 @@ BEGIN {
     use_ok(q[Exporter]);
     use_ok(q[File::Spec]);
     use_ok(q[File::Path]);
-    use_ok(q[Carp]);
     use_ok(q[Cwd]);
     use_ok(q[Time::HiRes]);
     use_ok(q[Fcntl]);
     use_ok(q[Digest::SHA]);
     use_ok(q[version]);
-    use_ok(q[Carp]);
     use_ok(q[Scalar::Util]);
     use_ok(q[Socket]);
     #use_ok(q[Module::Build]);  #...it's already loaded

@@ -4,89 +4,135 @@
 use strict;
 use warnings;
 use Socket;
-my ($seeds, $leeches) = @ARGV;
+my ($seeds, $leeches, $timeout) = @ARGV;
+$seeds   ||= 1;
+$leeches ||= 1;
+$timeout ||= 120;
+my $sprintf = q[%0] . length($leeches > $seeds ? $leeches : $seeds) . q[d];
 socketpair(my ($CHILD), my ($PARENT), AF_UNIX, SOCK_STREAM, PF_UNSPEC)
     or die "socketpair: $!";
+
 if (my $pid = fork) {
     my $port = undef;
     close $PARENT;
     chomp(my $line = readline $CHILD);
     if ($line =~ m[p:(\d+)]) { $port = $1 }
-    else                     { die; }    # ...um, I mean skip.
+    else                     { die; }    # XXX - ...um, I mean skip.
     close $CHILD;
-    {
+SKIP: {
         use Test::More;
         use File::Temp qw[];
         use lib q[../../lib];
+        use lib q[../../../lib];
         use Net::BitTorrent;
         use Net::BitTorrent::Util qw[compact];
-        plan tests => $seeds + $leeches;
+        plan tests => int($seeds + $leeches);
         my %client;
         my $test_builder = Test::More->builder;
 
         for my $chr (1 .. $seeds) {
-            $client{q[seed_] . $chr} = new Net::BitTorrent(
-                                 {LocalAddr => q[127.0.0.1], Timeout => 0.1});
-            skip(sprintf(q[Failed to create seed_%s], $chr),
-                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
+            $chr = sprintf $sprintf, $chr;
+            $client{q[seed_] . $chr}
+                = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
+            skip_all(sprintf(q[Failed to create seed_%s], $chr),
+                     $test_builder->{q[Expected_Tests]}
+                         - $test_builder->{q[Curr_Test]}
             ) if not $client{q[seed_] . $chr};
+
+         #{    # DEBUG
+         #$client{q[seed_] . $chr}->set_callback(q[peer_connect],
+         #                           sub { shift; warn shift; });
+         #$client{q[seed_] . $chr}->set_callback(q[peer_disconnect],
+         #                           sub { shift; shift; warn shift; });
+         #$client{q[seed_] . $chr}->set_callback(q[tracker_error],
+         #                           sub { shift; shift; warn shift; });
+         #$client{q[seed_] .$chr}->set_callback(q[peer_incoming_packet], sub {
+         #    shift; shift;
+         #    use Data::Dump qw[pp];
+         #warn q[Packet!] . pp shift});
+         #$client{q[seed_] . $chr}
+         #    ->set_callback(q[log], sub { shift; shift; warn shift; });
+         #$client{q[seed_] . $chr}->set_debug_level(1000);
+         #}
             my $session = $client{q[seed_] . $chr}->add_session(
                            {path => q[./t/data/torrents/miniswarm.torrent],
                             base_dir => q[./t/data/miniswarm/]
                            }
             );
             skip(sprintf(q[Failed to load session for seed_%s], $chr),
-                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
+                 $test_builder->{q[Expected_Tests]}
+                     - $test_builder->{q[Curr_Test]}
             ) if not $session;
-            ok(scalar($session->complete), sprintf(q[seed_%s ok], $chr));
+            ok(scalar($session->get_complete), sprintf(q[seed_%s ok], $chr));
+            skip(sprintf(q[Failed to load session for seed_%s], $chr),
+                 $test_builder->{q[Expected_Tests]}
+                     - $test_builder->{q[Curr_Test]}
+            ) if not $session->get_complete;
             my $tracker = qq[http://127.0.0.1:$port/announce];
             $session->add_tracker([$tracker]);
+            $client{q[seed_] . $chr}->do_one_loop(0.1);    # let them announce
         }
         for my $chr (1 .. $leeches) {
-            $client{$chr} = new Net::BitTorrent(
-                                 {LocalAddr => q[127.0.0.1], Timeout => 0.1});
-            $client{$chr}->set_callback(q[peer_disconnect],
-                                        sub { shift; shift; warn shift; });
-
-            #$client{$chr}->set_callback(q[log],
-            #                       sub { shift; shift; warn shift; });
-            #$client{$chr}->debug_level(1000);
+            $chr = sprintf $sprintf, $chr;
+            $client{$chr} = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
             skip(sprintf(q[Failed to create leech_%s], $chr),
-                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
+                 $test_builder->{q[Expected_Tests]}
+                     - $test_builder->{q[Curr_Test]}
             ) if not $client{$chr};
+
+#{    # DEBUG
+#$client{$chr}->set_callback(q[peer_connect],
+#                           sub { shift;  warn shift; });
+#$client{$chr}->set_callback(q[peer_disconnect],
+#                           sub { shift; shift; warn shift; });
+#$client{$chr}->set_callback(q[tracker_error],
+#                           sub { shift; shift; warn shift; });
+#$client{$chr}->set_callback(q[peer_outgoing_request], sub {warn q[Request!]});
+#$client{$chr}->set_callback(q[peer_incoming_packet], sub {
+#    shift; shift;
+#    use Data::Dump qw[pp];
+#    warn q[Packet!] . pp shift
+#    });
+#$client{$chr}
+#    ->set_callback(q[log], sub { shift; shift; warn shift; });
+#$client{$chr}->set_debug_level(1000);
+#}
             $client{$chr}->set_callback(
                 q[piece_hash_pass],
                 sub {
                     my ($self, $piece) = @_;
-                    my $session = $piece->session;
+                    my $session = $piece->get_session;
                     my $completion = (
                         (((scalar grep {
-                               $_->priority and $_->check
-                               } @{$session->pieces}
-                          ) / (scalar @{$session->pieces})
+                                       $_->get_priority
+                                   and $_->get_cached_integrity
+                               } @{$session->get_pieces}
+                          ) / (scalar @{$session->get_pieces})
                          )
                         ) * 100
                     );
-                    my $line =
-                        sprintf(q[(%02d|%02d) [%s] %.2f%%],
-                                $chr,
-                                $piece->index,
-                                join(q[],
-                                     map ((   $_->check
-                                            ? $piece->index == $_->index
-                                                    ? q[*]
-                                                    : q[|]
-                                            : scalar $_->working ? q[.]
-                                            : q[ ]
-                                          ),
-                                          @{$session->pieces})
-                                ),
-                                $completion
-                        );
-
-                    #diag($line);
-                    ok($session->complete, sprintf(q[peer_%s complete], $chr))
-                        if $session->complete;
+                    diag(sprintf(
+                               q[(%02d|%02d) [%s] %.2f%%],
+                               $chr,
+                               $piece->get_index,
+                               join(
+                                   q[],
+                                   map ((  $_->get_cached_integrity
+                                         ? $piece->get_index == $_->get_index
+                                                 ? q[*]
+                                                 : q[|]
+                                         : scalar $_->get_working ? q[.]
+                                         : q[ ]
+                                       ),
+                                       @{$session->get_pieces})
+                               ),
+                               $completion
+                         )
+                        )
+                        if $ENV{q[RELEASE_TESTING]};
+                    ok($session->get_complete,
+                        sprintf(q[peer_%s complete], $chr))
+                        if $session->get_complete;
                     return;
                 }
             );
@@ -103,19 +149,29 @@ if (my $pid = fork) {
                            }
                 );
             skip(sprintf(q[Failed to load session for leech_%s], $chr),
-                 $test_builder->{Expected_Tests} - $test_builder->{Curr_Test}
+                 $test_builder->{q[Expected_Tests]}
+                     - $test_builder->{q[Curr_Test]}
             ) if not $session;
             my $tracker = qq[http://127.0.0.1:$port/announce];
             $session->add_tracker([$tracker]);
         }
-        while ($test_builder->{Curr_Test} < $test_builder->{Expected_Tests}) {
-            grep { $_->do_one_loop } values %client;
+        while ($test_builder->{q[Curr_Test]}
+               < $test_builder->{q[Expected_Tests]})
+        {   grep { $_->do_one_loop(0.1); } values %client;
+            skip(q[This is taking too long and I have a train to catch.],
+                 (      $test_builder->{q[Expected_Tests]}
+                      - $test_builder->{q[Curr_Test]}
+                 )
+            ) if (int(time - $^T) > $timeout);
         }
-        grep {
-            $_->remove_session($_->sessions->[0])
-                if scalar @{$_->sessions}
-        } values %client;
-        kill 9, $pid;
+
+        END {
+            kill 9, $pid if defined $pid;
+            grep {
+                $_->remove_session($_->get_sessions->[0])
+                    if scalar @{$_->get_sessions}
+            } values %client;
+        }
         exit;
     }
 }

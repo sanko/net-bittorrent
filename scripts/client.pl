@@ -14,6 +14,7 @@ my @dot_torrents   = ();
 my $basedir        = q[./];
 my $skip_hashcheck = 0;
 my $sig_int        = 0;
+my $loaded_okay    = 0;
 GetOptions(q[help|?]             => \$help,
            q[man]                => \$man,
            q[torrent|t=s@]       => \@dot_torrents,
@@ -27,62 +28,62 @@ if (not scalar @dot_torrents and scalar @ARGV) {
 }
 pod2usage(1) if $help or not scalar @dot_torrents;
 pod2usage(-verbose => 2) if $man;
-my $client = new Net::BitTorrent(
-    {LocalPort => $localport,
-
-     #LocalPort => [80, 6881 .. 6889],
-     #LocalPort => 80,
-     #LocalAddr   => q[127.0.0.1],
-    }
-    )
-    or croak sprintf q[Failed to create Net::BitTorrent object (%s)],
-    $^E;
+my $client = new Net::BitTorrent({LocalPort => $localport})
+    or croak sprintf q[Failed to create Net::BitTorrent object (%s)], $^E;
 $SIG{q[INT]} = sub {    # One Ctrl-C combo shows status.  Two exits.
     if ($sig_int + 10 > time) { exit; }
     $sig_int = time;
-    print q[=] x 10
+    print qq[\n]
+        . (q[=] x 10)
         . q[> Press Ctrl-C again within 10 seconds to exit <]
-        . (q[=] x 10), qq[\n];
+        . (q[=] x 10);
     return print $client->as_string(1);
 };
+sub hashpass { my ($self, $piece) = @_; return piece_status(q[pass], $piece) }
+sub hashfail { my ($self, $piece) = @_; return piece_status(q[fail], $piece) }
 
-sub hashpass {
-    my ($self, $piece) = @_;
-    my $session = $piece->session;
-    return printf qq[hashpass: %04d|%s|%4d/%4d|%3.2f%%\n],
-        $piece->index, $$session,
-        (scalar grep { $_->check } @{$session->pieces}),
-        (scalar @{$session->pieces}),
-        ((  (scalar grep { $_->check } @{$session->pieces})
-          / (scalar @{$session->pieces})
+sub piece_status {
+    my ($msg, $piece) = @_;
+    my $session = $piece->get_session;
+    return printf q[%shash%s: %04d|%s|%4d/%4d|%3.2f%%%s],
+        qq[\r], $msg, $piece->get_index,
+        $$session,
+        (scalar grep { $_->get_cached_integrity } @{$session->get_pieces}),
+        (scalar @{$session->get_pieces}),
+        ((  (scalar grep { $_->get_cached_integrity } @{$session->get_pieces})
+          / (scalar @{$session->get_pieces})
          )
-        ) * 100;
+        ) * 100,
+        ($loaded_okay ? qq[\n] : q[]);
 }
 
 sub request_out {
     my ($self, $peer, $request) = @_;
     return
-        printf(qq[REQUESTING p:%15s:%-5d i:%4d o:%7d l:%5d\n],
-               $peer->peerhost,  $peer->peerport, $request->index,
-               $request->offset, $request->length
+        printf(qq[\rREQUESTING p:%15s:%-5d i:%4d o:%7d l:%5d],
+               $peer->get_peerhost, $peer->get_peerport,
+               $request->get_index, $request->get_offset,
+               $request->get_length
         );
 }
 
 sub block_in {
     my ($self, $peer, $block) = @_;
     return
-        printf(qq[RECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d\n],
-               $peer->peerhost, $peer->peerport, $block->index,
-               $block->offset,  $block->length,
+        printf(qq[\rRECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d],
+               $peer->get_peerhost, $peer->get_peerport,
+               $block->get_index,   $block->get_offset,
+               $block->get_length
         );
 }
 $client->set_callback(q[peer_incoming_block],   \&block_in);
 $client->set_callback(q[peer_outgoing_request], \&request_out);
 $client->set_callback(q[piece_hash_pass],       \&hashpass);
-$client->set_callback(q[tracker_error], sub { shift; shift; warn shift; });
+$client->set_callback(q[piece_hash_fail],       \&hashfail);
 
+#$client->set_callback(q[tracker_error], sub { shift; shift; warn shift; });
 #$client->set_callback(q[log], sub { shift; shift; warn shift; } );
-#$client->debug_level(1000);
+#$client->set_debug_level(1000);
 for my $dot_torrent (sort @dot_torrents) {
     next if not -e $dot_torrent;
     printf q[Loading '%s'...], $dot_torrent;
@@ -94,29 +95,31 @@ for my $dot_torrent (sort @dot_torrents) {
         )
         or carp sprintf q[Cannot load .torrent (%s): %s],
         $dot_torrent, $^E;
-    printf qq[ OK. Infohash = %s%s\n], $$session,
-        ($session->private ? q[ [No DHT]] : q[]);
+    printf qq[\rLoaded '%s' [%s...%s%s]\n], $dot_torrent,
+        ($$session =~ (m[^(.{4}).+(.{4})$])),
+        ($session->get_private ? q[|No DHT] : q[]);
 }
-while (scalar $client->sessions > 0) { $client->do_one_loop }
+$loaded_okay = 1;
+while (scalar $client->get_sessions > 0) { $client->do_one_loop }
 __END__
 
 =pod
 
-=head1 Name
+=head1 NAME
 
-basic.pl - Very basic BitTorrent client
+client.pl - Very basic BitTorrent client
 
-=head1 SYNOPSIS
+=head1 Synopsis
 
-basic.pl [options] [file ...]
+client.pl [options] [file ...]
 
  Options:
-   -torrent         .torrent file to load
-   -port            port number opened to incoming connections
-   -store           base directory to store downloaded files
-   -skip_hashcheck  skip integrity check at start
-   -help            brief help message
-   -man             full documentation
+   -torrent           .torrent file to load
+   -port              port number opened to incoming connections
+   -store             base directory to store downloaded files
+   -skip_hashcheck    skip integrity check at start
+   -help              brief help message
+   -man               full documentation
 
 =head1 Options
 
@@ -126,13 +129,14 @@ basic.pl [options] [file ...]
 
 Open this .torrent file.
 
-You may pass several -torrent parameters and load more than one
-.torrent session.
+You may pass several -torrent parameters and load more than one .torrent
+session.
 
 =item B<-port>
 
 Port number opened to the world for incoming connections.  This defaults
-to C<0> and lets IO::Socket bind to a random, unused port.
+to C<0> and lets L<Net::BitTorrent|Net::BitTorrent> bind to a random,
+unused port.
 
 =item B<-store>
 
@@ -159,8 +163,8 @@ Print the manual page and exit.
 
 =head1 Description
 
-This is a B<very> basic demonstration of a full
-C<Net::BitTorrent>-based client.
+This is a B<very> basic demonstration of a full C<Net::BitTorrent>-based
+client.
 
 =for svn $Id$
 

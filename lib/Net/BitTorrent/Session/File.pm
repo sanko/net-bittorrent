@@ -10,7 +10,7 @@ use warnings;
     }
     use Fcntl qw[/O_/ /SEEK/];
     use File::Spec;
-    use Carp qw[carp];
+    use lib q[../../../../lib/];
     use Net::BitTorrent::Util qw[:log];
     my (%size,        %path,           %index,     %session,
         %handle,      %open_timestamp, %open_mode, %touch_timestamp,
@@ -41,22 +41,22 @@ use warnings;
         }
         return $self;
     }
-    sub size            { return $size{$_[0]}; }
-    sub path            { return $path{$_[0]}; }
-    sub index           { return $index{$_[0]}; }
-    sub session         { return $session{$_[0]}; }
-    sub client          { return $session{$_[0]}->client; }
-    sub _handle         { return $handle{$_[0]}; }
-    sub open_mode       { return $open_mode{$_[0]}; }
-    sub open_timestamp  { return $open_timestamp{$_[0]}; }
-    sub touch_timestamp { return $touch_timestamp{$_[0]}; }
+    sub get_size            { return $size{$_[0]}; }
+    sub get_path            { return $path{$_[0]}; }
+    sub get_index           { return $index{$_[0]}; }
+    sub get_session         { return $session{$_[0]}; }
+    sub get_client          { return $session{$_[0]}->get_client; }
+    sub _get_handle         { return $handle{$_[0]}; }
+    sub get_open_mode       { return $open_mode{$_[0]}; }
+    sub get_open_timestamp  { return $open_timestamp{$_[0]}; }
+    sub get_touch_timestamp { return $touch_timestamp{$_[0]}; }
 
     sub _open {
         my ($self, $mode) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         if ($mode !~ m[^[rw]$]) {
-            $self->client->_do_callback(q[file_error], $self,
+            $self->get_client->_do_callback(q[file_error], $self,
                                         sprintf(q[Bad open mode: %s], $mode));
             return;
         }
@@ -78,7 +78,7 @@ use warnings;
             )
         {   $open_mode{$self} = $mode eq q[r] ? O_RDONLY : O_WRONLY;
             $open_timestamp{$self} = time;
-            $self->client->_do_callback(q[file_open], $self);
+            $self->get_client->_do_callback(q[file_open], $self);
             return 1;
         }
         return;
@@ -86,14 +86,14 @@ use warnings;
 
     sub _seek {
         my ($self, $position) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         if (not defined $handle{$self}) {
-            $self->client->_do_callback(q[file_error], q[File not open]);
+            $self->get_client->_do_callback(q[file_error], q[File not open]);
             return;
         }
         elsif ($position > $size{$self}) {
-            $self->client->_do_callback(
+            $self->get_client->_do_callback(
                           q[file_error],
                           sprintf(q[Cannot seek beyond end of file (%d > %d)],
                                   $position, $size{$self}
@@ -105,26 +105,26 @@ use warnings;
 
     sub _systell {
         my ($self) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-        return sysseek($self->_handle, 0, SEEK_CUR);
+        return sysseek($handle{$self}, 0, SEEK_CUR);
     }
 
     sub _read {
         my ($self, $length) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         my $data = q[];
         if (not $handle{$self}) {
-            $self->client->_do_callback(q[file_error], q[File not open]);
+            $self->get_client->_do_callback(q[file_error], q[File not open]);
         }
         elsif ($open_mode{$self} != O_RDONLY) {
-            $self->client->_do_callback(q[file_error],
-                                        q[File not open for read]);
+            $self->get_client->_do_callback(q[file_error],
+                                            q[File not open for read]);
         }
         elsif ($self->_systell + $length > $size{$self}) {
-            $self->client->_do_callback(q[file_error],
-                                        q[Cannot read beyond end of file]);
+            $self->get_client->_do_callback(q[file_error],
+                                           q[Cannot read beyond end of file]);
         }
         else {
             truncate($handle{$self}, $size{$self})
@@ -133,8 +133,8 @@ use warnings;
             if ($real_length
                 or (defined $real_length and $real_length == $length))
             {   $touch_timestamp{$self} = time;
-                $self->client->_do_callback(q[file_read], $self,
-                                            $real_length);
+                $self->get_client->_do_callback(q[file_read], $self,
+                                                $real_length);
             }
         }
         return $data;
@@ -142,19 +142,19 @@ use warnings;
 
     sub _write {
         my ($self, $data) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         my $real_length;
         if (not $handle{$self}) {
-            $self->client->_do_callback(q[file_error], q[File not open]);
+            $self->get_client->_do_callback(q[file_error], q[File not open]);
         }
         elsif ($open_mode{$self} != O_WRONLY) {
-            $self->client->_do_callback(q[file_error],
-                                        q[File not open for write]);
+            $self->get_client->_do_callback(q[file_error],
+                                            q[File not open for write]);
         }
         elsif ($self->_systell + length($data) > $size{$self}) {
-            $self->client->_do_callback(q[file_error],
-                                        q[Cannot write beyond end of file]);
+            $self->get_client->_do_callback(q[file_error],
+                                          q[Cannot write beyond end of file]);
         }
         else {
             truncate($handle{$self}, $size{$self})
@@ -163,8 +163,8 @@ use warnings;
             if (not defined $real_length
                 or $real_length != length($data))
             {   $touch_timestamp{$self} = time;
-                $self->client->_do_callback(q[file_write], $self,
-                                            $real_length);
+                $self->get_client->_do_callback(q[file_write], $self,
+                                                $real_length);
             }
         }
         return $real_length;
@@ -172,77 +172,82 @@ use warnings;
 
     sub _close {
         my ($self) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         $self->_sysclose($handle{$self});
         delete $handle{$self};
         $open_mode{$self} = undef;
-        $self->client->_do_callback(q[file_close], $self);
+        $self->get_client->_do_callback(q[file_close], $self);
         return 1;
     }
 
-    sub piece_range {    # cache this only when needed
+    sub get_piece_range {    # cache this only when needed
         my ($self) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         if (not defined $piece_range{$self}) {
             my $offset = 0;
-            for my $_index (0 .. $self->index - 1) {
-                $offset += $self->session->files->[$_index]->size;
+            for my $_index (0 .. $self->get_index - 1) {
+                $offset += $self->get_session->get_files->[$_index]->get_size;
             }
-            $piece_range{$self} = [int($offset / $self->session->piece_size),
-                                   int(($offset + $size{$self})
-                                       / $self->session->piece_size
-                                   )
+            $piece_range{$self} = [
+                            int($offset / $self->get_session->get_piece_size),
+                            int(($offset + $size{$self})
+                                / $self->get_session->get_piece_size
+                            )
             ];
         }
         return $piece_range{$self};
     }
 
-    sub pieces {
+    sub get_pieces {
         my ($self) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         if (not defined $piece_range{$self}) {
-            $self->piece_range;
+            $self->get_piece_range;
         }
         return
-            map { $self->session->pieces->[$_] }
+            map { $self->get_session->get_pieces->[$_] }
             ($piece_range{$self}[0] .. $piece_range{$self}[1]);
     }
 
-    sub priority {
+    sub get_priority {
+        my ($self) = @_;
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
+                     sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
+        return map { $_->get_priority } $self->get_pieces;
+    }
+
+    sub set_priority {
         my ($self, $value) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
 
         # TODO: if $value == 0, we shouldn't write to this file
         # TODO: let's not set the priority for the piece if it overlaps
-        return (
-            defined $value
-            ? do {
-                carp(q[priority is malformed]) and return
-                    unless $value =~ m[^\d+$];
-                map { $_->priority($value) } $self->pieces;
-                }
-            : map { $_->priority } $self->pieces
-        );
+        $session{$self}->get_client->_do_callback(q[log], ERROR,
+                                                  q[priority is malformed])
+            and return
+            unless $value =~ m[^\d+$];
+        return map { $_->get_priority($value) } $self->get_pieces;
     }
 
     sub as_string {
         my ($self, $advanced) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         my @values = ($index{$self},
                       (q[=] x (25 + length($index{$self}))),
-                      $self->path,
+                      $self->get_path,
                       $size{$self},
-                      (((  (scalar grep { $_->check } $self->pieces)
-                         / (scalar $self->pieces)
+                      ((((scalar grep { $_->get_cached_integrity }
+                              $self->get_pieces
+                         ) / (scalar $self->get_pieces)
                         )
                        ) * 100
                       ),
-                      @{$self->piece_range}
+                      @{$self->get_piece_range}
         );
         s/(^[-+]?\d+?(?=(?>(?:\d{3})+)(?!\d))|\G\d{3}(?=\d))/$1,/g
             for @values[3,];    # no 'better way' warning...
@@ -256,27 +261,22 @@ Basic Information
     Piece range:      %d .. %d
 END
 
-=pod
-
-=begin future
-
-            if ($advanced) {
-                my @adv_values = (scalar(@{$sessions{$self}}));
-
-                $dump .= sprintf(<<'END', @adv_values);
-Advanced Information
-  Loaded sessions: (%d)
-END
-                $dump .= join qq[\n], map {
-                    my $session = $_->as_string($advanced);
-                    $session =~ s|\n|\n    |g;
-                    q[ ] x 4 . $session
-                } @{$sessions{$self}};
-            }
-
-=end future
-
-=cut
+        #
+        #~             if ($advanced) {
+        #~                 my @adv_values = (scalar(@{$sessions{$self}}));
+        #~
+        #~                 $dump .= sprintf(<<'END', @adv_values);
+        #~ Advanced Information
+        #~   Loaded sessions: (%d)
+        #~ END
+        #~                 $dump .= join qq[\n], map {
+        #~                     my $session = $_->as_string($advanced);
+        #~                     $session =~ s|\n|\n    |g;
+        #~                     q[ ] x 4 . $session
+        #~                 } @{$sessions{$self}};
+        #~             }
+        #~
+        #
         return print STDERR qq[$dump\n] unless defined wantarray;
         return $dump;
     }
@@ -296,7 +296,7 @@ END
 
     sub _sysopen {
         my ($self, $mode) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         $self->_mkpath() if $mode &= O_WRONLY;
         if ((    $^O eq q[MSWin32]
@@ -346,20 +346,24 @@ END
 
     sub _sysclose {
         my ($self) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         if (defined $win32_handle{$self} and require Win32API::File) {
             Win32API::File::CloseHandle($win32_handle{$self});
             delete $win32_handle{$self};
         }
-        return CORE::close($handle{$self})
-            and delete $handle{$self}
-            and $open_mode{$self} = undef;
+        return ((defined $handle{$self}
+                 ? (CORE::close($handle{$self})
+                    and delete $handle{$self})
+                 : 1
+                )
+                    and $open_mode{$self} = undef
+        );
     }
 
     sub _mkpath {
         my ($self) = @_;
-        $session{$self}->client->_do_callback(q[log], TRACE,
+        $session{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
         my ($vol, $dir, $file) = File::Spec->splitpath($path{$self});
         if (not -d File::Spec->catpath($vol, $dir, q[])) {
@@ -378,15 +382,15 @@ END
                     utf8::decode($path);
                     next if -d $path;
                     if (Win32::CreateDirectory($path)) {
-                        $self->client->_do_callback(q[log], INFO,
+                        $self->get_client->_do_callback(q[log], INFO,
                                          sprintf q[mkpath created %s], $path);
                     }
                 }
             }
             elsif (require File::Path) {
                 grep {
-                    $self->client->_do_callback(q[log], INFO,
-                                                q[mkpath created $_\n])
+                    $self->get_client->_do_callback(q[log], INFO,
+                                                    q[mkpath created $_\n])
                     }
                     File::Path::mkpath(File::Spec->catpath($vol, $dir, q[]),
                                        {verbose => 0});
@@ -425,21 +429,21 @@ Returns a 'ready to print' dump of the
 C<Net::BitTorrent::Session::File> object's data structure.  If called
 in void context, the structure is printed to C<STDERR>.
 
-See also: [id://317520],
-L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
+See also:
+L<Net::BitTorrent|Net::BitTorrent/"as_string ( [ VERBOSE ] )">
 
-=item C<client ( )>
+=item C<get_client ( )>
 
 Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
 file.
 
-=item C<index ( )>
+=item C<get_index ( )>
 
 Returns the zero based index of this file according to the related
 L<Net::BitTorrent::Session|Net::BitTorrent::Session> object's file
 list.
 
-=item C<open_mode ( )>
+=item C<get_open_mode ( )>
 
 Returns a C<Fcntl> value representing if and how the related file
 handle is open.  Possible values:
@@ -450,38 +454,45 @@ handle is open.  Possible values:
 
 See also: L<Fcntl|Fcntl>
 
-=item C<open_timestamp ( )>
+=item C<get_open_timestamp ( )>
 
 Returns when the file was opened.
 
-=item C<path ( )>
+=item C<get_path ( )>
 
 Returns the absolute path of the related file.
 
-=item C<piece_range ( )>
+=item C<get_piece_range ( )>
 
 Returns the indexes of the first and last
 L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
 objects covered by this file.
 
-=item C<pieces ( )>
+=item C<get_pieces ( )>
 
 Returns a list of
 L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
 objects.
 
-=item C<priority ( [NEWVAL] )>
+=item C<get_priority ( )>
 
-Mutator to set/get the download priority of this file.
+Returns the download priority of this file.
+
+See also: L<set_priority ( )|"/set_priority ( NEWVAL )">,
+L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece/"set_priority ( [NEWVAL] )">
+
+=item C<set_priority ( NEWVAL )>
+
+Sets the download priority of this file.
 
 By default, all files begin with a level two priority with the intent
-being on a C<0> (skip), C<1> (low), C<2> (normal), C<3> (high)
-priority scale but you may use any scale you want.  For example, you
-could set a file's priority to say... C<1,000,000>, leave everything
-else at the default C<2> and and be positive we'll work on it first.
-To avoid downloading this file, set priority to zero.
+being on a C<0> (skip), C<1> (low), C<2> (normal), C<3> (high) priority
+scale but you may use any scale you want.  For example, you could set a
+file's priority to say... C<1,000,000>, leave everything else at the
+default C<2> and and be positive we'll work on it first.  To avoid
+downloading this file, set priority to zero.
 
-See also:
+See also: L<get_priority ( )|/"get_priority ( )">
 L<Net::BitTorrent::Session::Piece::priority ( )|Net::BitTorrent::Session::Piece/priority ( [NEWVAL] )>
 
 NOTE: Setting the priority to zero will tell C<Net::BitTorrrent> not
@@ -490,16 +501,16 @@ on disk if a piece we want overlaps onto this file.  Just give me some
 time to work on an intermediate .piece file and this problem will go
 away.
 
-=item C<session ( )>
+=item C<get_session ( )>
 
 Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session>
 object related to this file.
 
-=item C<size ( )>
+=item C<get_size ( )>
 
 Returns the size of the file represented by this object.
 
-=item C<touch_timestamp ( )>
+=item C<get_touch_timestamp ( )>
 
 Returns when the file was last written to.
 

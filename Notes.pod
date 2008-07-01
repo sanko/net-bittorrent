@@ -260,7 +260,7 @@ C<Net::BitTorrent> work.  Or not work.  It depends.
     peer                     =>
  }
 
-=head2 Peer ID Generation
+=head2 Peer ID Specification
 
 This section describes and provides examples of the Peer ID format used
 by the current release of the C<Net::BitTorrent> module.
@@ -636,8 +636,8 @@ intended, and then submit.
 C<Net::BitTorrent> is too large for just one person to hack on.  If
 you're Perl proficient and would like to help, you can start by fixing
 problems reported in the L<Issue Tracker|/"Issue Tracker"> and bugs you
-find on your own.  When I decide to start looking for co-devs, you'll
-already have your foot in the door.
+find on your own.  When I decide to start looking for permanant co-devs,
+you'll already have your foot in the door.
 
 Please submit patches for review by attaching it through the
 C<Net::BitTorrent> L<Issue Tracker|/"Issue Tracker">.  If it's a patch to
@@ -657,9 +657,8 @@ Ahhh.
 
 =item The Project's Website
 
-Until I create something better on my own site, for wiki and subversion
-repository access, please visit the project's home:
-http://net-bittorrent.googlecode.com/.
+For updates and links to the wiki and subversion repository access,
+please visit http://sankorobinson.com/net-bittorrent/.
 
 =item Receive SVN Commit and Issue Tracker Updates
 

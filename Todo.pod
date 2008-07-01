@@ -46,6 +46,8 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over 2
 
+=item * large torrents (> 4G) typically require 64bit math
+
 =item * .piece file to store incoming blocks
 
 =back

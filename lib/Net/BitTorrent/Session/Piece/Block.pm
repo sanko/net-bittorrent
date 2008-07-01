@@ -9,7 +9,6 @@ use warnings;
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
     }
     use Scalar::Util qw[/weak/];
-    use Carp qw[carp];
     use Net::BitTorrent::Util qw[:log];
     {
         my (%offset, %length, %piece, %peer);
@@ -22,7 +21,7 @@ use warnings;
                 and defined $args->{q[length]})
             {   $self =
                     bless \sprintf(q[B I:%d:O:%d:L:%d],
-                                   $args->{q[piece]}->index,
+                                   $args->{q[piece]}->get_index,
                                    $args->{q[offset]},
                                    $args->{q[length]}
                     ),
@@ -34,49 +33,49 @@ use warnings;
             return $self;
         }
 
-        sub piece {
+        sub get_piece {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $piece{$self};
         }
 
-        sub session {
+        sub get_session {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            return $piece{$self}->session;
+            return $piece{$self}->get_session;
         }
 
-        sub client {
+        sub get_client {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            return $piece{$self}->client;
+            return $piece{$self}->get_client;
         }
 
-        sub index {
+        sub get_index {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            return $piece{$self}->index;
+            return $piece{$self}->get_index;
         }
 
-        sub offset {
+        sub get_offset {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $offset{$self};
         }
 
-        sub length {
+        sub get_length {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $length{$self};
         }
 
-        sub peers {
+        sub get_peers {
             my ($self) = @_;
             wantarray
                 ? grep {defined}
@@ -86,7 +85,7 @@ use warnings;
 
         sub _add_peer {
             my ($self, $peer) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             $peer{$self}{$peer} = {peer => $peer, timestamp => time};
             return weaken $peer{$self}{$peer}{q[peer]};
@@ -94,23 +93,23 @@ use warnings;
 
         sub _remove_peer {
             my ($self, $peer) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return delete $peer{$self}{$peer};
         }
 
         sub _request_timestamp {
             my ($self, $peer) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             return $peer{$self}{$peer}{q[timestamp]};
         }
 
         sub _build_packet_args {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            return (index  => $piece{$self}->index,
+            return (index  => $piece{$self}->get_index,
                     offset => $offset{$self},
                     length => $length{$self}
             );
@@ -118,15 +117,15 @@ use warnings;
 
         sub _write {
             my ($self) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
-            $self->client->_do_callback(q[block_write], $self);
+            $self->get_client->_do_callback(q[block_write], $self);
             return $piece{$self}->_write($_[1], $offset{$self});
         }
 
         sub as_string {
             my ($self, $advanced) = @_;
-            $piece{$self}->client->_do_callback(q[log], TRACE,
+            $piece{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             my $dump = $self . q[ [TODO]];
             return print STDERR qq[$dump\n] unless defined wantarray;
@@ -172,46 +171,45 @@ Returns a 'ready to print' dump of the
 C<Net::BitTorrent::Session::Piece::Block> object's data structure.  If
 called in void context, the structure is printed to C<STDERR>.
 
-See also: [id://317520],
-L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
+See also: L<Net::BitTorrent|Net::BitTorrent/"as_string ( [ VERBOSE ] )">
 
-=item C<client ( )>
+=item C<get_client ( )>
 
 Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
 block.
 
-=item C<index ( )>
+=item C<get_index ( )>
 
 Returns the zero based index of the related
 L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
 object.
 
-=item C<length ( )>
+=item C<get_length ( )>
 
 Returns the amount of data covered by the block.
 
-=item C<offset ( )>
+=item C<get_offset ( )>
 
 Returns the offset of the block in reference to the beginning of the
 L<piece|Net::BitTorrent::Session::Piece>.
 
-=item C<peers ( )>
+=item C<get_peers ( )>
 
 Returns a list of all related
 L<Net::BitTorrent::Session::Peer|Net::BitTorrent::Session::Peer>
 objects.  Unless the L<session|Net::BitTorrent::Session> is in endgame
 mode, the list will contain a single peer.
 
-=item C<piece ( )>
+=item C<get_piece ( )>
 
 Returns the
 L<Net::BitTorrent::Session::Piece|Net::BitTorrent::Session::Piece>
 object related to this piece.
 
-=item C<session ( )>
+=item C<get_session ( )>
 
-Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session>
-object related to this block.
+Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session> object
+related to this block.
 
 =back
 

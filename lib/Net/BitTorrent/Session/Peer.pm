@@ -11,7 +11,6 @@ use warnings;
     use Socket
         qw[SOL_SOCKET SO_SNDTIMEO SO_RCVTIMEO PF_INET AF_INET SOCK_STREAM];
     use Fcntl qw[F_SETFL O_NONBLOCK];
-    use Carp qw[carp];
     use Digest::SHA qw[sha1_hex];
     use lib q[../../../../lib/];
     use Net::BitTorrent::Session::Peer::Request;
@@ -64,7 +63,7 @@ use warnings;
                and Scalar::Util::blessed($args->{q[session]})
                and $args->{q[session]}->isa(q[Net::BitTorrent::Session])
                and not scalar grep { $_ eq $args->{q[address]} }
-               $args->{q[session]}->peers)
+               $args->{q[session]}->get_peers)
         {
 
             # perldoc perlipc
@@ -88,7 +87,7 @@ use warnings;
             $connected{$self}           = 0;
             $session{$self}             = $args->{q[session]};
             $incoming_requests{$self}   = [];
-            $client{$self}              = $args->{q[session]}->client;
+            $client{$self}              = $args->{q[session]}->get_client;
             $incoming_connection{$self} = 0;
             $self->_init($socket);
             $self->_build_packet_handshake;
@@ -120,18 +119,25 @@ use warnings;
         $client{$self}->_set_pulse($self, time + 5);
         return 1;
     }
-    sub bitfield            { return $bitfield{$_[0]}; }
-    sub client              { return $client{$_[0]}; }
-    sub downloaded          { return $downloaded{$_[0]}; }
-    sub is_choked           { return $is_choked{$_[0]}; }
-    sub is_choking          { return $is_choking{$_[0]}; }
-    sub incoming_connection { return $incoming_connection{$_[0]}; }
-    sub is_interested       { return $is_interested{$_[0]}; }
-    sub is_interesting      { return $is_interesting{$_[0]}; }
-    sub outgoing_requests   { return $outgoing_requests{$_[0]}; }
-    sub peer_id             { return $peer_id{$_[0]}; }
+    sub _get_fileno    { return $fileno{$_[0]}; }
+    sub get_session    { return $session{$_[0]}; }
+    sub _get_connected { return $connected{$_[0]}; }
 
-    sub peerhost {    # cache it
+    sub _get_connection_timestamp {
+        return $connection_timestamp{$_[0]};
+    }
+    sub _get_queue_outgoing { return $queue_outgoing{$_[0]}; }
+    sub _get_socket         { return $socket{$_[0]}; }
+    sub get_peer_id         { return $peer_id{$_[0]}; }
+    sub get_client          { return $client{$_[0]}; }
+    sub get_bitfield        { return $bitfield{$_[0]}; }
+    sub get_is_choking      { return $is_choking{$_[0]}; }
+
+    sub get_outgoing_requests {
+        return $outgoing_requests{$_[0]};
+    }
+
+    sub get_peerhost {    # cache it
         my ($self) = @_;
         if (not defined $peerhost{$self}
             and $connected{$self})
@@ -142,7 +148,7 @@ use warnings;
         return $peerhost{$self};
     }
 
-    sub peerport {    # cache it
+    sub get_peerport {    # cache it
         my ($self) = @_;
         if (not defined $peerport{$self}
             and $connected{$self})
@@ -151,22 +157,58 @@ use warnings;
         }
         return $peerport{$self};
     }
-    sub reserved              { return $reserved{$_[0]}; }
-    sub session               { return $session{$_[0]}; }
-    sub uploaded              { return $uploaded{$_[0]}; }
-    sub _connected            { return $connected{$_[0]}; }
-    sub _fileno               { return $fileno{$_[0]}; }
-    sub _socket               { return $socket{$_[0]}; }
-    sub _connection_timestamp { return $connection_timestamp{$_[0]}; }
-    sub _queue_outgoing       { return $queue_outgoing{$_[0]}; }
-    sub _queue_incoming       { return $queue_incoming{$_[0]}; }
 
-    sub as_string {
-        my ($self, $advanced) = @_;
-        my $dump = $self . q[ [TODO]];
-        return print STDERR qq[$dump\n]
-            unless defined wantarray;
-        return $dump;
+    sub _pulse {
+        my ($self) = @_;
+
+        #         if (    (time - $connection_timestamp{$self} >= 10 * 60)
+        #~             and (time - $previous_incoming_block{$self} >= 5 * 60))
+        #~         {    # TODO: make this timeout a variable
+        #~             $self->_disconnect(q[peer must be useless]);
+        #~             return 0;
+        #~         }
+        #~         if (    (time - $connection_timestamp{$self} >= 60)
+        #~             and (time - $previous_incoming_data{$self} >= 130))
+        #~         {    # TODO: make this timeout a variable
+        #~             $self->_disconnect(q[Peer must be dead]);
+        #~             return 0;
+        #~         }
+        #
+        if ($connected{$self}) {
+
+            #if (not defined $previous_outgoing_keepalive{$self}
+            #    or $previous_outgoing_keepalive{$self} + 90 < time)
+            #{   $self->_build_packet_keepalive;
+            #}
+            $self->_action_check_interesting if not $is_interesting{$self};
+            $self->_action_unchoke
+                if $is_interested{$self}
+                    and $is_choked{$self
+                    }; # XXX - and we have less than... eight(?) unchoked peers for this session
+            $self->_action_cancel_old_requests();
+            $self->_action_request_block();
+            if (@{$incoming_requests{$self}}
+
+                #and length($queue_outgoing{$self})
+                #< $self->get_client->get_max_buffer_per_conn
+                )
+            {   my $request = shift @{$incoming_requests{$self}};
+                if ($request and $request->get_piece->get_verified_integrity)
+                {   $self->_build_packet_piece($request);
+                    $uploaded{$self} += $request->get_length;
+                    $session{$self}->_inc_uploaded($request->get_length);
+                }
+            }
+        }
+        return
+            $client{$self}->_set_pulse($self,
+                                       min(time + 10,
+                                           $client{$self}->_get_pulse($self)
+                                       )
+            )
+
+            #return $next_pulse{$self}
+            #    = min(time + 10, $next_pulse{$self});
     }
 
     sub _process_one {
@@ -176,48 +218,210 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my ($actual_read, $actual_write) = (0, 0);
-        if ($write and defined $socket{$self}) {
-            $actual_write =
-                syswrite($socket{$self},
-                         substr($queue_outgoing{$self}, 0, $write, q[]),
-                         $write);
-            if ($actual_write) {
-                $client{$self}->_do_callback(q[peer_outgoing_data], $self,
-                                             $actual_write);
-            }
-            else { $self->_disconnect($^E); goto RETURN; }
-        }
-        if ($read and defined $socket{$self}) {
-            $actual_read =
-                sysread($socket{$self},
-                        $queue_incoming{$self},
-                        $read,
-                        (defined $queue_incoming{$self}
-                         ? length($queue_incoming{$self})
-                         : 0
-                        )
-                );
-            if ($actual_read) {
-                $previous_incoming_data{$self} = time;
-                if (not $connected{$self}
-                    and defined $session{$self})
-                {   $self->_action_send_bitfield;
-                }
-                $client{$self}->_do_callback(q[peer_incoming_data], $self,
-                                             $actual_read);
-                while ($self->_parse_packet) {;}
-            }
-            else {
-                $self->_disconnect($^E);
-            }
-        }
-    RETURN:
+        return if not defined $socket{$self};
+        my $actual_read = $read ? $self->_read($read) : 0;
+        return if not defined $socket{$self};
+        my $actual_write = $write ? $self->_write($write) : 0;
         return ($actual_read, $actual_write);
     }
 
+    sub _read {
+        my ($self, $length) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        my $actual_read =
+            sysread($socket{$self},
+                    $queue_incoming{$self},
+                    $length,
+                    (defined $queue_incoming{$self}
+                     ? length($queue_incoming{$self})
+                     : 0
+                    )
+            );
+        if ($actual_read) {
+            $previous_incoming_data{$self} = time;
+            if (not $connected{$self}
+                and defined $session{$self})
+            {   $self->_action_send_bitfield;
+            }
+            $client{$self}
+                ->_do_callback(q[peer_incoming_data], $self, $actual_read);
+            while ($self->_parse_packet) {;}
+        }
+        else {
+            $self->_disconnect($^E);
+        }
+        return $actual_read;
+    }
+
+    sub _write {
+        my ($self, $length) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        my $actual_write =
+            syswrite($socket{$self},
+                     substr($queue_outgoing{$self}, 0, $length, q[]),
+                     $length);
+        if ($actual_write) {
+            $client{$self}
+                ->_do_callback(q[peer_outgoing_data], $self, $actual_write);
+        }
+        else { $self->_disconnect($^E); }
+        return $actual_write;
+    }
+
+    sub _disconnect {
+        my ($self, $reason) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        close $socket{$self};
+        $client{$self}->_remove_connection($self);
+        $reason ||= q[Connection closed by remote peer.];
+        $client{$self}->_do_callback(q[peer_disconnect], $self, $reason);
+        delete $socket{$self};
+        return 1;
+    }
+
+    # Packet stuff - Build
+    sub _build_packet_handshake {
+        my ($self) = @_;
+        $queue_outgoing{$self} .=
+            pack(q[c/a* a8 a20 a20],
+                 q[BitTorrent protocol],
+                 $client{$self}->_build_reserved,
+                 pack(q[H40], $session{$self}->get_infohash),
+                 $client{$self}->get_peer_id
+            );
+        $client{$self}->_do_callback(q[peer_outgoing_handshake], $self);
+        return 1;
+    }
+
+    sub _build_packet_bitfield {
+        my ($self) = @_;
+        $queue_outgoing{$self} .= pack(q[Nca*],
+                                    length($session{$self}->get_bitfield) + 1,
+                                    5, $session{$self}->get_bitfield);
+        $client{$self}->_do_callback(q[peer_outgoing_bitfield], $self);
+        return 1;
+    }
+
+    sub _build_packet_have_all {    # FastExt
+        my ($self) = @_;
+        return
+            if not $_supports_FastPeers{$self};
+        $queue_outgoing{$self} .= pack(q[Nc], 1, 14);
+        $client{$self}->_do_callback(q[peer_outgoing_have_all], $self);
+        return 1;
+    }
+
+    sub _build_packet_have_none {    # FastExt
+        my ($self) = @_;
+        return
+            if not $_supports_FastPeers{$self};
+        $queue_outgoing{$self} .= pack(q[Nc], 1, 15);
+        $client{$self}->_do_callback(q[peer_outgoing_have_none], $self);
+        return 1;
+    }
+
+    sub _build_packet_ExtProtocol {
+        my ($self, $messageID, $data) = @_;
+        return
+            if not $_supports_ExtProtocol{$self};
+        my $packet = pack(q[ca*], $messageID, bencode $data);
+        $queue_outgoing{$self}
+            .= pack(q[Nca*], length($packet) + 1, 20, $packet);
+        $client{$self}->_do_callback(q[peer_outgoing_extended], $self);
+        return 1;
+    }
+
+    sub _build_packet_interested {
+        my ($self) = @_;
+        $queue_outgoing{$self} .= pack(q[Nc], 1, 2);
+        $client{$self}->_do_callback(q[peer_outgoing_interested], $self);
+        return 1;
+    }
+
+    sub _build_packet_not_interested {
+        my ($self) = @_;
+        $queue_outgoing{$self} .= pack(q[Nc], 1, 3);
+        $client{$self}->_do_callback(q[peer_outgoing_disinterested], $self);
+        return 1;
+    }
+
+    sub _build_packet_keepalive {
+        my ($self) = @_;
+        $queue_outgoing{$self} .= pack(q[N], 0);
+        $client{$self}->_do_callback(q[peer_outgoing_keepalive], $self);
+        $previous_outgoing_keepalive{$self} = time;
+        return 1;
+    }
+
+    sub _build_packet_choke {
+        my ($self) = @_;
+        $queue_outgoing{$self} .= pack(q[Nc], 1, 0);
+        $client{$self}->_do_callback(q[peer_outgoing_choke], $self);
+        return 1;
+    }
+
+    sub _build_packet_unchoke {
+        my ($self) = @_;
+        $queue_outgoing{$self} .= pack(q[Nc], 1, 1);
+        $client{$self}->_do_callback(q[peer_outgoing_unchoke], $self);
+        return 1;
+    }
+
+    sub _build_packet_have {
+        my ($self, $index) = @_;
+        $queue_outgoing{$self} .= pack(q[NcN], 5, 4, $index);
+        $client{$self}->_do_callback(q[peer_outgoing_have], $self, $index);
+        return 1;
+    }
+
+    sub _build_packet_request {
+        my ($self, $block) = @_;
+        my $packed = pack(q[NNN],
+                          $block->get_index, $block->get_offset,
+                          $block->get_length);
+        $queue_outgoing{$self}
+            .= pack(q[Nca*], length($packed) + 1, 6, $packed);
+        $client{$self}->_do_callback(q[peer_outgoing_request], $self, $block);
+        return 1;
+    }
+
+    sub _build_packet_piece {
+        my ($self, $request) = @_;
+        my $packed = pack(q[N2a*],
+                          $request->get_index, $request->get_offset,
+                          $request->_read);
+        $queue_outgoing{$self}
+            .= pack(q[Nca*], length($packed) + 1, 7, $packed);
+        $client{$self}->_do_callback(q[peer_outgoing_block], $self, $request);
+        return 1;
+    }
+
+    sub _build_packet_cancel {
+        my ($self, $block) = @_;
+        my $packed = pack(q[NNN],
+                          $block->get_index, $block->get_offset,
+                          $block->get_length);
+        $queue_outgoing{$self}
+            .= pack(q[Nca*], length($packed) + 1, 8, $packed);
+        $client{$self}->_do_callback(q[peer_outgoing_cancel], $self, $block);
+        return 1;
+    }
+
+    # Packet stuff - Parse
     sub _parse_packet {    # TODO: refactor
-        my $self = shift;
+        my ($self) = @_;
         $client{$self}->_do_callback(q[log], TRACE,
                                      sprintf(q[Entering %s for %s],
                                              [caller 0]->[3], $$self
@@ -230,7 +434,8 @@ use warnings;
         my (%ref, $type);
         if (unpack(q[c], $queue_incoming{$self}) == 0x13) {
             %ref = $self->_parse_packet_handshake($queue_incoming{$self});
-            $self->_build_packet_port;
+
+            #$self->_build_packet_port; # No one ever sends these either...
         }
         else {
             return
@@ -262,8 +467,12 @@ use warnings;
                 %ref = $dispatch{$type}($self, $packet_len, $packet);
             }
             else {
-                use Data::Dump qw[pp];
-                die pp $packet;
+                if (require Data::Dumper) {
+                    warn $type;
+                    warn Data::Dumper::Dump($packet);
+                }
+
+                # XXX - think about banning this guy
                 $self->_disconnect(q[Unknown or malformed packet]);
             }
         }
@@ -280,6 +489,92 @@ use warnings;
         return;
     }
 
+    sub _parse_packet_handshake {
+        my ($self, $packet) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        if (defined $peer_id{$self}) {
+            $self->_disconnect(q[Second handshake packet]);
+            return;
+        }
+        if (length $packet < 68) {
+            $self->_disconnect(q[Not enough data for handshake packet]);
+            return;
+        }
+        (my $protocol_name,
+         my $reserved, my $info_hash,
+         my $peer_id, $queue_incoming{$self}
+        ) = unpack(q[c/a a8 H40 a20 a*], $packet);
+        if ($protocol_name ne q[BitTorrent protocol]) {
+            $self->_disconnect(
+                        sprintf(q[Improper handshake; Bad protocol name (%s)],
+                                $protocol_name)
+            );
+            return;
+        }
+        if ($peer_id eq $self->get_client->get_peer_id) {
+            warn q[Connected to ourselves];
+            $self->_disconnect(q[We connected to ourselves.]);
+            return;
+        }
+        $reserved{$self} = $reserved;
+        $self->_parse_reserved();
+        if ($incoming_connection{$self}) {
+            my $session = $client{$self}->_locate_session($info_hash);
+            if (defined $session
+                and $session->isa(q[Net::BitTorrent::Session]))
+            {
+                if ($session->get_peers
+                    > $self->get_client->get_conns_per_session)
+                {   $self->_disconnect(q[We have enough peers]);
+                    return;
+                }
+                $session{$self} = $session;
+                if (scalar grep {
+                        defined $_->get_peer_id
+                            and $_->get_peer_id eq $peer_id
+                    } $session{$self}->get_peers
+                    )
+                {   $self->_disconnect(
+                                    q[We've already connected to this peer.]);
+                    return;
+                }
+                $incoming_requests{$self} = [];
+                $peer_id{$self}           = $peer_id;
+                $bitfield{$self}
+                    = pack(q[b*], q[0] x $session{$self}->get_piece_count);
+                $self->_build_packet_handshake;
+            }
+            else {
+                $self->_disconnect(
+                               sprintf(q[We aren't serving this torrent (%s)],
+                                       $info_hash)
+                );
+                return;
+            }
+        }
+        if (not $connected{$self}) {
+            $connected{$self} = 1;
+            $client{$self}->_do_callback(q[peer_connect], $self);
+            $self->_action_send_bitfield;
+            $self->_action_send_ExtProtocol;
+
+# $self->_build_packet_port; # ...no one seems to send these to me. Obsoleted by extProt?
+            $self->_action_send_fastset;
+        }
+        $client{$self}->_do_callback(q[peer_incoming_handshake], $self);
+
+        # Do stuff here.
+        return (protocol  => $protocol_name,
+                reserved  => $reserved,
+                info_hash => $info_hash,
+                peer_id   => $peer_id
+        );
+    }
+
     sub _parse_packet_bitfield {    # ID: 5
         my ($self, $packet_len, $packet) = @_;
         $client{$self}->_do_callback(q[log], TRACE,
@@ -287,17 +582,79 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if (length($packet) < 1) {
             $self->_disconnect(q[Incorrect packet length for BITFIELD]);
             return;
         }
-
-        # Make it vec friendly.
-        $bitfield{$self} = pack q[b*], unpack q[B*], $packet;
+        $bitfield{$self} = pack q[b*], unpack q[B*], $packet;   # vec friendly
         $self->_action_check_interesting;
         %ref = (bitfield => $packet);
         $client{$self}->_do_callback(q[peer_incoming_bitfield], $self);
+        return %ref;
+    }
+
+    sub _parse_packet_keepalive {
+        my ($self, $packet_len, $packet) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        my %ref = (load => q[]);
+        if (defined $packet) {
+            $self->_disconnect(
+                        sprintf(q[Incorrect packet length for keepalive (%d)],
+                                length($packet))
+            );
+            return;
+        }
+        $client{$self}->_do_callback(q[peer_incoming_keepalive], $self);
+        return %ref;
+    }
+
+    sub _parse_packet_unchoke {
+        my ($self, $packet_len, $packet) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        my %ref = (load => q[]);
+        if ($packet_len != 1) {
+            $self->_disconnect(q[Incorrect packet length for UNCHOKE]);
+            return;
+        }
+        $is_choking{$self} = 0;
+        $client{$self}->_set_pulse($self,
+                                   min(time + 2,
+                                       $client{$self}->_get_pulse($self)
+                                   )
+        );
+        $client{$self}->_do_callback(q[peer_incoming_unchoke], $self);
+
+        # Do stuff here.
+        $self->_action_request_block();
+        return %ref;
+    }
+
+    sub _parse_packet_choke {
+        my ($self, $packet_len, $packet) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        my %ref = (load => q[]);
+        if ($packet_len != 1) {
+            $self->_disconnect(q[Incorrect packet length for _choke]);
+            return;
+        }
+        $is_choking{$self}     = 1;
+        $is_interesting{$self} = 1;
+        grep { $_->_remove_peer($self) } @{$outgoing_requests{$self}};
+        $outgoing_requests{$self} = [];
+        $client{$self}->_do_callback(q[peer_incoming_choke], $self);
 
         # Do stuff here.
         return %ref;
@@ -310,7 +667,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if ($packet_len != 5) {
             $self->_disconnect(q[Incorrect packet length for HAVE]);
             return;
@@ -321,16 +678,11 @@ use warnings;
             return;
         }
         vec($bitfield{$self}, $index, 1) = 1;
-        if (    $is_choking{$self}
-            and not $is_interesting{$self}
-            and not $session{$self}->pieces->[$index]->check)
-        {   $is_interesting{$self} = 1;
-            $self->_build_packet_interested;
-        }
-        %ref = (index => $index);
         $client{$self}->_do_callback(q[peer_incoming_have], $self, $index);
+        %ref = (index => $index);
 
         # Do stuff here.
+        $self->_action_check_interesting;
         return %ref;
     }
 
@@ -341,7 +693,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if ($packet_len != 1) {
             $self->_disconnect(q[Incorrect packet length for DISINTERESTED]);
             return;
@@ -360,81 +712,13 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if ($packet_len != 1) {
             $self->_disconnect(q[Incorrect packet length for INTERESTED]);
             return;
         }
         $is_interested{$self} = 1;
         $client{$self}->_do_callback(q[peer_incoming_interested], $self);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_unchoke {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref;
-        if ($packet_len != 1) {
-            die 'bad length!';
-            $self->_disconnect(q[Incorrect packet length for UNCHOKE]);
-            return;
-        }
-        $is_choking{$self} = 0;
-        $client{$self}->_set_pulse($self,
-                                   min(time + 2,
-                                       $client{$self}->_get_pulse($self)
-                                   )
-        );
-        $client{$self}->_do_callback(q[peer_incoming_unchoke], $self);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_choke {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref;
-        if ($packet_len != 1) {
-            $self->_disconnect(q[Incorrect packet length for _choke]);
-            return;
-        }
-        $is_choking{$self}     = 1;
-        $is_interesting{$self} = 1;
-        grep { $_->_remove_peer($self) } @{$outgoing_requests{$self}};
-        $outgoing_requests{$self} = [];
-        $client{$self}->_do_callback(q[peer_incoming_choke], $self);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_keepalive {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref;
-        if (defined $packet) {
-            $self->_disconnect(
-                        sprintf(q[Incorrect packet length for keepalive (%d)],
-                                length($packet))
-            );
-            return;
-        }
-        $client{$self}->_do_callback(q[peer_incoming_keepalive], $self);
 
         # Do stuff here.
         return %ref;
@@ -447,7 +731,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if ($packet_len != 13) {
             $self->_disconnect(q[Incorrect packet length for cancel]);
             return;
@@ -458,9 +742,9 @@ use warnings;
                 length => $length
         );
         my ($request) = grep {
-                    $_->index == $index
-                and $_->offset == $offset
-                and $_->length == $length
+                    $_->get_index == $index
+                and $_->get_offset == $offset
+                and $_->get_length == $length
         } @{$incoming_requests{$self}};
         if (defined $request) {
             $client{$self}
@@ -476,26 +760,6 @@ use warnings;
         return %ref;
     }
 
-    sub _parse_packet_port {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        if ($packet_len != 3) {
-            $self->_disconnect(q[Incorrect packet length for PORT message]);
-            return;
-        }
-        $listening_port{$self} = unpack(q[n], $packet);
-        $self->session->append_nodes(
-                 compact(
-                     sprintf q[%s:%d], $self->peerhost, $listening_port{$self}
-                 )
-        );
-        return;
-    }
-
     sub _parse_packet_have_all {
         my ($self, $packet_len, $packet) = @_;
         $client{$self}->_do_callback(q[log], TRACE,
@@ -503,7 +767,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a HAVE ALL message]
@@ -514,10 +778,11 @@ use warnings;
             $self->_disconnect(q[Incorrect packet length for HAVE ALL]);
             return;
         }
-        $bitfield{$self} = pack(q[b*], q[1] x $session{$self}->piece_count);
+        $bitfield{$self} = pack(q[b*],
+                                (q[1] x ($session{$self}->get_piece_count + 1)
+                                )
+        );
         $client{$self}->_do_callback(q[peer_incoming_have_all], $self);
-
-        # Do stuff here.
         return %ref;
     }
 
@@ -528,7 +793,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a HAVE NONE message]
@@ -539,7 +804,8 @@ use warnings;
             $self->_disconnect(q[Incorrect packet length for HAVE NONE]);
             return;
         }
-        $bitfield{$self} = pack(q[b*], q[0] x $session{$self}->piece_count);
+        $bitfield{$self}
+            = pack(q[b*], q[0] x ($session{$self}->get_piece_count + 1));
         $client{$self}->_do_callback(q[peer_incoming_have_none], $self);
 
         # Do stuff here.
@@ -553,7 +819,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a REJECT message]
@@ -581,7 +847,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if (!$_supports_FastPeers{$self}) {
             $self->_disconnect(
                 q[Invalid packet: Peer does not claim to support Fast Extension but has sent us an ALLOWED FAST message]
@@ -606,7 +872,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if ($_supports_ExtProtocol{$self}) {
             $self->_disconnect(
                 q[User does not support the Ext. Protocol but has sent an Ext. Protocol packet]
@@ -621,100 +887,14 @@ use warnings;
         my $_content = bdecode($data);
         %ref = (messageid => $messageid,
                 packet    => $_content);
+
         #use Data::Dump qw[pp];
         #warn pp \%ref;
         #warn pp $_content;
         #warn pp $data;
-
         # messageid:
         #  0 = handshake
         # >0 = extended message as specified by the handshake
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_handshake {
-        my ($self, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref;
-        if (defined $peer_id{$self}) {
-            $self->_disconnect(q[Second handshake packet]);
-            return;
-        }
-        if (length $packet < 68) {
-            $self->_disconnect(q[Not enough data for handshake packet]);
-            return;
-        }
-        (my $protocol_name,
-         my $reserved, my $info_hash,
-         my $peer_id, $queue_incoming{$self}
-        ) = unpack(q[c/a a8 H40 a20 a*], $packet);
-        if ($protocol_name ne q[BitTorrent protocol]) {
-            $self->_disconnect(
-                        sprintf(q[Improper handshake; Bad protocol name (%s)],
-                                $protocol_name)
-            );
-            return;
-        }
-        $reserved{$self} = $reserved;
-        $self->_parse_reserved();
-        if ($incoming_connection{$self}) {
-            my $session = $client{$self}->_locate_session($info_hash);
-            if (defined $session
-                and $session->isa(q[Net::BitTorrent::Session]))
-            {
-                if ($session->peers
-                    > $self->client->maximum_peers_per_session)
-                {   $self->_disconnect(q[We have enough peers]);
-                    return;
-                }
-                $session{$self}           = $session;
-                $incoming_requests{$self} = [];
-                if (scalar
-                    grep { defined $_->peer_id and $_->peer_id eq $peer_id }
-                    $session{$self}->peers)
-                {   $self->_disconnect(
-                                    q[We've already connected to this peer.]);
-                    return;
-                }
-                elsif ($peer_id eq $self->client->peer_id) {
-                    $self->_disconnect(q[We connected to ourselves.]);
-                    return;
-                }
-                $peer_id{$self} = $peer_id;
-                $bitfield{$self}
-                    = pack(q[b*], q[0] x $session{$self}->piece_count);
-                $self->_build_packet_handshake;
-            }
-            else {
-                $self->_disconnect(
-                               sprintf(q[We aren't serving this torrent (%s)],
-                                       $info_hash)
-                );
-                return;
-            }
-        }
-        if (not $connected{$self}) {
-            $connected{$self} = 1;
-            $client{$self}->_do_callback(q[peer_connect], $self);
-            $self->_action_send_bitfield;
-            $self->_action_send_ExtProtocol;
-            $self->_build_packet_port;
-            $self->_action_send_fastset;
-        }
-        %ref = (protocol  => $protocol_name,
-                reserved  => $reserved,
-                info_hash => $info_hash,
-                peer_id   => $peer_id,
-        );
-        #use Data::Dump qw[pp];
-        #warn pp \%ref;
-        $client{$self}->_do_callback(q[peer_incoming_handshake], $self);
-
         # Do stuff here.
         return %ref;
     }
@@ -726,7 +906,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if (length($packet) < 9) {
             $self->_disconnect(
                    sprintf(
@@ -739,21 +919,22 @@ use warnings;
         %ref = (block  => $data,
                 index  => $index,
                 offset => $offset,
-                length => length($data),
+                length => length($data)
         );
-        if (not $session{$self}->pieces->[$index]->working) {
+        if (not $session{$self}->get_pieces->[$index]->get_working) {
             $self->_disconnect(q[Malformed PIECE packet. (1)]);
         }
         else {
-            my $block = $session{$self}->pieces->[$index]->blocks->{$offset};
+            my $block = $session{$self}->get_pieces->[$index]
+                ->get_blocks->{$offset};
             if (   (not defined $block)
-                or (length($data) != $block->length))
+                or (length($data) != $block->get_length))
             {   $self->_disconnect(q[Malformed PIECE packet. (2)]);
 
                 #
                 #}
-                #elsif (not scalar $block->peers
-                #    or not $block->request_timestamp($self))
+                #elsif (not scalar $block->get_peers
+                #    or not $block->get_request_timestamp($self))
                 #{
                 # TODO: ...should we accept the block anyway if we need it?
                 $self->_disconnect(
@@ -764,8 +945,8 @@ use warnings;
                 $client{$self}
                     ->_do_callback(q[peer_incoming_block], $self, $block);
                 if ($block->_write($data)) {
-                    delete $session{$self}->pieces->[$index]
-                        ->blocks->{$offset};
+                    delete $session{$self}->get_pieces->[$index]
+                        ->get_blocks->{$offset};
                     @{$outgoing_requests{$self}}
                         = grep { $_ ne $block } @{$outgoing_requests{$self}};
                     $client{$self}->_set_pulse($self,
@@ -773,26 +954,28 @@ use warnings;
                     $downloaded{$self} += length $data;
                     $session{$self}->_inc_downloaded(length $data);
                     $previous_incoming_block{$self} = time;
-                    $block->piece->_previous_incoming_block(time);
+                    $block->get_piece->_set_previous_incoming_block(time);
 
                   # TODO: if endgame, cancel all other requests for this block
-                    if (scalar($block->peers) > 1) {
-                        for my $peer ($block->peers) {
+                    if (scalar($block->get_peers) > 1) {
+                        for my $peer ($block->get_peers) {
                             $peer->_action_cancel_block($block)
                                 unless $peer == $self;
                         }
                     }
-                    if (not scalar values %{$block->piece->blocks}) {
-                        if ($block->piece->verify) {
+                    if (not scalar values %{$block->get_piece->get_blocks}) {
+                        if ($block->get_piece->get_verified_integrity) {
                             grep {
-                                $_->_build_packet_have($block->piece->index)
-                            } $session{$self}->peers;
+                                $_->_build_packet_have(
+                                                 $block->get_piece->get_index)
+                            } $session{$self}->get_peers;
                         }
                         else {
+                            die
+                                q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
 
-                         #die q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
-                         # TODO: penalize all peers related to piece
-                         # See N::B::P::verify()
+                            # TODO: penalize all peers related to piece
+                            # See N::B::P::verify()
                         }
                     }
                     else {
@@ -813,7 +996,7 @@ use warnings;
                                              [caller 0]->[3], $$self
                                      )
         );
-        my %ref;
+        my %ref = (load => q[]);
         if ($packet_len != 13) {
             $self->_disconnect(q[Incorrect packet length for REQUEST]);
             return;
@@ -821,7 +1004,7 @@ use warnings;
         my ($index, $offset, $length) = unpack(q[N3], $packet);
         %ref = (index  => $index,
                 offset => $offset,
-                length => $length,
+                length => $length
         );
         my $request =
             Net::BitTorrent::Session::Peer::Request->new(
@@ -837,7 +1020,27 @@ use warnings;
         return %ref;
     }
 
-    sub _parse_reserved {
+    sub _parse_packet_port {    # DHT
+        my ($self, $packet_len, $packet) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        if ($packet_len != 3) {
+            $self->_disconnect(q[Incorrect packet length for PORT message]);
+            return;
+        }
+        $listening_port{$self} = unpack(q[n], $packet);
+        $self->get_session->append_nodes(
+                                compact(sprintf q[%s:%d], $self->get_peerhost,
+                                        $listening_port{$self}
+                                )
+        );
+        return;
+    }
+
+    sub _parse_reserved {    # ...sub-packet, actually.
         my $self = shift;
         $client{$self}->_do_callback(q[log], TRACE,
                                      sprintf(q[Entering %s for %s],
@@ -853,222 +1056,137 @@ use warnings;
             = (($reserved->[1] . $reserved->[1] eq q[ex]) ? 1 : 0);
         $_fastset_out{$self} = [] if $_supports_FastPeers{$self};
         $_fastset_in{$self}  = [] if $_supports_FastPeers{$self};
-        $client{$self}->dht->add_node($$self) if $_supports_DHT{$self};
+        $client{$self}->get_dht->add_node($$self) if $_supports_DHT{$self};
         return 1;
     }
 
-    sub _build_packet {                      # refactor out of existance
-        my ($self, $packet) = @_;
+    # Actions
+    sub _action_send_bitfield {
+        my ($self) = @_;
         $client{$self}->_do_callback(q[log], TRACE,
                                      sprintf(q[Entering %s for %s],
                                              [caller 0]->[3], $$self
                                      )
         );
-        my $packet_data = q[];
-        my $data;
-        if ($packet->{q[type]} == 17) {
-            $packet_data
-                = pack(q[NcN], 2, $packet->{q[type]}, $data->{q[index]});
+        if ($_supports_FastPeers{$self}) {
+            my $good = 0;
+            if ($session{$self}->get_complete) {
+                $self->_build_packet_have_all;
+                $good++;
+            }
+            elsif (not(scalar(grep { $_->get_cached_integrity }
+                                  @{$session{$self}->get_pieces})
+                   )
+                )
+            {   $self->_build_packet_have_none();
+                $good++;
+            }
+            return if $good;
         }
-        else {
-            require Data::Dumper;
-            carp(
-                sprintf(
-                    q[Unknown packet! Please, include this in your bug report: %s],
-                    Data::Dumper::Dump($packet))
-            );
+        if ((scalar $session{$self}->get_pieces > 100)
+            and ((scalar(grep { not $_->get_cached_integrity }
+                             @{$session{$self}->get_pieces})
+                 ) <= 12
+            )
+            )
+        {    # lazy bitfield
+                # TODO: send a series of HAVE packets to save bandwidth
+                # return
         }
-        return $queue_outgoing{$self} .= $packet_data;
+        return $self->_build_packet_bitfield();
     }
 
-    sub _build_packet_keepalive {
+    sub _action_send_ExtProtocol {
         my ($self) = @_;
-        $queue_outgoing{$self} .= pack(q[N], 0);
-        $client{$self}->_do_callback(q[peer_outgoing_keepalive], $self);
-        $previous_outgoing_keepalive{$self} = time;
-        return 1;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        return if not $_supports_ExtProtocol{$self};
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        $self->_build_packet_ExtProtocol(
+            0,
+            {m => {ut_pex => 1, q[µT_PEX] => 2},
+             (    # is incoming ? ():
+                (p => $client{$self}->get_sockport)
+             ),
+             v      => q[Net::BitTorrent r] . $Net::BitTorrent::VERSION,
+             yourip => pack(q[C4], ($self->get_peerhost =~ m[(\d+)]g)),
+             reqq => 30    # XXX - Lies.  It's on my todo list...
+                   # reqq == An integer, the number of outstanding request messages
+                   # this client supports without dropping any.  The default in in
+                   # libtorrent is 250.
+            }
+        );
+        return;
+
+# {
+#  messageid => 0,
+#  packet    => { e => 0, "m" => { ut_pex => 1 }, p => 21901, v => "\xC2\xB5Torrent 1.7.7" },
+#}
     }
 
-    sub _build_packet_choke {
+    sub _action_send_fastset {
         my ($self) = @_;
-        $queue_outgoing{$self} .= pack(q[Nc], 1, 0);
-        $client{$self}->_do_callback(q[peer_outgoing_choke], $self);
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        return if not $_supports_FastPeers{$self};
+        $self->_generate_fast_set;
         return 1;
-    }
 
-    sub _build_packet_unchoke {
-        my ($self) = @_;
-        $queue_outgoing{$self} .= pack(q[Nc], 1, 1);
-        $client{$self}->_do_callback(q[peer_outgoing_unchoke], $self);
-        return 1;
-    }
+        # XXX - uTorrent doesn't advertise a fast set... and neither will I.
+        for my $index (@{$_fastset_out{$self}}) {
+            $self->_build_packet_allowed_fast($index)
 
-    sub _build_packet_interested {
-        my ($self) = @_;
-        $queue_outgoing{$self} .= pack(q[Nc], 1, 2);
-        $client{$self}->_do_callback(q[peer_outgoing_interested], $self);
-        return 1;
-    }
-
-    sub _build_packet_not_interested {
-        my ($self) = @_;
-        $queue_outgoing{$self} .= pack(q[Nc], 1, 3);
-        $client{$self}->_do_callback(q[peer_outgoing_disinterested], $self);
-        return 1;
-    }
-
-    sub _build_packet_have {
-        my ($self, $index) = @_;
-        $queue_outgoing{$self} .= pack(q[NcN], 5, 4, $index);
-        $client{$self}->_do_callback(q[peer_outgoing_have], $self, $index);
-        return 1;
-    }
-
-    sub _build_packet_bitfield {
-        my ($self, $bitfield) = @_;
-        $queue_outgoing{$self}
-            .= pack(q[Nca*], length($bitfield) + 1, 5, $bitfield);
-        $client{$self}->_do_callback(q[peer_outgoing_bitfield], $self);
-        return 1;
-    }
-
-    sub _build_packet_request {
-        my ($self, $block) = @_;
-        my $packed
-            = pack(q[NNN], $block->index, $block->offset, $block->length);
-        $queue_outgoing{$self}
-            .= pack(q[Nca*], length($packed) + 1, 6, $packed);
-        $client{$self}->_do_callback(q[peer_outgoing_request], $self, $block);
-        return 1;
-    }
-
-    sub _build_packet_piece {
-        my ($self, $request) = @_;
-        my $packed = pack(q[N2a*], $request->index, $request->offset,
-                          $request->_read);
-        $queue_outgoing{$self}
-            .= pack(q[Nca*], length($packed) + 1, 7, $packed);
-        $client{$self}->_do_callback(q[peer_outgoing_block], $self, $request);
-        return 1;
-    }
-
-    sub _build_packet_cancel {
-        my ($self, $block) = @_;
-        my $packed
-            = pack(q[NNN], $block->index, $block->offset, $block->length);
-        $queue_outgoing{$self}
-            .= pack(q[Nca*], length($packed) + 1, 8, $packed);
-        $client{$self}->_do_callback(q[peer_outgoing_cancel], $self, $block);
-        return 1;
-    }
-
-    sub _build_packet_port {
-        my ($self) = @_;
-        return
-            if not $_supports_DHT{$self};
-        return if not $client{$self}->_ext_DHT;
-        #warn q[OUTGOING PORT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
-        my $packed = pack(q[n], $self->client->dht->sockport);
-        $queue_outgoing{$self}
-            .= pack(q[Nca*], length($packed) + 1, 9, $packed);
-        $client{$self}->_do_callback(q[peer_outgoing_port], $self);
-        return 1;
-    }
-
-    sub _build_packet_have_all {
-        my ($self) = @_;
-        return
-            if not $_supports_FastPeers{$self};
-        return if not $client{$self}->_ext_FastPeers;
-        $queue_outgoing{$self} .= pack(q[Nc], 5, 14);
-        $client{$self}->_do_callback(q[peer_outgoing_have_all], $self);
-        return 1;
-    }
-
-    sub _build_packet_have_none {
-        my ($self) = @_;
-        return
-            if not $_supports_FastPeers{$self};
-        return if not $client{$self}->_ext_FastPeers;
-        $queue_outgoing{$self} .= pack(q[Nc], 5, 15);
-        $client{$self}->_do_callback(q[peer_outgoing_have_none], $self);
-        return 1;
-    }
-
-    sub _build_packet_ExtProtocol {
-        my ($self, $messageID, $data) = @_;
-         return
-            if not $_supports_ExtProtocol{$self};
-        return if not $client{$self}->_ext_ExtProtocol;
-         my $packet = pack(q[ca*], $messageID, bencode $data);
-        $queue_outgoing{$self}
-            .= pack(q[Nca*], length($packet) + 1, 20, $packet);
-        $client{$self}->_do_callback(q[peer_outgoing_extended], $self);
-        return 1;
-    }
-
-    sub _build_packet_allowed_fast {
-        my ($self, $index) = @_;
-        $queue_outgoing{$self} .= pack(q[NcN], 5, 11, $index);
-        $client{$self}->_do_callback(q[peer_outgoing_have], $self, $index);
-        return 1;
-    }
-
-    sub _build_packet_handshake {
-        my ($self) = @_;
-        $queue_outgoing{$self} .=
-            pack(q[c/a* a8 a20 a20],
-                 q[BitTorrent protocol],
-                 $client{$self}->_build_reserved,
-                 pack(q[H40], $session{$self}->infohash),
-                 $client{$self}->peer_id
-            );
-        $client{$self}->_do_callback(q[peer_outgoing_handshake], $self);
-        return 1;
-    }
-
-    sub _pulse {
-        my ($self) = @_;
-        if (    (time - $connection_timestamp{$self} >= 10 * 60)
-            and (time - $previous_incoming_block{$self} >= 5 * 60))
-        {    # TODO: make this timeout a variable
-            $self->_disconnect(q[peer must be useless]);
-            return 0;
+           #    if $session{$self}->get_pieces->[$index]->get_cached_integrity
+           #        #and $peer->does not have
         }
-        if (    (time - $connection_timestamp{$self} >= 60)
-            and (time - $previous_incoming_data{$self} >= 130))
-        {    # TODO: make this timeout a variable
-            $self->_disconnect(q[Peer must be dead]);
-            return 0;
-        }
-        if (not defined $previous_outgoing_keepalive{$self}
-            or $previous_outgoing_keepalive{$self} + 90 < time)
-        {   $self->_build_packet_keepalive;
-        }
-        $self->_action_check_interesting;
-        $self->_action_request_block;
-        $self->_action_cancel_old_requests;
-        $self->_action_unchoke
-            if $is_interested{$self} and $is_choked{$self};
-        if (@{$incoming_requests{$self}}
-            and length($queue_outgoing{$self})
-            < $self->client->maximum_buffer_size)
-        {   my $request = shift @{$incoming_requests{$self}};
-            if ($request and $request->piece->verify) {
-                $self->_build_packet_piece($request);
-                $uploaded{$self} += $request->length;
-                $session{$self}->_inc_uploaded($request->length);
+        return;
+    }
+
+    sub _action_check_interesting {
+        my ($self) = @_;
+        $client{$self}->_do_callback(q[log], TRACE,
+                                     sprintf(q[Entering %s for %s],
+                                             [caller 0]->[3], $$self
+                                     )
+        );
+        return if not defined $session{$self};
+        return if not defined $bitfield{$self} or not length $bitfield{$self};
+        my $interesting = 0;
+        if (not $session{$self}->get_complete
+            and defined $bitfield{$self})
+        {   for my $piece (
+                grep {
+                            vec($bitfield{$self}, $_->get_index, 1)
+                        and !$_->get_cached_integrity
+                        and $_->get_priority
+                }
+
+                #sort { $a->get_priority <=> $b->get_priority }
+                @{$session{$self}->get_pieces}
+                )
+            {   $interesting = 1;
+                last;
             }
         }
-        return
-            $client{$self}->_set_pulse($self,
-                                       min(time + 10,
-                                           $client{$self}->_get_pulse($self)
-                                       )
-            )
-
-            #return $next_pulse{$self}
-            #    = min(time + 10, $next_pulse{$self});
+        if ($interesting and not $is_interesting{$self}) {
+            $is_interesting{$self} = 1;
+            $self->_build_packet_interested;
+        }
+        elsif (not $interesting and $is_interesting{$self}) {
+            $is_interesting{$self} = 0;
+            $self->_build_packet_not_interested;
+        }
+        return $interesting;
     }
 
     sub _action_cancel_block {
@@ -1111,17 +1229,21 @@ use warnings;
                                      )
         );
         if (($is_choking{$self} == 0)
-            and (scalar @{$outgoing_requests{$self}}
-                 < $client{$self}->maximum_requests_per_peer)
+            and (
+                scalar @{$outgoing_requests{$self}}
+                < 8    # XXX - This value MAY be set via DHT/ext.prot
+            )
             )
         {   my $piece = $session{$self}->_pick_piece($self);
             if ($piece) {
             REQUEST:
-                for (scalar @{$outgoing_requests{$self}} .. $client{$self}
-                     ->maximum_requests_per_peer)
-                {   my $block = $piece->_unrequested_block;
+                for (
+                    scalar @{$outgoing_requests{$self}} ..
+                    8    # XXX - This value MAY be set via DHT/ext.prot
+                    )
+                {   my $block = $piece->_locate_unrequested_block;
                     if ($block
-                        and not grep { $$_ eq $$self } $block->peers)
+                        and not grep { $$_ eq $$self } $block->get_peers)
                     {   $self->_build_packet_request($block);
                         $block->_add_peer($self);
                         push @{$outgoing_requests{$self}}, $block;
@@ -1168,149 +1290,9 @@ use warnings;
         return;
     }
 
-    sub _action_check_interesting {
-        my ($self) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        return if not defined $session{$self};
-        my $interesting = 0;
-        if (not $session{$self}->complete
-            and defined $bitfield{$self})
-        {   for my $index (0 .. $session{$self}->piece_count) {
-                if (    vec($bitfield{$self}, $index, 1)
-                    and $session{$self}->pieces->[$index]->priority
-                    and not $session{$self}->pieces->[$index]->check)
-                {   $interesting = 1;
-                    last;
-                }
-            }
-        }
-        if ($interesting and not $is_interesting{$self}) {
-            $is_interesting{$self} = 1;
-            $self->_build_packet_interested;
-        }
-        elsif (not $interesting and $is_interesting{$self}) {
-            $is_interesting{$self} = 0;
-            $self->_build_packet_not_interested;
-        }
-        return $interesting;
-    }
-
-    sub _action_send_bitfield {
-        my ($self) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        if (    $_supports_FastPeers{$self}
-            and $client{$self}->_ext_FastPeers)
-        {   my $good = 0;
-            if ($session{$self}->complete) {
-                $self->_build_packet_have_all;
-                $good++;
-            }
-            elsif (not(scalar(grep { $_->check } @{$session{$self}->pieces})))
-            {   $self->_build_packet_have_none();
-                $good++;
-            }
-            return if $good;
-        }
-        if ((scalar $session{$self}->pieces > 100)
-            and ((scalar(grep { not $_->check } @{$session{$self}->pieces}))
-                 <= 12)
-            )
-        {
-
-            # TODO: send a series of HAVE packets to save bandwidth
-            # return
-        }
-        return $self->_build_packet_bitfield($session{$self}->bitfield);
-    }
-
-    sub _action_send_fastset {
-        my ($self) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        return if not $_supports_FastPeers{$self};
-        return if not $client{$self}->_ext_FastPeers;
-        $self->_generate_fast_set;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        for my $index (@{$_fastset_out{$self}})
-        {    #$self->_build_packet_allowed_fast($index)
-                #    if $session{$self}->pieces->[$index]->check
-                #        #and $peer->does not have
-        }
-        return;
-    }
-
-    sub _action_send_ExtProtocol {
-        my ($self) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        return
-            if not $_supports_ExtProtocol{$self};
-        return if not $client{$self}->_ext_ExtProtocol;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-         $self->_build_packet_ExtProtocol(
-            0,
-            {m => {ut_pex => 1, q[µT_PEX] => 2},
-             (    # is incoming ? ():
-                (p => $client{$self}->sockport)
-             ),
-             v      => q[Net::BitTorrent r] . $Net::BitTorrent::VERSION,
-             yourip => pack(q[C4], ($self->peerhost =~ m[(\d+)]g)),
-             reqq => 30    # XXX - Lies.  It's on my todo list...
-                   # reqq == An integer, the number of outstanding request messages
-                   # this client supports without dropping any.  The default in in
-                   # libtorrent is 250.
-            }
-        );
-        return;
-
-# {
-#  messageid => 0,
-#  packet    => { e => 0, "m" => { ut_pex => 1 }, p => 21901, v => "\xC2\xB5Torrent 1.7.7" },
-#}
-    }
-
-    sub _disconnect {
-        my ($self, $reason) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        close $socket{$self};
-        $connected{$self} = 0;
-        $client{$self}->_remove_connection($self);
-        $client{$self}
-            ->_do_callback(q[peer_disconnect], $self, ($reason || $^E))
-            if $connected{$self};
-        return 1;
-    }
-
-    sub _generate_fast_set {
-
-        # http://www.bittorrent.org/beps/bep_0006.html
-        my ($self, $k) = @_;
+    sub _generate_fast_set {    # http://www.bittorrent.org/beps/bep_0006.html
+        my ($self, $k)
+            = @_;    # $k (optional) is the number of pieces in fast set
         $client{$self}->_do_callback(q[log], TRACE,
                                      sprintf(q[Entering %s for %s],
                                              [caller 0]->[3], $$self
@@ -1326,8 +1308,9 @@ use warnings;
                                        $ip =~ m[(\d+)]g)
                         )
         );
-        $x .= $session{$self}->infohash;
-        my $piece_count = $session{$self}->piece_count;
+        $x .= $session{$self}->get_infohash;
+        my $piece_count = $session{$self}->get_piece_count;
+        return if $piece_count <= $k;
         while (scalar @a < $k) {
             $x = sha1_hex(pack(q[H*], $x));
             for (my $i = 0; $i < 5 && scalar @a < $k; $i++) {
@@ -1339,6 +1322,46 @@ use warnings;
             }
         }
         return $_fastset_out{$self} = \@a;
+    }
+    sub get_downloaded { return $downloaded{$_[0]}; }
+    sub get_is_choked  { return $is_choked{$_[0]}; }
+
+    sub get_incoming_connection {
+        return $incoming_connection{$_[0]};
+    }
+    sub get_is_interested   { return $is_interested{$_[0]}; }
+    sub get_is_interesting  { return $is_interesting{$_[0]}; }
+    sub get_reserved        { return $reserved{$_[0]}; }
+    sub get_uploaded        { return $uploaded{$_[0]}; }
+    sub _get_queue_incoming { return $queue_incoming{$_[0]}; }
+
+#     sub _build_packet_port {
+#~         my ($self) = @_;
+#~         return
+#~             if not $_supports_DHT{$self};
+#~         return if not $client{$self}->_ext_DHT;
+#~
+#~         #warn q[OUTGOING PORT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
+#~         my $packed = pack(q[n], $self->get_client->get_dht->get_sockport);
+#~         $queue_outgoing{$self}
+#~             .= pack(q[Nca*], length($packed) + 1, 9, $packed);
+#~         $client{$self}->_do_callback(q[peer_outgoing_port], $self);
+#~         return 1;
+#~     }
+#~
+#~     sub _build_packet_allowed_fast {
+#~         my ($self, $index) = @_;
+#~         $queue_outgoing{$self} .= pack(q[NcN], 5, 11, $index);
+#~         $client{$self}->_do_callback(q[peer_outgoing_have], $self, $index);
+#~         return 1;
+#~     }
+#
+    sub as_string {
+        my ($self, $advanced) = @_;
+        my $dump = $self . q[ [TODO]];
+        return print STDERR qq[$dump\n]
+            unless defined wantarray;
+        return $dump;
     }
     DESTROY {
         my ($self) = @_;
@@ -1413,86 +1436,88 @@ Returns a 'ready to print' dump of the
 C<Net::BitTorrent::Session::Peer> object's data structure.  If called
 in void context, the structure is printed to C<STDERR>.
 
-See also: [id://317520],
-L<Net::BitTorrent::as_string()|Net::BitTorrent/as_string ( [ VERBOSE ] )>
+See also: L<Net::BitTorrent|Net::BitTorrent/"as_string ( [ VERBOSE ] )">
 
-=item C<bitfield ( )>
+=item C<get_bitfield ( )>
 
-Returns a bitfield representing the pieces this peer claims to have
+Returns the bitfield representing the pieces this peer claims to have
 successfully downloaded.
 
-=item C<client ( )>
+=item C<get_client ( )>
 
 Returns the L<Net::BitTorrent|Net::BitTorrent> object related to this
 peer.
 
-=item C<downloaded ( )>
+=item C<get_downloaded ( )>
 
 Returns the total amount of data downloaded from this peer.
 
-See also: L<uploaded ( )|/uploaded ( )>
+See also: L<get_uploaded ( )|/"get_uploaded ( )">
 
-=item C<incoming_connection ( )>
+=item C<get_incoming_connection ( )>
 
 Returns a boolean indicating who initiated this connection.
 
-=item C<is_choked ( )>
+=item C<get_is_choked ( )>
 
 Returns a boolean indicating whether or not we are choking this peer.
 
-=item C<is_choking ( )>
+=item C<get_is_choking ( )>
 
 Returns a boolean indicating whether or not we are being choked by
 this peer.
 
-=item C<is_interested ( )>
+=item C<get_is_interested ( )>
 
 Returns a boolean indicating whether or not this peer is interested in
 downloading pieces from us.
 
-=item C<is_interesting ( )>
+=item C<get_is_interesting ( )>
 
 Returns a boolean indicating whether or not we are interested in this
 peer.
 
-=item C<outgoing_requests ( )>
+=item C<get_outgoing_requests ( )>
 
 Returns a list of
-L<Net::BitTorrent::Peer::Request|Net::BitTorrent::Peer::Request>
+L<Net::BitTorrent::Session::Peer::Request|Net::BitTorrent::Session::Peer::Request>
 objects representing blocks this peer has asked us for.
 
-=item C<peer_id ( )>
+See Also: L<Net::BitTorrent|Net::BitTorrent/"get_ul_slots_per_conn ( )">
+L<Net::BitTorrent|Net::BitTorrent/"set_ul_slots_per_conn ( NEWVAL )">
+
+=item C<get_peer_id ( )>
 
 Returns the Peer ID used to identify this peer.
 
 See also: theory.org (http://tinyurl.com/4a9cuv)
 
-=item C<peerhost ( )>
+=item C<get_peerhost ( )>
 
 Return the address part of the sockaddr structure for the socket on
 the peer host in a text form xx.xx.xx.xx
 
-=item C<peerport ( )>
+=item C<get_peerport ( )>
 
 Return the port number for the socket on the peer host.
 
-=item C<reserved ( )>
+=item C<get_reserved ( )>
 
 Returns the eight (C<8>) byte string the peer sent us as part of the
 BitTorrent handshake.
 
 See also: theory.org (http://tinyurl.com/3lo5oj)
 
-=item C<session ( )>
+=item C<get_session ( )>
 
 Returns the L<Net::BitTorrent::Session|Net::BitTorrent::Session>
 object related to this peer.
 
-=item C<uploaded ( )>
+=item C<get_uploaded ( )>
 
 Returns the total amount of data uploaded to this peer.
 
-See also: L<downloaded ( )|/downloaded ( )>
+See also: L<get_downloaded ( )|/"get_downloaded ( )">
 
 =back
 

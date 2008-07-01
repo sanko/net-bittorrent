@@ -14,7 +14,7 @@ lib/Net/BitTorrent/Session/Tracker.pm
 lib/Net/BitTorrent/Util.pm
 LICENSE
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 META.yml
 Notes.pod
 README
@@ -50,13 +50,7 @@ t/200_classes/280_NBST/289_udp_announce_2.t
 t/400_broken_data/410_dot_torrent/411_bencode.t
 t/400_broken_data/410_dot_torrent/412_hashes.t
 t/500_full_swarm/501_1-to-1.t
-t/500_full_swarm/502_1-to-3.t
-t/500_full_swarm/503_1-to-9.t
-t/500_full_swarm/504_3-to-1.t
-t/500_full_swarm/505_9-to-1.t
-t/500_full_swarm/506_5-to-5.t
 t/500_full_swarm/507_1-to-20.t
-t/500_full_swarm/508_1-to-50.t
 t/900_etc/910_pod/911_check.t
 t/900_etc/910_pod/912_coverage.t
 t/900_etc/921_perlcritic.t

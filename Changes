@@ -1,11 +1,61 @@
-Version 0.02X |
+Version 0.024 |
 
  API changes:
+   - Entire API has changed.  See the Compatibility Information below.
+   - New DHT-related callback: peer_outgoing_port
 
  Internal changes:
-  - DHT
+  - DHT is included with this release.  It's really raw code so don't expect
+      too much.
 
+ Compatibility Information:
+  - I've changed the API to pretty much everything in the distribution with a
+      depreciation cycle.  Bold, yes? So, with so much having changed, putting
+      a full list of what's changed will be a horrific waste of space.  These
+      are the highlights:
+      Old Mutator/Accessor         New Getter               New Setter
+    --------------------------------------------------------------------------
+    N::B
+     maximum_buffer_size       get_max_buffer_per_conn  set_max_buffer_per_conn
+     kbps_down                 get_max_dl_rate          set_max_dl_rate
+     kbps_up                   get_max_ul_rate          set_max_ul_rate
+     maximum_peers_per_client  get_conns_per_client     set_conns_per_client
+     maximum_peers_per_session get_conns_per_session    set_conns_per_session
+     maximum_peers_half_open   get_max_halfopen         set_max_halfopen
+     debug_level               get_debug_level          set_debug_level
+     maximum_requests_per_peer get_ul_slots_per_session set_ul_slots_per_session
+     maximum_requests_size     get_ul_slot_size         get_ul_slot_size
+     peer_id                   get_peer_id              --NA--
+     sockport                  get_sockport             --NA--
+     sockaddr                  get_sockaddr             --NA--
+     sessions                  get_sessions             --NA--
+    N::B::S::Piece
+     check                     get_cached_integrity
+     verify                    get_verified_integrity
+  - The arguments Net::BitTorrent's constructor expects have been changed to
+      stay in step with the new get/set methods:
+             Old                           New
+      ------------------------------------------------------------------------
+      maximum_peers_per_client      conns_per_client
+      maximum_peers_per_session     conns_per_session
+      kbps_down                     max_dl_rate
+      kbps_up                       max_ul_rate
+      maximum_peers_half_open       max_halfopen
+      maximum_buffer_size           max_buffer_per_conn
+      maximum_requests_size         ul_slot_size
+      maximum_requests_per_peer     ul_slots_per_session
+  - Removed accessors:
+        - N::B->timeout( [NEWVAL] )
+          This was the select timeout used in N::B::do_one_loop().  It has
+          been removed completely in favor of a new optional parameter passed
+          to N::B::do_one_loop( [TIMEOUT] ) itself.
  Notes:
+  - I'm sure I'm forgetting something...
+  - This is an UNSTABLE stable release.  There may be calls to old methods
+    hiding out in a dark corner...
+    data on the extended test suite, the rewritten API, and the alpha DHT
+    code.  DO NOT INSTALL!  Stick with the 0.022 release!  As soon as I have a
+    few reports, I will mark this distribution for deletion from PAUSE.
 
 Version 0.022 | 2008-05-24 10:31:26 -0400 (Sat, 24 May 2008)
 

@@ -5,12 +5,12 @@ use warnings;
 
     BEGIN {
         use version qw[qv];
-        our $SVN = q[$Id$];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev 0$)->numify / 1000;
+        our $SVN
+            = q[$Id$];
+        our $VERSION = sprintf q[%.3f], version->new(qw$Rev 23$)->numify / 1000;
     }
     use Socket qw[SOL_SOCKET /F_INET/ SOCK_DGRAM SO_REUSEADDR];
     use Digest::SHA qw[sha1];
-    use Carp qw[carp];
     use lib q[../../../../../lib/];
     use Net::BitTorrent::Util qw[:log :bencode :compact];
     {
@@ -31,23 +31,54 @@ use warnings;
                     if defined $args->{q[node_id]};
                 $infohashes{$self}     = {};
                 $added{$self}          = time;
-                $last_seen{$self}      = time; # Tell me lies, ...
+                $last_seen{$self}      = time;    # Tell me lies, ...
                 $last_find_node{$self} = 0;
                 $last_get_peers{$self} = 0;
                 $last_ping{$self}      = 0;
             }
             return $self;
         }
-        sub packed_host    { return $packed_host{$_[0]}; }
-        sub host {return join q[.],(unpack(q[SnC4x8], $packed_host{$_[0]}))[2 .. 5];}
-        sub port { return (unpack(q[SnC4x8], $packed_host{$_[0]}))[1]; }
-        sub node_id        { return $node_id{$_[0]}; }
-        sub add_infohash   { return push @{$infohashes{$_[0]}}, $_[1]; }
-        sub infohashes     { return keys %{$infohashes{$_[0]}}; }
-        sub last_seen      { return $last_seen{$_[0]}; }
-        sub last_ping      { return $last_ping{$_[0]}; }
-        sub last_get_peers { return $last_get_peers{$_[0]}; }
-        sub last_find_node { return $last_find_node{$_[0]}; }
+
+        sub get_packed_host {
+            return $packed_host{$_[0]};
+        }
+
+        sub get_peerhost {
+            return join q[.],
+                (unpack(q[SnC4x8], $packed_host{$_[0]}))[2 .. 5];
+        }
+
+        sub get_peerport {
+            return (unpack(q[SnC4x8], $packed_host{$_[0]}))[1];
+        }
+
+        sub get_node_id {
+            return $node_id{$_[0]};
+        }
+
+        sub add_infohash {
+            return push @{$infohashes{$_[0]}}, $_[1];
+        }
+
+        sub get_infohashes {
+            return keys %{$infohashes{$_[0]}};
+        }
+
+        sub get_last_seen {
+            return $last_seen{$_[0]};
+        }
+
+        sub get_last_ping {
+            return $last_ping{$_[0]};
+        }
+
+        sub get_last_get_peers {
+            return $last_get_peers{$_[0]};
+        }
+
+        sub get_last_find_node {
+            return $last_find_node{$_[0]};
+        }
 
         sub _query_ping {
             my ($self) = @_;
@@ -68,7 +99,6 @@ use warnings;
             my ($self, $session) = @_;
             $last_get_peers{$self} = time;
         }
-
 
         sub _query_announce_peer {
             my ($self, $session) = @_;
@@ -97,7 +127,7 @@ use warnings;
 
         sub as_string {
             my ($self, $advanced) = @_;
-            $dht{$self}->client->_do_callback(q[log], TRACE,
+            $dht{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             my $dump = q[TODO];
             return print STDERR qq[$dump\n] unless defined wantarray;
@@ -148,7 +178,47 @@ Returns a 'ready to print' dump of the
 C<Net::BitTorrent::DHT::Node::Azureus> object's data structure.  If
 called in void context, the structure is printed to C<STDERR>.
 
-See also: L<Net::BitTorrent/as_string>
+See also: L<Net::BitTorrent|Net::BitTorrent/as_string>
+
+=item C<add_infohash ( NEWVAL )>
+
+TODO
+
+=item C<get_infohashes ( )>
+
+TODO
+
+=item C<get_last_find_node ( )>
+
+TODO
+
+=item C<get_last_get_peers ( )>
+
+TODO
+
+=item C<get_last_ping ( )>
+
+TODO
+
+=item C<get_last_seen ( )>
+
+TODO
+
+=item C<get_node_id ( )>
+
+TODO
+
+=item C<get_packed_host ( )>
+
+TODO
+
+=item C<get_peerhost ( )>
+
+TODO
+
+=item C<get_peerport ( )>
+
+TODO
 
 =back
 
@@ -160,7 +230,7 @@ See also: L<Net::BitTorrent/as_string>
 
 The specification documentation (and thus this implementation... urm...)
 is incomplete.  See
-L<http://www.azureuswiki.com/index.php/Distributed_hash_table>
+http://www.azureuswiki.com/index.php/Distributed_hash_table
 
 =back
 

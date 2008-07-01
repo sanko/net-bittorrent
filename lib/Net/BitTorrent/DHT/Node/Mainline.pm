@@ -5,12 +5,12 @@ use warnings;
 
     BEGIN {
         use version qw[qv];
-        our $SVN = q[$Id$];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev 0$)->numify / 1000;
+        our $SVN
+            = q[$Id$];
+        our $VERSION = sprintf q[%.3f], version->new(qw$Rev 23$)->numify / 1000;
     }
     use Socket qw[SOL_SOCKET /F_INET/ SOCK_DGRAM SO_REUSEADDR];
     use Digest::SHA qw[sha1];
-    use Carp qw[carp];
     use lib q[../../../../../lib/];
     use Net::BitTorrent::Util qw[:log :bencode :compact];
     {
@@ -38,16 +38,32 @@ use warnings;
             }
             return $self;
         }
-        sub packed_host    { return $packed_host{$_[0]}; }
-        sub host {return join q[.],(unpack(q[SnC4x8], $packed_host{$_[0]}))[2 .. 5];}
-        sub port { return (unpack(q[SnC4x8], $packed_host{$_[0]}))[1]; }
-        sub node_id        { return $node_id{$_[0]}; }
-        sub add_infohash   { return push @{$infohashes{$_[0]}}, $_[1]; }
-        sub infohashes     { return keys %{$infohashes{$_[0]}}; }
-        sub last_seen      { return $last_seen{$_[0]}; }
-        sub last_ping      { return $last_ping{$_[0]}; }
-        sub last_get_peers { return $last_get_peers{$_[0]}; }
-        sub last_find_node { return $last_find_node{$_[0]}; }
+        sub get_packed_host {  return $packed_host{$_[0]}; }
+
+        sub get_peerhost {
+            return join q[.],
+                (unpack(q[SnC4x8], $packed_host{$_[0]}))[2 .. 5];
+        }
+
+        sub get_peerport {
+            return (unpack(q[SnC4x8], $packed_host{$_[0]}))[1];
+        }
+        sub get_node_id {  return $node_id{$_[0]}; }
+
+        sub add_infohash {
+            return push @{$infohashes{$_[0]}}, $_[1];
+        }
+        sub get_infohashes {
+            return keys %{$infohashes{$_[0]}};
+        }
+        sub get_last_seen {  return $last_seen{$_[0]}; }
+        sub get_last_ping {  return $last_ping{$_[0]}; }
+        sub get_last_get_peers {
+            return $last_get_peers{$_[0]};
+        }
+        sub get_last_find_node {
+            return $last_find_node{$_[0]};
+        }
 
         sub _query_ping {
             my ($self) = @_;
@@ -63,7 +79,7 @@ use warnings;
                          {t => $tid,
                           y => q[q],
                           q => q[ping],
-                          a => {id => $dht{$self}->node_id},
+                          a => {id => $dht{$self}->get_node_id},
                           v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
                          }
                          )
@@ -74,7 +90,7 @@ use warnings;
         sub _reply_ping {
             my ($self, $packet) = @_;
             $last_seen{$self} = time;
-            $self->node_id($packet->{q[a]}{q[id]});
+            $self->get_node_id($packet->{q[a]}{q[id]});
             $dht{$self}->_send(
                     {node => $self,
                      packet =>
@@ -92,6 +108,7 @@ use warnings;
         sub _query_find_node {
             my ($self, $target) = @_;
             $last_find_node{$self} = time;
+            return if scalar(keys %{$dht{$self}->get_routing_table}) >= 300;
             my $tid = $dht{$self}->_generate_token_id;
             $dht{$self}->_send(
                     {node => $self,
@@ -103,7 +120,7 @@ use warnings;
                           y => q[q],
                           q => q[find_node],
                           a => {target => $target,
-                                id     => $dht{$self}->node_id
+                                id     => $dht{$self}->get_node_id
                           },
                           v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
                          }
@@ -115,48 +132,48 @@ use warnings;
         sub _query_get_peers {
             my ($self, $session) = @_;
             $last_get_peers{$self} = time;
-            return if $session->private;
+            return if $session->get_private;
             my $tid = $dht{$self}->_generate_token_id;
             $dht{$self}->_send(
-                   {node => $self,
-                    t    => $tid,
-                    type => q[get_peers],
-                    packet =>
-                        bencode(
-                        {t => $tid,
-                         y => q[q],
-                         q => q[get_peers],
-                         a => {
-                             info_hash => pack(q[H40], $session->infohash),
-                             id => $dht{$self}->node_id
-                         },
-                         v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
-                        }
-                        )
-                   }
+                    {node => $self,
+                     t    => $tid,
+                     type => q[get_peers],
+                     packet =>
+                         bencode(
+                         {t => $tid,
+                          y => q[q],
+                          q => q[get_peers],
+                          a => {info_hash =>
+                                    pack(q[H40], $session->get_infohash),
+                                id => $dht{$self}->get_node_id
+                          },
+                          v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
+                         }
+                         )
+                    }
             );
         }
 
         sub _query_announce_peer {
             my ($self, $session) = @_;
-            return if $session->private;
+            return if $session->get_private;
             my $tid = $dht{$self}->_generate_token_id;
             $dht{$self}->_send(
-                   {node => $self,
-                    t    => $tid,
-                    type => q[announce_peer],
-                    packet =>
-                        bencode(
-                        {t => $tid,
-                         y => q[q],
-                         q => q[announce_peer],
-                         a => {
-                             info_hash => pack(q[H40], $session->infohash),
-                             port => $dht{$self}->client->sockport
+                    {node => $self,
+                     t    => $tid,
+                     type => q[announce_peer],
+                     packet =>
+                         bencode(
+                         {t => $tid,
+                          y => q[q],
+                          q => q[announce_peer],
+                          a => {info_hash =>
+                                    pack(q[H40], $session->get_infohash),
+                                port => $dht{$self}->get_client->get_sockport
+                          }
                          }
-                        }
-                        )
-                   }
+                         )
+                    }
             );
         }
 
@@ -174,10 +191,11 @@ use warnings;
         sub _parse_reply_get_peers {
             my ($self, $packet) = @_;
             $last_seen{$self} = time;
+
             #use Data::Dump qw[pp];
             #warn pp $packet;
             my $session =
-                $dht{$self}->client->_locate_session(unpack q[H*],
+                $dht{$self}->get_client->_locate_session(unpack q[H*],
                                                    $packet->{q[r]}{q[token]});
             return $session->append_nodes($packet->{q[r]}{q[nodes]})
                 if $session;
@@ -193,15 +211,16 @@ use warnings;
             $last_seen{$self} = time;
             my (undef, $packed_hostport, @address)
                 = unpack(q[SnC4x8], $packed_host{$self});
+
             #use Data::Dump qw[pp];
             #warn sprintf q[%s.%s.%s.%s:%d says find_node! %s], @address,
             #    $packed_hostport,
             #    pp $packet;
-            my $target = $packet->{q[a]}{q[info_hash]};
-            my $session
-                = $dht{$self}->client->_locate_session(unpack q[H*], $target);
+            my $target  = $packet->{q[a]}{q[info_hash]};
+            my $session = $dht{$self}
+                ->get_client->_locate_session(unpack q[H*], $target);
             my @nodes;
-            if (defined $session) { @nodes = @{$session->nodes}; }
+            if (defined $session) { @nodes = [$session->get_nodes]; }
 
             # XXX - check our routing table for nodes w/ this torrent
             return
@@ -219,10 +238,11 @@ use warnings;
                           }
                           )
                      }
-                ) if @nodes;
+                ) if scalar @nodes;
 
             # XXX - XOR with out current list of nodes
-            @nodes = $dht{$self}->find_nodes($target);
+            @nodes = $dht{$self}->locate_nodes_near_target($target);
+
             #warn pp \@nodes;
             return
                 $dht{$self}->_send(
@@ -239,7 +259,7 @@ use warnings;
                           }
                           )
                      }
-                ) if @nodes;
+                ) if scalar @nodes;
 
 #{
 #  a   => {
@@ -292,10 +312,10 @@ use warnings;
 #}
             my (undef, $packed_hostport, @address)
                 = unpack(q[SnC4x8], $packed_host{$self});
-            #use Data::Dump qw[pp];
-            #warn sprintf q[%s.%s.%s.%s:%d says find_node! %s], @address,
-            #    $packed_hostport, pp $packet;
 
+   #use Data::Dump qw[pp];
+   #warn sprintf q[%s.%s.%s.%s:%d says find_node! %s], @address,
+   #    $packed_hostport, pp $packet;
    #        $dht{$self}->_send({node => $self, t =>$tid,
    #                      packet      => bencode({
    #                          y => q[r],
@@ -309,7 +329,7 @@ use warnings;
 
         sub as_string {
             my ($self, $advanced) = @_;
-            $dht{$self}->client->_do_callback(q[log], TRACE,
+            $dht{$self}->get_client->_do_callback(q[log], TRACE,
                      sprintf(q[Entering %s for %s], [caller 0]->[3], $$self));
             my $dump = q[TODO];
             return print STDERR qq[$dump\n] unless defined wantarray;
@@ -360,7 +380,47 @@ Returns a 'ready to print' dump of the
 C<Net::BitTorrent::DHT::Node::Mainline> object's data structure.  If
 called in void context, the structure is printed to C<STDERR>.
 
-See also: L<Net::BitTorrent/as_string>
+See also: L<Net::BitTorrent|Net::BitTorrent/as_string>
+
+=item C<add_infohash ( NEWVAL )>
+
+TODO
+
+=item C<get_infohashes ( )>
+
+TODO
+
+=item C<get_last_find_node ( )>
+
+TODO
+
+=item C<get_last_get_peers ( )>
+
+TODO
+
+=item C<get_last_ping ( )>
+
+TODO
+
+=item C<get_last_seen ( )>
+
+TODO
+
+=item C<get_node_id ( )>
+
+TODO
+
+=item C<get_packed_host ( )>
+
+TODO
+
+=item C<get_peerhost ( )>
+
+TODO
+
+=item C<get_peerport ( )>
+
+TODO
 
 =back
 

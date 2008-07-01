@@ -44,7 +44,7 @@ SKIP: {
                 q[46ece60594afc29a0138a255660fe47521bb2966],
                 q[bdecode | Infohash]
             );
-            my @pieces = $session->pieces();
+            my @pieces = $session->get_pieces();
             my $piece  = $pieces[0][0];
             ok($piece->_write(q[hin bad data here], 3),
                 q[W | Middle of file one (bad data)]);
@@ -60,11 +60,11 @@ SKIP: {
             ok($piece->_write(q[e. es    .], 17),
                 q[W | Span files one and two (bad data)]);
             ok($piece->_write(q[ting], 22), q[W | Fill in the blank]);
-            isn't($piece->verify, 1, q[H | Pass]);
+            isn't($piece->get_verified_integrity, 1, q[H | Pass]);
             ok($piece->_write(qq[\0] x 27), q[W | Fill with nulls]);
             ok($piece->_write(q[Nothing of any use.Testing.]),
                 q[W | Entire block]);
-            ok($piece->verify, q[H | Pass]);
+            ok($piece->get_verified_integrity, q[H | Pass]);
             is($piece->_read(0, 27),
                 q[Nothing of any use.Testing.],
                 q[R | Entire block]);
@@ -77,7 +77,7 @@ SKIP: {
                 q[ng of ], q[R | Part of file one]);
             is($piece->_read(18, 9),
                 q[.Testing.], q[R | All of file two]);
-            ok($piece->verify,        q[H | Pass]);
+            ok($piece->get_verified_integrity,        q[H | Pass]);
             ok($session->close_files, q[Close open files]);
         }
     }
