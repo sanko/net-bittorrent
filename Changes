@@ -1,4 +1,18 @@
-Version 0.024 |
+Version 0.025 |
+
+ Internal changes:
+  - Fix crash bug by re-enabling N::B::S::Peer::_parse_packet_allowed_fast and
+      N::B::S::Peer::_parse_packet_reject
+  - Fixed crash bug in Data::Dumper usage in N::B::S::Peer and N::B::DHT
+  - Fixed non-critical bug in N::B::S::Peer when a connected peer goes
+      ((poof)) in the middle of something.
+
+ Notes:
+  - Gah, what a waste of a great version number (0.025)... That's what I get
+      for not eating my own dog food before shipping it.
+  - I knew I was forgetting something.
+
+Version 0.024 | 2008-07-01 19:52:15 -0400 (Tue, 01 Jul 2008)
 
  API changes:
    - Entire API has changed.  See the Compatibility Information below.
@@ -50,7 +64,7 @@ Version 0.024 |
           been removed completely in favor of a new optional parameter passed
           to N::B::do_one_loop( [TIMEOUT] ) itself.
  Notes:
-  - I'm sure I'm forgetting something...
+  - I'm sure I'm forgetting something... several somethings, in fact...
   - This is an UNSTABLE stable release.  There may be calls to old methods
     hiding out in a dark corner...
     data on the extended test suite, the rewritten API, and the alpha DHT

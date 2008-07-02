@@ -3,7 +3,7 @@ use strict;
 use warnings;
 {
 
-    BEGIN {
+    BEGIN {    # random change to have keywords updated by SVN...
         use version qw[qv];
         our $SVN
             = q[$Id$];

@@ -87,7 +87,7 @@ use warnings;
             return $fileno{$_[0]};
         }
 
-        sub _get_queue_outgoing {# no-op
+        sub _get_queue_outgoing {    # no-op
             return;
         }
 
@@ -206,18 +206,19 @@ use warnings;
                                     $dispatch{$type}($self, $node, $packet);
                                 }
                                 elsif (require Data::Dumper)
-                                {    # xxx - do something drastic
-                                    warn q[Unhandled DHT reply: ]
-                                        . Data::Dumper::Dump($packet);
+                                {    # XXX - turn into a callback
+                                    warn q[Unhandled DHT Reply]
+                                        . Data::Dumper->Dump([$packet],
+                                                             [qw[packet]]);
                                 }
                                 delete $outstanding_queries{$self}
                                     {$packet->{q[t]}};
                             }
                         }
                         elsif (require Data::Dumper)
-                        {            # xxx - do something drastic
-                            warn q[Unhandled DHT reply: ]
-                                . Data::Dumper::Dump($packet);
+                        {            # XXX - turn into a callback
+                            warn q[Unhandled DHT Reply]
+                                . Data::Dumper->Dump([$packet], [qw[packet]]);
                         }
                     }
                 }
