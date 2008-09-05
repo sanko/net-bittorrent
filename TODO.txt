@@ -1,0 +1,7 @@
+create a series of bad .torrent files to test N::B::Session with:
+ - invalid pieces string
+   + string length does not % 40 evenly
+   + string is shorter than 40 chars
+   + piece_length * num_pieces is nowhere near total_size_of_torrent
+ - private .torrent
+ - private .torrent without trackers should cause some sort of warning

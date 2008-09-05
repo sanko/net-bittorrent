@@ -1,0 +1,26 @@
+Build.PL
+lib/Net/BitTorrent.pm
+lib/Net/BitTorrent/DHT.pm
+lib/Net/BitTorrent/DHT/Node/Azureus.pm
+lib/Net/BitTorrent/DHT/Node/Mainline.pm
+lib/Net/BitTorrent/Peer.pm
+lib/Net/BitTorrent/Protocol.pm
+lib/Net/BitTorrent/Session.pm
+lib/Net/BitTorrent/Session/File.pm
+lib/Net/BitTorrent/Session/Tracker.pm
+lib/Net/BitTorrent/Session/Tracker/HTTP.pm
+lib/Net/BitTorrent/Session/Tracker/UDP.pm
+lib/Net/BitTorrent/Util.pm
+LICENSE
+MANIFEST			This list of files
+META.yml
+scripts/test.pl
+t/900_data/910_scripts/talk-to-ourself.pl
+t/900_data/950_torrents/951_single.torrent
+t/900_data/950_torrents/952_multi.torrent
+t/900_data/950_torrents/953_miniswarm.torrent
+t/900_data/950_torrents/955_unicode.torrent
+t/900_data/950_torrents/958_large.torrent
+t/900_data/950_torrents/credits.txt
+t/net-bittorrent.t
+TODO.txt
