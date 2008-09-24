@@ -4,7 +4,7 @@ package Net::BitTorrent::Peer;
     use warnings;    # core as of perl 5.006
 
     #
-    use Carp qw[confess];                   # core as of perl 5
+    use Carp qw[carp];                      # core as of perl 5
     use Scalar::Util qw[blessed weaken];    # core as of perl 5.007003
     use List::Util qw[sum];                 # core as of perl 5.007003
     use Socket                              # core as of perl 5
@@ -16,7 +16,7 @@ package Net::BitTorrent::Peer;
     #
     use version qw[qv];                     # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 24 $)->numify / 1000;
+    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
 
     #
     use lib q[../../../lib];
@@ -25,19 +25,18 @@ package Net::BitTorrent::Peer;
 
     # debugging
     #use Data::Dump qw[pp];
-
     #
-    my (%_client, %_socket, %_session);    # possible params to new()
+    my (%_client, %_socket, %_session);     # possible params to new()
     my (%_incoming);
     my (%_data_out, %_data_in, %peerid, %_bitfield);
-    my (                                   # basic status
+    my (                                    # basic status
          %_am_choking,         # this client is choking the peer
          %_am_interested,      # this client is interested in the peer
          %_peer_choking,       # peer is choking this client
          %_peer_interested,    # peer is interested in this client
     );
-    my (%requests_out, %requests_in);
-    my (%_last_contact);
+    my (%requests_out,  %requests_in);
+    my (%_last_contact, %_clutter);
 
     # Constructor
     sub new {
@@ -59,14 +58,15 @@ package Net::BitTorrent::Peer;
 
         # Param validation... Ugh...
         if (not defined $args) {
-            confess q[Net::BitTorrent::Peer->new({}) requires ]
+            carp q[Net::BitTorrent::Peer->new({}) requires ]
                 . q[parameters a set of parameters];
+            return;
         }
 
         #
         if (    not defined $args->{q[Socket]}
             and not defined $args->{q[Address]})
-        {   confess <<'END'; }
+        {   carp <<'END'; return; }
 Net::BitTorrent::Peer->new({}) requires either...
   - an 'Address' (IPv4:port for new, outgoing connections)
     or
@@ -76,20 +76,24 @@ END
         #
         if (defined $args->{q[Socket]}) {    # Untested
             if (ref($args->{q[Socket]}) ne q[GLOB]) {
-                confess
+                carp
                     q[Net::BitTorrent::Peer->new({}) requires a GLOB-type socket];
+                return;
             }
             if (not defined $args->{q[Client]}) {
-                confess q[Net::BitTorrent::Peer->new({}) requires a ]
+                carp q[Net::BitTorrent::Peer->new({}) requires a ]
                     . q['Client' parameter];
+                return;
             }
             if (not blessed $args->{q[Client]}) {
-                confess q[Net::BitTorrent::Peer->new({}) requires a ]
+                carp q[Net::BitTorrent::Peer->new({}) requires a ]
                     . q[blessed 'Client' object];
+                return;
             }
             if (not $args->{q[Client]}->isa(q[Net::BitTorrent])) {
-                confess q[Net::BitTorrent::Peer->new({}) requires a ]
+                carp q[Net::BitTorrent::Peer->new({}) requires a ]
                     . q[blessed Net::BitTorrent object in the 'Client' parameter];
+                return;
             }
             my ($peerport, $packed_ip)
                 = unpack_sockaddr_in(getpeername($args->{q[Socket]}));
@@ -124,16 +128,23 @@ END
             if ($args->{q[Address]}
                 !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4}):\d+$]
                 )
-            {   confess
+            {   carp
                     q[Net::BitTorrent::Peer->new({}) requires an IPv4:port 'Address'];
+                return;
             }
-            if (not defined $args->{q[Session]}) {
-                confess
-                    q[Net::BitTorrent::Peer->new({}) requires a 'Session'];
+            elsif (not defined $args->{q[Session]}) {
+                carp q[Net::BitTorrent::Peer->new({}) requires a 'Session'];
+                return;
             }
-            if (not $args->{q[Session]}->isa(q[Net::BitTorrent::Session])) {
-                confess
+            elsif (not blessed $args->{q[Session]}) {
+                carp
                     q[Net::BitTorrent::Peer->new({}) requires a blessed 'Session'];
+                return;
+            }
+            elsif (not $args->{q[Session]}->isa(q[Net::BitTorrent::Session]))
+            {   carp
+                    q[Net::BitTorrent::Peer->new({}) requires a blessed 'Session'];
+                return;
             }
             socket(my ($socket), PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
                 or return;
@@ -180,8 +191,10 @@ END
 
             #
             $self->_send_bitfield;
+            $self->_send_extended_handshake;
 
             #
+            $_client{$self}->_remove_connection($self);
             $_client{$self}->_add_connection($self, q[rw]) or return;
             $_incoming{$self} = 0;
         }
@@ -199,24 +212,24 @@ END
             $requests_in{$self}  = [];
 
             # keepalive
-            $_client{$self}->schedule({Time   => time + 120,
-                                       Code   => \&_send_keepalive,
-                                       Object => $self
-                                      }
+            $_client{$self}->_schedule({Time   => time + 120,
+                                        Code   => \&_send_keepalive,
+                                        Object => $self
+                                       }
             );
 
             #
-            $_client{$self}->schedule({Time   => time + 30,
-                                       Code   => \&_cancel_old_requests,
-                                       Object => $self
-                                      }
+            $_client{$self}->_schedule({Time   => time + 30,
+                                        Code   => \&_cancel_old_requests,
+                                        Object => $self
+                                       }
             );
 
             #
-            $_client{$self}->schedule({Time   => time + 90,
-                                       Code   => \&_disconnect_useless_peer,
-                                       Object => $self
-                                      }
+            $_client{$self}->_schedule({Time   => time + 90,
+                                        Code   => \&_disconnect_useless_peer,
+                                        Object => $self
+                                       }
             );
         }
 
@@ -224,29 +237,16 @@ END
         return $self;
     }
 
-    # Accessors | Public
-    sub as_string {
-        my ($self) = @_;
-        return $$self;
+# Accessors | Public | General
+sub peerid { return $peerid{+shift} }
 
-        #
-        return $$self if not defined $_socket{$self};
-
-        #
-        my ($peer_name) = getpeername($_socket{$self});
-        return $$self if not defined $peer_name;
-
-        #
-        my ($peer_port, $packed_peer_ip) = unpack_sockaddr_in($peer_name);
-
-        #
-        return sprintf(q[%s:%d], inet_ntoa($packed_peer_ip), $peer_port);
-    }
 
     # Accessors | Private | General
-    sub _socket   { return $_socket{+shift} }
-    sub _session  { return $_session{+shift} }
-    sub _bitfield { return $_bitfield{+shift} }
+    sub _socket    { return $_socket{+shift} }
+    sub _session   { return $_session{+shift} }
+    sub _bitfield  { return $_bitfield{+shift} }
+    sub _as_string { my ($self) = @_; return $$self; }
+
 
     # Accessors | Private | Status
     sub _peer_choking    { return $_peer_choking{+shift} }
@@ -343,16 +343,24 @@ END
                         &HANDSHAKE => sub {
                             my ($self, $payload) = @_;
                             $_last_contact{$self} = time;
+                            ($_clutter{$self}{q[reserved]},
+                             undef, $peerid{$self}
+                            ) = @{$payload};
+                            $_clutter{$self}{q[support]}{q[extended protocol]}
+                                = (ord(substr($_clutter{$self}{q[reserved]},
+                                              5, 1
+                                       )
+                                       ) & 0x10
+                                ) ? 1 : 0;
                             $_client{$self}
                                 ->_event(q[packet_incoming_handshake],
                                         {Peer => $self, Payload => $payload});
-                            $peerid{$self} = $payload->[2];
                             if ($peerid{$self} eq $_client{$self}->peerid) {
                                 weaken $self;
-                                $self->disconnect(
+                                $self->_disconnect(
                                            q[...we've connected to ourself.]);
 
-                                #$_client{$self}->_del_connection($self);
+                                #$_client{$self}->_remove_connection($self);
                                 return;
                             }
 
@@ -371,7 +379,8 @@ END
                                             q[We aren't serving this torrent: %s],
                                         unpack(q[H40], $payload->[1])
                                     );
-                                    $_client{$self}->_del_connection($self);
+                                    $_client{$self}
+                                        ->_remove_connection($self);
                                     return;
                                 }
 
@@ -388,6 +397,7 @@ END
                                      $_client{$self}->peerid
                                     );
                                 $self->_send_bitfield;
+                                $self->_send_extended_handshake;
 
                               # XXX - add socket as rw
                               #$_client{$self}->_add_socket(
@@ -426,12 +436,8 @@ END
 
                                 #warn pp $piece;
                                 #warn pp $request;
-                                $piece->{q[Blocks_Requested]}
-                                    ->[$request->{q[_vec_offset]}]--;
-
-                                #exit die
-                                #    if grep { $_ == -1 }
-                                #        @{$piece->{q[Blocks_Requested]}};
+                                delete $piece->{q[Blocks_Requested]}
+                                    ->[$request->{q[_vec_offset]}]->{$self};
                             }
 
                             #
@@ -441,8 +447,6 @@ END
                             my ($self) = @_;
                             $_last_contact{$self} = time;
                             $_peer_choking{$self} = 0;
-
-                            #$_am_interested{$self} = 1;    # lies
                             my $requests = 0;
                             $_client{$self}
                                 ->_event(q[packet_incoming_unchoke],
@@ -457,7 +461,7 @@ END
                             }
 
                             #
-                            #$_client{$self}->schedule(
+                            #$_client{$self}->_schedule(
                             #                    {Time   => time + 30,
                             #                     Code   => \&_request_block,
                             #                     Object => $self
@@ -536,7 +540,7 @@ END
 
                             #
                             if (not @{$requests_in{$self}}) {
-                                $_client{$self}->schedule(
+                                $_client{$self}->_schedule(
                                                  {Time   => time + 15,
                                                   Code   => \&_fill_requests,
                                                   Object => $self
@@ -627,7 +631,8 @@ END
                                     ->_check_piece_by_index($index))
                                 {   for my $p (@{$_session{$self}->_peers}) {
                                         $_data_out{$p} .= build_have($index);
-                                        $_client{$self}->_del_connection($p);
+                                        $_client{$self}
+                                            ->_remove_connection($p);
                                         $_client{$self}
                                             ->_add_connection($p, q[rw]);
                                     }
@@ -681,7 +686,7 @@ END
 
                                             #
                                             $_client{$self}
-                                                ->_del_connection($peer);
+                                                ->_remove_connection($peer);
                                             $_client{$self}
                                                 ->_add_connection($peer,
                                                                   q[rw]);
@@ -730,6 +735,7 @@ END
                                 {   splice(@{$requests_in{$self}}, $x, 1);
                                 }
                             }
+
                             #warn q[Remaining requests: ]
                             #        . pp $requests_in{$self};
                             return 1;
@@ -738,7 +744,6 @@ END
                             my ($self, $payload) = @_;
                             $_last_contact{$self} = time;
                             my ($id, $packet) = @{$payload};
-                            $packet = bdecode $packet;
                             if ($packet) {
                                 if ($id == 0) {
                                     if (defined $packet->{q[p]}) {
@@ -777,7 +782,7 @@ END
         }
 
         #
-        $_client{$self}->_del_connection($self);
+        $_client{$self}->_remove_connection($self);
         $_client{$self}
             ->_add_connection($self, ($_data_out{$self} ? q[rw] : q[ro]))
             if $_socket{$self};
@@ -867,10 +872,10 @@ END
         }
 
         #
-        $_client{$self}->schedule({Time   => time + 90,
-                                   Code   => \&_disconnect_useless_peer,
-                                   Object => $self
-                                  }
+        $_client{$self}->_schedule({Time   => time + 90,
+                                    Code   => \&_disconnect_useless_peer,
+                                    Object => $self
+                                   }
         );
 
         #
@@ -883,10 +888,10 @@ END
         return if not defined $_socket{$self};
 
         #
-        $_client{$self}->schedule({Time   => time + 60,
-                                   Code   => \&_cancel_old_requests,
-                                   Object => $self
-                                  }
+        $_client{$self}->_schedule({Time   => time + 60,
+                                    Code   => \&_cancel_old_requests,
+                                    Object => $self
+                                   }
         );
 
         #
@@ -916,14 +921,16 @@ END
                 = $_session{$self}->_piece_by_index($request->{q[Index]});
 
             #
-            $piece->{q[Blocks_Requested]}->[$request->{q[_vec_offset]}]--;
+            delete $piece->{q[Blocks_Requested]}->[$request->{q[_vec_offset]}]
+                ->{$self};
 
             #
             if ($piece->{q[Touch]} <= time - 20) {
                 $piece->{q[Slow]} = 1;
-                warn sprintf q[Putting slow piece to sleep: %d],
-                    $request->{q[Index]}
-                    if $piece->{q[Slow]};
+
+                #warn sprintf q[Putting slow piece to sleep: %d],
+                #    $request->{q[Index]}
+                #    if $piece->{q[Slow]};
             }
 
             #
@@ -947,8 +954,9 @@ END
             $canceled++;
         }
         if ($canceled) {
-            warn sprintf q[~~~~~~~~~~~~~~~~~~ Canceled %d pieces], $canceled;
-            $_client{$self}->_del_connection($self);
+
+            #warn sprintf q[~~~~~~~~~~~~~~~~~~ Canceled %d pieces], $canceled;
+            $_client{$self}->_remove_connection($self);
             $_client{$self}->_add_connection($self, q[rw]);
         }
 
@@ -979,6 +987,7 @@ END
             my $vec_offset;
             if ($piece->{q[Endgame]}) {
 
+           #warn q[Endgame!];
            # This next bit selects the least requested block (max 3 requests),
            #   makes sure this peer isn't already sitting on this request
            #   and... I just lost my train of thought; It's Friday afternoon.
@@ -992,19 +1001,25 @@ END
                         ? ($tmp_index => $_)
                         : ()
                 } @{$piece->{q[Blocks_Recieved]}};
+
+                #use Data::Dump qw[pp];
                 #warn q[%temp indexes: ] . pp \%temp;
                 for my $index (sort { $temp{$a} <=> $temp{$b} }
                                sort { $a <=> $b } keys %temp)
-                {   warn q[$index: ] . $index;
+                {    #warn q[$index: ] . $index;
                     if (not grep {
 
                            #warn sprintf q[recieved: %d | matches[i:%d|o:%d]],
                            #    ($piece->{q[Blocks_Recieved]}->[$index]),
                            #    ($piece->{q[Index]} == $_->{q[Index]}),
                            #    ($index == $_->{q[_vec_offset]});
-                            ($piece->{q[Blocks_Recieved]}->[$index])
-                                or (    ($piece->{q[Index]} == $_->{q[Index]})
-                                    and ($index == $_->{q[_vec_offset]}))
+                            (defined $piece->{q[Blocks_Requested]}->[$index]
+                                 ->{$self})
+                                and (
+                                    ($piece->{q[Blocks_Recieved]}->[$index])
+                                    or (($piece->{q[Index]} == $_->{q[Index]})
+                                        and ($index == $_->{q[_vec_offset]}))
+                                )
                         } @{$requests_out{$self}}
                         )
                     {   $vec_offset = $index;
@@ -1013,9 +1028,14 @@ END
                 }
             }
             else {
+
+                #warn pp $piece;
                 for my $i (0 .. $#{$piece->{q[Blocks_Requested]}}) {
-                    if ($piece->{q[Blocks_Requested]}->[$i] == 0) {
-                        $vec_offset = $i;
+                    if (not scalar
+                        keys %{$piece->{q[Blocks_Requested]}->[$i]})
+                    {   $vec_offset = $i;
+
+                        #warn pp $piece->{q[Blocks_Requested]}->[$i];
                         last;
                     }
                 }
@@ -1026,7 +1046,9 @@ END
 
                 #warn sprintf
                 #    q[Piece has been fully requested: req:%s|rec:%s],
-                #    join(q[], @{$piece->{q[Blocks_Requested]}}),
+                #    join(q[],
+                #         map { scalar keys %$_ }
+                #             @{$piece->{q[Blocks_Requested]}}),
                 #    join(q[], @{$piece->{q[Blocks_Recieved]}});
                 # xxx - pick a different piece?
                 # xxx - Honestly, this piece shouldn't have been returned
@@ -1034,8 +1056,9 @@ END
                 return;
             }
 
-            # Might already be 1 if in endgame mode...
-            $piece->{q[Blocks_Requested]}->[$vec_offset]++;
+            # May already be requested if in endgame mode...
+            $piece->{q[Blocks_Requested]}->[$vec_offset]->{$self} = $self;
+            weaken $piece->{q[Blocks_Requested]}->[$vec_offset]->{$self};
 
             #warn q[After request: ] . pp $piece;
             #
@@ -1065,7 +1088,7 @@ END
             );
 
             #
-            $_client{$self}->_del_connection($self);
+            $_client{$self}->_remove_connection($self);
             $_client{$self}->_add_connection($self, q[rw]);
             return $_data_out{$self}
                 .= build_request($piece->{q[Index]}, $offset, $length);
@@ -1084,20 +1107,53 @@ END
 
         #
         if (((sum(@have) * 8) < $#have)) {
-            return $_data_out{$self}
-                .= build_bitfield(pack q[B*], join q[], @have);
+            $_data_out{$self} .= build_bitfield(pack q[B*], join q[], @have);
+            $_client{$self}
+                ->_event(q[packet_outgoing_bitfield], {Peer => $self});
         }
-
-        #
-        for my $index (0 .. $#have) {
-            $_data_out{$self} .= build_have($index) if $have[$index];
+        else {
+            for my $index (0 .. $#have) {
+                if ($have[$index]) {
+                    $_data_out{$self} .= build_have($index);
+                    $_client{$self}->_event(q[packet_outgoing_have],
+                                            {Peer => $self, Index => $index});
+                }
+            }
         }
-
-        #
-        $_client{$self}->_event(q[packet_outgoing_bitfield], {Peer => $self});
 
         #
         return 1;
+    }
+
+    sub _send_extended_handshake {
+        my ($self) = @_;
+
+        #
+        return if not defined $_socket{$self};
+        return if not $_clutter{$self}{q[support]}{q[extended protocol]};
+
+        #
+        my ($_peerport, $_packed_ip)
+            = unpack_sockaddr_in(getpeername($_socket{$self}));
+
+        #
+        return if not $_packed_ip;
+        return if not $_client{$self}->_dht;
+        return if not $_client{$self}->_dht->_port;
+        return $_data_out{$self} .= build_extended(
+            0,    # handshake
+            {m => {ut_pex => 1, q[µT_PEX] => 2},
+             (    # is incoming ? ():
+                (p => $_client{$self}->_dht->_port)    # dht port
+             ),
+             v      => q[Net::BitTorrent r] . $Net::BitTorrent::VERSION,
+             yourip => $_packed_ip,
+             reqq => 30    # XXX - Lies.  It's on my todo list...
+                   # reqq == An integer, the number of outstanding request messages
+                   # this client supports without dropping any.  The default in in
+                   # libtorrent is 2050.
+            }
+        );
     }
 
     sub _send_keepalive {
@@ -1108,10 +1164,10 @@ END
         return if not defined $_socket{$self};
 
         #
-        $_client{$self}->schedule({Time   => time + 120,
-                                   Code   => \&_send_keepalive,
-                                   Object => $self
-                                  }
+        $_client{$self}->_schedule({Time   => time + 120,
+                                    Code   => \&_send_keepalive,
+                                    Object => $self
+                                   }
         );
 
         #
@@ -1131,10 +1187,10 @@ END
         return if $_am_choking{$self};
 
         #
-        $_client{$self}->schedule({Time   => time + 60,
-                                   Code   => \&_fill_requests,
-                                   Object => $self
-                                  }
+        $_client{$self}->_schedule({Time   => time + 60,
+                                    Code   => \&_fill_requests,
+                                    Object => $self
+                                   }
         );
 
         #
@@ -1170,7 +1226,7 @@ END
         }
 
         #
-        $_client{$self}->_del_connection($self) or return;
+        $_client{$self}->_remove_connection($self) or return;
         $_client{$self}->_add_connection($self, q[rw]) or return;
 
         #
@@ -1195,7 +1251,7 @@ END
         $_client{$self}->_event(q[packet_outgoing_choke], {Peer => $self});
 
         #
-        $_client{$self}->_del_connection($self) or return;
+        $_client{$self}->_remove_connection($self) or return;
         $_client{$self}->_add_connection($self, q[rw]) or return;
 
         #
@@ -1217,7 +1273,7 @@ END
 
         #
         $reason ||= q[Connection closed by remote peer.];
-        $_client{$self}->_del_connection($self);
+        $_client{$self}->_remove_connection($self);
 
         #
         #weaken $self;
@@ -1247,9 +1303,8 @@ END
             for my $request (@{$requests_out{$self}}) {
                 my $piece
                     = $_session{$self}->_piece_by_index($request->{q[Index]});
-                $piece->{q[Blocks_Requested]}->[$request->{q[_vec_offset]}]--;
-                exit die
-                    if grep { $_ == -1 } @{$piece->{q[Blocks_Requested]}};
+                delete $piece->{q[Blocks_Requested]}
+                    ->[$request->{q[_vec_offset]}]->{$self};
             }
         }
 
@@ -1283,10 +1338,49 @@ END
         delete $_last_contact{$self};
 
         #
+        delete $_clutter{$self};
+
+        #
         return 1;
     }
     1;
 }
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Peer - Remote BitTorrent Peer
+
+=head1 Description
+
+L<Net::BitTorrent::Peer|Net::BitTorrent::Peer> represents a single peer
+connection.
+
+=head1 Constructor
+
+=over
+
+=item C<new ( { [ARGS] } )>
+
+Creates a L<Net::BitTorrent::Peer|Net::BitTorrent::Peer> object.  This
+constructor should not be used directly.
+
+=back
+
+=head1 Methods
+
+I<This list only contains the most common, public accessors.>
+
+=over
+
+=item C<peerid>
+
+Returns the Peer ID used to identify this peer.
+
+See also: theory.org (http://tinyurl.com/4a9cuv)
+
+=back
 
 =head1 Author
 

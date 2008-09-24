@@ -4,7 +4,7 @@ package Net::BitTorrent::Session::Tracker::HTTP;
     use warnings;    # core as of perl 5.006
 
     #
-    use Carp qw[confess];                   # core as of perl 5
+    use Carp qw[carp];                      # core as of perl 5
     use Scalar::Util qw[blessed weaken];    # core since perl 5.007003
     use List::Util qw[sum];                 # core since perl 5.007003
     use Socket                              # core as of perl 5
@@ -17,9 +17,6 @@ package Net::BitTorrent::Session::Tracker::HTTP;
     use lib q[../../../../../lib];
     use Net::BitTorrent::Util qw[:bencode uncompact];
 
-    # Debugging
-    #use Data::Dump qw[pp];
-
     #
     my (%url, %tier);                              # param to new()
     my (%resolve, %event, %_socket, %_data_out);
@@ -29,27 +26,26 @@ package Net::BitTorrent::Session::Tracker::HTTP;
         my ($class, $args) = @_;
         my $self;
         if (not defined $args) {
-            confess __PACKAGE__ . q[->new() requires params];
+            carp __PACKAGE__ . q[->new() requires params];
             return;
         }
         if (not defined $args->{q[URL]}) {
-            confess __PACKAGE__ . q[->new() requires a 'URL' param];
+            carp __PACKAGE__ . q[->new() requires a 'URL' param];
             return;
         }
         if ($args->{q[URL]} !~ m[^http://]i) {
-            confess
+            carp
                 sprintf(
                   q[%s->new() doesn't know what to do with malformed url: %s],
                   __PACKAGE__, $args->{q[URL]});
             return;
         }
         if (not defined $args->{q[Tier]}) {
-            confess __PACKAGE__ . q[->new() requires a 'Tier' param];
+            carp __PACKAGE__ . q[->new() requires a 'Tier' param];
             return;
         }
         if (not $args->{q[Tier]}->isa(q[Net::BitTorrent::Session::Tracker])) {
-            confess __PACKAGE__
-                . q[->new() requires a blessed Tracker 'Tier'];
+            carp __PACKAGE__ . q[->new() requires a blessed Tracker 'Tier'];
             return;
         }
 
@@ -67,12 +63,14 @@ package Net::BitTorrent::Session::Tracker::HTTP;
 
     # Accesors | Private
     sub _socket { return $_socket{+shift}; }
+    sub _tier   { return $tier{+shift}; }      # Make public?
 
+    # Methods | Private
     sub _announce {
         my ($self, $event) = @_;
         if (defined $event) {
             if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) { # being silly...
-                confess sprintf q[Invalid event for announce: %s], $event;
+                carp sprintf q[Invalid event for announce: %s], $event;
                 return;
             }
         }
@@ -105,7 +103,7 @@ package Net::BitTorrent::Session::Tracker::HTTP;
             )
             )
         {                 # !!! - impossible to test failure for coverage...
-            confess
+            carp
                 q[There was a problem making an outgoing socket non-blocking: ]
                 . $^E;
             return;       # TODO: re-Schedule announce
@@ -126,7 +124,6 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                                       }
         );
 
-        #
         #
         my $infohash = $tier{$self}->_session->infohash;
         $infohash =~ s|(..)|\%$1|g;    # urlencode
@@ -171,6 +168,7 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                  q[]);
 
         #
+        $tier{$self}->_client->_remove_connection($self);
         return $tier{$self}->_client->_add_connection($self, q[wo]);
     }
 
@@ -180,18 +178,17 @@ package Net::BitTorrent::Session::Tracker::HTTP;
 
         #
         if ($error) {
-            confess sprintf q[Error announce: (%d) %s], $^E, $^E;
-            $tier{$self}->_client->_del_connection($self);
+            carp sprintf q[Error announce: (%d) %s], $^E, $^E;
+            $tier{$self}->_client->_remove_connection($self);
             close $_socket{$self};
 
             # Reschedule announce
-            #return $tier{$self}->_client->schedule(
-            #    {   Time    => time + 30,
-            #        Code => sub {
-            #            $self->_announce();
-            #            }
-            #    }
-            #);
+            $tier{$self}->_client->_schedule(
+                                      {Time   => time + 30,
+                                       Code   => sub { $self->_announce(); },
+                                       Object => $self
+                                      }
+            );
             return;
         }
         if ($write) {
@@ -204,18 +201,19 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                        Message => sprintf(q[Cannot write to tracker: %s], $^E)
                       }
                 );
-                $tier{$self}->_client->_del_connection($self);
+                $tier{$self}->_client->_remove_connection($self);
                 close $_socket{$self};
 
                 #return;
                 # Reschedule announce
-                return
-                    $tier{$self}->_client->schedule(
+
+                    $tier{$self}->_client->_schedule(
                                       {Time   => time + 30,
                                        Code   => sub { shift->_announce(); },
                                        Object => $self
                                       }
                     );
+                    return ;
             }
             $tier{$self}->_client->_event(q[tracker_data_out],
                                  {Tracker => $self, Length => $actual_write});
@@ -223,7 +221,7 @@ package Net::BitTorrent::Session::Tracker::HTTP;
             #
             substr($_data_out{$self}, 0, $actual_write, q[]);
             if (not length $_data_out{$self}) {
-                $tier{$self}->_client->_del_connection($self);
+                $tier{$self}->_client->_remove_connection($self);
                 $tier{$self}->_client->_add_connection($self, q[ro]);
             }
         }
@@ -238,65 +236,82 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                       Message => sprintf(q[Cannot read from tracker: %s], $^E)
                      }
                 );
-                $tier{$self}->_client->_del_connection($self);
+                $tier{$self}->_client->_remove_connection($self);
                 close $_socket{$self};
 
                 # Reschedule announce
-                $tier{$self}->_client->schedule(
+                $tier{$self}->_client->_schedule(
                                       {Time   => time + 30,
                                        Code   => sub { shift->_announce(); },
                                        Object => $self
                                       }
                 );
                 return;
-
-                # Reschedule announce
-                #return $tier{$self}->_client->schedule(
-                #    {Time    => time + 30,
-                #     Code => sub { $self->_announce(); }
-                #    }
-                #);
             }
             else {
                 $tier{$self}->_client->_event(q[tracker_data_in],
                                   {Tracker => $self, Length => $actual_read});
-                $data =~ s[^.+(?:\015\012){2}][]s;
+                $data =~ s[^.+(?:\015?\012){2}][]s;
                 $data = bdecode($data);
                 if ($data) {
+                    if (defined $data->{q[failure reason]}) {
+                        $tier{$self}->_client->_event(
+                                         q[tracker_announce_failure],
+                                         {Tracker => $self,
+                                          Reason => $data->{q[failure reason]}
+                                         }
+                        );
+                    }
+                    else {
 
-                    #warn pp $data;
-                    # XXX - cache resolve
-                    $tier{$self}
-                        ->_session->_append_compact_nodes($data->{q[peers]});
-                    $tier{$self}->_set_complete($data->{q[complete]});
-                    $tier{$self}->_set_incomplete($data->{q[incomplete]});
-                    # Reschedule announce
-                    $tier{$self}->_client->schedule(
-                                      {Time   => time + ($data->{q[interval]}||1800),
+                        # XXX - cache resolve
+                        $tier{$self}->_session->_append_compact_nodes(
+                                                           $data->{q[peers]});
+                        $tier{$self}->_set_complete($data->{q[complete]});
+                        $tier{$self}->_set_incomplete($data->{q[incomplete]});
+                        $tier{$self}
+                            ->_client->_event(q[tracker_announce_okay],
+                                        {Tracker => $self, Payload => $data});
+                    }
+                }
+
+                # Reschedule announce
+                $tier{$self}->_client->_schedule(
+                                      {Time => (
+                                              time + (
+                                                  defined $data->{q[interval]}
+                                                  ? $data->{q[interval]}
+                                                  : 1800
+                                              )
+                                       ),
                                        Code   => sub { shift->_announce(); },
                                        Object => $self
                                       }
-                    );
-                }
-                else {
-
-                    # Reschedule announce
-                    $tier{$self}->_client->schedule(
-                        {   Time => time + 300,
-                            Code => sub {
-                                shift->_announce();
-                            },
-                            Object => $self
-                        }
-                    );
-                    return;
-                }
-                $tier{$self}->_client->_del_connection($self);
-                close $_socket{$self};
-                $tier{$self}->_client->_event(q[tracker_disconnect],
-                                              {Tracker => $self});
+                );
             }
+
+            $tier{$self}->_client->_remove_connection($self);
+            close $_socket{$self};
+            $tier{$self}
+                ->_client->_event(q[tracker_disconnect], {Tracker => $self});
         }
+        else {
+                $tier{$self}->_client->_event(
+                                     q[tracker_announce_failure],
+                                     {Tracker => $self,
+                                      Reason => q[Failed to read from tracker]
+                                     }
+                );
+
+                # Reschedule announce
+                $tier{$self}->_client->_schedule(
+                                      {Time   => time + 300,
+                                       Code   => sub { shift->_announce(); },
+                                       Object => $self
+                                      }
+                );
+                return;
+            }
         return ($actual_read, $actual_write);
     }
 
@@ -318,3 +333,57 @@ package Net::BitTorrent::Session::Tracker::HTTP;
     #
     1;
 }
+
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Session::Tracker::HTTP - Single HTTP BitTorrent Tracker
+
+=head1 Constructor
+
+=over 4
+
+=item C<new ( [ARGS] )>
+
+Creates a C<Net::BitTorrent::Session::Tracker::HTTP> object.  This
+constructor should not be used directly.
+
+=back
+
+=head1 BUGS/TODO
+
+=over 4
+
+=item *
+
+Does not support HTTPS trackers.
+
+=back
+
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl 5.10 (or higher).  See
+http://www.perl.com/perl/misc/Artistic.html or the F<LICENSE> file
+included with this distribution.
+
+All POD documentation is covered by the Creative Commons Attribution-
+Noncommercial-Share Alike 3.0 License
+(http://creativecommons.org/licenses/by-nc-sa/3.0/us/).
+
+Neither this module nor the L<Author|/Author> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

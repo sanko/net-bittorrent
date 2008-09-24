@@ -7,12 +7,13 @@ package Net::BitTorrent::Protocol;
     use Carp qw[carp];    # core as of perl 5
 
     #
-    #use lib q[../../../lib];
-    #use Net::BitTorrent::Util;
+    use lib q[../../../lib];
+    use Net::BitTorrent::Util qw[:bencode];
+
     #
     use version qw[qv];    # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 24 $)->numify / 1000;
+    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
 
     #
     use vars               # core as of perl 5.002
@@ -27,25 +28,27 @@ package Net::BitTorrent::Protocol;
         build_have         build_bitfield
         build_request      build_piece
         build_cancel       build_port
-        build_allowed_fast build_suggest_piece  build_reject_request
+        build_allowed_fast build_suggest  build_reject
         build_have_all     build_have_none
-        build_ExtProtocol
+        build_extended
         parse_packet
-        parse_handshake    parse_keepalive
-        parse_choke        parse_unchoke
-        parse_interested   parse_not_interested
-        parse_have         parse_bitfield
-        parse_request      parse_piece
-        parse_cancel       parse_port
-        parse_have_all     parse_have_none
-        parse_reject       parse_allowed_fast
-        parse_ExtProtocol
+        _parse_handshake    _parse_keepalive
+        _parse_choke        _parse_unchoke
+        _parse_interested   _parse_not_interested
+        _parse_have         _parse_bitfield
+        _parse_request      _parse_piece
+        _parse_cancel       _parse_port
+        _parse_suggest
+        _parse_have_all     _parse_have_none
+        _parse_reject       _parse_allowed_fast
+        _parse_extended
         HANDSHAKE          KEEPALIVE
         CHOKE              UNCHOKE
         INTERESTED         NOT_INTERESTED
         HAVE               BITFIELD
         REQUEST            PIECE
         CANCEL             PORT
+        SUGGEST
         HAVE_ALL           HAVE_NONE
         REJECT             ALLOWED_FAST
         EXTPROTOCOL
@@ -60,25 +63,26 @@ package Net::BitTorrent::Protocol;
                 build_have        build_bitfield
                 build_request     build_piece
                 build_cancel      build_port
-                build_suggest_piece
+                build_suggest
                 build_allowed_fast
-                build_reject_request
+                build_reject
                 build_have_all    build_have_none
-                build_ExtProtocol
+                build_extended
                 ]
         ],
         parse => [
             qw[
                 parse_packet
-                parse_handshake     parse_keepalive
-                parse_choke         parse_unchoke
-                parse_interested    parse_not_interested
-                parse_have          parse_bitfield
-                parse_request       parse_piece
-                parse_cancel        parse_port
-                parse_have_all      parse_have_none
-                parse_reject        parse_allowed_fast
-                parse_ExtProtocol
+                _parse_handshake     _parse_keepalive
+                _parse_choke         _parse_unchoke
+                _parse_interested    _parse_not_interested
+                _parse_have          _parse_bitfield
+                _parse_request       _parse_piece
+                _parse_cancel        _parse_port
+                _parse_suggest
+                _parse_have_all      _parse_have_none
+                _parse_reject        _parse_allowed_fast
+                _parse_extended
                 ]
         ],
         types => [
@@ -89,6 +93,7 @@ package Net::BitTorrent::Protocol;
                 HAVE                 BITFIELD
                 REQUEST                PIECE
                 CANCEL                PORT
+                SUGGEST
                 HAVE_ALL                HAVE_NONE
                 REJECT                ALLOWED_FAST
                 EXTPROTOCOL                ]
@@ -108,6 +113,7 @@ package Net::BitTorrent::Protocol;
     sub PIECE          {7}
     sub CANCEL         {8}
     sub PORT           {9}
+    sub SUGGEST        {13}
     sub HAVE_ALL       {14}
     sub HAVE_NONE      {15}
     sub REJECT         {16}
@@ -318,16 +324,16 @@ package Net::BitTorrent::Protocol;
             return pack(q[NcN], length($port) + 1, 9, $port);
         }
 
-        sub build_suggest_piece {    # 13 | index
+        sub build_suggest {    # 13 | index
             my ($index) = @_;
             if (not defined $index) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_suggest_piece() requires an index parameter];
+                    q[Net::BitTorrent::Protocol::build_suggest() requires an index parameter];
                 return;
             }
             if ($index !~ m[^\d+$]) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_suggest_piece() requires an integer index parameter];
+                    q[Net::BitTorrent::Protocol::build_suggest() requires an integer index parameter];
                 return;
             }
             return pack(q[NcN], 5, 13, $index);
@@ -341,36 +347,36 @@ package Net::BitTorrent::Protocol;
             return pack(q[Nc], 1, 15);
         }
 
-        sub build_reject_request {    # 16 | index, offset, length
+        sub build_reject {       # 16 | index, offset, length
             my ($index, $offset, $length) = @_;
             if (not defined $index) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_reject_request() requires an index parameter];
+                    q[Net::BitTorrent::Protocol::build_reject() requires an index parameter];
                 return;
             }
             if ($index !~ m[^\d+$]) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_reject_request() requires an integer index parameter];
+                    q[Net::BitTorrent::Protocol::build_reject() requires an integer index parameter];
                 return;
             }
             if (not defined $offset) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_reject_request() requires an offset parameter];
+                    q[Net::BitTorrent::Protocol::build_reject() requires an offset parameter];
                 return;
             }
             if ($offset !~ m[^\d+$]) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_reject_request() requires an offset parameter];
+                    q[Net::BitTorrent::Protocol::build_reject() requires an offset parameter];
                 return;
             }
             if (not defined $length) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_reject_request() requires an length parameter];
+                    q[Net::BitTorrent::Protocol::build_reject() requires an length parameter];
                 return;
             }
             if ($length !~ m[^\d+$]) {
                 carp
-                    q[Net::BitTorrent::Protocol::build_reject_request() requires an length index parameter];
+                    q[Net::BitTorrent::Protocol::build_reject() requires an length index parameter];
                 return;
             }
 
@@ -395,99 +401,93 @@ package Net::BitTorrent::Protocol;
         }
     }
 
-    sub build_ExtProtocol {    # 20 | msgID, hashref payload (to be bencoded)
+    sub build_extended {    # 20 | msgID, hashref payload (to be bencoded)
         my ($msgID, $data) = @_;
         if (not defined $msgID) {
             carp
-                q[Net::BitTorrent::Protocol::build_ExtProtocol() requires a message id parameter];
+                q[Net::BitTorrent::Protocol::build_extended() requires a message id parameter];
             return;
         }
         if ($msgID !~ m[^\d+$]) {
             carp
-                q[Net::BitTorrent::Protocol::build_ExtProtocol() requires an integer message id parameter];
+                q[Net::BitTorrent::Protocol::build_extended() requires an integer message id parameter];
             return;
         }
         if (not defined $data) {
             carp
-                q[Net::BitTorrent::Protocol::build_ExtProtocol() requires a payload];
+                q[Net::BitTorrent::Protocol::build_extended() requires a payload];
             return;
         }
         if (ref($data) ne q[HASH]) {
             carp
-                q[Net::BitTorrent::Protocol::build_ExtProtocol() requires a payload (hashref)];
+                q[Net::BitTorrent::Protocol::build_extended() requires a payload (hashref)];
             return;
         }
-        my $packet
-            = pack(q[ca*], $msgID, Net::BitTorrent::Util::bencode($data));
+        my $packet = pack(q[ca*], $msgID, bencode($data));
         return pack(q[Nca*], length($packet) + 1, 20, $packet);
     }
 
     #
     sub parse_packet {
         my ($data) = @_;
-        if (not $$data) {
+        if (ref($data) ne q[SCALAR]) {
+            carp q[Net::BitTorrent::Protocol::parse_packet() needs a ref];
+            return;
+        }
+        elsif (not $$data) {
             carp
                 q[Net::BitTorrent::Protocol::parse_packet() needs data to parse];
             return;
         }
         my ($packet);
         if (unpack(q[c], $$data) == 0x13) {
-            my @payload = parse_handshake(substr($$data, 0, 68, q[]));
+            my @payload = _parse_handshake(substr($$data, 0, 68, q[]));
             $packet = {Type    => HANDSHAKE,
                        Payload => @payload
             } if @payload;
         }
-        elsif (    (unpack(q[N], $$data) =~ m[\d])
-               and (unpack(q[N], $$data) <= length($$data)))
-        {   (my ($packet_data), $$data) = unpack(q[N/aa*], $$data);
-            (my ($type), $packet_data) = unpack(q[ca*], $packet_data);
+        elsif ((unpack(q[N], $$data) =~ m[\d])) {
+            if ((unpack(q[N], $$data) <= length($$data))) {
+                (my ($packet_data), $$data) = unpack(q[N/aa*], $$data);
+                (my ($type), $packet_data) = unpack(q[ca*], $packet_data);
 
-            #warn $type;
-            #use Data::Dump qw[pp];
-            #warn pp $packet_data;
-            my %dispatch = (q[] => \&parse_keepalive,
-                            0   => \&parse_choke,
-                            1   => \&parse_unchoke,
-                            2   => \&parse_interested,
-                            3   => \&parse_not_interested,
-                            4   => \&parse_have,
-                            5   => \&parse_bitfield,
-                            6   => \&parse_request,
-                            7   => \&parse_piece,
-                            8   => \&parse_cancel,
-                            9   => \&parse_port,
-                            14  => \&parse_have_all,
-                            15  => \&parse_have_none,
-                            16  => \&parse_reject,
-                            17  => \&parse_allowed_fast,
-                            20  => \&parse_ExtProtocol
-            );
-            if (defined $dispatch{$type}) {
-                my $payload = $dispatch{$type}($packet_data);
-
+                #warn $type;
                 #use Data::Dump qw[pp];
-                #warn pp $payload;
-                if ($type =~ m[\d] && not defined $payload) {
-                    return
-                        if 4 <= $type
-                            and $type <= 9 || 16 <= $type
-                            and $type <= 20;
+                #warn pp $packet_data;
+                my %dispatch = (&KEEPALIVE      => \&_parse_keepalive,
+                                &CHOKE          => \&_parse_choke,
+                                &UNCHOKE        => \&_parse_unchoke,
+                                &INTERESTED     => \&_parse_interested,
+                                &NOT_INTERESTED => \&_parse_not_interested,
+                                &HAVE           => \&_parse_have,
+                                &BITFIELD       => \&_parse_bitfield,
+                                &REQUEST        => \&_parse_request,
+                                &PIECE          => \&_parse_piece,
+                                &CANCEL         => \&_parse_cancel,
+                                &PORT           => \&_parse_port,
+                                &SUGGEST        => \&_parse_suggest,
+                                &HAVE_ALL       => \&_parse_have_all,
+                                &HAVE_NONE      => \&_parse_have_none,
+                                &REJECT         => \&_parse_reject,
+                                &ALLOWED_FAST   => \&_parse_allowed_fast,
+                                &EXTPROTOCOL    => \&_parse_extended
+                );
+                if (defined $dispatch{$type}) {
+                    my $payload = $dispatch{$type}($packet_data);
+                    $packet = {Type => $type,
+                               (defined $payload
+                                ? (Payload => $payload)
+                                : ()
+                               )
+                    };
                 }
-                $packet = {Type => $type,
-                           ($payload
-                            ? (Payload => $payload)
-                            : ()
-                           )
-                };
-            }
-            else {
-                if (require Data::Dumper) {
-                    warn $type;
-                    warn q[Unhandled BitTorrent packet: ]
-                        . Data::Dumper->Dump([$type, $packet],
-                                             [qw[type infohash]]);
+                else {
+                    if (require Data::Dumper) {
+                        carp q[Unhandled/Unknown packet where ]
+                            . Data::Dumper->Dump([$type, $packet],
+                                                 [qw[Type Packet]]);
+                    }
                 }
-                die;
             }
         }
         else {
@@ -499,11 +499,14 @@ package Net::BitTorrent::Protocol;
         return $packet;
     }
 
-    sub parse_handshake {    # -1 (fake) | reserved, infohash, peerid
+    sub _parse_handshake {    # -1 (fake) | reserved, infohash, peerid
         my ($packet) = @_;
+        if (not defined $packet) {
+            return;
+        }
 
         #
-        if (length $packet < 68) {
+        elsif (length($packet) < 68) {
             carp q[Not enough data for handshake packet];
             return;
         }
@@ -523,53 +526,64 @@ package Net::BitTorrent::Protocol;
         return [$reserved, $infohash, $peerid];
     }
 
-    sub parse_keepalive {    # 0 | No payload, No length
+    sub _parse_keepalive {    # 0 | No payload, No length
         return;
     }
 
-    sub parse_choke {        # 0 | No payload
+    sub _parse_choke {        # 0 | No payload
         return;
     }
 
-    sub parse_unchoke {      # 1 | No payload
+    sub _parse_unchoke {      # 1 | No payload
         return;
     }
 
-    sub parse_interested {    # 2 | No payload
+    sub _parse_interested {    # 2 | No payload
         return;
     }
 
-    sub parse_not_interested {    # 3 | No payload
+    sub _parse_not_interested {    # 3 | No payload
         return;
     }
 
-    sub parse_have {              # 4 | index
+    sub _parse_have {              # 4 | index
         my ($packet) = @_;
+
         #
-if (length($packet) < 1) {
+        if (not defined $packet) {
+            return;
+        }
+        elsif (length($packet) < 1) {
             carp q[Incorrect packet length for HAVE];
             return;
         }
+
         #
         return unpack(q[N], $packet);
     }
 
-    sub parse_bitfield {          # 5 | bitfield
+    sub _parse_bitfield {    # 5 | bitfield
         my ($packet) = @_;
 
         #
-        if (length($packet) < 1) {
+        if (not defined $packet) {
+            return;
+        }
+        elsif (length($packet) < 1) {
             carp q[Incorrect packet length for BITFIELD];
             return;
         }
         return (pack q[b*], unpack q[B*], $packet);    # vec friendly
     }
 
-    sub parse_request {    # 6 | index, offset, length
+    sub _parse_request {    # 6 | index, offset, length
         my ($packet) = @_;
 
         #
-        if (length($packet) < 9) {
+        if (not defined $packet) {
+            return;
+        }
+        elsif (length($packet) < 9) {
             carp
                 sprintf(
                      q[Incorrect packet length for REQUEST (%d requires >=9)],
@@ -581,11 +595,12 @@ if (length($packet) < 1) {
         return ([unpack(q[N3], $packet)]);    # index, offest, length
     }
 
-    sub parse_piece {                         # 7 | index, offset, data
+    sub _parse_piece {                        # 7 | index, offset, data
         my ($packet) = @_;
 
         #
-        if (length($packet) < 9) {
+        if (not defined $packet) {return}
+        elsif (length($packet) < 9) {
             carp
                 sprintf(
                        q[Incorrect packet length for PIECE (%d requires >=9)],
@@ -594,606 +609,135 @@ if (length($packet) < 1) {
         }
 
         #
-        return ([unpack(q[N2a*], $packet)]);    # index, offest, data
+        return ([unpack(q[N2a*], $packet)]);
     }
 
-    sub parse_cancel {                          # 8 | index, offset, length
-         my ($packet)=@_;
+    sub _parse_cancel {    # 8 | index, offset, length
+        my ($packet) = @_;
+
+        #
+        if (not defined $packet) {
+            return;
+        }
+        elsif (length($packet) < 9) {
+            carp
+                sprintf(
+                      q[Incorrect packet length for CANCEL (%d requires >=9)],
+                      length($packet));
+            return;
+        }
+
+        #
+        return ([unpack(q[N3], $packet)]);    # index, offest, length
+    }
+
+    sub _parse_port {    # 9 | port number | No longer used
+        my ($packet) = @_;
+
+        #
+        if (not defined $packet) {
+            return;
+        }
+        elsif (length($packet) < 1) {
+            carp q[Incorrect packet length for PORT];
+            return;
+        }
+
+        #
+        return (unpack q[N], $packet);
+    }
+    {    # Ext support
+
+        sub _parse_suggest {    # 13 | index
+            my ($packet) = @_;
+
+            #
+            if (not defined $packet) {return}
+            if (length($packet) < 1) {
+                carp q[Incorrect packet length for SUGGEST];
+                return;
+            }
+
+            #
+            return unpack(q[N], $packet);
+        }
+
+        sub _parse_have_all {    # 14 | No payload
+            return;
+        }
+
+        sub _parse_have_none {    # 15 | No payload
+            return;
+        }
+
+        sub _parse_reject {       # 16 | index, offset, length
+            my ($packet) = @_;
+
+            #
+            if (not defined $packet) {return}
+            elsif (length($packet) < 9) {
+                carp
+                    sprintf(
+                      q[Incorrect packet length for REJECT (%d requires >=9)],
+                      length($packet));
+                return;
+            }
+
+            #
+            return ([unpack(q[N3], $packet)]);    # index, offest, length
+        }
+
+        sub _parse_allowed_fast {                 # 17 | index
+            my ($packet) = @_;
+
+            #
+            if (not defined $packet) {return}
+            elsif (length($packet) < 1) {
+                carp q[Incorrect packet length for FASTSET];
+                return;
+            }
+
+            #
+            return unpack(q[N], $packet);
+        }
+    }
+
+    sub _parse_extended {    # 20 | msgID, hashref payload (to be bdecoded)
+        my ($packet) = @_;
+        if (not defined $packet) {return}
+        elsif (length $packet < 1) {
+            return;
+        }
+
+        #
+        my ($id, $payload) = unpack(q[ca*], $packet);
+
+        #
+        return ([$id, scalar bdecode($payload)]);
+    }
 
 #
-        return ([unpack(q[N3], $packet)]);
-
-    }
-    {                                           # Legacy support
-
-        sub parse_port {                        # 9 | port number
-            warn q[parse_port];
-        }
-
-        sub parse_suggest_piece {               # 13 | index
-            warn q[parse_suggest_piece];
-        }
-
-        sub parse_have_all {                    # 14 | No payload
-            warn q[parse_have_all];
-        }
-
-        sub parse_have_none {                   # 15 | No payload
-            warn q[parse_have_none];
-        }
-
-        sub parse_reject_request {              # 16 | index, offset, length
-            warn q[parse_reject_request];
-        }
-
-        sub parse_allowed_fast {                # 17 | index
-            warn q[parse_allowed_fast];
-        }
-    }
-
-    sub parse_ExtProtocol {    # 20 | msgID, hashref payload (to be bdecoded)
-        my ($packet) = @_;
-        return [unpack(q[ca*], $packet)];
-    }
-
-=pod
- sub _parse_packet {    # TODO: refactor
-        my ($self) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my $packet_len = unpack q[N], $queue_incoming{$self};
-        return
-            if not defined $packet_len
-                or length $queue_incoming{$self} == 0;
-        my (%ref, $type);
-        if (unpack(q[c], $queue_incoming{$self}) == 0x13) {
-            %ref = $self->_parse_packet_handshake($queue_incoming{$self});
-
-            #$self->_build_packet_port; # No one ever sends these either...
-        }
-        else {
-            return
-                if $packet_len > length $queue_incoming{$self};
-            (undef, my $packet_data, $queue_incoming{$self})
-                = unpack q[Na] . ($packet_len) . q[ a*],
-                $queue_incoming{$self};
-            ($type, my $packet) = unpack(q[ca*], $packet_data);
-            my %dispatch = (q[] => \&_parse_packet_keepalive,
-                            0   => \&_parse_packet_choke,
-                            1   => \&_parse_packet_unchoke,
-                            2   => \&_parse_packet_interested,
-                            3   => \&_parse_packet_disinterested,
-                            4   => \&_parse_packet_have,
-                            5   => \&_parse_packet_bitfield,
-                            6   => \&_parse_packet_request,
-                            7   => \&_parse_packet_piece,
-                            8   => \&_parse_packet_cancel,
-                            9   => \&_parse_packet_port,
-                            14  => \&_parse_packet_have_all,
-                            15  => \&_parse_packet_have_none,
-                            16  => \&_parse_packet_reject,
-                            17  => \&_parse_packet_allowed_fast,
-                            20  => \&_parse_packet_extended
-            );
-            if (defined $dispatch{$type}) {
-                %ref = $dispatch{$type}($self, $packet_len, $packet);
-            }
-            else {
-                if (require Data::Dumper) {
-                    warn $type;
-                    warn q[Unhandled BitTorrent packet: ]
-                        . Data::Dumper->Dump([$type, $packet],
-                                             [qw[type infohash]]);
-                }
-
-                # XXX - think about banning this guy
-                $self->_disconnect(q[Unknown or malformed packet]);
-            }
-        }
-        if (%ref) {
-            $client{$self}->_do_callback(q[peer_incoming_packet],
-                                         $self,
-                                         {length => $packet_len,
-                                          type   => $type,
-                                          data   => \%ref
-                                         }
-            );
-            return 1;
-        }
-        return;
-    }
-
-
-    sub _parse_packet_bitfield {    # ID: 5
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if (length($packet) < 1) {
-            $self->_disconnect(q[Incorrect packet length for BITFIELD]);
-            return;
-        }
-        $bitfield{$self} = pack q[b*], unpack q[B*], $packet;   # vec friendly
-        $self->_action_check_interesting;
-        %ref = (bitfield => $packet);
-        $client{$self}->_do_callback(q[peer_incoming_bitfield], $self);
-        return %ref;
-    }
-
-    sub _parse_packet_keepalive {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if (defined $packet) {
-            $self->_disconnect(
-                        sprintf(q[Incorrect packet length for keepalive (%d)],
-                                length($packet))
-            );
-            return;
-        }
-        $client{$self}->_do_callback(q[peer_incoming_keepalive], $self);
-        return %ref;
-    }
-
-    sub _parse_packet_unchoke {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($packet_len != 1) {
-            $self->_disconnect(q[Incorrect packet length for UNCHOKE]);
-            return;
-        }
-        $is_choking{$self} = 0;
-        $client{$self}->_set_pulse($self,
-                                   min(time + 2,
-                                       $client{$self}->get_pulse($self)
-                                   )
-        );
-        $client{$self}->_do_callback(q[peer_incoming_unchoke], $self);
-
-        # Do stuff here.
-        $self->_action_request_block();
-        return %ref;
-    }
-
-    sub _parse_packet_choke {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($packet_len != 1) {
-            $self->_disconnect(q[Incorrect packet length for _choke]);
-            return;
-        }
-        $is_choking{$self}     = 1;
-        $is_interesting{$self} = 1;
-        grep { $_->_remove_peer($self) } @{$outgoing_requests{$self}};
-        $outgoing_requests{$self} = [];
-        $client{$self}->_do_callback(q[peer_incoming_choke], $self);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_have {    # ID: 4
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($packet_len != 5) {
-            $self->_disconnect(q[Incorrect packet length for HAVE]);
-            return;
-        }
-        my ($index) = unpack(q[N], $packet);
-        if (not defined $index) {
-            $self->_disconnect(q[Malformed HAVE packet]);
-            return;
-        }
-        vec($bitfield{$self}, $index, 1) = 1;
-        $client{$self}->_do_callback(q[peer_incoming_have], $self, $index);
-        %ref = (index => $index);
-
-        # Do stuff here.
-        $self->_action_check_interesting;
-        return %ref;
-    }
-
-    sub _parse_packet_disinterested {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($packet_len != 1) {
-            $self->_disconnect(q[Incorrect packet length for DISINTERESTED]);
-            return;
-        }
-        $is_interested{$self} = 0;
-        $client{$self}->_do_callback(q[peer_incoming_disinterested], $self);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_interested {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($packet_len != 1) {
-            $self->_disconnect(q[Incorrect packet length for INTERESTED]);
-            return;
-        }
-        $is_interested{$self} = 1;
-        $client{$self}->_do_callback(q[peer_incoming_interested], $self);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_cancel {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($packet_len != 13) {
-            $self->_disconnect(q[Incorrect packet length for cancel]);
-            return;
-        }
-        my ($index, $offset, $length) = unpack(q[N3], $packet);
-        %ref = (index  => $index,
-                offset => $offset,
-                length => $length
-        );
-        my ($request) = grep {
-                    $_->get_index == $index
-                and $_->get_offset == $offset
-                and $_->get_length == $length
-        } @{$incoming_requests{$self}};
-        if (defined $request) {
-            $client{$self}
-                ->_do_callback(q[peer_incoming_cancel], $self, $request);
-        }
-        else {
-            $self->_disconnect(
-                q[Peer has canceled a request they never made or has already been filled.]
-            );
-        }
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_have_all {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if (!$_supports_FastPeers{$self}) {
-            $self->_disconnect(
-                q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a HAVE ALL message]
-            );
-            return;
-        }
-        if ($packet_len != 1) {
-            $self->_disconnect(q[Incorrect packet length for HAVE ALL]);
-            return;
-        }
-        $bitfield{$self} = pack(q[b*],
-                                (q[1] x ($session{$self}->get_piece_count + 1)
-                                )
-        );
-        $client{$self}->_do_callback(q[peer_incoming_have_all], $self);
-        return %ref;
-    }
-
-    sub _parse_packet_have_none {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if (!$_supports_FastPeers{$self}) {
-            $self->_disconnect(
-                q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a HAVE NONE message]
-            );
-            return;
-        }
-        if ($packet_len != 1) {
-            $self->_disconnect(q[Incorrect packet length for HAVE NONE]);
-            return;
-        }
-        $bitfield{$self}
-            = pack(q[b*], q[0] x ($session{$self}->get_piece_count + 1));
-        $client{$self}->_do_callback(q[peer_incoming_have_none], $self);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_reject {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if (!$_supports_FastPeers{$self}) {
-            $self->_disconnect(
-                q[Invalid packet: Peer does not claim to support Fast Extension but has sent us a REJECT message]
-            );
-            return;
-        }
-        if ($packet_len != 13) {
-            $self->_disconnect(q[Incorrect packet length for REJECT]);
-            return;
-        }
-        my ($index, $offset, $length) = unpack(q[N3], $packet);
-        %ref = (index  => $index,
-                offset => $offset,
-                length => $length
-        );
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_allowed_fast {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if (!$_supports_FastPeers{$self}) {
-            $self->_disconnect(
-                q[Invalid packet: Peer does not claim to support Fast Extension but has sent us an ALLOWED FAST message]
-            );
-            return;
-        }
-        if ($packet_len != 5) {
-            $self->_disconnect(q[Incorrect packet length for ALLOWED FAST]);
-            return;
-        }
-        my ($index) = unpack(q[N], $packet);
-        %ref = (index => $index);
-
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_extended {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($_supports_ExtProtocol{$self}) {
-            $self->_disconnect(
-                q[User does not support the Ext. Protocol but has sent an Ext. Protocol packet]
-            );
-            return;
-        }
-        if (length($packet) < 3) {
-            $self->_disconnect(q[Incorrect packet length for Ext. Protocol]);
-            return;
-        }
-        my ($messageid, $data) = unpack(q[ca*], $packet);
-        my $_content = bdecode($data);
-        %ref = (messageid => $messageid,
-                packet    => $_content);
-
-        #use Data::Dump qw[pp];
-        #warn pp \%ref;
-        #warn pp $_content;
-        #warn pp $data;
-        # messageid:
-        #  0 = handshake
-        # >0 = extended message as specified by the handshake
-        # Do stuff here.
-        return %ref;
-    }
-
-    sub _parse_packet_piece {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if (length($packet) < 9) {
-            $self->_disconnect(
-                   sprintf(
-                       q[Incorrect packet length for PIECE (%d requires >=9)],
-                       length($packet))
-            );
-            return;
-        }
-        my ($index, $offset, $data) = unpack(q[N2a*], $packet);
-        %ref = (block  => $data,
-                index  => $index,
-                offset => $offset,
-                length => length($data)
-        );
-        if (not $session{$self}->get_pieces->[$index]->get_working) {
-            $self->_disconnect(q[Malformed PIECE packet. (1)]);
-        }
-        else {
-            my $block = $session{$self}->get_pieces->[$index]
-                ->get_blocks->{$offset};
-            if (   (not defined $block)
-                or (length($data) != $block->get_length))
-            {   $self->_disconnect(q[Malformed PIECE packet. (2)]);
-
-                #
-                #}
-                #elsif (not scalar $block->get_peers
-                #    or not $block->get_request_timestamp($self))
-                #{
-                # TODO: ...should we accept the block anyway if we need it?
-                $self->_disconnect(
-                    q[Peer sent us a piece we've already canceled or we never asked for.]
-                );
-            }
-            else {
-                $client{$self}
-                    ->_do_callback(q[peer_incoming_block], $self, $block);
-                if ($block->_write($data)) {
-                    delete $session{$self}->get_pieces->[$index]
-                        ->get_blocks->{$offset};
-                    @{$outgoing_requests{$self}}
-                        = grep { $_ ne $block } @{$outgoing_requests{$self}};
-                    $client{$self}->_set_pulse($self,
-                            min(time + 5, $client{$self}->get_pulse($self)));
-                    $downloaded{$self} += length $data;
-                    $session{$self}->_inc_downloaded(length $data);
-                    $previous_incoming_block{$self} = time;
-                    $block->get_piece->_set_previous_incoming_block(time);
-
-                  # TODO: if endgame, cancel all other requests for this block
-                    if (scalar($block->get_peers) > 1) {
-                        for my $peer ($block->get_peers) {
-                            $peer->_action_cancel_block($block)
-                                unless $peer == $self;
-                        }
-                    }
-                    if (not scalar values %{$block->get_piece->get_blocks}) {
-                        if ($block->get_piece->get_verified_integrity) {
-                            grep {
-                                $_->_build_packet_have(
-                                                 $block->get_piece->get_index)
-                            } $session{$self}->get_peers;
-                        }
-                        else {
-                            die
-                                q[BAD PIECE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!];
-
-                            # TODO: penalize all peers related to piece
-                            # See N::B::P::verify()
-                        }
-                    }
-                    else {
-
-                        #die q[Gah];
-                        # .:shrugs:.
-                    }
-                }
-            }
-        }
-        return %ref;
-    }
-
-    sub _parse_packet_request {
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my %ref = (load => q[]);
-        if ($packet_len != 13) {
-            $self->_disconnect(q[Incorrect packet length for REQUEST]);
-            return;
-        }
-        my ($index, $offset, $length) = unpack(q[N3], $packet);
-        %ref = (index  => $index,
-                offset => $offset,
-                length => $length
-        );
-        my $request =
-            Net::BitTorrent::Session::Peer::Request->new(
-                                                        {index  => $index,
-                                                         offset => $offset,
-                                                         length => $length,
-                                                         peer   => $self
-                                                        }
-            );
-        push @{$incoming_requests{$self}}, $request;
-        $client{$self}
-            ->_do_callback(q[peer_incoming_request], $self, $request);
-        return %ref;
-    }
-
-    sub _parse_packet_port {    # DHT
-        my ($self, $packet_len, $packet) = @_;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        if ($packet_len != 3) {
-            $self->_disconnect(q[Incorrect packet length for PORT message]);
-            return;
-        }
-        $listening_port{$self} = unpack(q[n], $packet);
-        $self->get_session->append_nodes(
-                                compact(sprintf q[%s:%d], $self->get_peerhost,
-                                        $listening_port{$self}
-                                )
-        );
-        return;
-    }
-
-    sub _parse_reserved {    # ...sub-packet, actually.
-        my $self = shift;
-        $client{$self}->_do_callback(q[log], TRACE,
-                                     sprintf(q[Entering %s for %s],
-                                             [caller 0]->[3], $$self
-                                     )
-        );
-        my ($reserved) = [map {ord} split(q[], $reserved{$self})];
-        $_supports_DHT{$self}         = ($reserved->[7] &= 0x01 ? 1 : 0);
-        $_supports_FastPeers{$self}   = ($reserved->[7] &= 0x04 ? 1 : 0);
-        $_supports_ExtProtocol{$self} = ($reserved->[5] &= 0x10 ? 1 : 0);
-        $_supports_Encryption{$self} = 0;    # ...todo
-        $_supports_BitComet{$self}
-            = (($reserved->[1] . $reserved->[1] eq q[ex]) ? 1 : 0);
-        $_fastset_out{$self} = [] if $_supports_FastPeers{$self};
-        $_fastset_in{$self}  = [] if $_supports_FastPeers{$self};
-        $client{$self}->get_dht->add_node($$self) if $_supports_DHT{$self};
-        return 1;
-    }
-=cut
-
-    #
+#     sub _parse_reserved {      # ...sub-packet, actually.
+#~         my $self = shift;
+#~         $client{$self}->_do_callback(q[log], TRACE,
+#~                                      sprintf(q[Entering %s for %s],
+#~                                              [caller 0]->[3], $$self
+#~                                      )
+#~         );
+#~         my ($reserved) = [map {ord} split(q[], $reserved{$self})];
+#~         $_supports_DHT{$self}         = ($reserved->[7] &= 0x01 ? 1 : 0);
+#~         $_supports_FastPeers{$self}   = ($reserved->[7] &= 0x04 ? 1 : 0);
+#~         $_supports_ExtProtocol{$self} = ($reserved->[5] &= 0x10 ? 1 : 0);
+#~         $_supports_Encryption{$self} = 0;    # ...todo
+#~         $_supports_BitComet{$self}
+#~             = (($reserved->[1] . $reserved->[1] eq q[ex]) ? 1 : 0);
+#~         $_fastset_out{$self} = [] if $_supports_FastPeers{$self};
+#~         $_fastset_in{$self}  = [] if $_supports_FastPeers{$self};
+#~         $client{$self}->get_dht->add_node($$self) if $_supports_DHT{$self};
+#~         return 1;
+#~     }
+#
+#
     1;
 }
 
@@ -1226,9 +770,53 @@ move on down to the L<See Also|/"See Also"> section.
 
 =head1 Functions
 
-There are two types of functions exported by this module:
+There are three types of functions exported by this module:
 
 =over
+
+=item Packet Types
+
+These functions return the BitTorrent
+
+=over
+
+=item HANDSHAKE
+
+=item KEEPALIVE
+
+=item CHOKE
+
+=item UNCHOKE
+
+=item INTERESTED
+
+=item NOT_INTERESTED
+
+=item HAVE
+
+=item BITFIELD
+
+=item REQUEST
+
+=item PIECE
+
+=item CANCEL
+
+=item PORT
+
+=item SUGGEST
+
+=item HAVE_ALL
+
+=item HAVE_NONE
+
+=item REJECT
+
+=item ALLOWED_FAST
+
+=item EXTPROTOCOL
+
+=back
 
 =item Building Functions
 
@@ -1414,7 +1002,7 @@ typically used during 'End Game.'
 
 See Also: http://tinyurl.com/NB-docs-EndGame - End Game
 
-=item C<build_ExtProtocol ( DATA )>
+=item C<build_extended ( DATA )>
 
 Creates an extended protocol message.
 
@@ -1425,7 +1013,7 @@ Creates an extended protocol message.
 The following messages are either part of the base protocol or one of
 the common extentions but have either been superceeded or simply
 removed from the majority of clients.  I have provided them here only
-for legacy support; they may be removed in the future.
+for legacy support; they will not be removed in the future.
 
 =over
 
@@ -1440,15 +1028,19 @@ Protocol Specification
 
 Creates an Allowed Fast message.
 
+uTorrent never advertises a fast set... why should we?
+
 See also: http://bittorrent.org/beps/bep_0006.html - Fast Extension
 
-=item C<build_suggest_piece ( INDEX )>
+=item C<build_suggest ( INDEX )>
 
 Creates a Suggest Piece message.
 
+Super seeding is not supported by Net::BitTorrent.  Yet.
+
 See also: http://bittorrent.org/beps/bep_0006.html - Fast Extension
 
-=item C<build_reject_request ( INDEX, OFFSET, LENGTH )>
+=item C<build_reject ( INDEX, OFFSET, LENGTH )>
 
 Creates a Reject Request message.
 
@@ -1472,7 +1064,11 @@ See also: http://bittorrent.org/beps/bep_0006.html - Fast Extension
 
 =over
 
-=item ...
+=item parse_packet( DATA )
+
+Attempts to parse any known packet from the data (a scalar ref) passed to it.
+On success, the payload and type are returned and the packet is removed from
+the incoming data ref.  C<undef> is returned on failure.
 
 =back
 

@@ -4,14 +4,14 @@ package Net::BitTorrent::Session::Tracker;
     use warnings;    # core as of perl 5.006
 
     #
-    use Carp qw[confess];                      # core as of perl 5
+    use Carp qw[carp];                      # core as of perl 5
     use Scalar::Util qw[blessed weaken];    # core as of 5.007003
     use List::Util qw[shuffle];             # core as of 5.007003
 
     #
     use version qw[qv];                     # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 24 $)->numify / 1000;
+    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
 
     #
     use Net::BitTorrent::Session::Tracker::HTTP;
@@ -45,42 +45,42 @@ package Net::BitTorrent::Session::Tracker;
 
         # Param validation... Ugh...
         if (not defined $args) {
-            confess q[Net::BitTorrent::Session::Tracker->new({}) requires ]
+            carp q[Net::BitTorrent::Session::Tracker->new({}) requires ]
                 . q[parameters a set of parameters];
             return;
         }
         if (ref($args) ne q[HASH]) {
-            confess q[Net::BitTorrentS::Session::Tracker->new({}) requires ]
+            carp q[Net::BitTorrentS::Session::Tracker->new({}) requires ]
                 . q[parameters to be passed as a hashref];
             return;
         }
         if (not defined $args->{q[URLs]}) {
-            confess q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
+            carp q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
                 . q['URLs' parameter];
             return;
         }
         if (ref $args->{q[URLs]} ne q[ARRAY]) {
-            confess q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
+            carp q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
                 . q[list of URLs];
             return;
         }
         if (not scalar(@{$args->{q[URLs]}})) {
-            confess q[Net::BitTorrent::Session::Tracker->new({}) doesn't (yet) ]
+            carp q[Net::BitTorrent::Session::Tracker->new({}) doesn't (yet) ]
                 . q[know what to do with an empty list of URLs];
             return;
         }
         if (not defined $args->{q[Session]}) {
-            confess q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
+            carp q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
                 . q['Session' parameter];
             return;
         }
         if (not blessed $args->{q[Session]}) {
-            confess q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
+            carp q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
                 . q[blessed 'Session' object];
             return;
         }
         if (not $args->{q[Session]}->isa(q[Net::BitTorrent::Session])) {
-            confess q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
+            carp q[Net::BitTorrent::Session::Tracker->new({}) requires a ]
                 . q[blessed Net::BitTorrent::Session object in the 'Session' ]
                 . q[parameter];
             return;
@@ -112,15 +112,12 @@ package Net::BitTorrent::Session::Tracker;
         ];
 
         #
-        $session{$self}->_client->schedule(
-            {   Time    => time,
+        $session{$self}->_client->_schedule(
+            {   Time => time,
                 Code => sub {
-                    my ($self)=@_;
-
-
-                    $urls{$self}->[0]->_announce(q[started]);
-                    },
-                    Object=>$self
+                    $urls{+shift}->[0]->_announce(q[started]);
+                },
+                Object => $self
             }
         );
 
@@ -136,6 +133,7 @@ package Net::BitTorrent::Session::Tracker;
     sub _client  { return $session{+shift}->_client; }
     sub _session { return $session{+shift}; }
 
+    # Methods | Private
     sub _set_complete {
         my ($self, $value) = @_;
         return $complete{$self} = $value;
@@ -145,10 +143,6 @@ package Net::BitTorrent::Session::Tracker;
         my ($self, $value) = @_;
         return $incomplete{$self} = $value;
     }
-
-    #sub _peer_
-    # Methods | private
-    #sub _announce { }
 
     #
     DESTROY {
@@ -176,7 +170,27 @@ Net::BitTorrent::Session::Tracker - Single BitTorrent Tracker Tier
 
 =head1 Description
 
-This class should not be accessed directly.
+Objects of this class should not be created directly.
+
+=head1 Methods
+
+=over
+
+=item C<new()>
+
+Constructor.  Don't use this.
+
+=item C<complete()>
+
+Returns the number of complete seeds the tracker says are present in the
+swarm.
+
+=item C<incomplete()>
+
+Returns the number of incomplete peers the tracker says are present in
+the swarm.
+
+=back
 
 =head1 Author
 

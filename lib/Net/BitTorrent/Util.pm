@@ -10,7 +10,7 @@ package Net::BitTorrent::Util;
     #
     use version qw[qv];                        # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 24 $)->numify / 1000;
+    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
 
     #
     use vars                                   # core as of perl 5.002
@@ -26,7 +26,6 @@ package Net::BitTorrent::Util;
     %EXPORT_TAGS = (all     => [@EXPORT_OK],
                     bencode => [qw[bencode bdecode]],
                     compact => [qw[compact uncompact]],
-                    list    => [qw[min max shuffle sum]],
                     log     => [qw[TRACE DEBUG INFO WARN ERROR FATAL]]
     );
 
@@ -42,8 +41,9 @@ package Net::BitTorrent::Util;
 
     sub bencode {
         my ($ref) = @_;
-        if (defined $ref and not ref $ref) {
-            return (  ($ref =~ m[^[-+]?\d+$])
+        $ref = defined $ref?$ref:q[];
+        if (not ref $ref) {
+            return (  (defined $ref and $ref =~ m[^[-+]?\d+$])
                     ? (q[i] . $ref . q[e])
                     : (length($ref) . q[:] . $ref)
             );
@@ -63,12 +63,16 @@ package Net::BitTorrent::Util;
         return q[]; # $ref == undef
     }
 
-    sub bdecode {    # needs work
+
+sub  bdecode {    # needs work
         return if not @_;
         my $string = shift;
         my ($return, $leftover);
-        if ($string =~ m[^([1-9]\d*):]s) {
-            my $size = $1;
+        if ($string =~ m[^([1-9]\d*):]s
+            or
+            $string =~ m[^(0+):]s
+        ) {
+            my $size = $1; $return =q[] if $1 =~ m[^0+$];
             $string =~ s|^$size:||s;
             while ($size) {
                 my $this_time = min($size, 32766);
@@ -93,9 +97,10 @@ package Net::BitTorrent::Util;
         elsif ($string =~ s|^d(.*)||s) {                        # dictionary
             $leftover = $1;
             while ($leftover and $leftover !~ s|^e||s) {
-                (my ($key),   $leftover) = bdecode($leftover);
-                (my ($value), $leftover) = bdecode($leftover);
-                $return->{$key} = $value;
+                my ($key, $value);
+                ($key,   $leftover) = bdecode($leftover);
+                ($value, $leftover) = bdecode($leftover);
+                 $return->{$key} = $value;
             }
             return wantarray ? (\%$return, $leftover) : \%$return;
         }
@@ -106,28 +111,22 @@ package Net::BitTorrent::Util;
     sub compact {
         my (@peers) = @_;
         if (not @peers) {
-            carp q[Not enough parameters for compact(ARRAY)];
+            #carp q[Not enough parameters for compact(ARRAY)];
             return;
         }
         my $return;
         my %seen;
     PEER: for my $peer (grep(defined && !$seen{$_}++, @peers)) {
             next if not $peer;
-            my ($ip, $port) = ( # ...sigh, some (old) trackers do crazy things
-                ref $peer eq q[HASH]
-                ? ($peer->{q[ip]}, $peer->{q[port]})
-                : split(q[:], $peer, 2)
-            );
+
+            my ($ip, $port) = split(q[:], $peer, 2             );
             if ($peer
                 !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4}):\d+$]
                 )
-            {   carp q[Invalid IP address: ] . $peer;
-            }
-            elsif ($port =~ m[[^\d]]) {
-                carp q[Malformed port number: ] . $peer;
+            {   #carp q[Invalid IP address: ] . $peer;
             }
             elsif ($port > 2**16) {    #
-                carp q[Port number beyond ephemeral range: ] . $peer;
+                #carp q[Port number beyond ephemeral range: ] . $peer;
             }
             else {
                 $return .= pack q[C4n],    # XXX - use inet_aton
@@ -153,6 +152,99 @@ package Net::BitTorrent::Util;
     }
     1;
 }
+
+
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Util - BitTorrent Related Utility Functions
+
+=head1 Importing From Net::BitTorrent::Util
+
+By default, nothing is exported.
+
+You may import any of the following or use one or more of these tags:
+
+=over 2
+
+=item C<:all>
+
+Everything is imported into your namespace.
+
+=item C<:log>
+
+Net::BitTorrent's log callback uses these to indicate how 'important' a
+certain message is:
+
+=over 2
+
+=item C<TRACE>
+
+=item C<FATAL>
+
+=item C<ERROR>
+
+=item C<WARN>
+
+=item C<INFO>
+
+=item C<DEBUG>
+
+=back
+
+=item C<:bencode>
+
+You get the two Bencode-related functions: C<bencode> and C<bedecode>.
+For more on Bencoding, see the BitTorrent Protocol documentation.
+
+=item C<:compact>
+
+C<compact>, C<uncompact>
+
+These are tracker response-related functions.
+
+
+
+=back
+
+=head1 Functions
+
+=over 4
+
+=item C<bencode ( ARGS )>
+
+Expects a single value (basic scalar, array reference, or hash
+reference) and returns a single string.
+
+Bencoding is the BitTorrent protocol's basic serialization and
+data organization format.  The specification supports integers,
+lists (arrays), dictionaries (hashes), and byte strings.
+
+See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
+
+=item C<bdecode ( STRING )>
+
+Expects a bencoded string.  The return value depends on the type of
+data contained in the string.
+
+See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
+
+=item C<compact ( LIST )>
+
+Compacts a list of IPv4:port strings into a single string.
+
+A compact peer is 6 bytes;  the first four bytes are the host (in
+network byte order), the last two bytes are the port (again in network
+byte order).
+
+=item C<uncompact ( STRING )>
+
+Inflates a compacted string of peers and returns a list of IPv4:port
+strings.
+
+=back
 
 =head1 Author
 

@@ -4,7 +4,7 @@ package Net::BitTorrent::Session::Tracker::UDP;
     use warnings;    # core as of perl 5.006
 
     #
-    use Carp qw[confess];                      # core as of perl 5
+    use Carp qw[carp];                      # core as of perl 5
     use Scalar::Util qw[blessed weaken];    # core since perl 5.007003
 
     #
@@ -16,26 +16,26 @@ package Net::BitTorrent::Session::Tracker::UDP;
         my ($class, $args) = @_;
         my $self;
         if (not defined $args) {
-            confess __PACKAGE__ . q[->new() requires params];
+            carp __PACKAGE__ . q[->new() requires params];
             return;
         }
         if (not defined $args->{q[URL]}) {
-            confess __PACKAGE__ . q[->new() requires a 'URL' param];
+            carp __PACKAGE__ . q[->new() requires a 'URL' param];
             return;
         }
         if ($args->{q[URL]} !~ m[^udp://]i) {
-            confess
+            carp
                 sprintf(
                   q[%s->new() doesn't know what to do with malformed url: %s],
                   __PACKAGE__, $args->{q[URL]});
             return;
         }
         if (not defined $args->{q[Tier]}) {
-            confess __PACKAGE__ . q[->new() requires a 'Tier' param];
+            carp __PACKAGE__ . q[->new() requires a 'Tier' param];
             return;
         }
         if (not $args->{q[Tier]}->isa(q[Net::BitTorrent::Session::Tracker])) {
-            confess __PACKAGE__ . q[->new() requires a blessed Tracker 'Tier'];
+            carp __PACKAGE__ . q[->new() requires a blessed Tracker 'Tier'];
             return;
         }
 
@@ -55,7 +55,7 @@ package Net::BitTorrent::Session::Tracker::UDP;
         my ($self, $event) = @_;
         if (defined $event) {
             if ($event !~ m[([started|stopped|complete])]) {
-                confess sprintf q[Invalid event for announce: %s], $event;
+                carp sprintf q[Invalid event for announce: %s], $event;
                 return;
             }
         }
@@ -78,3 +78,56 @@ package Net::BitTorrent::Session::Tracker::UDP;
     #
     1;
 }
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Session::Tracker::UDP - Single UDP BitTorrent Tracker
+
+=head1 Constructor
+
+=over 4
+
+=item C<new ( [ARGS] )>
+
+Creates a C<Net::BitTorrent::Session::Tracker::UDP> object.  This
+constructor should not be used directly.
+
+=back
+
+=head1 BUGS/TODO
+
+=over 4
+
+=item *
+
+...this doesn't work.  Yet.
+
+=back
+
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl 5.10 (or higher).  See
+http://www.perl.com/perl/misc/Artistic.html or the F<LICENSE> file
+included with this distribution.
+
+All POD documentation is covered by the Creative Commons Attribution-
+Noncommercial-Share Alike 3.0 License
+(http://creativecommons.org/licenses/by-nc-sa/3.0/us/).
+
+Neither this module nor the L<Author|/Author> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

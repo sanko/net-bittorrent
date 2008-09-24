@@ -13,18 +13,18 @@ package Net::BitTorrent;
         PF_INET     SOMAXCONN
         /pack_sockaddr_in/];
     use Carp            # core as of perl 5
-        qw[confess confess];
+        qw[carp carp];
 
     #$Carp::Internal{q[Net::BitTorrent]}++;
     # I could also use Errno, but it's so heavy...
     use POSIX qw[];     # core as of perl 5
-    sub EWOULDBLOCK { $^O eq q[MSWin32] ? 10035 : POSIX::EWOULDBLOCK() }
-    sub EINPROGRESS { $^O eq q[MSWin32] ? 10036 : POSIX::EINPROGRESS() }
+    sub _EWOULDBLOCK { $^O eq q[MSWin32] ? 10035 : POSIX::EWOULDBLOCK() }
+    sub _EINPROGRESS { $^O eq q[MSWin32] ? 10036 : POSIX::EINPROGRESS() }
 
     #
     use version qw[qv];    # core as of 5.009
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 6; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(qw$Rev: 25 $)->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 6; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(qw$Rev$)->numify / 1000), $UNSTABLE_RELEASE);
 
     #
     use lib q[../../lib];
@@ -35,7 +35,6 @@ package Net::BitTorrent;
 
     # Debugging
     #use Data::Dump qw[pp];
-
     #
     my (%_socket, %_peerid, %_schedule, %_peers_per_session, %_event);
     my (%_dht, %_sessions, %_connections);
@@ -60,7 +59,7 @@ package Net::BitTorrent;
         my ($reuseaddr, $reuseport) = (0, 0);            # XXX - undocumented
         if (defined $args) {
             if (ref($args) ne q[HASH]) {
-                confess q[Net::BitTorrent->new({}) requires ]
+                carp q[Net::BitTorrent->new({}) requires ]
                     . q[parameters to be passed as a hashref];
                 return;
             }
@@ -109,7 +108,7 @@ package Net::BitTorrent;
                 q[a20],
                 (sprintf(
                      q[NB%03d%1s-%8s%5s],
-                     (q[$Rev: 25 $] =~ m[(\d+)]g),
+                     (q[$Rev$] =~ m[(\d+)]g),
                      ($UNSTABLE_RELEASE ? q[S] : q[C]),
                      (join q[],
                       map {
@@ -121,26 +120,26 @@ package Net::BitTorrent;
                  )
                 )
             );
-                  $_tid{$self}           = qq[\0] x 5;    # 26^5 before rollover
-
+            $_tid{$self} = qq[\0] x 5;    # 26^5 before rollover
             if (not($self->_add_connection($self, q[ro]))) {
-                confess q[Could not add server socket to list of connections];
+                carp q[Could not add server socket to list of connections];
                 return;
             }
 
             #
             $_dht{$self} =
                 Net::BitTorrent::DHT->new(
-                                       {client    => $self,
+                                       {Client    => $self,
                                         LocalAddr => inet_ntoa($packed_ip),
                                         LocalPort => $port,
                                         ReuseAddr => $args->{q[ReuseAddr]},
                                         ReusePort => $args->{q[ReusePort]}
                                        }
                 ) or return;
-            $self->_add_connection($_dht{$self}, q[ro]);
+
+
         }
-        if (not $self) {    # could not open socket
+        if (not $self) {    # failed to open socket?
             return;
         }
 
@@ -153,22 +152,17 @@ package Net::BitTorrent;
         #$_dht{$self}=Net::BitTorrent::DHT->new();
         $_sessions{$self} = {};    # by infohash
 
-
-
         #
-        #$self->schedule(
+        #$self->_schedule(
         #    {Time    => time + 5,
-        #     Code => sub { $self->_add_connections }
+        #     Code => $self->_add_connections }
         #    }
         #);
         #
         #
-        $self->schedule(
+        $self->_schedule(
             {Time => time + 5,
-             Code => sub {
-                 my ($self) = @_;
-                 return $_k_down{$self} = $_k_up{$self} = 0;
-             },
+             Code => sub {return$_k_down{$_[0]}=$_k_up{$_[0]}=0;},
              Object => $self
             }
         );
@@ -249,64 +243,67 @@ package Net::BitTorrent;
       #   - true on success
       #   - false on failure (socket already in list, missing params, etc.)
       # Param validation
-        confess q[Net::BitTorrent->_add_connection() requires an object]
-            unless defined $connection;
-        confess
-            q[Net::BitTorrent->_add_connection() requires a blessed object]
-            unless blessed $connection;    # untested
-        confess
-            q[Net::BitTorrent->_add_connection() requires a Net::BitTorrent-related object]
-            unless                         # untested
-            $connection->isa(q[Net::BitTorrent]
-                )    # XXX - ...who would remove the client itself?
+        if (not defined $connection) {
+            carp q[Net::BitTorrent->_add_connection() requires an object];
+            return;
+        }
+        if (not blessed $connection) {
+            carp
+                q[Net::BitTorrent->_add_connection() requires a blessed object];
+            return;
+        }
+        if (not(   $connection->isa(q[Net::BitTorrent])
+                or $connection->isa(q[Net::BitTorrent::Peer])
                 or
                 $connection->isa(q[Net::BitTorrent::Session::Tracker::HTTP])
                 or $connection->isa(q[Net::BitTorrent::Session::Tracker::UDP])
-                or $connection->isa(q[Net::BitTorrent::Peer])
                 or $connection->isa(q[Net::BitTorrent::DHT])
-
-                #or $connection->isa(q[Net::BitTorrent::DHT::Node::Mainline])
-                #or $connection->isa(q[Net::BitTorrent::DHT::Node::Azureus])
-        ;
+                or $connection->isa(q[Net::BitTorrent::DHT::Node::Mainline])
+                or $connection->isa(q[Net::BitTorrent::DHT::Node::Azureus]))
+            )
+        {   carp
+                q[Net::BitTorrent->_add_connection() requires a Net::BitTorrent-related object];
+            return;
+        }
         my $_socket = $connection->_socket;
         if (ref($_socket) ne q[GLOB]) {
-            confess
+            carp
                 q[Net::BitTorrent->_add_connection(SOCKET, MODE) requires a GLOB-type socket];
             return;
         }
 
         #
         if (not defined $mode) {
-            confess
+            carp
                 q[Net::BitTorrent->_add_connection(SOCKET, MODE) requires a $mode parameter];
             return;
         }
         if ($mode !~ m[^(?:ro|rw|wo)$]) {
-            confess
+            carp
                 sprintf(
                 q['%s' is not a valid mode for Net::BitTorrent->_add_connection(SOCKET, MODE)],
                 $mode);
             return;
         }
-        confess unless ref($_socket) eq q[GLOB];    # untested
-        confess unless fileno $_socket;
+        carp unless ref($_socket) eq q[GLOB];    # untested
+        carp unless fileno $_socket;
         if (defined $_connections{$self}{fileno $_socket}) {
-            confess q[This connection object is already loaded.];
+            carp q[This connection object is already loaded.];
+            return;
+        }
+        $_connections{$self}{fileno $_socket} = {
+                                                        Object => $connection,
+                                                        Mode   => $mode,
+                 } or return ;
+
+        if($connection->isa(q[Net::BitTorrent])) {
+            weaken $_connections{$self}{fileno $_socket}{q[Object]}
         }
 
-        #warn sprintf q[fileno %d| %s | %s line %d ], fileno($_socket),
-        #    caller();
-        $_connections{$self}{fileno $_socket} = {Object  => $connection,
-                                                 Mode    => $mode,
-                                                 _caller => [caller]
-            }
-            or return;
-
-        #weaken $_connections{$self}{fileno $_socket}{q[Object]};
         return 1;
     }
 
-    sub _del_connection {
+    sub _remove_connection {
 
         # Removes a socket to this objects list for select()ion
         # Expects parameters in list context:
@@ -316,54 +313,47 @@ package Net::BitTorrent;
         #   - true on success
         #   - false on failure (socket not in list, missing params, etc.)
         my ($self, $connection) = @_;
-        confess q[Net::BitTorrent->_del_connection() requires an object]
-            unless defined $connection;
-        confess
-            q[Net::BitTorrent->_del_connection() requires a blessed object]
-            unless blessed $connection;    # untested
-        confess
-            q[Net::BitTorrent->_del_connection() requires a Net::BitTorrent-related object]
-            unless                         # untested
-            $connection->isa(q[Net::BitTorrent]
+        if (not defined $connection) {
+            carp q[Net::BitTorrent->_remove_connection() requires an object];
+            return;
+        }
+        if (not blessed $connection) {
+            carp
+                q[Net::BitTorrent->_remove_connection() requires a blessed object];
+            return;
+        }
+        if (not($connection->isa(q[Net::BitTorrent]
                 )    # XXX - ...who would remove the client itself?
+                or $connection->isa(q[Net::BitTorrent::Peer])
                 or
                 $connection->isa(q[Net::BitTorrent::Session::Tracker::HTTP])
                 or $connection->isa(q[Net::BitTorrent::Session::Tracker::UDP])
-                or $connection->isa(q[Net::BitTorrent::Peer])
                 or $connection->isa(q[Net::BitTorrent::DHT])
-
-                #or $connection->isa(q[Net::BitTorrent::DHT::Node::Mainline])
-                #or $connection->isa(q[Net::BitTorrent::DHT::Node::Azureus])
-        ;
+                or $connection->isa(q[Net::BitTorrent::DHT::Node::Mainline])
+                or $connection->isa(q[Net::BitTorrent::DHT::Node::Azureus])
+            )
+            )
+        {   carp
+                q[Net::BitTorrent->_remove_connection() requires a Net::BitTorrent-related object];
+            return;
+        }
         my $socket = $connection->_socket;
-        return       # a disconnected peer?  Bug for sure.
+        return    # a disconnected peer?  Bug for sure.
             unless ref($socket) eq q[GLOB];    # untested
-          #confess q[...bad socket (No fileno may mean socket is closed)] unless fileno $socket;
-          #if (not defined $_connections{$self}{fileno $socket}) {
-          #    confess q[Connection not loaded.];
-          #}
-
-        # Debugging
-        #warn ref $connection;
-        #use Devel::FindRef;
-        #warn Devel::FindRef::track \$connection;
-        #use Devel::Peek;
-        #Dump(\$connection);
-        #
         return delete $_connections{$self}{fileno $socket};
     }
 
     sub _process_connections {
         my ($self, $rin, $win, $ein) = @_;
-        confess unless defined $rin;
-        confess unless ref $rin;
-        confess if ref $rin ne q[SCALAR];
-        confess unless defined $win;
-        confess unless ref $win;
-        confess if ref $win ne q[SCALAR];
-        confess unless defined $ein;
-        confess unless ref $ein;
-        confess if ref $ein ne q[SCALAR];
+        carp unless defined $rin;
+        carp unless ref $rin;
+        carp if ref $rin ne q[SCALAR];
+        carp unless defined $win;
+        carp unless ref $win;
+        carp if ref $win ne q[SCALAR];
+        carp unless defined $ein;
+        carp unless ref $ein;
+        carp if ref $ein ne q[SCALAR];
     POPSOCK: foreach my $fileno (keys %{$_connections{$self}}) {
             next POPSOCK unless defined $_connections{$self}{$fileno};
             if ($fileno eq fileno $_socket{$self})
@@ -409,13 +399,13 @@ package Net::BitTorrent;
                 my $write = vec($$win, $fileno, 1);
                 my $error = vec($$ein, $fileno, 1)
                     && (   $^E
-                        && ($^E != EINPROGRESS)
-                        && ($^E != EWOULDBLOCK));
+                        && ($^E != _EINPROGRESS)
+                        && ($^E != _EWOULDBLOCK));
                 vec($$rin, $fileno, 1) = 0;
                 vec($$win, $fileno, 1) = 0;
                 vec($$ein, $fileno, 1) = 0;
                 if ($read or $write) {
-
+                    #use Data::Dump qw[pp];
                     #warn sprintf q[R:%d | W:%d], $read, $write;
                     #warn pp $_connections{$self}{$fileno};
                     # Weaken the ref in case...
@@ -436,8 +426,10 @@ package Net::BitTorrent;
                            ),
                            $error
                         );
-                    $_k_down{$self} += $this_down || 0;
-                    $_k_up{$self}   += $this_up   || 0;
+
+
+                    $_k_down{$self} += defined $this_down?$this_down:0;
+                    $_k_up{$self}   += defined $this_up?$this_up:0;
 
                     # Make it a strong ref once again...
                     #$_connections{$self}{$fileno}{q[Object]} =
@@ -453,7 +445,7 @@ package Net::BitTorrent;
         my ($self, $infohash) = @_;
 
         #
-        confess q[Bad infohash for Net::BitTorrent->_locate_session(INFOHASH)]
+        carp q[Bad infohash for Net::BitTorrent->_locate_session(INFOHASH)]
             if $infohash !~ m[[\d|a-f]{40}]i;
 
         #
@@ -470,7 +462,7 @@ package Net::BitTorrent;
         # is a simple passthru for Net::BitTorrent::Session::new().
         my ($self, $args) = @_;
         if (ref($args) ne q[HASH]) {
-            confess
+            carp
                 q[Net::BitTorrent->add_session() requires params passed as a hash ref];
             return;
         }
@@ -484,10 +476,12 @@ package Net::BitTorrent;
         my ($self, $session) = @_;
 
         #
-        confess
-            q[Net::BitTorrent->remove_session(SESSION) requires a blessed Net::BitTorrent::Session object]
-            unless blessed($session)
-                and $session->isa(q[Net::BitTorrent::Session]);
+        if (   not blessed($session)
+            or not $session->isa(q[Net::BitTorrent::Session]))
+        {   carp
+                q[Net::BitTorrent->remove_session(SESSION) requires a blessed Net::BitTorrent::Session object];
+            return;
+        }
 
         #
         return delete $_sessions{$self}{$session->infohash};
@@ -508,60 +502,68 @@ package Net::BitTorrent;
         # Debugging
         #my @caller = caller();
         #use 5.010;
+        #use Data::Dump qw[pp];
         #say sprintf qq[Unhandled %s | %s at %s line %d], $type, pp($args),
         #    $caller[1], $caller[2];
-
         #
         return;
     }
 
-    sub schedule {
+    sub _schedule {
         my ($self, $args) = @_;
         if (not defined $args) {
-            confess q[Ouch];
+            carp q[Ouch];
             return;
         }
         if (ref $args ne q[HASH]) {
-            confess q[Ouch];
+            carp q[Ouch];
             return;
         }
         if (not defined $args->{q[Object]}) {
-            confess q[Need obj];
+            carp q[Need obj];
             return;
         }
         if (not blessed $args->{q[Object]}) {
-            confess q[Need blessed obj];
+            carp q[Need blessed obj];
             return;
         }
         if (not defined $args->{q[Time]}) {
-            confess q[Ouch!];
+            carp q[Ouch!];
             return;
         }
         if ($args->{q[Time]} !~ m[^\d+$]) {
-            confess q[Ouch!!!];
+            carp q[Ouch!!!];
             return;
         }
         if (not defined $args->{q[Code]}) {
-            confess q[Ouch!??];
+            carp q[Ouch!??];
             return;
         }
         if (ref $args->{q[Code]} ne q[CODE]) {
-            confess q[Ouch!!!??];
+            carp q[Ouch!!!??];
             return;
         }
 
         #
         my $tid = $self->_generate_token_id();
         $_schedule{$self}{$tid} = {Timestamp => $args->{q[Time]},
-                                               Code      => $args->{q[Code]},
-                                               Object    => $args->{q[Object]}
+                                   Code      => $args->{q[Code]},
+                                   Object    => $args->{q[Object]}
         };
         weaken $_schedule{$self}{$tid}{q[Object]};
         return $tid;
     }
 
-    sub cancel {
+    sub _cancel {
         my ($self, $tid) = @_;
+    if (not defined $tid){
+        carp q[Net::BitTorrent->_cancel( TID ) requires an ID];
+        return;
+    }
+    elsif (not defined $_schedule{$self}{$tid}){
+        carp sprintf q[Net::BitTorrent->_cancel( TID ) cannot find an event with TID == %s], $tid;
+        return;
+    }
         #
         return delete $_schedule{$self}{$tid};
     }
@@ -581,51 +583,54 @@ package Net::BitTorrent;
         #
         return 1;
     }
- sub _generate_token_id {    # automatic rollover/expansion/etc
-            return if defined $_[1];
-            my ($self) = @_;
-            my ($len) = ($_tid{$self} =~ m[^([a-z]+)]);
-            $_tid{$self} = (($_tid{$self} =~ m[^z*(\0*)$])
-                           ? ($_tid{$self} =~ m[\0]
-                              ? pack(q[a] . (length $_tid{$self}),
-                                     (q[a] x (length($len || q[]) + 1))
-                                  )
-                              : (q[a] . (qq[\0] x (length($_tid{$self}) - 1)))
+
+    sub _generate_token_id {    # automatic rollover/expansion/etc
+        return if defined $_[1];
+        my ($self) = @_;
+        $_tid{$self} = qq[\0\0\0\0] if not defined $_tid{$self};
+        my ($len) = ($_tid{$self} =~ m[^([a-z]+)]);
+        $_tid{$self} = (($_tid{$self} =~ m[^z*(\0*)$])
+                        ? ($_tid{$self} =~ m[\0]
+                           ? pack(q[a] . (length $_tid{$self}),
+                                  (q[a] x (length($len || q[]) + 1))
                                )
-                           : ++$_tid{$self}
-            );
-            return $_tid{$self};
-        }
+                           : (q[a] . (qq[\0] x (length($_tid{$self}) - 1)))
+                            )
+                        : ++$_tid{$self}
+        );
+        return $_tid{$self};
+    }
+
     # Utility, object-neutral functions
     sub __socket_open {
         my ($host, $port, $reuseaddr, $reuseport) = @_;
 
         # param validation is [...].
         if (not defined $host) {
-            confess q[Net::BitTorrent::__socket_oen( ) ]
+            carp q[Net::BitTorrent::__socket_oen( ) ]
                 . q[requires a hostname];
             return;
         }
         if (not defined $port) {
-            confess q[Net::BitTorrent::__socket_open( ) ]
+            carp q[Net::BitTorrent::__socket_open( ) ]
                 . q[requires a port number];
             return;
         }
         if ($port !~ m[^\d+$]) {
-            confess q[Net::BitTorrent::__socket_open( ) ]
+            carp q[Net::BitTorrent::__socket_open( ) ]
                 . q[requires an integer port number];
             return;
         }
         if (defined $reuseaddr) {    # XXX - Undocumented
             if ($reuseaddr !~ m[^[10]$]) {
-                confess q[Net::BitTorrent::__socket_open( ) ]
+                carp q[Net::BitTorrent::__socket_open( ) ]
                     . q[requires a bool ReuseAddr value];
                 return;
             }
         }
         if (defined $reuseport) {    # XXX - Undocumented
             if ($reuseport !~ m[^[10]$]) {
-                confess q[Net::BitTorrent::__socket_open( ) ]
+                carp q[Net::BitTorrent::__socket_open( ) ]
                     . q[requires a bool ReusePort value];
                 return;
             }
@@ -674,7 +679,6 @@ package Net::BitTorrent;
     #
     DESTROY {
         my ($self) = @_;
-
         #warn sprintf q[Goodbye, %s], $$self;
         delete $_socket{$self};
         delete $_peerid{$self};
@@ -684,7 +688,6 @@ package Net::BitTorrent;
         delete $_tid{$self};
         delete $_peers_per_session{$self};
         delete $_event{$self};
-
     }
 
 =pod
@@ -762,20 +765,11 @@ Default: 0 (any available)
 
 =back
 
-=head1 Methods
-
-Unless otherwise stated, all methods return either a C<true> or C<false>
-value, with C<true> meaning that the operation was a success.  When a
-method states that it returns a value, failure will result in C<undef> or
-an empty list.
-
-Besides these listed here, there is also the
-L<set_callback ( )|/"set_callback ( TYPE, CODEREF )"> method described in
-the L<Callbacks|/Callbacks> section.
+=head1 Accessors
 
 =over 4
 
-=item C<get_peerid ( )>
+=item C<peerid ( )>
 
 Returns the Peer ID generated to identify this
 L<Net::BitTorrent|Net::BitTorrent> object internally, with trackers, and
@@ -784,51 +778,41 @@ with remote L<peers|Net::BitTorrent::Peer>.
 See also: theory.org (http://tinyurl.com/4a9cuv),
 L<Peer ID Specification|Net::BitTorrent::Notes/"Peer ID Specification">
 
-=back
+=item C<sessions( )>
 
-# 	add_session
-# 	do_one_loop
-# 	peerid
-# 	sessions
+Returns the list of loaded .torrent L<sessions|Net::BitTorrent::Session>.
 
-=head1 Incompatable Changes
-
-=over
-
-=item *
-
-New Sessions are no longer automatically hash checked; you must do so
-explicitly.  We assume we have no data.
-
-=item *
-
-get_peer_id() is now peerid()
+See also: L<add_session ( )|/add_session ( )>,
+L<remove_session ( )|/remove_session ( )>
 
 =back
 
+=head1 Methods
 
+Unless otherwise stated, all methods return either a C<true> or C<false>
+value, with C<true> meaning that the operation was a success.  When a
+method states that it returns a value, failure will result in C<undef> or
+an empty list.
 
+Besides these listed here, there is also the
+L<on_event ( )|/"on_event ( TYPE, CODEREF )"> method described in
+the L<Events|/Events> section.
 
+=over 4
 
+=item C<add_session ( ARGS )>
 
+=item C<do_one_loop ( [TIMEOUT] )>
 
+=item C<remove_session ( SESSION )>
 
+=item C<on_event ( TYPE, CODEREF )>
 
+=back
 
+=head1 Events
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+C<Net::BitTorrent> and related classes trigger a number of events
 
 
 =head1 Author
@@ -858,5 +842,6 @@ BitTorrent, Inc.
 =for svn $Id$
 
 =cut
+
     1;
 }

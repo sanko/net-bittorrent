@@ -6,20 +6,19 @@ use warnings;
     BEGIN {
         use version qw[qv];
         our $SVN
-            = q[$Id: Mainline.pm 24 2008-07-01 23:52:15Z sanko@cpan.org $];
+            = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev 23$)->numify / 1000;
     }
     use Socket qw[SOL_SOCKET /F_INET/ SOCK_DGRAM SO_REUSEADDR
-        /sockaddr_in/ inet_ntoa
+        /sockaddr_in/ /inet_/
     ];
-    use Digest::SHA qw[sha1];
+    use Carp qw[carp];
+    use Scalar::Util qw[blessed weaken];
     use lib q[../../../../../lib/];
     use Net::BitTorrent::Util qw[:log :bencode :compact];
     {
-        my (%dht,            %packed_host,    %node_id,
-            %added,          %last_seen,      %last_ping,
-            %last_peers, %last_find_node, %infohashes
-        );
+        my (%dht, %packed_host, %node_id, %added, %infohashes, %_last_seen);
+        my (%ping_schedule, %query_schedule);
 
         sub new {
             my ($class, $args) = @_;
@@ -27,16 +26,39 @@ use warnings;
             if (    defined $args->{q[dht]}
                 and defined $args->{q[packed_host]})
             {   $self = bless \$args->{q[node_id]}, $class;
-                $dht{$self}         = $args->{q[dht]};
+                $dht{$self} = $args->{q[dht]};
+                weaken $dht{$self};
                 $packed_host{$self} = $args->{q[packed_host]};
                 $node_id{$self}     = $args->{q[node_id]};
-                    #if defined $args->{q[node_id]};
-                $infohashes{$self}     = {};
-                $added{$self}          = time;
-                $last_seen{$self}      = time; # ...tell me sweet little lies.
-                $last_find_node{$self} = 0;
-                $last_peers{$self} = 0;
-                $last_ping{$self}      = 0;
+
+                #if defined $args->{q[node_id]};
+                $infohashes{$self} = {};
+                $added{$self}      = time;
+                $_last_seen{$self}      = time; # lie
+                $ping_schedule{$self}
+                    = $dht{$self}->_client->_schedule(
+                                     {Code   => sub { shift->_query_ping() },
+                                      Time   => time,
+                                      Object => $self
+                                     }
+                    );
+                $query_schedule{$self} = $dht{$self}->_client->_schedule(
+                    {   Code => sub {
+                            my $s = shift;
+                            for my $session (
+                                     values %{$dht{$self}->_client->sessions})
+                            {   if (not $session->_private) {
+                                    $s->_query_announce_peer($session);
+                                    $s->_query_get_peers($session);
+                                }
+                            }
+                            $s->_query_find_node(pack q[H40],
+                                                 $dht{$self}->_node_id);
+                        },
+                        Time   => time + 1,
+                        Object => $self
+                    }
+                );
             }
             return $self;
         }
@@ -46,14 +68,14 @@ use warnings;
             return $packed_host{$_[0]};
         }
 
-        sub _peerport {
+        sub _port {
             return if defined $_[1];
             return if not $packed_host{$_[0]};
             my ($_port, undef) = unpack_sockaddr_in($packed_host{$_[0]});
             return $_port;
         }
 
-        sub _peeraddr {
+        sub _host {
             return if defined $_[1];
             return if not defined $packed_host{$_[0]};
             my (undef, $addr) = unpack_sockaddr_in($packed_host{$_[0]});
@@ -65,10 +87,9 @@ use warnings;
             return $node_id{$_[0]};
         }
 
-        sub add_infohash {
-            return if not defined $_[1];
-            return if not @{$infohashes{$_[0]}};
-            return push @{$infohashes{$_[0]}}, $_[1];
+        sub _last_seen {
+            return if defined $_[1];
+            return $_last_seen{$_[0]};
         }
 
         sub _infohashes {
@@ -76,31 +97,26 @@ use warnings;
             return [keys %{$infohashes{$_[0]}}];
         }
 
-        sub _last_seen {
-            return
-                if defined $_[1];
-            return $last_seen{$_[0]};
-        }
-
-        sub _last_ping {
-            return
-                if defined $_[1];
-            return $last_ping{$_[0]};
-        }
-
-        sub _last_peers {
-            return if defined $_[1];
-            return $last_peers{$_[0]};
-        }
-
-        sub _last_find_node {
-            return if defined $_[1];
-            return $last_find_node{$_[0]};
+        sub _add_infohash {
+            return if not defined $_[1];
+            return $infohashes{$_[0]}{$_[1]}++;
         }
 
         sub _query_ping {
             my ($self) = @_;
-            $last_ping{$self} = time;
+
+            #
+            # $dht{$self}->_client->_cancel($ping_schedule{$self})
+            #    if defined $ping_schedule{$self};
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
+
+            #
             my $tid = $dht{$self}->_generate_token_id;
             return
                 $dht{$self}->_send(
@@ -120,30 +136,25 @@ use warnings;
                 );
         }
 
-        sub _reply_ping {
-            my ($self, $packet) = @_;
-            return if not defined $packet;
-            $last_seen{$self} = time;
-            $self->_node_id($packet->{q[a]}{q[id]});
-            #
-            $dht{$self}->_send(
-                    {node => $self,
-                     packet =>
-                         bencode(
-                         {t => $packet->{q[t]},
-                          y => q[r],
-                          r => {id => $node_id{$self}},
-                          v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
-                         }
-                         )
-                    }
-            );
-        }
-
         sub _query_find_node {
             my ($self, $target) = @_;
             return if not $target;
-            $last_find_node{$self} = time;
+            $query_schedule{$self} = $dht{$self}->_client->_schedule(
+                {   Code => sub {
+                        my $s = shift;
+                        for my $session (
+                                     values %{$dht{$self}->_client->sessions})
+                        {   if (not $session->_private) {
+                                $s->_query_get_peers($session);
+                            }
+                        }
+                        $s->_query_find_node(pack q[H40],
+                                             $dht{$self}->_node_id);
+                    },
+                    Time => (time + (60 * 30)),
+                    Object => $self
+                }
+            );
             return if scalar(keys %{$dht{$self}->_routing_table}) >= 300;
             my $tid = $dht{$self}->_generate_token_id;
             $dht{$self}->_send(
@@ -165,52 +176,102 @@ use warnings;
             );
         }
 
-        sub _query_peers {
+        sub _query_get_peers {
             my ($self, $session) = @_;
             return if not defined $session;
             return if not $session->isa(q[Net::BitTorrent::Session]);
-            $last_peers{$self} = time;
             return if $session->_private;
             my $tid = $dht{$self}->_generate_token_id;
             $dht{$self}->_send(
-                    {node => $self,
-                     t    => $tid,
-                     type => q[_peers],
-                     packet =>
-                         bencode(
-                         {t => $tid,
-                          y => q[q],
-                          q => q[_peers],
-                          a => {info_hash =>
-                                    pack(q[H40], $session->infohash),
-                                id => $dht{$self}->_node_id
-                          },
-                          v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
-                         }
-                         )
-                    }
+                   {node => $self,
+                    t    => $tid,
+                    type => q[get_peers],
+                    packet =>
+                        bencode(
+                        {t => $tid,
+                         y => q[q],
+                         q => q[get_peers],
+                         a => {
+                             info_hash => pack(q[H40], $session->infohash),
+                             id => $dht{$self}->_node_id
+                         },
+                         v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
+                        }
+                        )
+                   }
             );
         }
 
         sub _query_announce_peer {
             my ($self, $session) = @_;
-            return if not defined $session;
-            return if not $session->isa(q[Net::BitTorrent::Session]);
-            return if $session->_private;
+            if (not defined $session) {
+                carp
+                    q[Net::BitTorrent::DHT::Node::Mainline->_query_announce_peer() requires a Net::BitTorrent::Session];
+                return;
+            }
+            if (not blessed $session) {
+                carp
+                    q[Net::BitTorrent::DHT::Node::Mainline->_query_announce_peer() requires a Net::BitTorrent::Session];
+                return;
+            }
+            if (not $session->isa(q[Net::BitTorrent::Session])) {
+                carp
+                    q[Net::BitTorrent::DHT::Node::Mainline->_query_announce_peer() requires a Net::BitTorrent::Session];
+                return;
+            }
+            if ($session->_private) {
+                warn q[...no announce on private torrents];
+                return;
+            }
+
+            #
             my $tid = $dht{$self}->_generate_token_id;
             $dht{$self}->_send(
+                   {node => $self,
+                    t    => $tid,
+                    type => q[announce_peer],
+                    packet =>
+                        bencode(
+                        {t => $tid,
+                         y => q[q],
+                         q => q[announce_peer],
+                         a => {
+                             info_hash => pack(q[H40], $session->infohash),
+                             port => $dht{$self}->_client->_port
+                         }
+                        }
+                        )
+                   }
+            );
+
+            #
+            return 1;
+        }
+
+        sub _reply_ping {
+            my ($self, $packet) = @_;
+            return if not defined $packet;
+            $_last_seen{$self} = time;
+
+            # $dht{$self}->_client->_cancel($ping_schedule{$self});
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
+            $self->_node_id($packet->{q[a]}{q[id]});
+
+            #
+            $dht{$self}->_send(
                     {node => $self,
-                     t    => $tid,
-                     type => q[announce_peer],
                      packet =>
                          bencode(
-                         {t => $tid,
-                          y => q[q],
-                          q => q[announce_peer],
-                          a => {info_hash =>
-                                    pack(q[H40], $session->infohash),
-                                port => $dht{$self}->_client->_sockport
-                          }
+                         {t => $packet->{q[t]},
+                          y => q[r],
+                          r => {id => $node_id{$self}},
+                          v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
                          }
                          )
                     }
@@ -219,8 +280,18 @@ use warnings;
 
         sub _parse_reply_find_node {
             my ($self, $packet) = @_;
+            warn sprintf q[%s->_parse_reply_find_node(%s)], @_;
             return if not defined $packet;
-            $last_seen{$self} = time;
+            $_last_seen{$self} = time;
+
+            # $dht{$self}->_client->_cancel($ping_schedule{$self});
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
 
             # xxx - find node by packed_host and update seen, etc.
             for my $new_node (uncompact($packet->{q[r]}{q[nodes]})) {
@@ -229,148 +300,248 @@ use warnings;
             return 1;
         }
 
-        sub _parse_reply_peers {
+        sub _parse_reply_get_peers {
             my ($self, $packet) = @_;
             return if not defined $packet;
-            $last_seen{$self} = time;
+            $_last_seen{$self} = time;
 
-            #use Data::Dump qw[pp];
-            #warn pp $packet;
-            my $session =
-                $dht{$self}->_client->_locate_session(unpack q[H*],
+            # $dht{$self}->_client->_cancel($ping_schedule{$self});
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
+            if (defined $packet->{q[r]}{q[nodes]}) {
+                my $session =
+                    $dht{$self}->_client->_locate_session(unpack q[H*],
                                                    $packet->{q[r]}{q[token]});
-            return $session->append_nodes($packet->{q[r]}{q[nodes]})
-                if $session;
+                if ($session) {
+                    for my $_node (@{$packet->{q[r]}{q[nodes]}}) {
+                        $session->_append_compact_nodes($_node);
+                    }
 
-            # ...okay, we're not serving this torrent but should we store
-            # it in case someone else needs these peers?  I'll need to
-            # read the spec again...
+ #warn join q[, ], Net::BitTorrent::Util::uncompact($session->_compact_nodes);
+                }
+                else {
+                    warn q[...session not found!?!?!?!?!?!?!?!?];
+                }
+                return 1;
+            }
+            elsif (defined $packet->{q[r]}{q[values]}) {
+
+                # ...okay, they're not serving this torrent but should we ask
+                # them for peers?
+            }
             return 0;
         }
 
-        sub _parse_query_peers {
+        sub _parse_reply_announce_peer {
             my ($self, $packet) = @_;
             return if not defined $packet;
-            $last_seen{$self} = time;
+            $_last_seen{$self} = time;
 
-           #my ($_port, $packed_ip) = unpack_sockaddr_in($packed_host{$self});
-           #use Data::Dump qw[pp];
-           #warn sprintf q[%s:%d says find_node! %s], inet_ntoa($packed_ip),
-           #    $port,
-           #    pp $packet;
-            my $target  = $packet->{q[a]}{q[info_hash]};
-            my $session = $dht{$self}
-                ->_client->_locate_session(unpack q[H*], $target);
+            #
+            $node_id{$self}
+                = $packet->{q[r]}{q[id]};    # XXX - may already be defined...
+
+            #
+            return 0;
+        }
+
+        sub _parse_reply_ping {
+            my ($self, $packet) = @_;
+
+            #
+            $node_id{$self}
+                = $packet->{q[r]}{q[id]};    # XXX - may already be defined...
+
+            #
+            return 1;
+        }
+
+        sub _parse_query_get_peers {
+            my ($self, $packet) = @_;
+            return if not defined $packet;
+            $_last_seen{$self} = time;
+
+            # $dht{$self}->_client->_cancel($ping_schedule{$self});
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
+            my ($_port, $packed_ip) = unpack_sockaddr_in($packed_host{$self});
+
+            #use Data::Dump qw[pp];
+            #warn sprintf q[%s:%d says get_peers! %s], inet_ntoa($packed_ip),
+            #    $_port,
+            #    pp $packet;
+            my $target = unpack(q[H40], $packet->{q[a]}{q[info_hash]});
+            my $session = $dht{$self}->_client->_locate_session($target);
             my @nodes;
-            if (defined $session) { @nodes = [$session->_nodes]; }
+            if (defined $session) {
+                @nodes = map {m[.{6}]g} $session->_compact_nodes;
+            }
+            for my $_node (values %{$dht{$self}->_routing_table}) {
+                push @nodes,
+                    compact(sprintf q[%s:%d], $_node->_host, $_node->_port)
+                    if grep { $_ eq $target } @{$_node->_infohashes};
+            }
+            if (scalar @nodes) {
+                $dht{$self}->_send(
+                     {node => $self,
+                      packet =>
+                          bencode(
+                          {  y => q[r],
+                             t => $packet->{q[t]},
+                             r => {id    => $dht{$self}->_node_id,
+                                   token => $packet->{q[a]}{q[info_hash]},
+                                   nodes => \@nodes
+                             },
+                             v => sprintf(q[NB%s], $Net::BitTorrent::VERSION)
+                          }
+                          )
+                     }
+                );
+                return 1;
+            }
 
             # XXX - check our routing table for nodes w/ this torrent
-            return
-                $dht{$self}->_send(
+            warn q[Meh... let's hand 'em cruft.];
+            $dht{$self}->_send(
                      {node => $self,
                       packet =>
                           bencode(
                           {y => q[r],
                            t => $packet->{q[t]},
-                           r => {id     => $node_id{$self},
+                           r => {id     => $dht{$self}->_node_id,
                                  token  => $packet->{q[a]}{q[id]},
-                                 values => [map { compact($_) } @nodes]
+                                 values => $dht{$self}
+                                     ->_locate_nodes_near_target($target)
                            },
-                           v => sprintf(q[NB%d], $Net::BitTorrent::VERSION)
+                           v => sprintf(q[NB%s], $Net::BitTorrent::VERSION)
                           }
                           )
                      }
-                ) if scalar @nodes;
+            );
 
-            # XXX - XOR with out current list of nodes
-            @nodes = $dht{$self}->locate_nodes_near_target($target);
-
-            #warn pp \@nodes;
-            return
-                $dht{$self}->_send(
-                     {node => $self,
-                      packet =>
-                          bencode(
-                          {y => q[r],
-                           t => $packet->{q[t]},
-                           r => {id    => $node_id{$self},
-                                 token => $packet->{q[a]}{q[id]},
-                                 nodes => [map { compact($_) } @nodes]
-                           },
-                           v => sprintf(q[NB%d], $Net::BitTorrent::VERSION)
-                          }
-                          )
-                     }
-                ) if scalar @nodes;
-
-#{
-#  a   => {
-#           id => pack("H*","ade4d864fc2e9b77e832728e1698b1b6260c9254"),
-#           info_hash => pack("H*","6e59e23cbbfb584745ac2ea74aaf0007a599de0e"),
-#         },
-#  "q" => "_peers",
-#  t   => 10005645,
-#  "y" => "q",
-#}
-#Response with peers =         {"t":"aa", "y":"r", "r": {"id":"abcdefghij0123456789", "token":"aoeusnth", "values": ["axje.u", "idhtnm"]}}
-#bencoded = d1:rd2:id20:abcdefghij01234567895:token8:aoeusnth6:valuesl6:axje.u6:idhtnmee1:t2:aa1:y1:re
-#
-#Response with closest nodes = {"t":"aa", "y":"r", "r": {"id":"abcdefghij0123456789", "token":"aoeusnth", "nodes": "def456..."}}
-#bencoded = d1:rd2:id20:abcdefghij01234567895:nodes9:def456...5:token8:aoeusnthe1:t2:aa1:y1:re
+            #
+            return 0;
         }
 
         sub _parse_query_find_node {
             my ($self, $packet) = @_;
             return if not defined $packet;
-            $last_seen{$self} = time;
+            $_last_seen{$self} = time;
 
-# Find node is used to find the contact information for a node given its
-# ID. "q" == "find_node" A find_node query has two arguments, "id"
-# containing the node ID of the querying node, and "target" containing
-# the ID of the node sought by the queryer. When a node receives a
-# find_node query, it should respond with a key "nodes" and value of a
-# string containing the compact node info for the target node or the K
-# (8) closest good nodes in its own routing table.
-#
-#arguments:  {"id" : "<querying nodes id>", "target" : "<id of target node>"}
-#
-#response:   {"id" : "<queried nodes id>",   "nodes" : "<compact node info>"}
-#
-#Example Packets:
-#find_node Query = {"t":"aa", "y":"q", "q":"find_node", "a": {"id":"abcdefghij0123456789", "target":"mnopqrstuvwxyz123456"}}
-#bencoded = d1:ad2:id20:abcdefghij01234567896:target20:mnopqrstuvwxyz123456e1:q9:find_node1:t2:aa1:y1:qe
-#
-#Response = {"t":"aa", "y":"r", "r": {"id":"0123456789abcdefghij", "nodes": "def456..."}}
-#bencoded = d1:rd2:id20:0123456789abcdefghij5:nodes9:def456...e1:t2:aa1:y1:re
-#
-#{
-#  a   => {
-#           id => pack("H*","688f71ed729b38f1d0b5f9bf032019e50f45eecc"),
-#           target => pack("H*","688f706c52fdd2ee6323b7a943078ba16ceb6217"),
-#         },
-#  "q" => "find_node",
-#  t   => "\2E",
-#  v   => "LT\0\r",
-#  "y" => "q",
-#}
+            # $dht{$self}->_client->_cancel($ping_schedule{$self});
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
 
+            #
+            my $nodes   = q[];
+            my $target  = unpack(q[H40], $packet->{q[a]}{q[target]});
+            my $session = $dht{$self}->_client->_locate_session($target);
+            if ($session) {
+                $nodes = $session->_compact_nodes();
+            }
+            else {
+                for my $_node (values %{$dht{$self}->_routing_table}) {
+                    $nodes .= $_node->_packed_host
+                        if grep {
+                        $_ eq unpack(q[H*], $packet->{q[a]}{q[target]})
+                        } @{$_node->_infohashes};
+                }
+            }
+            if (not $nodes) { return; }
 
+            #
+            $dht{$self}->_send(
+                     {node => $self,
+                      t    => $packet->{q[t]},
+                      packet =>
+                          bencode(
+                          {a => {id    => $packet->{q[a]}{q[target]},
+                                 nodes => $nodes
+                           },
+                           y => q[r],
+                           t => $packet->{q[t]},
+                           r => {id => $dht{$self}->_node_id},
+                           v => sprintf(q[NB%s], $Net::BitTorrent::VERSION)
+                          }
+                          )
+                     }
+            );
 
-                     #my ($_port, $packed_ip) = unpack_sockaddr_in($packed_host{$self});
-           #use Data::Dump qw[pp];
-           #warn sprintf q[%s:%d says find_node! %s], inet_ntoa($packed_ip),
-           #    $port,
-           #    pp $packet;
+            #
+            return 1;
+        }
 
-   #        $dht{$self}->_send({node => $self, t =>$tid,
-   #                      packet      => bencode({
-   #                          y => q[r],
-   #                          t => $packet->{q[t]},
-   #                          r => {id => $node_id{$self}},
-   #                          v => sprintf(q[NB%d], $Net::BitTorrent::VERSION)
-   #                      }
-   #                     })
-   #        );
+        sub _parse_query_announce_peer {
+            my ($self, $packet) = @_;
+            return if not defined $packet;
+            $_last_seen{$self} = time;
+
+            # $dht{$self}->_client->_cancel($ping_schedule{$self});
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
+            $self->_add_infohash(
+                               unpack(q[H40], $packet->{q[a]}{q[info_hash]}));
+            return
+                $dht{$self}->_send({node => $self,
+                                    packet =>
+                                        bencode(
+                                        {y => q[r],
+                                         t => $packet->{q[t]},
+                                         r => {id => $dht{$self}->_node_id}
+                                        }
+                                        )
+                                   }
+                );
+        }
+
+        sub _parse_query_ping {
+            my ($self, $packet) = @_;
+            return if not defined $packet;
+            $_last_seen{$self} = time;
+
+            # $dht{$self}->_client->_cancel($ping_schedule{$self});
+            $ping_schedule{$self} =
+                $dht{$self}->_client->_schedule(
+                                     {Code => sub { shift->_query_ping() },
+                                      Time => (time + (60 * 15)),
+                                      Object => $self
+                                     }
+                );
+
+            #
+            $dht{$self}->_send({node => $self,
+                                packet =>
+                                    bencode(
+                                        {y => q[r],
+                                         t => $packet->{q[t]},
+                                         r => {id => $dht{$self}->_node_id}
+                                        }
+                                    )
+                               }
+            );
+
+            #
+            return 1;
         }
 
         sub as_string {
@@ -383,15 +554,18 @@ use warnings;
         }
         DESTROY {
             my $self = shift;
+
+            #
             delete $dht{$self};
             delete $packed_host{$self};
             delete $node_id{$self};
             delete $infohashes{$self};
             delete $added{$self};
-            delete $last_seen{$self};
-            delete $last_find_node{$self};
-            delete $last_peers{$self};
-            delete $last_ping{$self};
+            delete $_last_seen{$self};
+            delete $ping_schedule{$self};
+            delete $query_schedule{$self};
+
+            #
             return 1;
         }
     }
@@ -458,6 +632,6 @@ Noncommercial-Share Alike 3.0 License
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Mainline.pm 24 2008-07-01 23:52:15Z sanko@cpan.org $
+=for svn $Id$
 
 =cut

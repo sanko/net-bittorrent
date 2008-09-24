@@ -4,7 +4,7 @@ package Net::BitTorrent::Session::File;
     use warnings;    # core as of perl 5.006
 
     #
-    use Carp qw[confess];                   # core as of perl 5
+    use Carp qw[carp];                      # core as of perl 5
     use Scalar::Util qw[blessed weaken];    # core as of perl 5.007003
     use Fcntl qw[/O_/ /SEEK/ :flock];       # core as of perl 5
 
@@ -15,7 +15,7 @@ package Net::BitTorrent::Session::File;
     #
     use version qw[qv];                     # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev: 24 $)->numify / 1000;
+    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
 
     #
     my (%path,     %session, %size,   %index);          # parameters to new()
@@ -47,54 +47,54 @@ package Net::BitTorrent::Session::File;
 
         # Param validation... Ugh...
         if (not defined $args) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires ]
-                . q[parameters a set of parameters];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires ]
+            #    . q[parameters a set of parameters];
             return;
         }
         if (ref($args) ne q[HASH]) {
-            confess q[Net::BitTorrentS::Session::File->new({}) requires ]
-                . q[parameters to be passed as a hashref];
+            #carp q[Net::BitTorrentS::Session::File->new({}) requires ]
+            #    . q[parameters to be passed as a hashref];
             return;
         }
         if (not defined $args->{q[Path]}) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires a ]
-                . q['Path' parameter];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
+            #    . q['Path' parameter];
             return;
         }
         if (not defined $args->{q[Session]}) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires a ]
-                . q['Session' parameter];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
+            #    . q['Session' parameter];
             return;
         }
         if (not blessed $args->{q[Session]}) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires a ]
-                . q[blessed 'Session' object];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
+            #    . q[blessed 'Session' object];
             return;
         }
         if (not $args->{q[Session]}->isa(q[Net::BitTorrent::Session])) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires a ]
-                . q[blessed Net::BitTorrent::Session object in the ]
-                . q['Session' parameter];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
+            #    . q[blessed Net::BitTorrent::Session object in the ]
+            #    . q['Session' parameter];
             return;
         }
         if (not defined $args->{q[Size]}) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires a ]
-                . q['Size' parameter];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
+            #    . q['Size' parameter];
             return;
         }
         if ($args->{q[Size]} !~ m[^\d+$]) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires an ]
-                . q[integer value for 'Size'];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires an ]
+            #    . q[integer value for 'Size'];
             return;
         }
         if (not defined $args->{q[Index]}) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires an ]
-                . q['Index' parameter];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires an ]
+            #    . q['Index' parameter];
             return;
         }
         if ($args->{q[Index]} !~ m[^\d+$]) {
-            confess q[Net::BitTorrent::Session::File->new({}) requires an ]
-                . q[integer value for 'Index'];
+            #carp q[Net::BitTorrent::Session::File->new({}) requires an ]
+            #    . q[integer value for 'Index'];
             return;
         }
 
@@ -125,13 +125,13 @@ package Net::BitTorrent::Session::File;
     sub set_priority {
         my ($self, $newval) = @_;
         if (not defined $newval) {
-            confess
-                q[Net::BitTorrent::Session::File->set_priority() requires an priority parameter];
+            #carp
+            #    q[Net::BitTorrent::Session::File->set_priority() requires an priority parameter];
             return;
         }
         if ($newval !~ m[^\d+$]) {
-            confess
-                q[Net::BitTorrent::Session::File->set_priority() requires an integer];
+            #carp
+            #    q[Net::BitTorrent::Session::File->set_priority() requires an integer];
             return;
         }
         return $priority{$self} = $newval;
@@ -150,14 +150,13 @@ package Net::BitTorrent::Session::File;
     sub _open {
         my ($self, $mode) = @_;
         if (not defined $mode) {
-            confess
-                q[Net::BitTorrent::Session::File->_open() requires a mode];
+            #carp q[Net::BitTorrent::Session::File->_open() requires a mode];
             return;
         }
         if ($mode !~ m[^[rw]$]) {
-            confess
-                q[Malformed mode to Net::BitTorrent::Session::File->_open(): ]
-                . $mode;
+            #carp
+            #    q[Malformed mode to Net::BitTorrent::Session::File->_open(): ]
+            #    . $mode;
             return;
         }
 
@@ -169,7 +168,7 @@ package Net::BitTorrent::Session::File;
             if ($mode{$self} eq q[w]) {
                 flock($handle{$self}, LOCK_UN) or return;    # unlock
             }
-            $self->_sysclose;
+            $self->_close;
         }
 
         #
@@ -218,6 +217,7 @@ package Net::BitTorrent::Session::File;
 
     sub _write {
         my ($self, $data) = @_;
+        if (not defined $data) {return}
         if (not $handle{$self}) {
             $session{$self}->_client->_event(
                            q[file_error],
@@ -294,13 +294,13 @@ package Net::BitTorrent::Session::File;
 
         #
         if (not defined $length) {
-            confess
-                q[Net::BitTorrent::Session::File->_read( LENGTH ) requires a length];
+            #carp
+            #    q[Net::BitTorrent::Session::File->_read( LENGTH ) requires a length];
             return;
         }
         if ($length !~ m[^\d+$]) {
-            confess
-                q[Net::BitTorrent::Session::File->_read( LENGTH ) requires an integer length];
+            #carp
+            #    q[Net::BitTorrent::Session::File->_read( LENGTH ) requires an integer length];
             return;
         }
 
@@ -439,7 +439,7 @@ package Net::BitTorrent::Session::File;
             Encode->import(qw[find_encoding encode]);
             for my $null (qq[\0], q[]) {
                 $win32_handle{$self} =
-                    CreateFileW(encode('UTF-16LE', $path{$self} . $null),
+                    CreateFileW(encode(q[UTF-16LE], $path{$self} . $null),
                                 (($mode &= O_WRONLY) ? GENERIC_WRITE()
                                  : GENERIC_READ()
                                 ),
@@ -474,33 +474,42 @@ package Net::BitTorrent::Session::File;
             );
     }
 
-    sub _sysclose {
+    sub _close {
         my ($self) = @_;
+
+    return if not defined $mode{$self};
+
         #
         if (defined $win32_handle{$self} and require Win32API::File) {
             Win32API::File::CloseHandle($win32_handle{$self});
             delete $win32_handle{$self};
         }
+
         #
         my $return = CORE::close($handle{$self});
 
         #
         if ($return) {
+
             #
             delete $mode{$self};
             delete $handle{$self};
+
             #
             $session{$self}->_client->_event(q[file_close], {File => $self});
+
             #
             return $return;
         }
+
         #
-            $session{$self}->_client->_event(
+        $session{$self}->_client->_event(
                             q[file_error],
                             {File    => $self,
                              Message => sprintf(q[Cannot close file: %s], $^E)
                             }
-            );
+        );
+
         #
         return;
     }

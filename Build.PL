@@ -105,12 +105,15 @@ my $mb = Module::Build->new(
                  q[http://groups.google.com/group/net-bittorrent-discuss]
         },
         keywords => [qw[BitTorrent client peer p2p torrent socket dht]],
-        generated_by => q[Sanko Robinson <sanko@cpan.org>]    # lies
+        generated_by => q[Sanko Robinson <sanko@cpan.org>]
     },
 );
 $mb->create_build_script;
 
-sub can_talk_to_ourself {                                     # taken from LWP
+warn join q[, ], @tests;
+
+sub can_talk_to_ourself { # taken from LWP
+    return 0 if not -f q[t/900_data/910_scripts/talk-to-ourself.pl];
     system(qq["$^X" t/900_data/910_scripts/talk-to-ourself.pl]);
     return $? ? 0 : 1;
 }
@@ -119,7 +122,7 @@ sub find_cb {
     return if -d $_ or -l $_;
     return unless -T $_;
     return unless $_ =~ m[.+\.t$];
-    return push @tests, $File::Find::name;
+    return unshift @tests, $File::Find::name;
 }
 
 # $Id$

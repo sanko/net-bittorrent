@@ -6,13 +6,13 @@ use warnings;
     BEGIN {
         use version qw[qv];
         our $SVN
-            = q[$Id: Azureus.pm 24 2008-07-01 23:52:15Z sanko@cpan.org $];
+            = q[$Id$];
         our $VERSION = sprintf q[%.3f], version->new(qw$Rev 23$)->numify / 1000;
     }
     use Socket qw[SOL_SOCKET /F_INET/ SOCK_DGRAM SO_REUSEADDR
         /sockaddr_in/ inet_ntoa
     ];
-    use Digest::SHA qw[sha1];
+
     use lib q[../../../../../lib/];
     use Net::BitTorrent::Util qw[:log :bencode :compact];
     {
@@ -48,14 +48,14 @@ use warnings;
             return $packed_host{$_[0]};
         }
 
-        sub _peerport {
+        sub _port {
             return if defined $_[1];
             return if not $packed_host{$_[0]};
             my ($_port, undef) = unpack_sockaddr_in($packed_host{$_[0]});
             return $_port;
         }
 
-        sub _peeraddr {
+        sub _host {
             return if defined $_[1];
             return if not defined $packed_host{$_[0]};
             my (undef, $addr) = unpack_sockaddr_in($packed_host{$_[0]});
@@ -67,7 +67,7 @@ use warnings;
             return $node_id{$_[0]};
         }
 
-        sub add_infohash {
+        sub _add_infohash {
             return if not defined $_[1];
             return if not @{$infohashes{$_[0]}};
             return push @{$infohashes{$_[0]}}, $_[1];
@@ -240,6 +240,6 @@ Noncommercial-Share Alike 3.0 License
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Azureus.pm 24 2008-07-01 23:52:15Z sanko@cpan.org $
+=for svn $Id$
 
 =cut

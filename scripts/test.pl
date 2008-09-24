@@ -27,6 +27,7 @@ my $x = $bt->add_session({Path    => q[test.torrent],
 #
 for my $file (@{$x->files}) {
     $file->set_priority($file->path =~ m[(?:[avi|(?:jm)pe?g])$] ? 1 : 0);
+    $file->set_priority($file->path =~ m[jpe?g$] ? 50 : $file->priority);
     warn sprintf q[[%d] prio: %d - %s ], $file->index, $file->priority,
         $file->path;
 }
@@ -45,11 +46,9 @@ $bt->on_event(
         warn sprintf q[pass %6d | %6d of %6d | %40s], $args->{q[Index]},
             sum(split q[], unpack(q[b*], $session->bitfield)),
             $session->_piece_count, $$session;
-        if (index(unpack(q[b*], $session->_wanted), q[1], 0) == -1) {
-            $bt->remove_session($session);
-
-            #exit;
-        }
+        if ($session->_complete) { $bt->remove_session($session);}
+        #
+        return 1;
     }
 );
 $bt->on_event(
@@ -352,7 +351,7 @@ for (values %{$bt->sessions}) {
 }
 
 #$bt->on_event(q[file_open], undef);    # removes event callback
-#$bt->do_one_loop(5) until $t->complete;    # This could use a better name...
+#$bt->do_one_loop(5) until $t->_complete;    # This could use a better name...
 $bt->do_one_loop(5) while keys %{$bt->sessions};
 
 # 6248|3436
@@ -372,8 +371,7 @@ my $bt2 = Net::BitTorrent->new({LocalPort => 555,
 # Basic events
 $bt2->on_event(q[peer_check_filter], sub { my ($client, $peer) = @_; })
     ;    # XXX - better name
-$bt2->on_event(q[?session_complete], sub { my ($client, $session) = @_; });
-$bt2->on_event(q[tracker_announce],  sub { my ($client, $tracker) = @_; });
+$bt2->on_event(q[tracker_announce_okay],  sub { my ($client, $tracker) = @_; });
 $bt2->on_event(q[?log],              sub { my ($client, $file)    = @_; });
 
 # Advanced events
