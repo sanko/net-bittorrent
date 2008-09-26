@@ -1,22 +1,35 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-
+use Module::Build;
 #
-use lib q[../../../lib];
+use lib q[../../../../lib];
+$|++;
 
 # let's keep track of where we are...
 my $test_builder = Test::More->builder;
+
+#
+my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
+
+# Make sure the path is correct
+chdir q[../../../../] if not -f $simple_dot_torrent;
+#
+
+my $build = Module::Build->current;
+my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
+
+#
 $|++;
 
 #
 BEGIN {
     use Test::More;
     plan tests => 267;
-    $SIG{__WARN__} = sub { };    # Quiet Carp
+    $SIG{__WARN__} = sub { diag shift };    # Quiet Carp
     use_ok(q[Net::BitTorrent::Protocol], qw[:all]);
 }
-{                                #
+{                                           #
     diag(q[ Message types...]);
     is(HANDSHAKE,      -1,  q[Handshake]);
     is(KEEPALIVE,      q[], q[Keepalive]);
@@ -441,7 +454,6 @@ BEGIN {
 
     #
     diag(q[ [...]:: _parse_extended]);
-    use Data::Dump;
     is(_parse_extended(),    undef, q[Undef]);
     is(_parse_extended(q[]), undef, q[Empty]);
     is_deeply(

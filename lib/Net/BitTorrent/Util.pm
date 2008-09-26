@@ -8,9 +8,10 @@ package Net::BitTorrent::Util;
     use List::Util qw[min max shuffle sum];    # core as of 5.007003
 
     #
+    #
     use version qw[qv];                        # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
     use vars                                   # core as of perl 5.002
@@ -41,7 +42,7 @@ package Net::BitTorrent::Util;
 
     sub bencode {
         my ($ref) = @_;
-        $ref = defined $ref?$ref:q[];
+        $ref = defined $ref ? $ref : q[];
         if (not ref $ref) {
             return (  (defined $ref and $ref =~ m[^[-+]?\d+$])
                     ? (q[i] . $ref . q[e])
@@ -60,19 +61,17 @@ package Net::BitTorrent::Util;
                      q[e]
                 );
         }
-        return q[]; # $ref == undef
+        return q[];    # $ref == undef
     }
 
-
-sub  bdecode {    # needs work
-        return if not @_;
-        my $string = shift;
+    sub bdecode {      # needs work
+        my($string)=@_;
+        return if not defined $string;
         my ($return, $leftover);
-        if ($string =~ m[^([1-9]\d*):]s
-            or
-            $string =~ m[^(0+):]s
-        ) {
-            my $size = $1; $return =q[] if $1 =~ m[^0+$];
+        if (   $string =~ m[^([1-9]\d*):]s
+            or $string =~ m[^(0+):]s)
+        {   my $size = $1;
+            $return = q[] if $1 =~ m[^0+$];
             $string =~ s|^$size:||s;
             while ($size) {
                 my $this_time = min($size, 32766);
@@ -100,10 +99,11 @@ sub  bdecode {    # needs work
                 my ($key, $value);
                 ($key,   $leftover) = bdecode($leftover);
                 ($value, $leftover) = bdecode($leftover);
-                 $return->{$key} = $value;
+                $return->{$key} = $value;
             }
             return wantarray ? (\%$return, $leftover) : \%$return;
         }
+
         #carp sprintf(q[Bad bencoded data: '%s'], $string);
         return;
     }
@@ -111,6 +111,7 @@ sub  bdecode {    # needs work
     sub compact {
         my (@peers) = @_;
         if (not @peers) {
+
             #carp q[Not enough parameters for compact(ARRAY)];
             return;
         }
@@ -118,15 +119,14 @@ sub  bdecode {    # needs work
         my %seen;
     PEER: for my $peer (grep(defined && !$seen{$_}++, @peers)) {
             next if not $peer;
-
-            my ($ip, $port) = split(q[:], $peer, 2             );
+            my ($ip, $port) = split(q[:], $peer, 2);
             if ($peer
                 !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4}):\d+$]
                 )
-            {   #carp q[Invalid IP address: ] . $peer;
+            {    #carp q[Invalid IP address: ] . $peer;
             }
             elsif ($port > 2**16) {    #
-                #carp q[Port number beyond ephemeral range: ] . $peer;
+                    #carp q[Port number beyond ephemeral range: ] . $peer;
             }
             else {
                 $return .= pack q[C4n],    # XXX - use inet_aton
@@ -152,8 +152,6 @@ sub  bdecode {    # needs work
     }
     1;
 }
-
-
 
 =pod
 

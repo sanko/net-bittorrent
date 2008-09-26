@@ -1,21 +1,25 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-
+use Module::Build;
 #
-use lib q[../../../../lib];
-use lib q[../../../lib];
-use lib q[./t/lib];
+use lib q[../../../../../lib];
+$|++;
 
 # let's keep track of where we are...
 my $test_builder = Test::More->builder;
 
 #
+my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 my $multi_dot_torrent  = q[./t/900_data/950_torrents/952_multi.torrent];
 my $single_dot_torrent = q[./t/900_data/950_torrents/951_single.torrent];
 
 # Make sure the path is correct
-chdir q[../../../../] if not -f $multi_dot_torrent;
+chdir q[../../../../../] if not -f $simple_dot_torrent;
+#
+
+my $build = Module::Build->current;
+my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
 
 #
 BEGIN {

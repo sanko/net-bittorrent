@@ -17,7 +17,8 @@ if (@ARGV >= 2 && $ARGV[0] eq q[--port]) {
             my ($n, $buf);
             if ($n = sysread($socket, $buf, 512)) {
                 exit if $buf eq qq[Hi there!\n];
-                die qq[Seems to be talking to the wrong server at $host:$port, got "$buf"\n];
+                die
+                    qq[Seems to be talking to the wrong server at $host:$port, got "$buf"\n];
             }
             elsif (defined $n) {
                 die qq[Immediate EOF from server at $host:$port\n];

@@ -1,15 +1,5 @@
 package Net::BitTorrent::DHT;
-
-#
-use strict;
-use warnings;
 {
-
-    BEGIN {
-        use version qw[qv];
-        our $SVN = q[$Id$];
-        our $VERSION = sprintf q[%.3f], version->new(qw$Rev 23$)->numify / 1000;
-    }
     use Socket
         qw[/F_INET/ /_DGRAM/ /SOL_SO/ /SO_RE/ /pack_sockaddr_in/ /inet_/];
     use Digest::SHA qw[sha1];
@@ -19,8 +9,12 @@ use warnings;
     #
     use lib q[../../../lib/];
     use Net::BitTorrent::Util qw[:log :bencode :compact];
-    use Net::BitTorrent::DHT::Node::Mainline qw[];
-    use Net::BitTorrent::DHT::Node::Azureus qw[];
+    use Net::BitTorrent::DHT::Node;
+
+    #
+    use version qw[qv];    # core as of 5.009
+    our $SVN = q[$Id$];
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     # Debugging
     #use Data::Dump qw[pp];
@@ -82,7 +76,6 @@ use warnings;
 
         sub _open_socket {
             my ($self, $host, $port, $reuse_address, $reuse_port) = @_;
-
             {    # backup
                 $extra{$self}{q[LocalHost]} = $host if defined $host;
                 $extra{$self}{q[LocalPort]} = $port if defined $port;
@@ -176,7 +169,7 @@ use warnings;
         }
 
         # Accesors | Public
-        sub _node_id {
+        sub node_id {
             return if defined $_[1];
             return $node_id{$_[0]};
         }
@@ -199,7 +192,7 @@ use warnings;
                     my $timestamp = $routing_table{$self}{$_}->_last_seen;
                     ($timestamp < (time - (60 * 30)))
                         or ($timestamp < (time - (60 * 5))
-                        and (not defined $routing_table{$self}{$_}->_node_id))
+                        and (not defined $routing_table{$self}{$_}->node_id))
                 } keys %{$routing_table{$self}};
                 for my $node (@expired_nodes) {
 
@@ -214,7 +207,7 @@ use warnings;
             my @hosts = sort keys %{$routing_table{$self}};
         NODE: for my $packed_host (@hosts) {
                 my $node = $routing_table{$self}{$packed_host};
-                if (    (not defined $node->_node_id)
+                if (    (not defined $node->node_id)
                     and ($node->_last_seen < (time - (60 * 5))))
                 {   delete $routing_table{$self}{$packed_host};
                     next NODE;
@@ -233,19 +226,19 @@ use warnings;
             return if not defined $target;
             return [
                 sort {
-                    ($a->_node_id ^ $target) cmp($b->_node_id ^ $target)
-                    } grep { defined $_->_node_id }
+                    ($a->node_id ^ $target) cmp($b->node_id ^ $target)
+                    } grep { defined $_->node_id }
                     values %{$routing_table{$self}}
             ]->[0 .. 8];
         }
 
         sub _send {
             my ($self, $args) = @_;
-            if (not defined $socket{$self}) { $self->_open_socket() }if (not defined $socket{$self})
-             {
-
+            if (not defined $socket{$self}) { $self->_open_socket() }
+            if (not defined $socket{$self}) {
                 return;
-            }if (not defined $args) {
+            }
+            if (not defined $args) {
                 carp q[Net::BitTorrent::DHT->_send() requires parameters];
                 return;
             }
@@ -254,8 +247,8 @@ use warnings;
                     q[Net::BitTorrent::DHT->_send() requires a 'node' parameter];
                 return;
             }
-            if (defined $args->{q[node]}->_node_id
-                and $args->{q[node]}->_node_id eq $node_id{$self})
+            if (defined $args->{q[node]}->node_id
+                and $args->{q[node]}->node_id eq $node_id{$self})
             {   carp q[Cannot send packet to ourself!];
                 return;
             }
@@ -263,7 +256,7 @@ use warnings;
                          0,              $args->{q[node]}->_packed_host)
                 )
             {   carp sprintf q[Cannot send %d bytes to %s: [%d] %s],
-                    length($args->{q[packet]}), $args->{q[node]}->_node_id,
+                    length($args->{q[packet]}), $args->{q[node]}->node_id,
                     $^E, $^E;
                 return;
             }
@@ -276,6 +269,8 @@ use warnings;
                                            type      => $args->{q[type]},
                                            args      => $args
                 };
+                weaken $outstanding_queries{$self}{$args->{q[t]}}{q[args]}
+                    {q[node]};
             }
 
             #
@@ -297,16 +292,20 @@ use warnings;
             my $packed_host = recv($socket{$self}, my ($_data), $read, 0);
             if (defined $packed_host) {
                 $actual_read = length $_data;
-                my ($packet, $leftover) = bdecode($_data);
-                if ($packet) {
+                my ($packet, $leftover) = bdecode($_data);    # TODO: if $leftover, loop
+                if (defined $packet) {
                     $routing_table{$self}{$packed_host} ||=
-                        Net::BitTorrent::DHT::Node::Mainline->new(
+                        Net::BitTorrent::DHT::Node->new(
                                               {dht         => $self,
                                                packed_host => $packed_host,
                                                node_id     => undef
                                               }
                         );
                     my $node = $routing_table{$self}{$packed_host};
+                    if (ref $packet ne q[HASH]) { # An attempt to track down a strange bug...
+                    require Data::Dumper;
+                    warn Data::Dumper->Dump([$packet],[ qw[Packet]]);
+                }
                     if (defined $packet->{q[y]}
                         and $packet->{q[y]} eq q[q])
                     {   my %dispatch = (
@@ -329,7 +328,7 @@ use warnings;
                         }
                         else {    # xxx - do something drastic
                             require Data::Dumper;
-                            die q[Unhandled DHT packet: ]
+                            carp q[Unhandled DHT packet: ]
                                 . Data::Dumper->Dump([$packet], [qw[Packet]]);
                         }
                     }
@@ -344,17 +343,19 @@ use warnings;
                             },
                             ping => sub {
                                 shift->_parse_reply_ping(shift);
-                                }
-
-#~                                  find_node     => \&_parse_reply_find_node,
+                            },
+                            find_node => sub {
+                                shift->_parse_reply_find_node(shift);
+                            }
                         );
                         if (defined $packet->{q[r]}) {
 
-                           #use Data::Dump qw[pp];
-                           #warn sprintf q[Reply!!!!! %s for %s],
-                           #    pp($packet),
-                           #    pp(
-                           #    $outstanding_queries{$self}{$packet->{q[t]}});
+                       #use Data::Dumper;
+                       #warn qq[DHT Reply:\n]
+                       #        . Data::Dumper->Dump(
+                       #        [$packet,
+                       #        $outstanding_queries{$self}{$packet->{q[t]}}],
+                       #                             [qw[packet for]]);
                             if (defined $outstanding_queries{$self}
                                 {$packet->{q[t]}})
                             {   my $type = $outstanding_queries{$self}
@@ -364,9 +365,14 @@ use warnings;
                                 }
                                 else {
                                     require Data::Dumper;
-                                    die q[Unhandled DHT Reply: ]
-                                        . Data::Dumper->Dump([$packet],
-                                                             [qw[packet]]);
+                                    die qq[Unhandled DHT Reply:\n]
+                                        . Data::Dumper->Dump(
+                                               [$packet,
+                                                $outstanding_queries{$self}
+                                                    {$packet->{q[t]}}
+                                               ],
+                                               [qw[packet for]]
+                                        );
                                 }
                                 delete $outstanding_queries{$self}
                                     {$packet->{q[t]}};
@@ -381,18 +387,7 @@ use warnings;
                 }
                 else {       # May be AZ. May be garbage. ...same thing.
                              #warn pp $data;
-                    if (   not defined $routing_table{$self}{$packed_host}
-                        or not $routing_table{$self}{$packed_host}
-                        ->isa(q[Net::BitTorrent::DHT::Node::Azureus]))
-                    {   $routing_table{$self}{$packed_host}
-                            = Net::BitTorrent::DHT::Node::Azureus->new(
-                                              {dht         => $self,
-                                               packed_host => $packed_host,
-                                               node_id     => undef
-                                              }
-                            );
-                    }
-                    my $node = $routing_table{$self}{$packed_host};
+
 
                     # XXX - Do stuff with the node
                 }
@@ -425,7 +420,7 @@ use warnings;
 
                 # We figure out what sort of node this is after the 1st packet
                 return $routing_table{$self}{$packed_host} ||=
-                    Net::BitTorrent::DHT::Node::Mainline->new(
+                    Net::BitTorrent::DHT::Node->new(
                                               {dht         => $self,
                                                packed_host => $packed_host,
                                                node_id     => undef
@@ -467,7 +462,6 @@ use warnings;
     }
 }
 1;
-__END__
 
 =pod
 
@@ -477,7 +471,7 @@ Net::BitTorrent::DHT - Kademlia based Distributed Hash Table
 
 =head1 Constructor
 
-=over 4
+=over
 
 =item C<new ( [ARGS] )>
 
@@ -495,19 +489,11 @@ used directly.
 Get the Node ID used to identify this L<client|/Net::BitTorrent> in the
 DHT swarm.
 
-=item C<as_string ( [ VERBOSE ] )>
-
-Returns a 'ready to print' dump of the C<Net::BitTorrent::DHT> object's
-data structure.  If called in void context, the structure is printed to
-C<STDERR>.
-
-See also: L<Net::BitTorrent|Net::BitTorrent/as_string>
-
 =back
 
-=head1 BUGS/TODO
+=head1 Bugs
 
-=over 4
+=over
 
 =item *
 
@@ -515,24 +501,34 @@ Currently, the routing table is flat.
 
 =back
 
+=head1 Notes
+
+While bandwidth to/from DHT nodes is not limited like other traffic,
+it is taken into account and "drained" from the rate limiter.  If
+there's a burst of DHT traffic, the peer traffic will be limited to
+avoid the total to exceed the global limit.
+
 =head1 Author
 
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
 
+
 =head1 License and Legal
 
-Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl 5.10 (or higher).  See
-http://www.perl.com/perl/misc/Artistic.html or the F<LICENSE> file
-included with this distribution.
+This program is free software; you can redistribute it and/or modify
+it under the terms of The Artistic License 2.0.  See the F<LICENSE>
+file included with this distribution or
+http://www.perlfoundation.org/artistic_license_2_0.  For
+clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
 
-All POD documentation is covered by the Creative Commons Attribution-
-Noncommercial-Share Alike 3.0 License
-(http://creativecommons.org/licenses/by-nc-sa/3.0/us/).
+When separated from the distribution, all POD documentation is covered
+by the Creative Commons Attribution-Share Alike 3.0 License.  See
+http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
+clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.

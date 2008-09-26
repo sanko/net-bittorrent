@@ -1,8 +1,8 @@
 Build.PL
+Changes
 lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/DHT.pm
-lib/Net/BitTorrent/DHT/Node/Azureus.pm
-lib/Net/BitTorrent/DHT/Node/Mainline.pm
+lib/Net/BitTorrent/DHT/Node.pm
 lib/Net/BitTorrent/Peer.pm
 lib/Net/BitTorrent/Protocol.pm
 lib/Net/BitTorrent/Session.pm
@@ -14,13 +14,14 @@ lib/Net/BitTorrent/Util.pm
 LICENSE
 MANIFEST			This list of files
 META.yml
-scripts/test.pl
+Notes.pod
+README
+scripts/client.pl
 t/000_miniswarm/007_miniswarm_http.t
 t/000_miniswarm/008_miniswarm_dht.t
 t/700_classes/Net/BitTorrent.t
 t/700_classes/Net/BitTorrent/DHT.t
-t/700_classes/Net/BitTorrent/DHT/Node/Azureus.t
-t/700_classes/Net/BitTorrent/DHT/Node/Mainline.t
+t/700_classes/Net/BitTorrent/DHT/Node.t
 t/700_classes/Net/BitTorrent/Peer.t
 t/700_classes/Net/BitTorrent/Protocol.t
 t/700_classes/Net/BitTorrent/Session.t
@@ -37,6 +38,5 @@ t/900_data/950_torrents/951_single.torrent
 t/900_data/950_torrents/952_multi.torrent
 t/900_data/950_torrents/953_miniswarm.torrent
 t/900_data/950_torrents/955_unicode.torrent
-t/900_data/950_torrents/958_large.torrent
 t/900_data/950_torrents/credits.txt
-TODO.txt
+TODO.pod

@@ -1,30 +1,41 @@
+#!/usr/bin/perl -w
 use strict;
 use warnings;
-
+use Module::Build;
 #
-use lib q[../../../../lib];
-use lib q[../../../lib];
-use lib q[./t/lib];
+use lib q[../../../../../lib];
+$|++;
 
 # let's keep track of where we are...
 my $test_builder = Test::More->builder;
-$|++;
 
 #
+my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
+
+# Make sure the path is correct
+chdir q[../../../../../] if not -f $simple_dot_torrent;
+#
+
+my $build = Module::Build->current;
+my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
+
+#
+$|++;
+
 #
 my $multi_dot_torrent  = q[./t/900_data/950_torrents/952_multi.torrent];
 my $single_dot_torrent = q[./t/900_data/950_torrents/951_single.torrent];
 
 # Make sure the path is correct
-chdir q[../../../../] if not -f $multi_dot_torrent;
+chdir q[../../../../../] if not -f $multi_dot_torrent;
 
 #
 BEGIN {
     use Test::More;
-    plan tests => 20;
-    $SIG{__WARN__} = sub {}; # Quiet Carp
+    plan tests => 21;
+    $SIG{__WARN__} = sub { diag shift };    # Quiet Carp
     diag(q[Testing Net::BitTorrent::Tracker]);
-    use_ok(q[Net::BitTorrent::Session::Tracker], qw[:all]);
+    use_ok(q[Net::BitTorrent::Session::Tracker]);
     use_ok(q[Net::BitTorrent]);
     use_ok(q[Net::BitTorrent::Session]);
 }
@@ -131,7 +142,14 @@ BEGIN {
               q[Get related N::B::Session object]);
     is($tracker->_client->isa(q[Net::BitTorrent]),
         1, q[Get related Net::BitTorrent object]);
+    is_deeply($tracker->_urls,
+              [bless(do { \(my $o = "http://example.com/announce") },
+                     "Net::BitTorrent::Session::Tracker::HTTP"
+               )
+              ],
+              q[_urls]
+    );
 
-        #
-        diag(q[TODO: create a fake tracker and connect to it])
+    #
+    diag(q[TODO: create a fake tracker and connect to it])
 }

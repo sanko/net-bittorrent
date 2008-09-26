@@ -15,7 +15,7 @@ package Net::BitTorrent::Session::File;
     #
     use version qw[qv];                     # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
     my (%path,     %session, %size,   %index);          # parameters to new()
@@ -47,52 +47,62 @@ package Net::BitTorrent::Session::File;
 
         # Param validation... Ugh...
         if (not defined $args) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires ]
             #    . q[parameters a set of parameters];
             return;
         }
         if (ref($args) ne q[HASH]) {
+
             #carp q[Net::BitTorrentS::Session::File->new({}) requires ]
             #    . q[parameters to be passed as a hashref];
             return;
         }
         if (not defined $args->{q[Path]}) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
             #    . q['Path' parameter];
             return;
         }
         if (not defined $args->{q[Session]}) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
             #    . q['Session' parameter];
             return;
         }
         if (not blessed $args->{q[Session]}) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
             #    . q[blessed 'Session' object];
             return;
         }
         if (not $args->{q[Session]}->isa(q[Net::BitTorrent::Session])) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
             #    . q[blessed Net::BitTorrent::Session object in the ]
             #    . q['Session' parameter];
             return;
         }
         if (not defined $args->{q[Size]}) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires a ]
             #    . q['Size' parameter];
             return;
         }
         if ($args->{q[Size]} !~ m[^\d+$]) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires an ]
             #    . q[integer value for 'Size'];
             return;
         }
         if (not defined $args->{q[Index]}) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires an ]
             #    . q['Index' parameter];
             return;
         }
         if ($args->{q[Index]} !~ m[^\d+$]) {
+
             #carp q[Net::BitTorrent::Session::File->new({}) requires an ]
             #    . q[integer value for 'Index'];
             return;
@@ -125,13 +135,15 @@ package Net::BitTorrent::Session::File;
     sub set_priority {
         my ($self, $newval) = @_;
         if (not defined $newval) {
-            #carp
-            #    q[Net::BitTorrent::Session::File->set_priority() requires an priority parameter];
+
+#carp
+#    q[Net::BitTorrent::Session::File->set_priority() requires an priority parameter];
             return;
         }
         if ($newval !~ m[^\d+$]) {
-            #carp
-            #    q[Net::BitTorrent::Session::File->set_priority() requires an integer];
+
+   #carp
+   #    q[Net::BitTorrent::Session::File->set_priority() requires an integer];
             return;
         }
         return $priority{$self} = $newval;
@@ -150,13 +162,15 @@ package Net::BitTorrent::Session::File;
     sub _open {
         my ($self, $mode) = @_;
         if (not defined $mode) {
+
             #carp q[Net::BitTorrent::Session::File->_open() requires a mode];
             return;
         }
         if ($mode !~ m[^[rw]$]) {
-            #carp
-            #    q[Malformed mode to Net::BitTorrent::Session::File->_open(): ]
-            #    . $mode;
+
+           #carp
+           #    q[Malformed mode to Net::BitTorrent::Session::File->_open(): ]
+           #    . $mode;
             return;
         }
 
@@ -294,13 +308,15 @@ package Net::BitTorrent::Session::File;
 
         #
         if (not defined $length) {
-            #carp
-            #    q[Net::BitTorrent::Session::File->_read( LENGTH ) requires a length];
+
+    #carp
+    #    q[Net::BitTorrent::Session::File->_read( LENGTH ) requires a length];
             return;
         }
         if ($length !~ m[^\d+$]) {
-            #carp
-            #    q[Net::BitTorrent::Session::File->_read( LENGTH ) requires an integer length];
+
+#carp
+#    q[Net::BitTorrent::Session::File->_read( LENGTH ) requires an integer length];
             return;
         }
 
@@ -476,8 +492,7 @@ package Net::BitTorrent::Session::File;
 
     sub _close {
         my ($self) = @_;
-
-    return if not defined $mode{$self};
+        return if not defined $mode{$self};
 
         #
         if (defined $win32_handle{$self} and require Win32API::File) {
@@ -697,4 +712,5 @@ BitTorrent, Inc.
 =for svn $Id$
 
 =cut
+
 }

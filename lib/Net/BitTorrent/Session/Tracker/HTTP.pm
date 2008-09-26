@@ -18,6 +18,11 @@ package Net::BitTorrent::Session::Tracker::HTTP;
     use Net::BitTorrent::Util qw[:bencode uncompact];
 
     #
+    use version qw[qv];                     # core as of 5.009
+    our $SVN = q[$Id$];
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+
+    #
     my (%url, %tier);                              # param to new()
     my (%resolve, %event, %_socket, %_data_out);
 
@@ -206,14 +211,13 @@ package Net::BitTorrent::Session::Tracker::HTTP;
 
                 #return;
                 # Reschedule announce
-
-                    $tier{$self}->_client->_schedule(
+                $tier{$self}->_client->_schedule(
                                       {Time   => time + 30,
                                        Code   => sub { shift->_announce(); },
                                        Object => $self
                                       }
-                    );
-                    return ;
+                );
+                return;
             }
             $tier{$self}->_client->_event(q[tracker_data_out],
                                  {Tracker => $self, Length => $actual_write});
@@ -289,29 +293,28 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                                       }
                 );
             }
-
             $tier{$self}->_client->_remove_connection($self);
             close $_socket{$self};
             $tier{$self}
                 ->_client->_event(q[tracker_disconnect], {Tracker => $self});
         }
         else {
-                $tier{$self}->_client->_event(
+            $tier{$self}->_client->_event(
                                      q[tracker_announce_failure],
                                      {Tracker => $self,
                                       Reason => q[Failed to read from tracker]
                                      }
-                );
+            );
 
-                # Reschedule announce
-                $tier{$self}->_client->_schedule(
+            # Reschedule announce
+            $tier{$self}->_client->_schedule(
                                       {Time   => time + 300,
                                        Code   => sub { shift->_announce(); },
                                        Object => $self
                                       }
-                );
-                return;
-            }
+            );
+            return;
+        }
         return ($actual_read, $actual_write);
     }
 
@@ -333,7 +336,6 @@ package Net::BitTorrent::Session::Tracker::HTTP;
     #
     1;
 }
-
 
 =pod
 
@@ -370,16 +372,18 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl 5.10 (or higher).  See
-http://www.perl.com/perl/misc/Artistic.html or the F<LICENSE> file
-included with this distribution.
+it under the terms of The Artistic License 2.0.  See the F<LICENSE>
+file included with this distribution or
+http://www.perlfoundation.org/artistic_license_2_0.  For
+clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
 
-All POD documentation is covered by the Creative Commons Attribution-
-Noncommercial-Share Alike 3.0 License
-(http://creativecommons.org/licenses/by-nc-sa/3.0/us/).
+When separated from the distribution, all POD documentation is covered
+by the Creative Commons Attribution-Share Alike 3.0 License.  See
+http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
+clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.

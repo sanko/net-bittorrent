@@ -6,7 +6,7 @@ package Net::BitTorrent::Peer;
     #
     use Carp qw[carp];                      # core as of perl 5
     use Scalar::Util qw[blessed weaken];    # core as of perl 5.007003
-    use List::Util qw[sum];                 # core as of perl 5.007003
+    use List::Util qw[sum max];             # core as of perl 5.007003
     use Socket                              # core as of perl 5
         qw[/F_INET/ SOMAXCONN SOCK_STREAM
         /inet_/ /pack_sockaddr_in/
@@ -16,7 +16,7 @@ package Net::BitTorrent::Peer;
     #
     use version qw[qv];                     # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
     use lib q[../../../lib];
@@ -237,16 +237,31 @@ END
         return $self;
     }
 
-# Accessors | Public | General
-sub peerid { return $peerid{+shift} }
-
+    # Accessors | Public | General
+    sub peerid { return $peerid{+shift} }
 
     # Accessors | Private | General
     sub _socket    { return $_socket{+shift} }
     sub _session   { return $_session{+shift} }
     sub _bitfield  { return $_bitfield{+shift} }
-    sub _as_string { my ($self) = @_; return $$self; }
+    sub _as_string { my ($self) = @_; return $$self; }    # Cheating
 
+    sub _port {
+        return if defined $_[1];
+        my ($self) = @_;
+        return if not defined $_socket{$self};
+        my ($port, undef) = unpack_sockaddr_in(getpeername($_socket{$self}));
+        return $port;
+    }
+
+    sub _host {
+        return if defined $_[1];
+        my ($self) = @_;
+        return if not defined $_socket{$self};
+        my (undef, $packed_ip)
+            = unpack_sockaddr_in(getpeername($_socket{$self}));
+        return inet_ntoa($packed_ip);
+    }
 
     # Accessors | Private | Status
     sub _peer_choking    { return $_peer_choking{+shift} }
@@ -447,17 +462,12 @@ sub peerid { return $peerid{+shift} }
                             my ($self) = @_;
                             $_last_contact{$self} = time;
                             $_peer_choking{$self} = 0;
-                            my $requests = 0;
                             $_client{$self}
                                 ->_event(q[packet_incoming_unchoke],
                                          {Peer => $self});
-                            for (1 .. int(
-                                     (2**21) / $_session{$self}->_piece_length
-                                 )
-                                )
-                            {    # ~2M/peer
-                                last unless $self->_request_block;
-                                $requests++;
+                            for (1 .. 2) {
+                                last
+                                    if not $self->_request_block;
                             }
 
                             #
@@ -589,6 +599,15 @@ sub peerid { return $peerid{+shift} }
                                     or ($_->{q[Length]} != $length)
                             } @{$requests_out{$self}};
 
+                            #
+                            $_client{$self}->_event(q[packet_incoming_block],
+                                                    {Index  => $index,
+                                                     Offset => $offset,
+                                                     Length => $length,
+                                                     Peer   => $self
+                                                    }
+                            );
+
                             # perlref
                             my $piece
                                 = $_session{$self}->_piece_by_index($index);
@@ -638,15 +657,6 @@ sub peerid { return $peerid{+shift} }
                                     }
                                 }
                             }
-
-                            #
-                            $_client{$self}->_event(q[packet_incoming_block],
-                                                    {Index  => $index,
-                                                     Offset => $offset,
-                                                     Length => $length,
-                                                     Peer   => $self
-                                                    }
-                            );
 
                             #
                             if ($piece->{q[Endgame]}) {
@@ -703,8 +713,46 @@ sub peerid { return $peerid{+shift} }
                             }
 
                             #
-                            if ($self->_check_interest()) {
-                                $self->_request_block;
+                            if ($self->_check_interest) {
+                                if (not $self->_request_block)
+                                {    # Try again later...
+                                    $_client{$self}->_schedule(
+                                        {   Time => time + 30,
+                                            Code => sub {
+                                                my $s = shift;
+                                                return if not defined $s;
+                                                if ($s->_check_interest) {
+                                                    if (not
+                                                        $self->_request_block)
+                                                    {   $_client{$self}
+                                                            ->_schedule(
+                                                            {   Time => time
+                                                                    + 30,
+                                                                Code => sub {
+                                                                    my $s
+                                                                        = shift;
+                                                                    return
+                                                                        if not
+                                                                            defined
+                                                                            $s;
+                                                                    if ($s
+                                                                        ->_check_interest
+                                                                        )
+                                                                    {   $s
+                                                                            ->_request_block;
+                                                                    }
+                                                                },
+                                                                Object =>
+                                                                    $self
+                                                            }
+                                                            );
+                                                    }
+                                                }
+                                            },
+                                            Object => $self
+                                        }
+                                    );
+                                }
                             }
 
                             #
@@ -746,8 +794,9 @@ sub peerid { return $peerid{+shift} }
                             my ($id, $packet) = @{$payload};
                             if ($packet) {
                                 if ($id == 0) {
-                                    if (defined $packet->{q[p]}) {
-                                        my (undef, $packed_ip)
+                                    if (    defined $_client{$self}->_dht
+                                        and defined $packet->{q[p]})
+                                    {   my (undef, $packed_ip)
                                             = unpack_sockaddr_in(
                                                 getpeername($_socket{$self}));
                                         my $node
@@ -912,7 +961,7 @@ sub peerid { return $peerid{+shift} }
             my $request = $requests_out{$self}->[$i];
 
             #
-            if (time <= ($request->{q[Timestamp]} + 180)) {
+            if (time <= ($request->{q[Timestamp]} + 35)) {
                 next;
             }
 
@@ -925,7 +974,7 @@ sub peerid { return $peerid{+shift} }
                 ->{$self};
 
             #
-            if ($piece->{q[Touch]} <= time - 20) {
+            if ($piece->{q[Touch]} <= time - 60) {
                 $piece->{q[Slow]} = 1;
 
                 #warn sprintf q[Putting slow piece to sleep: %d],
@@ -974,126 +1023,152 @@ sub peerid { return $peerid{+shift} }
         return if $_peer_choking{$self};
 
         #
-        my $piece = $_session{$self}->_pick_piece($self);
+        my $return = 0;
 
-        #
-        if ($piece) {
+        #warn sprintf q[for (%d .. %d) { [...] }],
+        #    max(1, scalar(@{$requests_out{$self}})),
+        #    max(3, int((2**21) / $_session{$self}->_piece_length));
+        # ~2M/peer or at least three requests
+    REQUEST:
+        for (max(1, scalar(@{$requests_out{$self}}))
+             .. max(3, int((2**21) / $_session{$self}->_piece_length)))
+        {
 
-            #warn q[$self == ] . $self->as_string;
-            #warn pp \%requests_out;
-            #warn q[Num requests: ] . scalar(@{$requests_out{$self}});
-            #warn q[Before Request: ] . pp $piece;
-            #warn q[Endgame? ] . $piece->{q[Endgame]};
-            my $vec_offset;
-            if ($piece->{q[Endgame]}) {
+            #
+            my $piece = $_session{$self}->_pick_piece($self);
 
-           #warn q[Endgame!];
+            #
+            if ($piece) {
+
+                #warn q[$self == ] . $self->as_string;
+                #warn pp \%requests_out;
+                #warn q[Num requests: ] . scalar(@{$requests_out{$self}});
+                #warn q[Before Request: ] . pp $piece;
+                #warn q[Endgame? ] . $piece->{q[Endgame]};
+                my $vec_offset;
+                if ($piece->{q[Endgame]}) {
+                    warn q[Endgame!];
+
            # This next bit selects the least requested block (max 3 requests),
            #   makes sure this peer isn't already sitting on this request
            #   and... I just lost my train of thought; It's Friday afternoon.
            #   Regardless of how it looks, it does what I mean.
-                my $tmp_index = -1;
-                my %temp      = map {
-                    $tmp_index++;
-                    (    ($_ < 5)
-                     and ($piece->{q[Blocks_Recieved]}->[$tmp_index] == 0)
-                        )
-                        ? ($tmp_index => $_)
-                        : ()
-                } @{$piece->{q[Blocks_Recieved]}};
+                    my $tmp_index = -1;
+                    my %temp      = map {
+                        $tmp_index++;
+                        (        ($_ < 5)
+                             and
+                             ($piece->{q[Blocks_Recieved]}->[$tmp_index] == 0)
+                            )
+                            ? ($tmp_index => $_)
+                            : ()
+                    } @{$piece->{q[Blocks_Recieved]}};
 
-                #use Data::Dump qw[pp];
-                #warn q[%temp indexes: ] . pp \%temp;
-                for my $index (sort { $temp{$a} <=> $temp{$b} }
-                               sort { $a <=> $b } keys %temp)
-                {    #warn q[$index: ] . $index;
-                    if (not grep {
+                    #use Data::Dump qw[pp];
+                    #warn q[%temp indexes: ] . pp \%temp;
+                INDEX:
+                    for my $index (sort { $temp{$a} <=> $temp{$b} }
+                                   sort { $a <=> $b } keys %temp)
+                    {    #warn q[$index: ] . $index;
+                        if (not grep {
 
                            #warn sprintf q[recieved: %d | matches[i:%d|o:%d]],
                            #    ($piece->{q[Blocks_Recieved]}->[$index]),
                            #    ($piece->{q[Index]} == $_->{q[Index]}),
                            #    ($index == $_->{q[_vec_offset]});
-                            (defined $piece->{q[Blocks_Requested]}->[$index]
-                                 ->{$self})
-                                and (
+                                (defined $piece->{q[Blocks_Requested]}
+                                     ->[$index]->{$self})
+                                    and (
                                     ($piece->{q[Blocks_Recieved]}->[$index])
                                     or (($piece->{q[Index]} == $_->{q[Index]})
                                         and ($index == $_->{q[_vec_offset]}))
-                                )
-                        } @{$requests_out{$self}}
-                        )
-                    {   $vec_offset = $index;
-                        last;
+                                    )
+                            } @{$requests_out{$self}}
+                            )
+                        {   $vec_offset = $index;
+                            last INDEX;
+                        }
                     }
                 }
-            }
-            else {
+                else {
 
-                #warn pp $piece;
-                for my $i (0 .. $#{$piece->{q[Blocks_Requested]}}) {
-                    if (not scalar
-                        keys %{$piece->{q[Blocks_Requested]}->[$i]})
-                    {   $vec_offset = $i;
+                    #warn pp $piece;
+                BLOCK:
+                    for my $i (0 .. $#{$piece->{q[Blocks_Requested]}}) {
+                        if (not(keys %{$piece->{q[Blocks_Requested]}->[$i]}))
+                        {   $vec_offset = $i;
 
-                        #warn pp $piece->{q[Blocks_Requested]}->[$i];
-                        last;
+                            #use Data::Dump qw[pp];
+                            #warn pp $piece->{q[Blocks_Requested]}->[$i];
+                            last BLOCK;
+                        }
                     }
                 }
-            }
 
-            #
-            if (not defined $vec_offset or $vec_offset == -1) {
+                #
+                if (not defined $vec_offset or $vec_offset == -1) {
 
-                #warn sprintf
-                #    q[Piece has been fully requested: req:%s|rec:%s],
-                #    join(q[],
-                #         map { scalar keys %$_ }
-                #             @{$piece->{q[Blocks_Requested]}}),
-                #    join(q[], @{$piece->{q[Blocks_Recieved]}});
-                # xxx - pick a different piece?
-                # xxx - Honestly, this piece shouldn't have been returned
-                #       from _pick_piece in the first place...
-                return;
-            }
+                    #warn sprintf
+                    #    q[Piece has been fully requested: req:%s|rec:%s],
+                    #    join(q[],
+                    #         map { scalar keys %$_ }
+                    #             @{$piece->{q[Blocks_Requested]}}),
+                    #    join(q[], @{$piece->{q[Blocks_Recieved]}});
+                    # xxx - pick a different piece?
+                    # xxx - Honestly, this piece shouldn't have been returned
+                    #       from _pick_piece in the first place...
+                    last REQUEST;
+                }
 
-            # May already be requested if in endgame mode...
-            $piece->{q[Blocks_Requested]}->[$vec_offset]->{$self} = $self;
-            weaken $piece->{q[Blocks_Requested]}->[$vec_offset]->{$self};
+                # May already be requested if in endgame mode...
+                $piece->{q[Blocks_Requested]}->[$vec_offset]->{$self} = $self;
+                weaken $piece->{q[Blocks_Requested]}->[$vec_offset]->{$self};
 
-            #warn q[After request: ] . pp $piece;
-            #
-            my $offset = $vec_offset * $piece->{q[Block_Length]};
-            my $length = ((($vec_offset + 1) == $piece->{q[Block_Count]})
+              #use Data::Dump qw[pp];
+              #warn q[After request: ] . pp $_session{$self}->_piece_by_index(
+              #                $piece->{q[Index]}
+              #);
+              #
+                my $offset = $vec_offset * $piece->{q[Block_Length]};
+                my $length = (
+                          (($vec_offset + 1) == $piece->{q[Block_Count]})
                           ? (($piece->{q[Length]} % $piece->{q[Block_Length]})
                              || $piece->{q[Block_Length]})
                           : ($piece->{q[Block_Length]})
-            );
-            my $request = {Index       => $piece->{q[Index]},
-                           Offset      => $offset,
-                           Length      => $length,
-                           Timestamp   => time,
-                           _vec_offset => $vec_offset,
-            };
+                );
+                my $request = {Index       => $piece->{q[Index]},
+                               Offset      => $offset,
+                               Length      => $length,
+                               Timestamp   => time,
+                               _vec_offset => $vec_offset,
+                };
 
-            #
-            push @{$requests_out{$self}}, $request;
+                #
+                push @{$requests_out{$self}}, $request;
 
-            #
-            $_client{$self}->_event(q[packet_outgoing_request],
-                                    {Index  => $piece->{q[Index]},
-                                     Offset => $offset,
-                                     Length => $length,
-                                     Peer   => $self
-                                    }
-            );
+                #
+                $_client{$self}->_event(q[packet_outgoing_request],
+                                        {Index  => $piece->{q[Index]},
+                                         Offset => $offset,
+                                         Length => $length,
+                                         Peer   => $self
+                                        }
+                );
 
-            #
-            $_client{$self}->_remove_connection($self);
-            $_client{$self}->_add_connection($self, q[rw]);
-            return $_data_out{$self}
-                .= build_request($piece->{q[Index]}, $offset, $length);
+                #
+                $_client{$self}->_remove_connection($self);
+                $_client{$self}->_add_connection($self, q[rw]);
+                $_data_out{$self}
+                    .= build_request($piece->{q[Index]}, $offset, $length);
+
+                #
+                $return++;
+            }
+            else {
+                last REQUEST;
+            }
         }
-        return;
+        return $return;
     }
 
     sub _send_bitfield {    # XXX - or fast packet

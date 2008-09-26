@@ -42,6 +42,6 @@
 scripts/gui.pl
 scripts/gui.xrc
 scripts/POE.pl
-scripts/settings.bencode
-scripts/test.torrent
-\bhttp_tracker.pl$
+scripts/.*.bencode
+scripts/.*.torrent
+

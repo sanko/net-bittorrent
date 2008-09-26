@@ -1,11 +1,25 @@
+#!/usr/bin/perl -w
 use strict;
 use warnings;
-
+use Module::Build;
 #
-use lib q[../../../lib];
+use lib q[../../../../lib];
+$|++;
 
 # let's keep track of where we are...
 my $test_builder = Test::More->builder;
+
+#
+my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
+
+# Make sure the path is correct
+chdir q[../../../../] if not -f $simple_dot_torrent;
+#
+
+my $build = Module::Build->current;
+my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
+
+#
 $|++;
 
 #
@@ -34,8 +48,8 @@ BEGIN {
     is(bencode(time x 50), q[i] . (time x 50) . q[e], q[large number]);
     is(bencode(q[Perl]), q[4:Perl], q[string]);
     is(bencode(q[]),     q[0:],     q[null string]);
-    is(bencode(),        q[0:],       q[undef]);
-    is(bencode(undef),   q[0:],       q[undef]);
+    is(bencode(),        q[0:],     q[undef]);
+    is(bencode(undef),   q[0:],     q[undef]);
     is(bencode(\undef),  q[],       q[ref to undef]);
     is(bencode(q[0:0:]), q[4:0:0:], q[odd string (malformed bencoded int)]);
     is(bencode([1, 2, 3]), q[li1ei2ei3ee], q[list (integers)]);
@@ -143,7 +157,7 @@ BEGIN {
               q[Complex structure (empty dictionary, 'safe' hex chars)]
     );
 
-     #
+    #
     diag(q[  [...]::compact]);
     is(compact(qw[127.0.0.1:98]), qq[\x7F\0\0\1\0b],  q[localhost]);
     is(compact(qw[127.0.0.1:0]),  qq[\x7F\0\0\1\0\0], q[port number of zero]);

@@ -1,10 +1,9 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-
+use Module::Build;
 #
-use lib q[../../../lib];
-use lib q[./t/lib];
+use lib q[../../../../lib];
 $|++;
 
 # let's keep track of where we are...
@@ -14,7 +13,11 @@ my $test_builder = Test::More->builder;
 my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 
 # Make sure the path is correct
-chdir q[../../../] if not -f $simple_dot_torrent;
+chdir q[../../../../] if not -f $simple_dot_torrent;
+#
+
+my $build = Module::Build->current;
+my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
 
 #
 my ($flux_capacitor, %peers) = (0, ());
@@ -22,11 +25,10 @@ my ($flux_capacitor, %peers) = (0, ());
 #
 BEGIN {
     use Test::More;
-    plan tests => 311;
+    plan tests => 320;
     *CORE::GLOBAL::time    # Let's do the time warp again!
         = sub () { return CORE::time + ($flux_capacitor * 60); };
-
-        $SIG{__WARN__} = sub {}; # Quiet Carp
+    $SIG{__WARN__} = sub { diag shift };    # Quiet Carp
 
     # Ours
     use_ok(
@@ -43,11 +45,12 @@ BEGIN {
 }
 
 #
-{
+SKIP: {
+       skip q[Socket-based tests have been disabled.], ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]}) unless $can_talk_to_ourself;
+
     my ($tempdir)
         = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
-    0
-        && diag(
+    diag(
            sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
     my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
     if (!$client) {
@@ -94,8 +97,7 @@ BEGIN {
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
 
                 #
-                0
-                    && diag(sprintf(q[Read %d bytes from '%s'],
+                diag(sprintf(q[Read %d bytes from '%s'],
                                     $_len, $_peer->_as_string
                             )
                     );
@@ -124,8 +126,7 @@ BEGIN {
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
 
                 #
-                0
-                    && diag(sprintf(q[Wrote %d bytes from '%s'],
+                diag(sprintf(q[Wrote %d bytes from '%s'],
                                     $_len, $_peer->_as_string
                             )
                     );
@@ -153,8 +154,7 @@ BEGIN {
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
 
                 #
-                0
-                    && diag(sprintf(q[Disconnected from '%s'%s],
+                diag(sprintf(q[Disconnected from '%s'%s],
                                     $_peer->_as_string,
                                     ($_why
                                      ? (q[ (] . $_why . q[)])
@@ -195,8 +195,6 @@ BEGIN {
             q[packet_incoming_request],
             sub {
                 my ($self, $args) = @_;
-                use Data::Dump qw[pp];
-                die pp \@_;
 
                 #
                 diag sprintf q[%s is requesting [I:%4d O:%6d L:%6d]],
@@ -207,7 +205,7 @@ BEGIN {
             }
         )
     );
-    my @request_offsets = qw[0 16384 16384];
+    my @request_offsets = qw[0 16384 16384 16384];
     ok( $client->on_event(
             q[packet_outgoing_request],
             sub {
@@ -222,8 +220,7 @@ BEGIN {
                           ],
                           q[Correct args passed to 'packet_outgoing_request' event handler]
                 );
-                0
-                    && diag(sprintf q[Requesting [I:%4d O:%6d L:%6d] from %s],
+                 diag(sprintf q[Requesting [I:%4d O:%6d L:%6d] from %s],
                             $args->{q[Index]},
                             $args->{q[Offset]},
                             $args->{q[Length]},
@@ -238,8 +235,6 @@ BEGIN {
             q[packet_incoming_cancel],
             sub {
                 my ($self, $args) = @_;
-                use Data::Dump qw[pp];
-                die pp \@_;
 
                 #
                 diag sprintf q[%s has canceled [I:%4d O:%6d L:%6d]],
@@ -267,11 +262,12 @@ BEGIN {
                 );
 
                 #
-                0
-                    && diag(
+                 diag(
                        sprintf(q[I have canceled [I:%4d O:%6d L:%6d] from %s],
-                               $args->{q[Index]},  $args->{q[Offset]},
-                               $args->{q[Length]}, $args->{q[Peer]}->_as_string
+                               $args->{q[Index]},
+                               $args->{q[Offset]},
+                               $args->{q[Length]},
+                               $args->{q[Peer]}->_as_string
                        )
                     );
             }
@@ -298,8 +294,7 @@ BEGIN {
                     16384, q[Session downloaded amount updated]);
 
                 #
-                0
-                    && diag(
+                 diag(
                     sprintf
                         q[%s sent us [I:%4d O:%6d L:%6d] I have now downloaded %d bytes],
                     $args->{q[Peer]}->_as_string,
@@ -316,8 +311,6 @@ BEGIN {
             q[packet_outgoing_block],
             sub {
                 my ($self, $args) = @_;
-                use Data::Dump qw[pp];
-                die pp \@_;
 
                 #
                 diag sprintf
@@ -385,9 +378,8 @@ BEGIN {
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
 
                 #
-                0
-                    && diag(
-                        sprintf(q[I am interested in %s], $_peer->_as_string));
+                 diag(
+                       sprintf(q[I am interested in %s], $_peer->_as_string));
             }
         ),
         q[Installed 'packet_outgoing_interested' event handler]
@@ -412,9 +404,8 @@ BEGIN {
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
 
                 #
-                0
-                    && diag(
-                       sprintf(q[%s is interested in me], $_peer->_as_string));
+                 diag(
+                      sprintf(q[%s is interested in me], $_peer->_as_string));
             }
         ),
         q[Installed 'packet_incoming_interested' event handler]
@@ -474,8 +465,6 @@ BEGIN {
             q[packet_outgoing_choke],
             sub {
                 my ($self, $args) = @_;
-                use Data::Dump qw[pp];
-                die pp \@_;
 
                 #
                 diag sprintf q[Choking %s], $args->{q[Peer]}->_as_string;
@@ -528,9 +517,8 @@ BEGIN {
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
 
                 #
-                0
-                    && diag(
-                          sprintf(q[Sent bitfield to %s], $_peer->_as_string));
+                diag(
+                         sprintf(q[Sent bitfield to %s], $_peer->_as_string));
             }
         ),
         q[Installed 'packet_outgoing_bitfield' event handler]
@@ -943,22 +931,21 @@ BEGIN {
             diag sprintf q[%d|%d], 302, $test_builder->{q[Curr_Test]};
 
             #
-            $flux_capacitor = 2.5;
+            $flux_capacitor = 1.5;
             $client->do_one_loop();
 
             #ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-            diag sprintf q[%d|%d], 306, $test_builder->{q[Curr_Test]};
+            diag sprintf q[%d|%d], 314, $test_builder->{q[Curr_Test]};
 
             #
-            $flux_capacitor = 5;
+            $flux_capacitor = 2.5;
             $client->do_one_loop;
             ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-            diag sprintf q[%d|%d], 311, $test_builder->{q[Curr_Test]};
+            diag sprintf q[%d|%d], 320, $test_builder->{q[Curr_Test]};
 
-            #
-            #use Data::Dump;
-            #dd $data;
-
+#
+#use Data::Dump;
+#dd $data;
 #
 #is(sysread($newsock_C, my ($in), 1024), 0, q[Fail to read data because socket was closed.]);
         }
@@ -973,8 +960,7 @@ BEGIN {
         my ($server) = @_;
         my ($port, $packed_ip)
             = unpack_sockaddr_in(getsockname($server->_socket));
-        0
-            && diag(sprintf q[Creating new sockpair to connect to %s:%d],
+        diag(sprintf q[Creating new sockpair to connect to %s:%d],
                     inet_ntoa($packed_ip), $port);
         my $outgoing;
         socket($outgoing, AF_INET, SOCK_STREAM, getprotobyname(q[tcp]))

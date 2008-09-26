@@ -13,7 +13,7 @@ package Net::BitTorrent::Protocol;
     #
     use version qw[qv];    # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
     use vars               # core as of perl 5.002
@@ -482,11 +482,10 @@ package Net::BitTorrent::Protocol;
                     };
                 }
                 else {
-                    if (require Data::Dumper) {
-                        carp q[Unhandled/Unknown packet where ]
-                            . Data::Dumper->Dump([$type, $packet],
-                                                 [qw[Type Packet]]);
-                    }
+                    require Data::Dumper;
+                    carp q[Unhandled/Unknown packet where ]
+                        . Data::Dumper->Dump([$type, $packet],
+                                             [qw[Type Packet]]);
                 }
             }
         }
@@ -719,11 +718,6 @@ package Net::BitTorrent::Protocol;
 #
 #     sub _parse_reserved {      # ...sub-packet, actually.
 #~         my $self = shift;
-#~         $client{$self}->_do_callback(q[log], TRACE,
-#~                                      sprintf(q[Entering %s for %s],
-#~                                              [caller 0]->[3], $$self
-#~                                      )
-#~         );
 #~         my ($reserved) = [map {ord} split(q[], $reserved{$self})];
 #~         $_supports_DHT{$self}         = ($reserved->[7] &= 0x01 ? 1 : 0);
 #~         $_supports_FastPeers{$self}   = ($reserved->[7] &= 0x04 ? 1 : 0);

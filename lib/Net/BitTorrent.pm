@@ -24,7 +24,7 @@ package Net::BitTorrent;
     #
     use version qw[qv];    # core as of 5.009
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 6; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(qw$Rev$)->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
     use lib q[../../lib];
@@ -125,21 +125,8 @@ package Net::BitTorrent;
                 carp q[Could not add server socket to list of connections];
                 return;
             }
-
-            #
-            $_dht{$self} =
-                Net::BitTorrent::DHT->new(
-                                       {Client    => $self,
-                                        LocalAddr => inet_ntoa($packed_ip),
-                                        LocalPort => $port,
-                                        ReuseAddr => $args->{q[ReuseAddr]},
-                                        ReusePort => $args->{q[ReusePort]}
-                                       }
-                ) or return;
-
-
         }
-        if (not $self) {    # failed to open socket?
+        if (not $self) {                  # failed to open socket?
             return;
         }
 
@@ -149,8 +136,7 @@ package Net::BitTorrent;
         $_max_ul_rate{$self}       = 0;
 
         #
-        #$_dht{$self}=Net::BitTorrent::DHT->new();
-        $_sessions{$self} = {};    # by infohash
+        $_sessions{$self} = {};           # by infohash
 
         #
         #$self->_schedule(
@@ -162,7 +148,9 @@ package Net::BitTorrent;
         #
         $self->_schedule(
             {Time => time + 5,
-             Code => sub {return$_k_down{$_[0]}=$_k_up{$_[0]}=0;},
+             Code => sub {
+                 return $_k_down{$_[0]} = $_k_up{$_[0]} = 0;
+             },
              Object => $self
             }
         );
@@ -186,7 +174,7 @@ package Net::BitTorrent;
     sub peerid   { return $_peerid{+shift} }
     sub sessions { return $_sessions{+shift} }
 
-    # Methods | Private
+    # Methods | Public
     sub do_one_loop {    # Clunky.  I really need to replace this.
         my ($self, $timeout) = @_;
         return if defined $timeout and $timeout !~ m[^\+?\d+\.?\d*$];
@@ -229,8 +217,42 @@ package Net::BitTorrent;
         return 1;
     }
 
+    # Enable/disable dht
+    sub _use_dht {
+        my ($self, $value) = @_;
+
+        #
+        if (not defined $value) {
+            carp q[Net::BitTorrent->dht( VALUE ) requires a bool value];
+            return;
+        }
+
+        #
+        if ($value and not defined $_dht{$self}) {
+            my ($port, $packed_ip)
+                = unpack_sockaddr_in(getsockname($_socket{$self}));
+            return $_dht{$self} = Net::BitTorrent::DHT->new(
+                {   Client    => $self,
+                    LocalAddr => inet_ntoa($packed_ip),
+                    LocalPort => $port,
+
+                    #ReuseAddr => $args->{q[ReuseAddr]},
+                    #ReusePort => $args->{q[ReusePort]}
+                }
+            );
+        }
+        elsif (not $value and defined $_dht{$self}) {
+            $self->_remove_connection($_dht{$self});
+            return delete $_dht{$self};
+        }
+
+        #
+        return;
+    }
+
+    # Methods | Private
     # Connections. Trackers, Peers, ...even the client itself
-    sub _add_connection {                                  # untested
+    sub _add_connection {    # untested
         my ($self, $connection, $mode) = @_;
 
       # Adds a socket to this objects list for select()ion
@@ -291,15 +313,13 @@ package Net::BitTorrent;
             carp q[This connection object is already loaded.];
             return;
         }
-        $_connections{$self}{fileno $_socket} = {
-                                                        Object => $connection,
-                                                        Mode   => $mode,
-                 } or return ;
-
-        if($connection->isa(q[Net::BitTorrent])) {
-            weaken $_connections{$self}{fileno $_socket}{q[Object]}
+        $_connections{$self}{fileno $_socket} = {Object => $connection,
+                                                 Mode   => $mode,
+            }
+            or return;
+        if ($connection->isa(q[Net::BitTorrent])) {
+            weaken $_connections{$self}{fileno $_socket}{q[Object]};
         }
-
         return 1;
     }
 
@@ -363,8 +383,8 @@ package Net::BitTorrent;
                     accept(my ($new_socket), $_socket{$self})
                         or
 
-                       #$self->_do_callback(q[log], ERROR,
-                       #                   q[Failed to accept new connection])
+                       #$self->_event(q[log], {Level => ERROR,
+                       #                   Msg => q[Failed to accept new connection]})
                        #and
                         next POPSOCK;
 
@@ -405,6 +425,7 @@ package Net::BitTorrent;
                 vec($$win, $fileno, 1) = 0;
                 vec($$ein, $fileno, 1) = 0;
                 if ($read or $write) {
+
                     #use Data::Dump qw[pp];
                     #warn sprintf q[R:%d | W:%d], $read, $write;
                     #warn pp $_connections{$self}{$fileno};
@@ -426,10 +447,8 @@ package Net::BitTorrent;
                            ),
                            $error
                         );
-
-
-                    $_k_down{$self} += defined $this_down?$this_down:0;
-                    $_k_up{$self}   += defined $this_up?$this_up:0;
+                    $_k_down{$self} += defined $this_down ? $this_down : 0;
+                    $_k_up{$self}   += defined $this_up   ? $this_up   : 0;
 
                     # Make it a strong ref once again...
                     #$_connections{$self}{$fileno}{q[Object]} =
@@ -468,6 +487,7 @@ package Net::BitTorrent;
         }
         $args->{q[Client]} = $self;
         my $session = Net::BitTorrent::Session->new($args);
+        return if not defined $session;
         return if defined $_sessions{$self}{$$session};    # XXX - Untested
         return $_sessions{$self}{$$session} = $session;
     }
@@ -483,16 +503,28 @@ package Net::BitTorrent;
             return;
         }
 
+        # close peers
+        for my $_peer (@{$session->_peers}) {
+            $_peer->_disconnect(
+                              q[Removing .torrent session from local client]);
+        }
+
+        # let the trackers know
+        for my $_tracker (@{$session->trackers}) {
+            $_tracker->_urls->[0]->_announce(q[stopped]);
+        }
+
         #
         return delete $_sessions{$self}{$session->infohash};
     }
 
-    # callback system
+    # Methods | Public | Callback system
     sub on_event {
         my ($self, $type, $method) = @_;
         $_event{$self}{$type} = $method;
     }
 
+    # Methods | Private | Callback system
     sub _event {
         my ($self, $type, $args) = @_;
         if (defined $_event{$self}{$type}) {
@@ -512,35 +544,40 @@ package Net::BitTorrent;
     sub _schedule {
         my ($self, $args) = @_;
         if (not defined $args) {
-            carp q[Ouch];
+            carp q[Net::BitTorrent->_schedule() requires parameters];
             return;
         }
         if (ref $args ne q[HASH]) {
-            carp q[Ouch];
+            carp
+                q[Net::BitTorrent->_schedule() requires params to be passed as a HashRef];
             return;
         }
         if (not defined $args->{q[Object]}) {
-            carp q[Need obj];
+            carp
+                q[Net::BitTorrent->_schedule() requires an 'Object' parameter];
             return;
         }
         if (not blessed $args->{q[Object]}) {
-            carp q[Need blessed obj];
+            carp
+                q[Net::BitTorrent->_schedule() requires a blessed 'Object' parameter];
             return;
         }
         if (not defined $args->{q[Time]}) {
-            carp q[Ouch!];
+            carp q[Net::BitTorrent->_schedule() requires a 'Time' parameter];
             return;
         }
         if ($args->{q[Time]} !~ m[^\d+$]) {
-            carp q[Ouch!!!];
+            carp
+                q[Net::BitTorrent->_schedule() requires 'Time' to be an integer];
             return;
         }
         if (not defined $args->{q[Code]}) {
-            carp q[Ouch!??];
+            carp q[Net::BitTorrent->_schedule() requires a 'Code' parameter];
             return;
         }
         if (ref $args->{q[Code]} ne q[CODE]) {
-            carp q[Ouch!!!??];
+            carp
+                q[Net::BitTorrent->_schedule() requires a 'Code' parameter of type 'CodeRef];
             return;
         }
 
@@ -556,14 +593,17 @@ package Net::BitTorrent;
 
     sub _cancel {
         my ($self, $tid) = @_;
-    if (not defined $tid){
-        carp q[Net::BitTorrent->_cancel( TID ) requires an ID];
-        return;
-    }
-    elsif (not defined $_schedule{$self}{$tid}){
-        carp sprintf q[Net::BitTorrent->_cancel( TID ) cannot find an event with TID == %s], $tid;
-        return;
-    }
+        if (not defined $tid) {
+            carp q[Net::BitTorrent->_cancel( TID ) requires an ID];
+            return;
+        }
+        elsif (not defined $_schedule{$self}{$tid}) {
+            carp sprintf
+                q[Net::BitTorrent->_cancel( TID ) cannot find an event with TID == %s],
+                $tid;
+            return;
+        }
+
         #
         return delete $_schedule{$self}{$tid};
     }
@@ -584,6 +624,7 @@ package Net::BitTorrent;
         return 1;
     }
 
+    # Methods | Private | Various
     sub _generate_token_id {    # automatic rollover/expansion/etc
         return if defined $_[1];
         my ($self) = @_;
@@ -679,6 +720,7 @@ package Net::BitTorrent;
     #
     DESTROY {
         my ($self) = @_;
+
         #warn sprintf q[Goodbye, %s], $$self;
         delete $_socket{$self};
         delete $_peerid{$self};
@@ -689,6 +731,8 @@ package Net::BitTorrent;
         delete $_peers_per_session{$self};
         delete $_event{$self};
     }
+    1;
+}
 
 =pod
 
@@ -698,29 +742,36 @@ Net::BitTorrent - BitTorrent peer-to-peer protocol class
 
 =head1 Synopsis
 
- use Net::BitTorrent;
+  use Net::BitTorrent;
 
- my $client = Net::BitTorrent->new();
+  my $client = Net::BitTorrent->new();
 
- # ...
- # set various callbacks if you so desire
- # ...
- $client->set_callback(
-   q[piece_hash_pass],
-   sub {
-     my ($self, $piece) = @_;
-     printf(qq[hash_pass: piece number %04d of %s\n],
-       $piece->get_index, $piece->get_session);
-   }
- );
+  # ...
+  # Set various callbacks if you so desire
+  # ...
+  $client->on_event(
+      q[piece_hash_pass],
+      sub {
+          my ($self, $args) = @_;
+          printf(qq[pass: piece number %04d of %s\n],
+                 $args->{q[Index]}, $args->{q[Session]}->infohash);
+      }
+  );
+  $client->on_event(
+      q[piece_hash_fail],
+      sub {
+          my ($self, $args) = @_;
+          printf(qq[fail: piece number %04d of %s\n],
+                 $args->{q[Index]}, $args->{q[Session]}->infohash);
+      }
+  );
 
- my $torrent = $client->add_session({path => q[a.legal.torrent]})
-   or die q[Cannot load .torrent];
+  my $torrent = $client->add_session({Path => q[a.legal.torrent]})
+      or die q[Cannot load .torrent];
 
- while (1) {
-   $client->do_one_loop();
-   # Etc.
- }
+  $torrent->hashcheck;    # Verify any existing data
+
+  while (1) { $client->do_one_loop(); }
 
 =head1 Description
 
@@ -765,7 +816,12 @@ Default: 0 (any available)
 
 =back
 
-=head1 Accessors
+=head1 Methods
+
+Unless otherwise stated, all methods return either a C<true> or C<false>
+value, with C<true> meaning that the operation was a success.  When a
+method states that it returns some other specific value, failure will
+result in C<undef> or an empty list.
 
 =over 4
 
@@ -782,37 +838,78 @@ L<Peer ID Specification|Net::BitTorrent::Notes/"Peer ID Specification">
 
 Returns the list of loaded .torrent L<sessions|Net::BitTorrent::Session>.
 
-See also: L<add_session ( )|/add_session ( )>,
-L<remove_session ( )|/remove_session ( )>
+See also: L<add_session ( )|/add_session ( { ... } )>,
+L<remove_session ( )|/remove_session ( SESSION )>
 
-=back
+=item C<add_session ( { ... } )>
 
-=head1 Methods
+Loads a .torrent file and adds the new
+L<Net::BitTorrent::Session|Net::BitTorrent::Session> object to the
+client.
 
-Unless otherwise stated, all methods return either a C<true> or C<false>
-value, with C<true> meaning that the operation was a success.  When a
-method states that it returns a value, failure will result in C<undef> or
-an empty list.
+Most arguments passed to this method are handed directly to
+L<Net::BitTorrent::Session::new( )|Net::BitTorrent::Session/"new ( { [ARGS] } )">.
+The only mandatory parameter is C<Path>.  C<Path>'s value is the filename
+of the .torrent file to load.  Please see
+L<Net::BitTorrent::Session::new( )|Net::BitTorrent::Session/"new ( { [ARGS] } )">
+for a list of possible parameters.
 
-Besides these listed here, there is also the
-L<on_event ( )|/"on_event ( TYPE, CODEREF )"> method described in
-the L<Events|/Events> section.
+This method returns the new
+L<Net::BitTorrent::Session|Net::BitTorrent::Session> object on success.
 
-=over 4
-
-=item C<add_session ( ARGS )>
-
-=item C<do_one_loop ( [TIMEOUT] )>
+See also: L<sessions|/sessions( )>,
+L<remove_session|/remove_session ( SESSION )>,
+L<Net::BitTorrent::Session|Net::BitTorrent::Session>
 
 =item C<remove_session ( SESSION )>
 
+Removes a L<Net::BitTorrent::Session|Net::BitTorrent::Session> object
+from the client.
+
+=begin future
+
+Before the torrent session is closed, we announce to the tracker that we
+have 'stopped' downloading and the callback to store the current state is
+called.
+
+=end future
+
+See also: L<sessions ( )|/sessions( )>,
+L<add_session|/"add_session ( { ... } )">,
+L<Net::BitTorrent::Session|Net::BitTorrent::Session>
+
+=item C<do_one_loop ( [TIMEOUT] )>
+
+Processes the various socket-containing objects (peers, trackers) held by
+this L<Net::BitTorrent|Net::BitTorrent> object.  This method should be called frequently.
+
+The optional TIMEOUT parameter is the maximum amount of time, in seconds,
+possibly fractional, C<select()> is allowed to wait before returning in
+L<do_one_loop( )|/"do_one_loop ( [TIMEOUT] )">.  This TIMEOUT defaults to
+C<1.0>.  To wait indefinatly, TIMEOUT should be C<-1.0>.
+
 =item C<on_event ( TYPE, CODEREF )>
+
+Net::BitTorrent provides a convenient callback system.  To set a callback,
+use the C<on_event( )> method.  For example, to catch all attempts to read
+from a file, use C<$client->on_event( 'file_read', \&on_read )>.
+
+See the L<Events|/Events> section for a list of events sorted by their
+related classes.
 
 =back
 
 =head1 Events
 
 C<Net::BitTorrent> and related classes trigger a number of events
+
+
+
+
+
+
+
+
 
 
 =head1 Author
@@ -842,6 +939,3 @@ BitTorrent, Inc.
 =for svn $Id$
 
 =cut
-
-    1;
-}

@@ -1,0 +1,148 @@
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
+
+=head1 High priorities
+
+=over 2
+
+=item * Get help
+
+=back
+
+=head1 Short term goals
+
+=over 2
+
+=item * Complete test suite
+
+Create a series of bad .torrent files to test N::B::Session with:
+
+=over 2
+
+=item * invalid pieces string
+
+=over 2
+
+=item * string length does not % 40 evenly
+
+=item * string is shorter than 40 chars
+
+=item * piece_length * num_pieces is nowhere near total_size_of_torrent
+
+=back
+
+=item * private .torrent
+
+=item * private .torrent without trackers should cause some sort of warning
+
+=back
+
+=item * Improve detection of bad .torrent metadata.
+
+=item * Per-session transfer limits
+
+=back
+
+=head1 Long term goals
+
+=over 2
+
+=item * Net::BitTorrent::Notes - Description of N::B's internals
+
+=over 2
+
+=item * Data layout
+
+=item * Behavior
+
+=item * Shortfalls
+
+=back
+
+=item * improve file handling
+
+=over 2
+
+=item * large torrents (> 4G) typically require 64bit math
+
+=item * .piece file to store incoming blocks
+
+=back
+
+=item * Wire protocol encryption (?)
+
+=over 2
+
+=item * Not internal.  A callback, perhaps.
+
+=back
+
+=item * scripts/gui-client.pl?
+
+=over 2
+
+=item * very light gui example using Wx
+
+=back
+
+=item *  Internal bans for 'bad' peers
+
+=over 2
+
+=item * Penalty (and eventual ban) for peers who always seem involved with bad pieces
+
+=back
+
+=item * PoCo::BitTorrent
+
+=over 2
+
+=item * Not to be confused with the other PoCo::BitTorrent
+
+=back
+
+
+=item * DHT/PEX
+
+Working but disabled by default
+
+=item * UDP trackers
+
+=item * Fast Peers
+
+Partial support currently
+
+=back
+
+=head1 Duke Nukem: Forever
+
+=over 2
+
+=item * perlcritic severity=stern
+
+=item * non-blocking hash_check()
+
+=over 2
+
+=item * This is actually possible now with a bit of work.
+
+=back
+
+=over 2
+
+=item * Single class
+
+=item * No extensions
+
+=item * Trimmed API
+
+=back
+
+=back
+
+=for svn $Id$
+
+=cut

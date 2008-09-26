@@ -9,16 +9,17 @@ package Net::BitTorrent::Session::Tracker;
     use List::Util qw[shuffle];             # core as of 5.007003
 
     #
-    use version qw[qv];                     # core as of 5.009
-    our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
-
-    #
+    use lib q[./../../../];
     use Net::BitTorrent::Session::Tracker::HTTP;
     use Net::BitTorrent::Session::Tracker::UDP;
 
     #
-    my (%session,  %urls);                  # params to new\
+    use version qw[qv];                     # core as of 5.009
+    our $SVN = q[$Id$];
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+
+    #
+    my (%session,  %_urls);                  # params to new\
     my (%complete, %incomplete);
 
     #
@@ -101,7 +102,7 @@ package Net::BitTorrent::Session::Tracker;
         $incomplete{$self} = 0;
 
         #
-        $urls{$self} = [map ($_ =~ m[^http://]i
+        $_urls{$self} = [map ($_ =~ m[^http://]i
                              ? Net::BitTorrent::Session::Tracker::HTTP->new(
                                                     {URL => $_, Tier => $self}
                                  )
@@ -115,7 +116,7 @@ package Net::BitTorrent::Session::Tracker;
         $session{$self}->_client->_schedule(
             {   Time => time,
                 Code => sub {
-                    $urls{+shift}->[0]->_announce(q[started]);
+                    $_urls{+shift}->[0]->_announce(q[started]);
                 },
                 Object => $self
             }
@@ -132,6 +133,7 @@ package Net::BitTorrent::Session::Tracker;
     # Accessors | Private
     sub _client  { return $session{+shift}->_client; }
     sub _session { return $session{+shift}; }
+    sub _urls {return $_urls{+shift};}
 
     # Methods | Private
     sub _set_complete {
@@ -150,7 +152,7 @@ package Net::BitTorrent::Session::Tracker;
 
         #
         delete $session{$self};
-        delete $urls{$self};
+        delete $_urls{$self};
 
         #
         delete $complete{$self};

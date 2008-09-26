@@ -13,16 +13,16 @@ package Net::BitTorrent::Session;
     use Fcntl qw[O_RDONLY];                         # core as of perl 5
 
     #
-    use version qw[qv];                             # core as of 5.009
-    our $SVN = q[$Id$];
-    our $VERSION = sprintf q[%.3f], version->new(qw$Rev$)->numify / 1000;
-
-    #
     use lib q[../../../lib];
     use Net::BitTorrent::Util qw[:bencode :compact];
     use Net::BitTorrent::Session::File;
     use Net::BitTorrent::Session::Tracker;
     use Net::BitTorrent::Peer;
+
+    #
+    use version qw[qv];                             # core as of 5.009
+    our $SVN = q[$Id$];
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     # Debugging
     #use Data::Dump qw[pp];
@@ -179,15 +179,15 @@ package Net::BitTorrent::Session;
         #   - verify pieces string > 40
         #   - verify pieces string % 40 == 0
         if (length(unpack(q[H*], $TORRENT_DATA->{q[info]}{q[pieces]})) < 40)
-        {    # TODO: Create bad .torrent to trigger this
+        {    # TODO: Create bad .torrent to trigger this for tests
                 #$_client{$self}
-                #    ->_do_callback(q[log], ERROR, q[Broken torrent]);
+                #    ->_event(q[log], {Level=>ERROR, Msg=>q[Broken torrent: Pieces hash is less than 40 bytes]});
             return;
         }
         if (length(unpack(q[H*], $TORRENT_DATA->{q[info]}{q[pieces]})) % 40)
-        {       # TODO: Create bad .torrent to trigger this
+        {       # TODO: Create bad .torrent to trigger this for tests
                 #$_client{$self}
-                #    ->_do_callback(q[log], ERROR, q[Broken torrent]);
+                #    ->_event(q[log], {Level=>ERROR, Msg=>q[Broken torrent: Pieces hash will not break apart into even, 40 byte segments]});
             return;
         }
 
@@ -198,8 +198,8 @@ package Net::BitTorrent::Session;
         if ($infohash !~ m[^([0-9a-f]{40})$]) {
 
             # Could this ever really happen?
-            #$_client{$self}->_do_callback(q[log], ERROR,
-            #                             q[Improper info_hash]);
+            #$_client{$self}->_event(q[log], {Level=>ERROR,
+            #                             Msg=>q[Improper info_hash]});
             return;
         }
 
@@ -235,7 +235,6 @@ package Net::BitTorrent::Session;
                                  ? $args->{q[BlockLength]}
                                  : (2**14)
         );
-
         $nodes{$self} = q[];
 
         #warn pp $TORRENT_DATA;
@@ -366,9 +365,9 @@ package Net::BitTorrent::Session;
         #warn pp \%files;
         #warn pp \%trackers;
         $_client{$self}->_schedule({Time   => time + 15,
-                                   Code   => sub { shift->_new_peer },
-                                   Object => $self
-                                  }
+                                    Code   => sub { shift->_new_peer },
+                                    Object => $self
+                                   }
         );
         return $self;
     }
@@ -388,13 +387,15 @@ package Net::BitTorrent::Session;
     sub _piece_length { return $_piece_length{+shift}; }
     sub _private      { return $_private{+shift}; }
     sub _block_length { return $_block_length{+shift} }
-sub _complete {
+
+    sub _complete {
         my ($self) = @_;
         return ((substr(unpack(q[b*], $self->_wanted), 0, $self->_piece_count)
                      !~ 1
                 ) ? 1 : 0
         );
     }
+
     sub _piece_count {
         return int(length(unpack(q[H*], $pieces{+shift})) / 40);
     }
@@ -444,7 +445,7 @@ sub _complete {
     sub _append_compact_nodes {
         my ($self, $nodes) = @_;
         if (not $nodes) { return; }
-        $nodes{$self}||=q[];
+        $nodes{$self} ||= q[];
         return $nodes{$self} = compact(uncompact($nodes{$self} . $nodes));
     }
 
@@ -453,21 +454,21 @@ sub _complete {
 
         #
         $_client{$self}->_schedule({Time   => time + 15,
-                                   Code   => sub { shift->_new_peer },
-                                   Object => $self
-                                  }
+                                    Code   => sub { shift->_new_peer },
+                                    Object => $self
+                                   }
         );
 
-        #
-#         warn sprintf q[Half open peers: %d | Total: %d], scalar(
-#~             grep {
-#~                 $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
-#~                     and not defined $_->{q[Object]}->peerid()
-#~                 } values %{$_client{$self}->_connections}
-#~             ),
-#~             scalar(grep { $_->{q[Object]}->isa(q[Net::BitTorrent::Peer]) }
-#~                    values %{$_client{$self}->_connections});
-#
+ #
+ #         warn sprintf q[Half open peers: %d | Total: %d], scalar(
+ #~             grep {
+ #~                 $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
+ #~                     and not defined $_->{q[Object]}->peerid()
+ #~                 } values %{$_client{$self}->_connections}
+ #~             ),
+ #~             scalar(grep { $_->{q[Object]}->isa(q[Net::BitTorrent::Peer]) }
+ #~                    values %{$_client{$self}->_connections});
+ #
         if (scalar(
                 grep {
                     $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
@@ -477,7 +478,7 @@ sub _complete {
             )
         {   return;
         }    # half open
-        if ($self->_complete)   { return; }
+        if ($self->_complete)  { return; }
         if (not $nodes{$self}) { return; }
 
         #
@@ -601,7 +602,7 @@ sub _complete {
         #
         my $endgame = (    # XXX - make this a percentage variable
             (sum(split(q[], unpack(q[b*], $_wanted)))
-                 <= (length(unpack(q[b*], $_wanted)) * 0.7)
+                 <= (length(unpack(q[b*], $_wanted)) * 0.01)
             )
             ? 1
             : 0
