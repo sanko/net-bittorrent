@@ -1,3 +1,4 @@
+#!C:\perl\bin\perl.exe 
 package Net::BitTorrent::Session;
 {
     use strict;      # core as of perl 5
@@ -8,8 +9,8 @@ package Net::BitTorrent::Session;
     use Carp qw[carp carp];                         # core as of perl 5
     use Cwd qw[cwd];                                # core as of perl 5
     use File::Spec::Functions qw[rel2abs catfile];  # core as of perl 5.00504
-    use Scalar::Util qw[blessed weaken];            # core as of perl 5.007003
-    use List::Util qw[sum shuffle];                 # core as of perl 5.007003
+    use Scalar::Util qw[blessed weaken refaddr];            # core as of perl 5.007003
+    use List::Util qw[sum shuffle max];                 # core as of perl 5.007003
     use Fcntl qw[O_RDONLY];                         # core as of perl 5
 
     #
@@ -180,13 +181,13 @@ package Net::BitTorrent::Session;
         #   - verify pieces string % 40 == 0
         if (length(unpack(q[H*], $TORRENT_DATA->{q[info]}{q[pieces]})) < 40)
         {    # TODO: Create bad .torrent to trigger this for tests
-                #$_client{$self}
+                #$_client{refaddr $self}
                 #    ->_event(q[log], {Level=>ERROR, Msg=>q[Broken torrent: Pieces hash is less than 40 bytes]});
             return;
         }
         if (length(unpack(q[H*], $TORRENT_DATA->{q[info]}{q[pieces]})) % 40)
         {       # TODO: Create bad .torrent to trigger this for tests
-                #$_client{$self}
+                #$_client{refaddr $self}
                 #    ->_event(q[log], {Level=>ERROR, Msg=>q[Broken torrent: Pieces hash will not break apart into even, 40 byte segments]});
             return;
         }
@@ -198,7 +199,7 @@ package Net::BitTorrent::Session;
         if ($infohash !~ m[^([0-9a-f]{40})$]) {
 
             # Could this ever really happen?
-            #$_client{$self}->_event(q[log], {Level=>ERROR,
+            #$_client{refaddr $self}->_event(q[log], {Level=>ERROR,
             #                             Msg=>q[Improper info_hash]});
             return;
         }
@@ -222,24 +223,24 @@ package Net::BitTorrent::Session;
         #    - creation date
         #    ? info/name
         #    -
-        $_client{$self} = $args->{q[Client]};
-        weaken $_client{$self};
-        $infohash{$self}       = $infohash;
-        $_private{$self}       = $TORRENT_DATA->{q[info]}{q[private]} ? 1 : 0;
-        $_piece_length{$self}  = $TORRENT_DATA->{q[info]}{q[piece length]};
-        $pieces{$self}         = $TORRENT_DATA->{q[info]}{q[pieces]};
-        $bitfield{$self}       = pack(q[b*], qq[\0] x $self->_piece_count);
-        $path{$self}           = $args->{q[Path]};
-        $working_pieces{$self} = {};
-        $_block_length{$self} = (defined $args->{q[BlockLength]}
+        $_client{refaddr $self} = $args->{q[Client]};
+        weaken $_client{refaddr $self};
+        $infohash{refaddr $self}       = $infohash;
+        $_private{refaddr $self}       = $TORRENT_DATA->{q[info]}{q[private]} ? 1 : 0;
+        $_piece_length{refaddr $self}  = $TORRENT_DATA->{q[info]}{q[piece length]};
+        $pieces{refaddr $self}         = $TORRENT_DATA->{q[info]}{q[pieces]};
+        $bitfield{refaddr $self}       = pack(q[b*], qq[\0] x $self->_piece_count);
+        $path{refaddr $self}           = $args->{q[Path]};
+        $working_pieces{refaddr $self} = {};
+        $_block_length{refaddr $self} = (defined $args->{q[BlockLength]}
                                  ? $args->{q[BlockLength]}
                                  : (2**14)
         );
-        $nodes{$self} = q[];
+        $nodes{refaddr $self} = q[];
 
         #warn pp $TORRENT_DATA;
         # Stuff we may eventually handle
-        $clutter{$self} = {
+        $clutter{refaddr $self} = {
             q[created by]    => $TORRENT_DATA->{q[created by]},
             q[creation date] => $TORRENT_DATA->{q[creation date]},
             q[comment]       => $TORRENT_DATA->{q[comment]},
@@ -252,10 +253,10 @@ package Net::BitTorrent::Session;
 
         #warn pp \%clutter;
         # Files
-        $size{$self} = 0;
+        $size{refaddr $self} = 0;
         if (defined $TORRENT_DATA->{q[info]}{q[files]}) { # multifile .torrent
             for my $file (@{$TORRENT_DATA->{q[info]}{q[files]}}) {
-                $size{$self} += $file->{q[length]};
+                $size{refaddr $self} += $file->{q[length]};
                 my $filename = catfile(
                     $args->{q[BaseDir]},
                     (    #defined($TORRENT_DATA->{q[info]}{q[name.utf-8]})
@@ -283,12 +284,12 @@ package Net::BitTorrent::Session;
                                        $filename
                         );
                 }
-                push(@{$files{$self}},
+                push(@{$files{refaddr $self}},
                      Net::BitTorrent::Session::File->new(
                                          {Size    => $file->{q[length]},
                                           Path    => $filename,
                                           Session => $self,
-                                          Index   => scalar(@{$files{$self}})
+                                          Index   => scalar(@{$files{refaddr $self}})
                                          }
                      )
                 );
@@ -319,7 +320,7 @@ package Net::BitTorrent::Session;
 
             #warn sprintf q['%s' is utf? %d], $filename,
             #    utf8::is_utf8($filename);
-            push(@{$files{$self}},
+            push(@{$files{refaddr $self}},
                  Net::BitTorrent::Session::File->new(
                               {Size    => $TORRENT_DATA->{q[info]}{q[length]},
                                Path    => $filename,
@@ -328,13 +329,13 @@ package Net::BitTorrent::Session;
                               }
                  )
             );
-            $size{$self} = $TORRENT_DATA->{q[info]}{q[length]};
+            $size{refaddr $self} = $TORRENT_DATA->{q[info]}{q[length]};
         }
 
         # Trackers
         if (defined $TORRENT_DATA->{q[announce-list]}) {    # Multitracker
             for my $tier (@{$TORRENT_DATA->{q[announce-list]}}) {
-                push(@{$trackers{$self}},
+                push(@{$trackers{refaddr $self}},
                      Net::BitTorrent::Session::Tracker->new(
                                              {Session => $self, URLs => $tier}
                      )
@@ -342,7 +343,7 @@ package Net::BitTorrent::Session;
             }
         }
         elsif (defined $TORRENT_DATA->{q[announce]}) {      # Single tracker
-            push(@{$trackers{$self}},
+            push(@{$trackers{refaddr $self}},
                  Net::BitTorrent::Session::Tracker->new(
                                     {Session => $self,
                                      URLs    => [$TORRENT_DATA->{q[announce]}]
@@ -351,8 +352,8 @@ package Net::BitTorrent::Session;
             );
         }
         else {    # No trackers; requires DHT
-            $trackers{$self} = [];
-            if ($_private{$self}) {  # I'm not sure how to handle this.  We...
+            $trackers{refaddr $self} = [];
+            if ($_private{refaddr $self}) {  # I'm not sure how to handle this.  We...
                  # could resort to Webseeding but... why would anyone do this?
                 carp q[This torrent does not contain any trackers and does ]
                     . q[not allow DHT];
@@ -364,7 +365,7 @@ package Net::BitTorrent::Session;
         #warn pp \%size;
         #warn pp \%files;
         #warn pp \%trackers;
-        $_client{$self}->_schedule({Time   => time + 15,
+        $_client{refaddr $self}->_schedule({Time   => time + 15,
                                     Code   => sub { shift->_new_peer },
                                     Object => $self
                                    }
@@ -373,20 +374,20 @@ package Net::BitTorrent::Session;
     }
 
     # Accessors | Public
-    sub infohash { return $infohash{+shift} }
-    sub trackers { return $trackers{+shift} }
-    sub bitfield { return $bitfield{+shift} }
-    sub path     { return $path{+shift} }
-    sub files    { return $files{+shift} }
-    sub size     { return $size{+shift} }
+    sub infohash { return $infohash{refaddr +shift} }
+    sub trackers { return $trackers{refaddr +shift} }
+    sub bitfield { return $bitfield{refaddr +shift} }
+    sub path     { return $path{refaddr +shift} }
+    sub files    { return $files{refaddr +shift} }
+    sub size     { return $size{refaddr +shift} }
 
     # Accessors | Private
-    sub _client       { return $_client{+shift}; }
-    sub _uploaded     { return $uploaded{+shift} || 0; }
-    sub _downloaded   { return $downloaded{+shift} || 0; }
-    sub _piece_length { return $_piece_length{+shift}; }
-    sub _private      { return $_private{+shift}; }
-    sub _block_length { return $_block_length{+shift} }
+    sub _client       { return $_client{refaddr +shift}; }
+    sub _uploaded     { return $uploaded{refaddr +shift} || 0; }
+    sub _downloaded   { return $downloaded{refaddr +shift} || 0; }
+    sub _piece_length { return $_piece_length{refaddr +shift}; }
+    sub _private      { return $_private{refaddr +shift}; }
+    sub _block_length { return $_block_length{refaddr +shift} }
 
     sub _complete {
         my ($self) = @_;
@@ -397,16 +398,16 @@ package Net::BitTorrent::Session;
     }
 
     sub _piece_count {
-        return int(length(unpack(q[H*], $pieces{+shift})) / 40);
+        return int(length(unpack(q[H*], $pieces{refaddr +shift})) / 40);
     }
-    sub _compact_nodes { return $nodes{+shift}; }
+    sub _compact_nodes { return $nodes{refaddr +shift}; }
 
     sub _wanted {
         my ($self) = @_;
         my $wanted = q[0] x $self->_piece_count;
-        my $p_size = $_piece_length{$self};
+        my $p_size = $_piece_length{refaddr $self};
         my $offset = 0;
-        for my $file (@{$files{$self}}) {
+        for my $file (@{$files{refaddr $self}}) {
 
         #    warn sprintf q[[i%d|p%d|s%d] %s ], $file->index, $file->priority,
         #    $file->size, $$file;
@@ -426,7 +427,7 @@ package Net::BitTorrent::Session;
         }
 
         #my $relevence = $peer->_bitfield | $_wanted ^ $_wanted;
-        return (pack(q[b*], $wanted) | $bitfield{$self} ^ $bitfield{$self});
+        return (pack(q[b*], $wanted) | $bitfield{refaddr $self} ^ $bitfield{refaddr $self});
     }
 
     # Methods | Public
@@ -434,26 +435,26 @@ package Net::BitTorrent::Session;
     # Methods | Private
     sub _add_uploaded {
         my ($self, $amount) = @_;
-        $uploaded{$self} += (($amount =~ m[^\d+$]) ? $amount : 0);
+        $uploaded{refaddr $self} += (($amount =~ m[^\d+$]) ? $amount : 0);
     }
 
     sub _add_downloaded {
         my ($self, $amount) = @_;
-        $downloaded{$self} += (($amount =~ m[^\d+$]) ? $amount : 0);
+        $downloaded{refaddr $self} += (($amount =~ m[^\d+$]) ? $amount : 0);
     }
 
     sub _append_compact_nodes {
         my ($self, $nodes) = @_;
         if (not $nodes) { return; }
-        $nodes{$self} ||= q[];
-        return $nodes{$self} = compact(uncompact($nodes{$self} . $nodes));
+        $nodes{refaddr $self} ||= q[];
+        return $nodes{refaddr $self} = compact(uncompact($nodes{refaddr $self} . $nodes));
     }
 
     sub _new_peer {
         my ($self) = @_;
 
         #
-        $_client{$self}->_schedule({Time   => time + 15,
+        $_client{refaddr $self}->_schedule({Time   => time + 15,
                                     Code   => sub { shift->_new_peer },
                                     Object => $self
                                    }
@@ -464,25 +465,25 @@ package Net::BitTorrent::Session;
  #~             grep {
  #~                 $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
  #~                     and not defined $_->{q[Object]}->peerid()
- #~                 } values %{$_client{$self}->_connections}
+ #~                 } values %{$_client{refaddr $self}->_connections}
  #~             ),
  #~             scalar(grep { $_->{q[Object]}->isa(q[Net::BitTorrent::Peer]) }
- #~                    values %{$_client{$self}->_connections});
+ #~                    values %{$_client{refaddr $self}->_connections});
  #
         if (scalar(
                 grep {
                     $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
                         and not defined $_->{q[Object]}->peerid
-                    } values %{$_client{$self}->_connections}
+                    } values %{$_client{refaddr $self}->_connections}
             ) >= 8
             )
         {   return;
         }    # half open
         if ($self->_complete)  { return; }
-        if (not $nodes{$self}) { return; }
+        if (not $nodes{refaddr $self}) { return; }
 
         #
-        my @nodes = uncompact($nodes{$self});
+        my @nodes = uncompact($nodes{refaddr $self});
 
         #
         for (1 .. (30 - scalar @{$self->_peers})) {
@@ -493,7 +494,7 @@ package Net::BitTorrent::Session;
 
             #
             my $ok
-                = $_client{$self}->_event(q[ip_filter], {Address => $node});
+                = $_client{refaddr $self}->_event(q[ip_filter], {Address => $node});
             if (defined $ok and $ok == 0) { next; }
 
             #
@@ -507,7 +508,7 @@ package Net::BitTorrent::Session;
                 grep {
                     $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
                         and not defined $_->{q[Object]}->peerid
-                    } values %{$_client{$self}->_connections}
+                    } values %{$_client{refaddr $self}->_connections}
                 ) >= 8;
         }
 
@@ -525,7 +526,7 @@ package Net::BitTorrent::Session;
              and ($_->{q[Object]}->_session eq $self))
                 ? $_->{q[Object]}
                 : ()
-        } values %{$_client{$self}->_connections};
+        } values %{$_client{refaddr $self}->_connections};
 
         #
         return \@return;
@@ -536,7 +537,7 @@ package Net::BitTorrent::Session;
         carp q[Please, pass new tier in an array ref...]
             unless ref $tier eq q[ARRAY];
         return
-            push(@{$trackers{$self}},
+            push(@{$trackers{refaddr $self}},
                  Net::BitTorrent::Session::Tracker->new(
                                              {Session => $self, URLs => $tier}
                  )
@@ -561,8 +562,8 @@ package Net::BitTorrent::Session;
         }
 
         #
-        if (defined $working_pieces{$self}{$index}) {
-            return $working_pieces{$self}{$index};
+        if (defined $working_pieces{refaddr $self}{$index}) {
+            return $working_pieces{refaddr $self}{$index};
         }
 
         #
@@ -588,7 +589,7 @@ package Net::BitTorrent::Session;
 
         #
         #use Data::Dump qw[pp];
-        #warn q[_pick_piece ]. pp $working_pieces{$self};
+        #warn q[_pick_piece ]. pp $working_pieces{refaddr $self};
         #
         my $piece;
 
@@ -622,47 +623,47 @@ package Net::BitTorrent::Session;
     #  $working = int ( ( $slots * $unchoked_peers ) / $blocks_per_piece ) + 1
     #  $working = int ( ( 20     * 8               ) / 35                ) + 1
     #
-        my $slots = int(((2**21) / $_piece_length{$self}));    # ~2M/peer
+        my $slots = int(((2**21) / $_piece_length{refaddr $self}));    # ~2M/peer
         my $unchoked_peers
             = scalar(grep { $_->_peer_choking == 0 } @{$self->_peers});
-        my $blocks_per_piece = int($_piece_length{$self} / (
-                                               ($_piece_length{$self} < 2**14)
-                                               ? $_piece_length{$self}
+        my $blocks_per_piece = int($_piece_length{refaddr $self} / (
+                                               ($_piece_length{refaddr $self} < 2**14)
+                                               ? $_piece_length{refaddr $self}
                                                : 2**14
                                    )
         );
         my $max_working_pieces
-            = int(($slots * $unchoked_peers) / $blocks_per_piece) + 1;
+            = max(3,int(($slots * $unchoked_peers) / $blocks_per_piece) + 1);
 
         #warn sprintf q[$max_working_pieces: %d], $max_working_pieces;
         #
         if (scalar(
-                  grep { $_->{q[Slow]} == 0 } values %{$working_pieces{$self}}
+                  grep { $_->{q[Slow]} == 0 } values %{$working_pieces{refaddr $self}}
             ) >= $max_working_pieces
             )
         {
 
-            #warn sprintf q[%d>=%d], (scalar(keys %{$working_pieces{$self}})),
+            #warn sprintf q[%d>=%d], (scalar(keys %{$working_pieces{refaddr $self}})),
             #    $max_working_pieces;
-            my @indexes = grep { $working_pieces{$self}{$_}->{q[Slow]} == 0 }
-                keys %{$working_pieces{$self}};
+            my @indexes = grep { $working_pieces{refaddr $self}{$_}->{q[Slow]} == 0 }
+                keys %{$working_pieces{refaddr $self}};
 
             #warn sprintf q[indexes: %s], (join q[, ], @indexes);
             for my $index (@indexes) {
                 if (vec($relevence, $index, 1) == 1) {
                     if (($endgame
-                         ? index($working_pieces{$self}{$index}
+                         ? index($working_pieces{refaddr $self}{$index}
                                      {q[Blocks_Recieved]},
                                  0,
                                  0
                          )
                          : scalar grep { scalar keys %$_ }
-                         @{  $working_pieces{$self}{$index}
+                         @{  $working_pieces{refaddr $self}{$index}
                                  {q[Blocks_Requested]}
                          }
                         ) != -1
                         )
-                    {   $piece = $working_pieces{$self}{$index};
+                    {   $piece = $working_pieces{refaddr $self}{$index};
                         last;
                     }
                 }
@@ -670,7 +671,7 @@ package Net::BitTorrent::Session;
         }
         else {
 
-            #warn sprintf q[%d<%d], (scalar(keys %{$working_pieces{$self}})),
+            #warn sprintf q[%d<%d], (scalar(keys %{$working_pieces{refaddr $self}})),
             #    $max_working_pieces;
             my @wanted;
             for my $i (0 .. ($self->_piece_count - 1))
@@ -682,19 +683,19 @@ package Net::BitTorrent::Session;
                 my $index = shift @wanted;
                 next TRY if vec($relevence, $index, 1) == 0;
                 my $_piece_length = (    # XXX - save some time and store this
-                    ($index == int($size{$self} / $_piece_length{$self}))
-                    ? ($size{$self} % $_piece_length{$self})
-                    : ($_piece_length{$self})
+                    ($index == int($size{refaddr $self} / $_piece_length{refaddr $self}))
+                    ? ($size{refaddr $self} % $_piece_length{refaddr $self})
+                    : ($_piece_length{refaddr $self})
                 );
 
                 #
                 my $block_length = (
-                               ($_piece_length{$self} < $_block_length{$self})
-                               ? ($_piece_length{$self})
-                               : $_block_length{$self}
+                               ($_piece_length{refaddr $self} < $_block_length{refaddr $self})
+                               ? ($_piece_length{refaddr $self})
+                               : $_block_length{refaddr $self}
                 );
                 my $block_length_last
-                    = ($_piece_length{$self} % $_piece_length);
+                    = ($_piece_length{refaddr $self} % $_piece_length);
 
                 #die $block_length_last;
                 # XXX - may not be balanced
@@ -722,21 +723,21 @@ package Net::BitTorrent::Session;
 
         #
         if ($piece) {
-            if (not defined $working_pieces{$self}{$piece->{q[Index]}}) {
-                $working_pieces{$self}{$piece->{q[Index]}} = $piece;
+            if (not defined $working_pieces{refaddr $self}{$piece->{q[Index]}}) {
+                $working_pieces{refaddr $self}{$piece->{q[Index]}} = $piece;
             }
         }
 
         #
-        return $piece ? $working_pieces{$self}{$piece->{q[Index]}} : ();
+        return $piece ? $working_pieces{refaddr $self}{$piece->{q[Index]}} : ();
     }
 
     sub _write_data {
         my ($self, $index, $offset, $data) = @_;
 
         # TODO: param validation
-        if ((length($$data) + (($_piece_length{$self} * $index) + $offset))
-            > $size{$self})
+        if ((length($$data) + (($_piece_length{refaddr $self} * $index) + $offset))
+            > $size{refaddr $self})
         {   carp q[Too much data or bad offset data for this torrent];
             return;
         }
@@ -744,30 +745,30 @@ package Net::BitTorrent::Session;
         #
         my $file_index = 0;
         my $total_offset
-            = int((($index * $_piece_length{$self})) + ($offset || 0));
+            = int((($index * $_piece_length{refaddr $self})) + ($offset || 0));
 
         #warn sprintf q[Write I:%d O:%d L:%d TOff:%d], $index, $offset,
         #    length($$data), $total_offset;
     SEARCH:
-        while ($total_offset > $files{$self}->[$file_index]->size) {
-            $total_offset -= $files{$self}->[$file_index]->size;
+        while ($total_offset > $files{refaddr $self}->[$file_index]->size) {
+            $total_offset -= $files{refaddr $self}->[$file_index]->size;
             $file_index++;
             last SEARCH    # XXX - should this simply return?
-                if not defined $files{$self}->[$file_index]->size;
+                if not defined $files{refaddr $self}->[$file_index]->size;
         }
     WRITE: while (length $$data > 0) {
             my $this_write
                 = ($total_offset + length $$data
-                   > $files{$self}->[$file_index]->size)
-                ? $files{$self}->[$file_index]->size - $total_offset
+                   > $files{refaddr $self}->[$file_index]->size)
+                ? $files{refaddr $self}->[$file_index]->size - $total_offset
                 : length $$data;
-            $files{$self}->[$file_index]->_open(q[w]) or return;
-            $files{$self}->[$file_index]->_sysseek($total_offset);
-            $files{$self}->[$file_index]
+            $files{refaddr $self}->[$file_index]->_open(q[w]) or return;
+            $files{refaddr $self}->[$file_index]->_sysseek($total_offset);
+            $files{refaddr $self}->[$file_index]
                 ->_write(substr($$data, 0, $this_write, q[]))
                 or return;
             $file_index++;
-            last WRITE if not defined $files{$self}->[$file_index];
+            last WRITE if not defined $files{refaddr $self}->[$file_index];
             $total_offset = 0;
         }
 
@@ -785,8 +786,8 @@ package Net::BitTorrent::Session;
 
         #
         my $data = q[];
-        if (($length + (($_piece_length{$self} * $index) + $offset))
-            > $size{$self})
+        if (($length + (($_piece_length{refaddr $self} * $index) + $offset))
+            > $size{refaddr $self})
         {   carp q[Too much or bad offset data for this torrent];
             return;
         }
@@ -794,34 +795,34 @@ package Net::BitTorrent::Session;
         #
         my $file_index = 0;
         my $total_offset
-            = int((($index * $_piece_length{$self})) + ($offset || 0));
+            = int((($index * $_piece_length{refaddr $self})) + ($offset || 0));
 
         #warn sprintf q[Read  I:%d O:%d L:%d TOff:%d], $index, $offset,
         #    $length, $total_offset;
     SEARCH:
-        while ($total_offset > $files{$self}->[$file_index]->size) {
-            $total_offset -= $files{$self}->[$file_index]->size;
+        while ($total_offset > $files{refaddr $self}->[$file_index]->size) {
+            $total_offset -= $files{refaddr $self}->[$file_index]->size;
             $file_index++;
             last SEARCH    # XXX - should this simply return?
-                if not defined $files{$self}->[$file_index]->size;
+                if not defined $files{refaddr $self}->[$file_index]->size;
         }
     READ: while ($length > 0) {
             my $this_read
                 = (($total_offset + $length)
-                   >= $files{$self}->[$file_index]->size)
-                ? ($files{$self}->[$file_index]->size - $total_offset)
+                   >= $files{refaddr $self}->[$file_index]->size)
+                ? ($files{refaddr $self}->[$file_index]->size - $total_offset)
                 : $length;
 
             #warn sprintf q[Reading %d (%d) bytes from '%s'],
-            #    $this_read, $this_write, $files{$self}->[$file_index]->path;
-            $files{$self}->[$file_index]->_open(q[r]) or return;
-            $files{$self}->[$file_index]->_sysseek($total_offset);
-            $data .= $files{$self}->[$file_index]->_read($this_read);
+            #    $this_read, $this_write, $files{refaddr $self}->[$file_index]->path;
+            $files{refaddr $self}->[$file_index]->_open(q[r]) or return;
+            $files{refaddr $self}->[$file_index]->_sysseek($total_offset);
+            $data .= $files{refaddr $self}->[$file_index]->_read($this_read);
 
             #
             $file_index++;
             $length -= $this_read;
-            last READ if not defined $files{$self}->[$file_index];
+            last READ if not defined $files{refaddr $self}->[$file_index];
             $total_offset = 0;
         }
 
@@ -853,69 +854,75 @@ package Net::BitTorrent::Session;
         }
 
         #
-        if (defined $working_pieces{$self}{$index}) {
-            delete $working_pieces{$self}{$index};
+        if (defined $working_pieces{refaddr $self}{$index}) {
+            delete $working_pieces{refaddr $self}{$index};
 
-            #if (keys %{$working_pieces{$self}}) {
+            #if (keys %{$working_pieces{refaddr $self}}) {
             #    warn q[Remaining working pieces: ]
-            #        . pp $working_pieces{$self};
+            #        . pp $working_pieces{refaddr $self};
             #}
         }
 
         #
         my $data = $self->_read_data($index, 0,
                                      ($index == ($self->_piece_count - 1)
-                                      ? ($size{$self} % $_piece_length{$self})
-                                      : $_piece_length{$self}
+                                      ? ($size{refaddr $self} % $_piece_length{refaddr $self})
+                                      : $_piece_length{refaddr $self}
                                      )
         );
 
         #
         #warn sprintf q[%s vs %s],
         #     sha1_hex($data),
-        #     substr(unpack(q[H*], $pieces{$self}), $index * 40, 40);
+        #     substr(unpack(q[H*], $pieces{refaddr $self}), $index * 40, 40);
         if ((not $data)
             or (sha1_hex($$data) ne
-                substr(unpack(q[H*], $pieces{$self}), $index * 40, 40))
+                substr(unpack(q[H*], $pieces{refaddr $self}), $index * 40, 40))
             )
-        {   vec($bitfield{$self}, $index, 1) = 0;
-            $_client{$self}->_event(q[piece_hash_fail],
+        {   vec($bitfield{refaddr $self}, $index, 1) = 0;
+            $_client{refaddr $self}->_event(q[piece_hash_fail],
                                     {Session => $self, Index => $index});
             return 0;
         }
 
         #
-        if (vec($bitfield{$self}, $index, 1) == 0) {   # Only if pass is 'new'
-            vec($bitfield{$self}, $index, 1) = 1;
-            $_client{$self}->_event(q[piece_hash_pass],
+        if (vec($bitfield{refaddr $self}, $index, 1) == 0) {   # Only if pass is 'new'
+            vec($bitfield{refaddr $self}, $index, 1) = 1;
+            $_client{refaddr $self}->_event(q[piece_hash_pass],
                                     {Session => $self, Index => $index});
         }
 
         #
         return 1;
     }
+        sub _as_string {
+            my ($self, $advanced) = @_;
+            my $dump = q[TODO];
+            return print STDERR qq[$dump\n] unless defined wantarray;
+            return $dump;
+        }
 
     # Destructor
     DESTROY {
         my ($self) = @_;
 
         #warn q[Goodbye, ] . $$self;
-        delete $_client{$self};
-        delete $path{$self};
-        delete $basedir{$self};
-        delete $size{$self};
-        delete $files{$self};
-        delete $trackers{$self};
-        delete $infohash{$self};
-        delete $_private{$self};
-        delete $pieces{$self};
-        delete $clutter{$self};
-        delete $uploaded{$self};
-        delete $downloaded{$self};
-        delete $_piece_length{$self};
-        delete $nodes{$self};
-        delete $bitfield{$self};
-        delete $working_pieces{$self};
+        delete $_client{refaddr $self};
+        delete $path{refaddr $self};
+        delete $basedir{refaddr $self};
+        delete $size{refaddr $self};
+        delete $files{refaddr $self};
+        delete $trackers{refaddr $self};
+        delete $infohash{refaddr $self};
+        delete $_private{refaddr $self};
+        delete $pieces{refaddr $self};
+        delete $clutter{refaddr $self};
+        delete $uploaded{refaddr $self};
+        delete $downloaded{refaddr $self};
+        delete $_piece_length{refaddr $self};
+        delete $nodes{refaddr $self};
+        delete $bitfield{refaddr $self};
+        delete $working_pieces{refaddr $self};
 
         #
         return 1;

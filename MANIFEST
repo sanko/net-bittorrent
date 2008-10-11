@@ -11,6 +11,7 @@ lib/Net/BitTorrent/Session/Tracker.pm
 lib/Net/BitTorrent/Session/Tracker/HTTP.pm
 lib/Net/BitTorrent/Session/Tracker/UDP.pm
 lib/Net/BitTorrent/Util.pm
+lib/Net/BitTorrent/Version.pm
 LICENSE
 MANIFEST			This list of files
 META.yml
@@ -30,7 +31,9 @@ t/700_classes/Net/BitTorrent/Session/Tracker.t
 t/700_classes/Net/BitTorrent/Session/Tracker/HTTP.t
 t/700_classes/Net/BitTorrent/Session/Tracker/UDP.t
 t/700_classes/Net/BitTorrent/Util.t
-t/900_data/910_scripts/talk-to-ourself.pl
+t/700_classes/Net/BitTorrent/Version.t
+t/900_data/910_scripts/TCP-talk-to-ourself.pl
+t/900_data/910_scripts/UDP-talk-to-ourself.pl
 t/900_data/930_miniswarm/seed/1291672777_30adc6a421_o.jpg
 t/900_data/930_miniswarm/seed/2183742557_5c9a91727d_m.jpg
 t/900_data/930_miniswarm/seed/credit.txt

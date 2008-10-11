@@ -1,7 +1,9 @@
-#!/usr/bin/perl -w
+#!C:\perl\bin\perl.exe -w
 use strict;
 use warnings;
+use Test::More;
 use Module::Build;
+
 #
 use lib q[../../../../lib];
 $|++;
@@ -14,23 +16,29 @@ my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 
 # Make sure the path is correct
 chdir q[../../../../] if not -f $simple_dot_torrent;
-#
 
-my $build = Module::Build->current;
-my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
+#
+my $build           = Module::Build->current;
+my $okay_tcp        = $build->notes(q[okay_tcp]);
+my $release_testing = $build->notes(q[release_testing]);
+my $verbose         = $build->notes(q[verbose]);
+$SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
 $|++;
 
 #
 BEGIN {
-    use Test::More;
     plan tests => 267;
-    $SIG{__WARN__} = sub { diag shift };    # Quiet Carp
     use_ok(q[Net::BitTorrent::Protocol], qw[:all]);
 }
-{                                           #
-    diag(q[ Message types...]);
+SKIP: {
+    skip(
+        q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
+        ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) if not $release_testing;
+
+    #
     is(HANDSHAKE,      -1,  q[Handshake]);
     is(KEEPALIVE,      q[], q[Keepalive]);
     is(CHOKE,          0,   q[Choke]);
@@ -51,7 +59,6 @@ BEGIN {
     is(EXTPROTOCOL,    20,  q[Extended]);
 
     #
-    diag(q[ [...]::build_handshake()]);
     is(build_handshake(), undef, q[   ...requires three params]);
     is(build_handshake(undef, undef, undef),
         undef, q[   ...uh, defined params]);
@@ -80,32 +87,26 @@ BEGIN {
     );
 
     #
-    diag(q[ [...]::build_keepalive]);
     is(build_keepalive(), qq[\0\0\0\0],
         q[   ...requires no params and has no payload]);
 
     #
-    diag(q[ [...]::build_choke()]);
     is(build_choke(), qq[\0\0\0\1\0],
         q[   ...requires no params and has no payload]);
 
     #
-    diag(q[ [...]::build_unchoke()]);
     is(build_unchoke(), qq[\0\0\0\1\1],
         q[   ...requires no params and has no payload]);
 
     #
-    diag(q[ [...]::build_interested()]);
     is(build_interested(), qq[\0\0\0\1\2],
         q[   ...requires no params and has no payload]);
 
     #
-    diag(q[ [...]::build_not_interested()]);
     is(build_not_interested(), qq[\0\0\0\1\3],
         q[   ...requires no params and has no payload]);
 
     #
-    diag(q[ [...]::build_have()]);
     is(build_have(),            undef, q[   ...requires a single param]);
     is(build_have(q[1desfdds]), undef, q[   ...an index]);
     is(build_have(9), qq[\0\0\0\5\4\0\0\0\t],
@@ -114,13 +115,12 @@ BEGIN {
     is(build_have(999999999999999),
         qq[\0\0\0\5\4\xFF\xFF\xFF\xFF],
         q[   ...even a large one is okay]);
-    diag(
+    warn(
         q[     (A quadrillion piece torrent? Ha! The .torrent itself would be several GBs)]
     );
     is(build_have(-5), undef, q[   ...as long as it's positive]);
 
     #
-    diag(q[ [...]::build_bitfield]);
     is(build_bitfield(),    undef, q[   ...requires a single param]);
     is(build_bitfield(q[]), undef, q[   ...a packed bitfield]);
     is(build_bitfield(q[abcdefg]),
@@ -131,7 +131,6 @@ BEGIN {
         q[   ...more testing]);
 
     #
-    diag(q[ [...]::build_request]);
     is(build_request(undef, 2,     3),     undef, q[   ...requires an index]);
     is(build_request(1,     undef, 3),     undef, q[   ...an offset]);
     is(build_request(1,     2,     undef), undef, q[   ...and a length.]);
@@ -156,7 +155,6 @@ BEGIN {
     );
 
     #
-    diag(q[ [...]::build_piece]);
     is(build_piece(undef, 2,     3),       undef, q[   ...requires an index]);
     is(build_piece(1,     undef, q[test]), undef, q[   ...an offset]);
     is(build_piece(1,     2,     undef),   undef, q[   ...and data]);
@@ -172,7 +170,6 @@ BEGIN {
         q[   validation (F)]);
 
     #
-    diag(q[ [...]::build_cancel]);
     is(build_cancel(undef, 2,     3),     undef, q[   ...requires an index]);
     is(build_cancel(1,     undef, 3),     undef, q[   ...an offset]);
     is(build_cancel(1,     2,     undef), undef, q[   ...and a length.]);
@@ -197,7 +194,6 @@ BEGIN {
     );
 
     #
-    diag(q[ [...]::build_port]);
     is(build_port(),        undef, q[   Requires a port number]);
     is(build_port(-5),      undef, q[   ...and ports are always positive]);
     is(build_port(3.3),     undef, q[   ...integers]);
@@ -206,7 +202,6 @@ BEGIN {
     is(build_port(652145), qq[\0\0\0\a\t\0\t\xF3q], q[   Validation (C)]);
 
     #
-    diag(q[ [...]::build_allowed_fast]);
     is(build_allowed_fast(),    undef, q[   Requires a piece index]);
     is(build_allowed_fast(-5),  undef, q[   ...which is always a positive]);
     is(build_allowed_fast(3.3), undef, q[   ...integer]);
@@ -215,7 +210,8 @@ BEGIN {
     is(build_allowed_fast(652145),
         qq[\0\0\0\5\21\0\t\xF3q], q[   Validation (C)]);
     is(build_allowed_fast(0), qq[\0\0\0\5\21\0\0\0\0], q[   Validation (D)]);
-    diag(q[ [...]::build_reject]);
+
+    #
     is(build_reject(undef, 2,     3),     undef, q[   ...requires an index]);
     is(build_reject(1,     undef, 3),     undef, q[   ...an offset]);
     is(build_reject(1,     2,     undef), undef, q[   ...and a length.]);
@@ -240,17 +236,14 @@ BEGIN {
     );
 
     #
-    diag(q[ [...]::build_have_all]);
     is(build_have_all(), qq[\0\0\0\1\16],
         q[   ...requires no params and has no payload]);
 
     #
-    diag(q[ [...]::build_have_none]);
     is(build_have_none(), qq[\0\0\0\1\17],
         q[   ...requires no params and has no payload]);
 
     #
-    diag(q[ [...]::build_suggest]);
     is(build_suggest(),        undef, q[   Requires a piece index]);
     is(build_suggest(-5),      undef, q[   ...which is always a positive]);
     is(build_suggest(3.3),     undef, q[   ...integer]);
@@ -260,7 +253,6 @@ BEGIN {
     is(build_suggest(0),      qq[\0\0\0\5\r\0\0\0\0],  q[   Validation (D)]);
 
     #
-    diag(q[TODO: build_extended]);
     is(build_extended(), undef,
         q[   ...requires a message id and a playload]);
     is(build_extended(undef, {}), undef, q[   ...validation (A)]);
@@ -290,7 +282,6 @@ BEGIN {
     );
 
     #
-    diag(q[ [...]:: _parse_handshake]);
     is(_parse_handshake(),          undef, q[Undef]);
     is(_parse_handshake(q[]),       undef, q[Empty]);
     is(_parse_handshake(q[Hahaha]), undef, q[Not enough data]);
@@ -309,29 +300,23 @@ BEGIN {
     );
 
     #
-    diag(q[ [...]:: _parse_keepalive]);
     is(_parse_keepalive(), undef, q[  ...has no payload and nothing to test]);
 
     #
-    diag(q[ [...]:: _parse_choke]);
     is(_parse_choke(), undef, q[  ...has no payload and nothing to test]);
 
     #
-    diag(q[ [...]:: _parse_unchoke]);
     is(_parse_unchoke(), undef, q[  ...has no payload and nothing to test]);
 
     #
-    diag(q[ [...]:: _parse_interested]);
     is(_parse_interested(), undef,
         q[  ...has no payload and nothing to test]);
 
     #
-    diag(q[ [...]:: _parse_not_interested]);
     is(_parse_not_interested(), undef,
         q[  ...has no payload and nothing to test]);
 
     #
-    diag(q[ [...]:: _parse_have]);
     is(_parse_have(),             undef,     q[Undef]);
     is(_parse_have(q[]),          undef,     q[Empty]);
     is(_parse_have(qq[\0\0\0d]),  100,       q[ ...100]);
@@ -340,7 +325,6 @@ BEGIN {
     is(_parse_have(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
 
     #
-    diag(q[ [...]:: _parse_bitfield]);
     is(_parse_bitfield(),    undef, q[Undef]);
     is(_parse_bitfield(q[]), undef, q[Empty]);
     is(_parse_bitfield(pack q[B*], q[1110010100010]),
@@ -351,7 +335,6 @@ BEGIN {
         qq[\xFF\37], q[ ...1111111111111]);
 
     #
-    diag(q[ [...]:: _parse_request]);
     is(_parse_request(),    undef, q[Undef]);
     is(_parse_request(q[]), undef, q[Empty]);
     is_deeply(_parse_request(qq[\0\0\0\0\0\0\0\0\0\0\0\0]),
@@ -368,7 +351,6 @@ BEGIN {
               q[ ...i:2**20 o:2**14 l:2**17]);
 
     #
-    diag(q[ [...]:: _parse_piece]);
     is(_parse_piece(),    undef, q[Undef]);
     is(_parse_piece(q[]), undef, q[Empty]);
     is_deeply(_parse_piece(qq[\0\0\0\0\0\0\0\0TEST]),
@@ -384,7 +366,6 @@ BEGIN {
               [], q[ ...i:2**20 o:2**14 d:'TEST']);
 
     #
-    diag(q[ [...]:: _parse_cancel]);
     is(_parse_cancel(),    undef, q[Undef]);
     is(_parse_cancel(q[]), undef, q[Empty]);
     is_deeply(_parse_cancel(qq[\0\0\0\0\0\0\0\0\0\0\0\0]),
@@ -401,7 +382,6 @@ BEGIN {
               q[ ...i:2**20 o:2**14 l:2**17]);
 
     #
-    diag(q[ [...]:: _parse_port]);
     is(_parse_port(),             undef,     q[Undef]);
     is(_parse_port(q[]),          undef,     q[Empty]);
     is(_parse_port(qq[\0\0\0d]),  100,       q[ ...100]);
@@ -410,7 +390,6 @@ BEGIN {
     is(_parse_port(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
 
     #
-    diag(q[ [...]:: _parse_suggest]);
     is(_parse_suggest(),             undef,     q[Undef]);
     is(_parse_suggest(q[]),          undef,     q[Empty]);
     is(_parse_suggest(qq[\0\0\0d]),  100,       q[ ...100]);
@@ -419,15 +398,12 @@ BEGIN {
     is(_parse_suggest(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
 
     #
-    diag(q[ [...]:: _parse_have_all]);
     is(_parse_have_all(), undef, q[  ...has no payload and nothing to test]);
 
     #
-    diag(q[ [...]:: _parse_have_none]);
     is(_parse_have_none(), undef, q[  ...has no payload and nothing to test]);
 
     #
-    diag(q[ [...]:: _parse_reject]);
     is(_parse_reject(),    undef, q[Undef]);
     is(_parse_reject(q[]), undef, q[Empty]);
     is_deeply(_parse_reject(qq[\0\0\0\0\0\0\0\0\0\0\0\0]),
@@ -444,7 +420,6 @@ BEGIN {
               q[ ...i:2**20 o:2**14 l:2**17]);
 
     #
-    diag(q[ [...]:: _parse_allowed_fast]);
     is(_parse_allowed_fast(),             undef,     q[Undef]);
     is(_parse_allowed_fast(q[]),          undef,     q[Empty]);
     is(_parse_allowed_fast(qq[\0\0\0d]),  100,       q[ ...100]);
@@ -453,7 +428,6 @@ BEGIN {
     is(_parse_allowed_fast(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
 
     #
-    diag(q[ [...]:: _parse_extended]);
     is(_parse_extended(),    undef, q[Undef]);
     is(_parse_extended(q[]), undef, q[Empty]);
     is_deeply(
@@ -473,7 +447,6 @@ BEGIN {
     );
 
     #
-    diag(q[  [...]::parse_packet]);
     is(parse_packet(),    undef, q[Undef]);
     is(parse_packet(q[]), undef, q[Empty]);
     is(parse_packet(\{}), undef, q[Hashref]);
@@ -483,7 +456,7 @@ BEGIN {
     is(parse_packet(\$packet), undef, q[Bad packet]);
 
     #
-    diag(q[Here we simulate a 'real' P2P session to check packet parsing]);
+    warn(q[Here we simulate a 'real' P2P session to check packet parsing]);
     my @original_data = (
         build_handshake(pack(q[C*], split(q[], q[00000000])),
                         pack(q[H*], q[0123456789] x 4),
@@ -709,3 +682,5 @@ BEGIN {
     my $blah_3 = qq[\0\0\0\r\25\0\0\4\0\0\4\0\0\0\1\0\0];
     is(parse_packet(\$blah_3), undef, q[Bad/unknown packet]);
 }
+
+# $Id$

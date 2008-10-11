@@ -1,3 +1,4 @@
+#!C:\perl\bin\perl.exe 
 package Net::BitTorrent;
 {
     use strict;      # core as of perl 5
@@ -5,7 +6,7 @@ package Net::BitTorrent;
 
     #
     use Scalar::Util    # core as of perl 5.007.003
-        qw[blessed weaken];
+        qw[blessed weaken refaddr];
     use Time::HiRes;    # core as of perl 5.007003
     use Socket          # core as of perl 5
         qw[    /inet_/
@@ -24,7 +25,7 @@ package Net::BitTorrent;
     #
     use version qw[qv];    # core as of 5.009
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
     use lib q[../../lib];
@@ -32,6 +33,7 @@ package Net::BitTorrent;
     use Net::BitTorrent::Peer;
     use Net::BitTorrent::DHT;
     use Net::BitTorrent::Util qw[:log];
+    use Net::BitTorrent::Version;
 
     # Debugging
     #use Data::Dump qw[pp];
@@ -103,24 +105,9 @@ package Net::BitTorrent;
             ($port, $packed_ip) = unpack_sockaddr_in(getsockname($_socket));
             my $address = sprintf(q[%s:%d], inet_ntoa($packed_ip), $port);
             $self = bless \$address, $class;
-            $_socket{$self} = $_socket;
-            $_peerid{$self} = pack(
-                q[a20],
-                (sprintf(
-                     q[NB%03d%1s-%8s%5s],
-                     (q[$Rev$] =~ m[(\d+)]g),
-                     ($UNSTABLE_RELEASE ? q[S] : q[C]),
-                     (join q[],
-                      map {
-                          [q[A] .. q[Z], q[a] .. q[z], 0 .. 9, qw[- . _ ~]]
-                          ->[rand(66)]
-                          } 1 .. 8
-                     ),
-                     q[Sanko],
-                 )
-                )
-            );
-            $_tid{$self} = qq[\0] x 5;    # 26^5 before rollover
+            $_socket{refaddr $self} = $_socket;
+            $_peerid{refaddr $self} = Net::BitTorrent::Version::gen_peerid();
+            $_tid{refaddr $self} = qq[\0] x 5;    # 26^5 before rollover
             if (not($self->_add_connection($self, q[ro]))) {
                 carp q[Could not add server socket to list of connections];
                 return;
@@ -131,12 +118,12 @@ package Net::BitTorrent;
         }
 
         # Settings
-        $_peers_per_session{$self} = 50;
-        $_max_dl_rate{$self}       = 0;
-        $_max_ul_rate{$self}       = 0;
+        $_peers_per_session{refaddr $self} = 50;
+        $_max_dl_rate{refaddr $self}       = 0;
+        $_max_ul_rate{refaddr $self}       = 0;
 
         #
-        $_sessions{$self} = {};           # by infohash
+        $_sessions{refaddr $self} = {};           # by infohash
 
         #
         #$self->_schedule(
@@ -149,7 +136,7 @@ package Net::BitTorrent;
         $self->_schedule(
             {Time => time + 5,
              Code => sub {
-                 return $_k_down{$_[0]} = $_k_up{$_[0]} = 0;
+                 return $_k_down{refaddr $_[0]} = $_k_up{refaddr $_[0]} = 0;
              },
              Object => $self
             }
@@ -160,19 +147,49 @@ package Net::BitTorrent;
     }
 
     # Accessors | Private
-    sub _socket      { return $_socket{+shift} }
-    sub _connections { return $_connections{+shift} }
-    sub _dht         { return $_dht{+shift} }
+    sub _socket      { return $_socket{refaddr +shift} }
+    sub _connections { return $_connections{refaddr +shift} }
+    sub _dht         { return $_dht{refaddr +shift} }
+    sub _max_ul_rate {return $_max_ul_rate{refaddr +shift}}
+    sub _max_dl_rate {return $_max_dl_rate{refaddr +shift}}
 
-    sub _port {
-        my ($port, undef) = unpack_sockaddr_in(getsockname($_socket{+shift}));
+    # Setters | Private
+    sub _set_max_ul_rate {
+        warn q[TODO: Param validation];
+
+        return $_max_ul_rate{refaddr +shift} =shift}
+    sub _set_dl_rate {
+        warn q[TODO: Param validation];
+        return $_max_dl_rate{refaddr +shift} = shift}
+
+sub _port {
+        return if defined $_[1];
+        my ($self) = @_;
+        return if not defined $_socket{refaddr $self};
+        my ($port, undef) = unpack_sockaddr_in(getsockname($_socket{refaddr $self}));
         return $port;
     }
-    sub _peers_per_session { return $_peers_per_session{+shift}; }
+
+    sub _host {
+        return if defined $_[1];
+        my ($self) = @_;
+        return if not defined $_socket{refaddr $self};
+        my (undef, $packed_ip)
+            = unpack_sockaddr_in(getsockname($_socket{refaddr $self}));
+        return inet_ntoa($packed_ip);
+    }
+
+
+
+
+
+
+
+    sub _peers_per_session { return $_peers_per_session{refaddr +shift}; }
 
     # Accessors | Public
-    sub peerid   { return $_peerid{+shift} }
-    sub sessions { return $_sessions{+shift} }
+    sub peerid   { return $_peerid{refaddr +shift} }
+    sub sessions { return $_sessions{refaddr +shift} }
 
     # Methods | Public
     sub do_one_loop {    # Clunky.  I really need to replace this.
@@ -186,21 +203,21 @@ package Net::BitTorrent;
        #    $_->_disconnect(
        #                q[Connection timed out before established connection])
        #        if $_ ne $self
-       #            and ($_ ne $_dht{$self})
+       #            and ($_ ne $_dht{refaddr $self})
        #            #and (not $_->get_is_connected)
        #            #and ($_->get_connection_timestamp < (time - 60))
-       #} values %{$_connections{$self}};
+       #} values %{$_connections{refaddr $self}};
        # [id://371720]
         my ($rin, $win, $ein) = (q[], q[], q[]);
-    PUSHSOCK: for my $fileno (keys %{$_connections{$self}}) {
+    PUSHSOCK: for my $fileno (keys %{$_connections{refaddr $self}}) {
             vec($rin, $fileno, 1) = 1
-                if $_connections{$self}{$fileno}{q[Mode]} =~ m[r];
+                if $_connections{refaddr $self}{$fileno}{q[Mode]} =~ m[r];
             vec($win, $fileno, 1) = 1
-                if $_connections{$self}{$fileno}{q[Mode]} =~ m[w];
+                if $_connections{refaddr $self}{$fileno}{q[Mode]} =~ m[w];
             vec($ein, $fileno, 1) = 1;
 
             #warn sprintf q[[%d|%s]], $fileno,
-            #    $_connections{$self}{$fileno}{q[Mode]};
+            #    $_connections{refaddr $self}{$fileno}{q[Mode]};
         }
         my ($nfound, $timeleft) = select($rin, $win, $ein, $timeout);
 
@@ -228,10 +245,10 @@ package Net::BitTorrent;
         }
 
         #
-        if ($value and not defined $_dht{$self}) {
+        if ($value and not defined $_dht{refaddr $self}) {
             my ($port, $packed_ip)
-                = unpack_sockaddr_in(getsockname($_socket{$self}));
-            return $_dht{$self} = Net::BitTorrent::DHT->new(
+                = unpack_sockaddr_in(getsockname($_socket{refaddr $self}));
+            return $_dht{refaddr $self} = Net::BitTorrent::DHT->new(
                 {   Client    => $self,
                     LocalAddr => inet_ntoa($packed_ip),
                     LocalPort => $port,
@@ -241,9 +258,9 @@ package Net::BitTorrent;
                 }
             );
         }
-        elsif (not $value and defined $_dht{$self}) {
-            $self->_remove_connection($_dht{$self});
-            return delete $_dht{$self};
+        elsif (not $value and defined $_dht{refaddr $self}) {
+            $self->_remove_connection($_dht{refaddr $self});
+            return delete $_dht{refaddr $self};
         }
 
         #
@@ -309,16 +326,16 @@ package Net::BitTorrent;
         }
         carp unless ref($_socket) eq q[GLOB];    # untested
         carp unless fileno $_socket;
-        if (defined $_connections{$self}{fileno $_socket}) {
+        if (defined $_connections{refaddr $self}{fileno $_socket}) {
             carp q[This connection object is already loaded.];
             return;
         }
-        $_connections{$self}{fileno $_socket} = {Object => $connection,
+        $_connections{refaddr $self}{fileno $_socket} = {Object => $connection,
                                                  Mode   => $mode,
             }
             or return;
         if ($connection->isa(q[Net::BitTorrent])) {
-            weaken $_connections{$self}{fileno $_socket}{q[Object]};
+            weaken $_connections{refaddr $self}{fileno $_socket}{q[Object]};
         }
         return 1;
     }
@@ -360,7 +377,7 @@ package Net::BitTorrent;
         my $socket = $connection->_socket;
         return    # a disconnected peer?  Bug for sure.
             unless ref($socket) eq q[GLOB];    # untested
-        return delete $_connections{$self}{fileno $socket};
+        return delete $_connections{refaddr $self}{fileno $socket};
     }
 
     sub _process_connections {
@@ -374,13 +391,13 @@ package Net::BitTorrent;
         carp unless defined $ein;
         carp unless ref $ein;
         carp if ref $ein ne q[SCALAR];
-    POPSOCK: foreach my $fileno (keys %{$_connections{$self}}) {
-            next POPSOCK unless defined $_connections{$self}{$fileno};
-            if ($fileno eq fileno $_socket{$self})
+    POPSOCK: foreach my $fileno (keys %{$_connections{refaddr $self}}) {
+            next POPSOCK unless defined $_connections{refaddr $self}{$fileno};
+            if ($fileno eq fileno $_socket{refaddr $self})
             {    # if socket is our N::B obj
                 if (vec($$rin, $fileno, 1) == 1) {
                     vec($$rin, $fileno, 1) = 0;
-                    accept(my ($new_socket), $_socket{$self})
+                    accept(my ($new_socket), $_socket{refaddr $self})
                         or
 
                        #$self->_event(q[log], {Level => ERROR,
@@ -392,8 +409,8 @@ package Net::BitTorrent;
            #        grep {
            #            defined $_
            #                and $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
-           #            } values %{$_connections{$self}}
-           #    ) >= $_peers_per_session{$self}
+           #            } values %{$_connections{refaddr $self}}
+           #    ) >= $_peers_per_session{refaddr $self}
            #    )
            #{   close $new_socket;
            #}
@@ -408,7 +425,7 @@ package Net::BitTorrent;
                 }
             }
 
-            #elsif ($_connections{$self}{$fileno} eq $dht{$self}) {
+            #elsif ($_connections{refaddr $self}{$fileno} eq $dht{refaddr $self}) {
             #    if (vec($$rin, $fileno, 1)) {
             #        vec($$rin, $fileno, 1) = 0;
             #        #die q[Yay!];
@@ -428,31 +445,31 @@ package Net::BitTorrent;
 
                     #use Data::Dump qw[pp];
                     #warn sprintf q[R:%d | W:%d], $read, $write;
-                    #warn pp $_connections{$self}{$fileno};
+                    #warn pp $_connections{refaddr $self}{$fileno};
                     # Weaken the ref in case...
-                    #weaken $_connections{$self}{$fileno}{q[Object]};
+                    #weaken $_connections{refaddr $self}{$fileno}{q[Object]};
                     #
                     my ($this_down, $this_up)
-                        = $_connections{$self}{$fileno}{q[Object]}->_rw(
-                           ((   $_max_dl_rate{$self}
-                                ? (($_max_dl_rate{$self} * 1024)
-                                   - $_k_down{$self})
+                        = $_connections{refaddr $self}{$fileno}{q[Object]}->_rw(
+                           ((   $_max_dl_rate{refaddr $self}
+                                ? (($_max_dl_rate{refaddr $self} * 1024)
+                                   - $_k_down{refaddr $self})
                                 : 2**15
                             ) * $read
                            ),
-                           (($_max_ul_rate{$self}
-                             ? (($_max_ul_rate{$self} * 1024) - $_k_up{$self})
+                           (($_max_ul_rate{refaddr $self}
+                             ? (($_max_ul_rate{refaddr $self} * 1024) - $_k_up{refaddr $self})
                              : 2**15
                             ) * $write
                            ),
                            $error
                         );
-                    $_k_down{$self} += defined $this_down ? $this_down : 0;
-                    $_k_up{$self}   += defined $this_up   ? $this_up   : 0;
+                    $_k_down{refaddr $self} += defined $this_down ? $this_down : 0;
+                    $_k_up{refaddr $self}   += defined $this_up   ? $this_up   : 0;
 
                     # Make it a strong ref once again...
-                    #$_connections{$self}{$fileno}{q[Object]} =
-                    #    $_connections{$self}{$fileno}{q[Object]}
+                    #$_connections{refaddr $self}{$fileno}{q[Object]} =
+                    #    $_connections{refaddr $self}{$fileno}{q[Object]}
                 }
             }
         }
@@ -469,8 +486,8 @@ package Net::BitTorrent;
 
         #
         return
-            defined $_sessions{$self}{$infohash}
-            ? $_sessions{$self}{$infohash}
+            defined $_sessions{refaddr $self}{$infohash}
+            ? $_sessions{refaddr $self}{$infohash}
             : undef;
     }
 
@@ -488,8 +505,8 @@ package Net::BitTorrent;
         $args->{q[Client]} = $self;
         my $session = Net::BitTorrent::Session->new($args);
         return if not defined $session;
-        return if defined $_sessions{$self}{$$session};    # XXX - Untested
-        return $_sessions{$self}{$$session} = $session;
+        return if defined $_sessions{refaddr $self}{$$session};    # XXX - Untested
+        return $_sessions{refaddr $self}{$$session} = $session;
     }
 
     sub remove_session {
@@ -515,20 +532,20 @@ package Net::BitTorrent;
         }
 
         #
-        return delete $_sessions{$self}{$session->infohash};
+        return delete $_sessions{refaddr $self}{$session->infohash};
     }
 
     # Methods | Public | Callback system
     sub on_event {
         my ($self, $type, $method) = @_;
-        $_event{$self}{$type} = $method;
+        $_event{refaddr $self}{$type} = $method;
     }
 
     # Methods | Private | Callback system
     sub _event {
         my ($self, $type, $args) = @_;
-        if (defined $_event{$self}{$type}) {
-            return $_event{$self}{$type}($self, $args);
+        if (defined $_event{refaddr $self}{$type}) {
+            return $_event{refaddr $self}{$type}($self, $args);
         }
 
         # Debugging
@@ -583,11 +600,11 @@ package Net::BitTorrent;
 
         #
         my $tid = $self->_generate_token_id();
-        $_schedule{$self}{$tid} = {Timestamp => $args->{q[Time]},
+        $_schedule{refaddr $self}{$tid} = {Timestamp => $args->{q[Time]},
                                    Code      => $args->{q[Code]},
                                    Object    => $args->{q[Object]}
         };
-        weaken $_schedule{$self}{$tid}{q[Object]};
+        weaken $_schedule{refaddr $self}{$tid}{q[Object]};
         return $tid;
     }
 
@@ -597,7 +614,7 @@ package Net::BitTorrent;
             carp q[Net::BitTorrent->_cancel( TID ) requires an ID];
             return;
         }
-        elsif (not defined $_schedule{$self}{$tid}) {
+        elsif (not defined $_schedule{refaddr $self}{$tid}) {
             carp sprintf
                 q[Net::BitTorrent->_cancel( TID ) cannot find an event with TID == %s],
                 $tid;
@@ -605,18 +622,18 @@ package Net::BitTorrent;
         }
 
         #
-        return delete $_schedule{$self}{$tid};
+        return delete $_schedule{refaddr $self}{$tid};
     }
 
     sub _process_schedule {
         my ($self) = @_;
 
         #
-        for my $job (keys %{$_schedule{$self}}) {
-            if ($_schedule{$self}{$job}->{q[Timestamp]} <= time) {
-                &{$_schedule{$self}{$job}->{q[Code]}}(
-                                        $_schedule{$self}{$job}->{q[Object]});
-                delete $_schedule{$self}{$job};
+        for my $job (keys %{$_schedule{refaddr $self}}) {
+            if ($_schedule{refaddr $self}{$job}->{q[Timestamp]} <= time) {
+                &{$_schedule{refaddr $self}{$job}->{q[Code]}}(
+                                        $_schedule{refaddr $self}{$job}->{q[Object]});
+                delete $_schedule{refaddr $self}{$job};
             }
         }
 
@@ -628,21 +645,21 @@ package Net::BitTorrent;
     sub _generate_token_id {    # automatic rollover/expansion/etc
         return if defined $_[1];
         my ($self) = @_;
-        $_tid{$self} = qq[\0\0\0\0] if not defined $_tid{$self};
-        my ($len) = ($_tid{$self} =~ m[^([a-z]+)]);
-        $_tid{$self} = (($_tid{$self} =~ m[^z*(\0*)$])
-                        ? ($_tid{$self} =~ m[\0]
-                           ? pack(q[a] . (length $_tid{$self}),
+        $_tid{refaddr $self} = qq[\0\0\0\0] if not defined $_tid{refaddr $self};
+        my ($len) = ($_tid{refaddr $self} =~ m[^([a-z]+)]);
+        $_tid{refaddr $self} = (($_tid{refaddr $self} =~ m[^z*(\0*)$])
+                        ? ($_tid{refaddr $self} =~ m[\0]
+                           ? pack(q[a] . (length $_tid{refaddr $self}),
                                   (q[a] x (length($len || q[]) + 1))
                                )
-                           : (q[a] . (qq[\0] x (length($_tid{$self}) - 1)))
+                           : (q[a] . (qq[\0] x (length($_tid{refaddr $self}) - 1)))
                             )
-                        : ++$_tid{$self}
+                        : ++$_tid{refaddr $self}
         );
-        return $_tid{$self};
+        return $_tid{refaddr $self};
     }
 
-    # Utility, object-neutral functions
+    # Utility, object-agnostic functions
     sub __socket_open {
         my ($host, $port, $reuseaddr, $reuseport) = @_;
 
@@ -712,24 +729,31 @@ package Net::BitTorrent;
     }
 
     sub __build_reserved {
+        my ($self)=@_;
         my @reserved = qw[0 0 0 0 0 0 0 0];
         $reserved[5] |= 0x10;                     # Ext Protocol
         return join q[], map {chr} @reserved;
     }
+        sub _as_string {
+            my ($self, $advanced) = @_;
+            my $dump = q[TODO];
+            return print STDERR qq[$dump\n] unless defined wantarray;
+            return $dump;
+        }
 
     #
     DESTROY {
         my ($self) = @_;
 
         #warn sprintf q[Goodbye, %s], $$self;
-        delete $_socket{$self};
-        delete $_peerid{$self};
-        delete $_sessions{$self};
-        delete $_connections{$self};
-        delete $_schedule{$self};
-        delete $_tid{$self};
-        delete $_peers_per_session{$self};
-        delete $_event{$self};
+        delete $_socket{refaddr $self};
+        delete $_peerid{refaddr $self};
+        delete $_sessions{refaddr $self};
+        delete $_connections{refaddr $self};
+        delete $_schedule{refaddr $self};
+        delete $_tid{refaddr $self};
+        delete $_peers_per_session{refaddr $self};
+        delete $_event{refaddr $self};
     }
     1;
 }

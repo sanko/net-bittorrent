@@ -45,3 +45,5 @@ scripts/POE.pl
 scripts/.*.bencode
 scripts/.*.torrent
 
+# Avoid profiler stuff
+\.out$

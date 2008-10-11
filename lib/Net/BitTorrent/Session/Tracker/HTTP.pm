@@ -1,3 +1,4 @@
+#!C:\perl\bin\perl.exe 
 package Net::BitTorrent::Session::Tracker::HTTP;
 {
     use strict;      # core as of perl 5
@@ -5,7 +6,7 @@ package Net::BitTorrent::Session::Tracker::HTTP;
 
     #
     use Carp qw[carp];                      # core as of perl 5
-    use Scalar::Util qw[blessed weaken];    # core since perl 5.007003
+    use Scalar::Util qw[blessed weaken refaddr];    # core since perl 5.007003
     use List::Util qw[sum];                 # core since perl 5.007003
     use Socket                              # core as of perl 5
         qw[PF_INET SOMAXCONN SOCK_STREAM
@@ -58,32 +59,34 @@ package Net::BitTorrent::Session::Tracker::HTTP;
         $self = bless \$args->{q[URL]}, $class;
 
         #
-        $url{$self}  = $args->{q[URL]};
-        $tier{$self} = $args->{q[Tier]};
-        weaken $tier{$self};
+        $url{refaddr $self}  = $args->{q[URL]};
+        $tier{refaddr $self} = $args->{q[Tier]};
+        weaken $tier{refaddr $self};
 
         #
         return $self;
     }
 
     # Accesors | Private
-    sub _socket { return $_socket{+shift}; }
-    sub _tier   { return $tier{+shift}; }      # Make public?
+    sub _socket { return $_socket{refaddr +shift}; }
+    sub _tier   { return $tier{refaddr +shift}; }      # Make public?
 
     # Methods | Private
     sub _announce {
         my ($self, $event) = @_;
+        #warn sprintf q[%s | %s_announce(%s)], scalar(localtime), $self,
+        #    ($event || q[]);
         if (defined $event) {
-            if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) { # being silly...
+            if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) { # don't be silly
                 carp sprintf q[Invalid event for announce: %s], $event;
                 return;
             }
         }
-        $event{$self} = $event;
+        $event{refaddr $self} = $event;
 
         #
         my ($host, $port, $path)
-            = $url{$self} =~ m{^http://([^/:]*)(?::(\d+))?(/.*)$};
+            = $url{refaddr $self} =~ m{^http://([^/:]*)(?::(\d+))?(/.*)$};
         $port = $port ? $port : 80;
 
         # Resolve hostname
@@ -98,13 +101,13 @@ package Net::BitTorrent::Session::Tracker::HTTP;
             $packed_host = $addrs[0];
         }
         else { $packed_host = inet_aton($host) }
-        socket($_socket{$self}, PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
+        socket($_socket{refaddr $self}, PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
             or return;    # TODO: re-Schedule announce
 
         # Set socket to non-blocking
         if (not($^O eq q[MSWin32]
-                ? ioctl($_socket{$self}, 0x8004667e, pack(q[I], 1))
-                : fcntl($_socket{$self}, F_SETFL, O_NONBLOCK)
+                ? ioctl($_socket{refaddr $self}, 0x8004667e, pack(q[I], 1))
+                : fcntl($_socket{refaddr $self}, F_SETFL, O_NONBLOCK)
             )
             )
         {                 # !!! - impossible to test failure for coverage...
@@ -117,10 +120,10 @@ package Net::BitTorrent::Session::Tracker::HTTP;
         # Here, connect() is non-blocking so it doesn't return a valid
         # value to test agiainst.  We see how things are progressing by
         # checking $^E further down.
-        connect($_socket{$self}, pack_sockaddr_in($port, inet_aton($host)));
+        connect($_socket{refaddr $self}, pack_sockaddr_in($port, inet_aton($host)));
 
         #
-        $tier{$self}->_client->_event(q[tracker_connect],
+        $tier{refaddr $self}->_client->_event(q[tracker_connect],
                                       {Tracker => $self,
                                        (defined $event
                                         ? (Event => $event)
@@ -130,18 +133,18 @@ package Net::BitTorrent::Session::Tracker::HTTP;
         );
 
         #
-        my $infohash = $tier{$self}->_session->infohash;
+        my $infohash = $tier{refaddr $self}->_session->infohash;
         $infohash =~ s|(..)|\%$1|g;    # urlencode
         my %query_hash = (
                q[info_hash]  => $infohash,
-               q[peer_id]    => $tier{$self}->_client->peerid,
-               q[port]       => $tier{$self}->_client->_port,
-               q[uploaded]   => $tier{$self}->_session->_uploaded,
-               q[downloaded] => $tier{$self}->_session->_downloaded,
+               q[peer_id]    => $tier{refaddr $self}->_client->peerid,
+               q[port]       => $tier{refaddr $self}->_client->_port,
+               q[uploaded]   => $tier{refaddr $self}->_session->_uploaded,
+               q[downloaded] => $tier{refaddr $self}->_session->_downloaded,
                q[left]       => (
-                   $tier{$self}->_session->_piece_length * sum(
+                   $tier{refaddr $self}->_session->_piece_length * sum(
                        split(
-                           q[], unpack(q[b*], $tier{$self}->_session->_wanted)
+                           q[], unpack(q[b*], $tier{refaddr $self}->_session->_wanted)
                        )
                    )
                ),
@@ -149,8 +152,8 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                q[numwant]    => 200,
                q[compact]    => 1,
                q[no_peer_id] => 1,
-               (defined($event{$self})
-                ? (q[event] => $event{$self})
+               (defined($event{refaddr $self})
+                ? (q[event] => $event{refaddr $self})
                 : ()
                )
         );
@@ -161,7 +164,7 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                map { sprintf q[%s=%s], $_, $query_hash{$_} }
                    sort keys %query_hash
             );
-        $_data_out{$self} =
+        $_data_out{refaddr $self} =
             join(qq[\015\012],
                  qq[GET $url HTTP/1.0],
                  q[Connection: close],
@@ -173,8 +176,8 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                  q[]);
 
         #
-        $tier{$self}->_client->_remove_connection($self);
-        return $tier{$self}->_client->_add_connection($self, q[wo]);
+        $tier{refaddr $self}->_client->_remove_connection($self);
+        return $tier{refaddr $self}->_client->_add_connection($self, q[wo]);
     }
 
     sub _rw {
@@ -184,82 +187,94 @@ package Net::BitTorrent::Session::Tracker::HTTP;
         #
         if ($error) {
             carp sprintf q[Error announce: (%d) %s], $^E, $^E;
-            $tier{$self}->_client->_remove_connection($self);
-            close $_socket{$self};
+            $tier{refaddr $self}->_client->_remove_connection($self);
+            close $_socket{refaddr $self};
 
             # Reschedule announce
-            $tier{$self}->_client->_schedule(
-                                      {Time   => time + 30,
-                                       Code   => sub { $self->_announce(); },
-                                       Object => $self
-                                      }
+            $tier{refaddr $self}->_client->_schedule(
+                {   Time => time + 30,
+                    Code => sub {
+                        my ($s) = @_;
+                        $tier{$s}->_shuffle;
+                        return $tier{$s}->_announce();
+                    },
+                    Object => $self
+                }
             );
             return;
         }
         if ($write) {
             $actual_write
-                = syswrite($_socket{$self}, $_data_out{$self}, $write);
+                = syswrite($_socket{refaddr $self}, $_data_out{refaddr $self}, $write);
             if (not defined $actual_write) {
-                $tier{$self}->_client->_event(
+                $tier{refaddr $self}->_client->_event(
                       q[tracker_failure],
                       {Tracker => $self,
                        Message => sprintf(q[Cannot write to tracker: %s], $^E)
                       }
                 );
-                $tier{$self}->_client->_remove_connection($self);
-                close $_socket{$self};
+                $tier{refaddr $self}->_client->_remove_connection($self);
+                close $_socket{refaddr $self};
 
                 #return;
                 # Reschedule announce
-                $tier{$self}->_client->_schedule(
-                                      {Time   => time + 30,
-                                       Code   => sub { shift->_announce(); },
-                                       Object => $self
-                                      }
+                $tier{refaddr $self}->_client->_schedule(
+                    {   Time => time + 30,
+                        Code => sub {
+                            my ($s) = @_;
+                            $tier{$s}->_shuffle;
+                            return $tier{$s}->_announce();
+                        },
+                        Object => $self
+                    }
                 );
                 return;
             }
-            $tier{$self}->_client->_event(q[tracker_data_out],
+            $tier{refaddr $self}->_client->_event(q[tracker_data_out],
                                  {Tracker => $self, Length => $actual_write});
 
             #
-            substr($_data_out{$self}, 0, $actual_write, q[]);
-            if (not length $_data_out{$self}) {
-                $tier{$self}->_client->_remove_connection($self);
-                $tier{$self}->_client->_add_connection($self, q[ro]);
+            substr($_data_out{refaddr $self}, 0, $actual_write, q[]);
+            if (not length $_data_out{refaddr $self}) {
+                $tier{refaddr $self}->_client->_remove_connection($self);
+                $tier{refaddr $self}->_client->_add_connection($self, q[ro]);
             }
         }
         if ($read) {
-            $actual_read = sysread($_socket{$self}, my ($data), $read, 0);
+            $actual_read = sysread($_socket{refaddr $self}, my ($data), $read, 0);
 
             #
             if (not $actual_read) {
-                $tier{$self}->_client->_event(
+                $tier{refaddr $self}->_client->_event(
                      q[tracker_failure],
                      {Tracker => $self,
                       Message => sprintf(q[Cannot read from tracker: %s], $^E)
                      }
                 );
-                $tier{$self}->_client->_remove_connection($self);
-                close $_socket{$self};
+                $tier{refaddr $self}->_client->_remove_connection($self);
+                close $_socket{refaddr $self};
 
                 # Reschedule announce
-                $tier{$self}->_client->_schedule(
-                                      {Time   => time + 30,
-                                       Code   => sub { shift->_announce(); },
-                                       Object => $self
-                                      }
+                $tier{refaddr $self}->_client->_schedule(
+                    {   Time => time + 30,
+                        Code => sub {
+                            my ($s) = @_;
+                            $tier{$s}->_shuffle;
+                            return $tier{$s}->_announce();
+                        },
+                        Object => $self
+                    }
                 );
                 return;
             }
             else {
-                $tier{$self}->_client->_event(q[tracker_data_in],
+                $tier{refaddr $self}->_client->_event(q[tracker_data_in],
                                   {Tracker => $self, Length => $actual_read});
                 $data =~ s[^.+(?:\015?\012){2}][]s;
                 $data = bdecode($data);
                 if ($data) {
                     if (defined $data->{q[failure reason]}) {
-                        $tier{$self}->_client->_event(
+                        $tier{refaddr $self}->_client->_event(
                                          q[tracker_announce_failure],
                                          {Tracker => $self,
                                           Reason => $data->{q[failure reason]}
@@ -269,37 +284,35 @@ package Net::BitTorrent::Session::Tracker::HTTP;
                     else {
 
                         # XXX - cache resolve
-                        $tier{$self}->_session->_append_compact_nodes(
+                        $tier{refaddr $self}->_session->_append_compact_nodes(
                                                            $data->{q[peers]});
-                        $tier{$self}->_set_complete($data->{q[complete]});
-                        $tier{$self}->_set_incomplete($data->{q[incomplete]});
-                        $tier{$self}
+                        $tier{refaddr $self}->_set_complete($data->{q[complete]});
+                        $tier{refaddr $self}->_set_incomplete($data->{q[incomplete]});
+                        $tier{refaddr $self}
                             ->_client->_event(q[tracker_announce_okay],
                                         {Tracker => $self, Payload => $data});
                     }
                 }
 
                 # Reschedule announce
-                $tier{$self}->_client->_schedule(
-                                      {Time => (
-                                              time + (
-                                                  defined $data->{q[interval]}
-                                                  ? $data->{q[interval]}
-                                                  : 1800
-                                              )
-                                       ),
-                                       Code   => sub { shift->_announce(); },
-                                       Object => $self
-                                      }
+                $tier{refaddr $self}->_client->_schedule(
+                        {Time => (time + (defined $data->{q[interval]}
+                                          ? $data->{q[interval]}
+                                          : 1800
+                                  )
+                         ),
+                         Code   => sub { return $tier{refaddr +shift}->_announce() },
+                         Object => $self
+                        }
                 );
             }
-            $tier{$self}->_client->_remove_connection($self);
-            close $_socket{$self};
-            $tier{$self}
+            $tier{refaddr $self}->_client->_remove_connection($self);
+            close $_socket{refaddr $self};
+            $tier{refaddr $self}
                 ->_client->_event(q[tracker_disconnect], {Tracker => $self});
         }
         else {
-            $tier{$self}->_client->_event(
+            $tier{refaddr $self}->_client->_event(
                                      q[tracker_announce_failure],
                                      {Tracker => $self,
                                       Reason => q[Failed to read from tracker]
@@ -307,15 +320,22 @@ package Net::BitTorrent::Session::Tracker::HTTP;
             );
 
             # Reschedule announce
-            $tier{$self}->_client->_schedule(
-                                      {Time   => time + 300,
-                                       Code   => sub { shift->_announce(); },
-                                       Object => $self
-                                      }
+            $tier{refaddr $self}->_client->_schedule(
+                       {Time   => time + 300,
+                        Code   => sub { return $tier{refaddr +shift}->_announce(); },
+                        Object => $self
+                       }
             );
             return;
         }
         return ($actual_read, $actual_write);
+    }
+
+    sub _as_string {
+        my ($self, $advanced) = @_;
+        my $dump = q[TODO];
+        return print STDERR qq[$dump\n] unless defined wantarray;
+        return $dump;
     }
 
     #
@@ -323,11 +343,11 @@ package Net::BitTorrent::Session::Tracker::HTTP;
         my ($self) = @_;
 
         #
-        delete $tier{$self};
-        delete $url{$self};
-        delete $resolve{$self};
-        delete $event{$self};
-        delete $_socket{$self};
+        delete $tier{refaddr $self};
+        delete $url{refaddr $self};
+        delete $resolve{refaddr $self};
+        delete $event{refaddr $self};
+        delete $_socket{refaddr $self};
 
         #
         return 1;

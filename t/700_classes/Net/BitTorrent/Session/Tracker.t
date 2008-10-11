@@ -1,7 +1,9 @@
-#!/usr/bin/perl -w
+#!C:\perl\bin\perl.exe -w
 use strict;
 use warnings;
+use Test::More;
 use Module::Build;
+
 #
 use lib q[../../../../../lib];
 $|++;
@@ -14,10 +16,13 @@ my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 
 # Make sure the path is correct
 chdir q[../../../../../] if not -f $simple_dot_torrent;
-#
 
-my $build = Module::Build->current;
-my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
+#
+my $build           = Module::Build->current;
+my $okay_tcp        = $build->notes(q[okay_tcp]);
+my $release_testing = $build->notes(q[release_testing]);
+my $verbose         = $build->notes(q[verbose]);
+$SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
 $|++;
@@ -26,22 +31,23 @@ $|++;
 my $multi_dot_torrent  = q[./t/900_data/950_torrents/952_multi.torrent];
 my $single_dot_torrent = q[./t/900_data/950_torrents/951_single.torrent];
 
-# Make sure the path is correct
-chdir q[../../../../../] if not -f $multi_dot_torrent;
-
 #
 BEGIN {
-    use Test::More;
     plan tests => 21;
-    $SIG{__WARN__} = sub { diag shift };    # Quiet Carp
-    diag(q[Testing Net::BitTorrent::Tracker]);
     use_ok(q[Net::BitTorrent::Session::Tracker]);
     use_ok(q[Net::BitTorrent]);
     use_ok(q[Net::BitTorrent::Session]);
 }
 
 #
-{
+SKIP: {
+
+#     skip(
+#~         q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
+#~         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+#~     ) if not $release_testing;
+#
+#
     my $client = Net::BitTorrent->new();
     my $session =
         Net::BitTorrent::Session->new({Client => $client,
@@ -62,8 +68,8 @@ BEGIN {
                       sub { my ($client, $args) = @_; warn q[Wrote] });
 
     #
-    diag(q[Testing Net::BitTorrent::Session::Tracker]);
-    diag(q[new() requires parameters...]);
+    warn(q[Testing Net::BitTorrent::Session::Tracker]);
+    warn(q[new() requires parameters...]);
     is(Net::BitTorrent::Session::Tracker->new(), undef, q[new( )]);
     is( Net::BitTorrent::Session::Tracker->new(
                                         URLs => q[http://example.com/announce]
@@ -127,7 +133,7 @@ BEGIN {
     );
 
     #
-    diag(q[ Accessors]);
+    warn(q[ Accessors]);
     my $tracker =
         Net::BitTorrent::Session::Tracker->new(
                                 {URLs    => [qw[http://example.com/announce]],
@@ -151,5 +157,7 @@ BEGIN {
     );
 
     #
-    diag(q[TODO: create a fake tracker and connect to it])
+    warn(q[TODO: create a fake tracker and connect to it]);
 }
+
+# $Id$

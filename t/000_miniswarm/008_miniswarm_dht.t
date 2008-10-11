@@ -10,12 +10,12 @@ use Fcntl qw[:flock];    # core as of perl 5
 use Test::More;
 use File::Temp qw[];
 use IO::Socket qw[SOMAXCONN];
-    use List::Util qw[sum];
-#
-    use lib q[../../lib];
-    use Net::BitTorrent;
-    use Net::BitTorrent::Util qw[compact];
+use List::Util qw[sum];
 
+#
+use lib q[../../lib];
+use Net::BitTorrent;
+use Net::BitTorrent::Util qw[compact];
 
 #
 $|++;
@@ -28,10 +28,13 @@ my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 
 # Make sure the path is correct
 chdir q[../../] if not -f $simple_dot_torrent;
-#
 
-my $build = Module::Build->current;
-my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
+#
+my $build    = Module::Build->current;
+my $okay_tcp = $build->notes(q[okay_tcp]);
+my $okay_udp = $build->notes(q[okay_udp]);
+my $verbose  = $build->notes(q[verbose]);
+$SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
 my $BlockLength = 2**14;
@@ -52,11 +55,18 @@ my $_infohash = q[2b3aaf361bd40540bf7e3bfd140b954b90e4dfbc];
 $|++;
 
 #
+plan tests => int($Seeds + $Peers_DHT + 1) * 2;
+
+#
 SKIP: {
-    plan tests => int($Seeds + $Peers_DHT + 1) * 2;
+    skip(q[TCP-based tests have been disabled.],
+         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) unless $okay_tcp;
+    skip(q[UDP-based tests have been disabled.],
+         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) unless $okay_udp;
 
-    skip q[Socket-based tests have been disabled.], ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]}) unless $can_talk_to_ourself;
-
+    #
     my %client;
 
     END {
@@ -76,16 +86,13 @@ SKIP: {
         $chr = sprintf $sprintf, $chr;
         $client{q[seed_] . $chr}
             = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
-
         skip(sprintf(q[Failed to create seed_%s], $chr),
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
         ) if not $client{q[seed_] . $chr};
-$client{q[seed_] . $chr}->_use_dht(1);
-    ok($client{q[seed_] . $chr}->_dht, sprintf q[seed_%s has enabled dht]
-
-    , $chr
-    );
+        $client{q[seed_] . $chr}->_use_dht(1);
+        ok($client{q[seed_] . $chr}->_dht,
+            sprintf q[seed_%s has enabled dht], $chr);
         my $session = $client{q[seed_] . $chr}->add_session(
                                      {Path    => $miniswarm_dot_torrent,
                                       BaseDir => q[./t/900_data/930_miniswarm]
@@ -118,10 +125,8 @@ $client{q[seed_] . $chr}->_use_dht(1);
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
         ) if not $client{$chr};
-    $client{$chr}->_use_dht(1);
-    ok($client{$chr}->_dht, sprintf q[peer_%s has enabled dht]
-    , $chr
-    );
+        $client{$chr}->_use_dht(1);
+        ok($client{$chr}->_dht, sprintf q[peer_%s has enabled dht], $chr);
         $client{$chr}->on_event(
             q[piece_hash_pass],
             sub {

@@ -1,3 +1,4 @@
+#!C:\perl\bin\perl.exe 
 package Net::BitTorrent::Session::Tracker;
 {
     use strict;      # core as of perl 5
@@ -5,7 +6,7 @@ package Net::BitTorrent::Session::Tracker;
 
     #
     use Carp qw[carp];                      # core as of perl 5
-    use Scalar::Util qw[blessed weaken];    # core as of 5.007003
+    use Scalar::Util qw[blessed weaken refaddr];    # core as of 5.007003
     use List::Util qw[shuffle];             # core as of 5.007003
 
     #
@@ -19,7 +20,7 @@ package Net::BitTorrent::Session::Tracker;
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
-    my (%session,  %_urls);                  # params to new\
+    my (%session,  %_urls);                 # params to new\
     my (%complete, %incomplete);
 
     #
@@ -94,32 +95,29 @@ package Net::BitTorrent::Session::Tracker;
         $self = bless(\$args->{q[URLs]}->[0], $class);
 
         #
-        $session{$self} = $args->{q[Session]};
-        weaken $session{$self};
+        $session{refaddr $self} = $args->{q[Session]};
+        weaken $session{refaddr $self};
 
         #
-        $complete{$self}   = 0;
-        $incomplete{$self} = 0;
+        $complete{refaddr $self}   = 0;
+        $incomplete{refaddr $self} = 0;
 
         #
-        $_urls{$self} = [map ($_ =~ m[^http://]i
-                             ? Net::BitTorrent::Session::Tracker::HTTP->new(
+        $_urls{refaddr $self} = [map ($_ =~ m[^http://]i
+                              ? Net::BitTorrent::Session::Tracker::HTTP->new(
                                                     {URL => $_, Tier => $self}
-                                 )
-                             : Net::BitTorrent::Session::Tracker::UDP->new(
+                                  )
+                              : Net::BitTorrent::Session::Tracker::UDP->new(
                                                     {URL => $_, Tier => $self}
-                             ),
-                             @{$args->{q[URLs]}})
+                              ),
+                              @{$args->{q[URLs]}})
         ];
 
         #
-        $session{$self}->_client->_schedule(
-            {   Time => time,
-                Code => sub {
-                    $_urls{+shift}->[0]->_announce(q[started]);
-                },
-                Object => $self
-            }
+        $session{refaddr $self}->_client->_schedule({Time   => time,
+                                             Code   => \&_announce,
+                                             Object => $self
+                                            }
         );
 
         #
@@ -127,23 +125,40 @@ package Net::BitTorrent::Session::Tracker;
     }
 
     # Accessors | Public
-    sub incomplete { return $incomplete{+shift} }
-    sub complete   { return $complete{+shift} }
+    sub incomplete { return $incomplete{refaddr +shift} }
+    sub complete   { return $complete{refaddr +shift} }
 
     # Accessors | Private
-    sub _client  { return $session{+shift}->_client; }
-    sub _session { return $session{+shift}; }
-    sub _urls {return $_urls{+shift};}
+    sub _client  { return $session{refaddr +shift}->_client; }
+    sub _session { return $session{refaddr +shift}; }
+    sub _urls    { return $_urls{refaddr +shift}; }
 
     # Methods | Private
     sub _set_complete {
         my ($self, $value) = @_;
-        return $complete{$self} = $value;
+        return $complete{refaddr $self} = $value;
     }
 
     sub _set_incomplete {
         my ($self, $value) = @_;
-        return $incomplete{$self} = $value;
+        return $incomplete{refaddr $self} = $value;
+    }
+
+    sub _as_string {
+        my ($self, $advanced) = @_;
+        my $dump = q[TODO];
+        return print STDERR qq[$dump\n] unless defined wantarray;
+        return $dump;
+    }
+
+    sub _shuffle {    # push first (bad) to the end of the list
+        my ($self) = @_;
+        return (push(@{$_urls{refaddr $self}}, shift(@{$_urls{refaddr $self}})));
+    }
+
+    sub _announce {
+        my ($self) = @_;
+        return $_urls{refaddr $self}->[0]->_announce(q[started]);
     }
 
     #
@@ -151,12 +166,12 @@ package Net::BitTorrent::Session::Tracker;
         my ($self) = @_;
 
         #
-        delete $session{$self};
-        delete $_urls{$self};
+        delete $session{refaddr $self};
+        delete $_urls{refaddr $self};
 
         #
-        delete $complete{$self};
-        delete $incomplete{$self};
+        delete $complete{refaddr $self};
+        delete $incomplete{refaddr $self};
 
         #
         return 1;

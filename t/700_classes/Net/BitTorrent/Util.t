@@ -1,7 +1,9 @@
-#!/usr/bin/perl -w
+#!C:\perl\bin\perl.exe -w
 use strict;
 use warnings;
+use Test::More;
 use Module::Build;
+
 #
 use lib q[../../../../lib];
 $|++;
@@ -14,23 +16,28 @@ my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 
 # Make sure the path is correct
 chdir q[../../../../] if not -f $simple_dot_torrent;
-#
 
-my $build = Module::Build->current;
-my $can_talk_to_ourself = $build->notes(q[can_talk_to_ourself]);
+#
+my $build           = Module::Build->current;
+my $okay_tcp        = $build->notes(q[okay_tcp]);
+my $release_testing = $build->notes(q[release_testing]);
 
 #
 $|++;
 
 #
 BEGIN {
-    use Test::More;
     plan tests => 95;
-    diag(q[Testing Net::BitTorrent::Util]);
     use_ok(q[Net::BitTorrent::Util], qw[:all]);
 }
-{    #
-    diag(q[  Log Levels]);
+SKIP: {
+
+#     skip(
+#~         q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
+#~         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+#~     ) if not $release_testing;
+#
+#
     is(TRACE, 32, q[Trace]);
     is(DEBUG, 16, q[Debug]);
     is(INFO,  8,  q[Info]);
@@ -39,7 +46,6 @@ BEGIN {
     is(FATAL, 1,  q[Fatal]);
 
     #
-    diag(q[  [...]::bencode]);
     is(bencode(4),   q[i4e],   q[integer]);
     is(bencode(0),   q[i0e],   q[zero]);
     is(bencode(-0),  q[i0e],   q[zero w/ sign]);
@@ -80,7 +86,6 @@ BEGIN {
     );
 
     #
-    diag(q[  [...]::bdecode]);
     my $test_string
         = q[d7:Integeri42e4:Listl6:item 1i2ei3ee6:String9:The Valuee];
     is(bdecode, undef, q[Empty string]);
@@ -158,7 +163,6 @@ BEGIN {
     );
 
     #
-    diag(q[  [...]::compact]);
     is(compact(qw[127.0.0.1:98]), qq[\x7F\0\0\1\0b],  q[localhost]);
     is(compact(qw[127.0.0.1:0]),  qq[\x7F\0\0\1\0\0], q[port number of zero]);
     is(compact(qw[127.0.0.1:5000]),
@@ -168,12 +172,12 @@ BEGIN {
     is(compact(qw[127.0.0.1:3265 255.25.21.32:0]),
         qq[\x7F\0\0\1\f\xC1\xFF\31\25 \0\0],
         q[short list of peers]);
-    diag(q[TODO: invalid IPv4 (ex: 999.999.999.999)]);
+
+    # TODO: invalid IPv4 (ex: 999.999.999.999)
     is(compact(qw[127.0.0.1:3265 127.0.0.1:3265]),
         qq[\x7F\0\0\1\f\xC1], q[Filter duplicates]);
 
     #
-    diag(q[   Testing attempts to compact bad data...]);
     is(compact(qw[127.0.0.1:000065]),
         qq[\x7F\0\0\1\0A], q[Port with leading zeros]);
     is(compact(qw[270.0.0.1:0]), undef, q[Invalid IP address: 270.0.0.1:0]);
@@ -190,10 +194,8 @@ BEGIN {
     is(compact(q[]),   undef, q[String]);
     is(compact(undef), undef, q[undef]);
     is(compact(),      undef, q[undef]);
-    diag(q[   TODO: IPv6 passing itself off as IPv4.]);
 
-    #
-    diag(q[  [...]::uncompact]);
+    # TODO: IPv6 passing itself off as IPv4.
     is(uncompact(q[]),   undef, q[Empty string]);
     is(uncompact(undef), undef, q[undef string]);
     is(uncompact(),      undef, q[undef string]);
@@ -205,11 +207,11 @@ BEGIN {
     is($peers[1], q[255.25.21.32:0], q[   ...Second is okay too.]);
 
     #
-    diag(q[   TODO: Attempts to uncompact bad data]);
-
     #is( uncompact(qw[127.0.0.1:98]), qq[\x7F\0\0\1\0b], q[localhost] );
     #is( uncompact(qw[127.0.0.1:0]),
     #    qq[\x7F\0\0\1\0\0], q[port number of zero] );
     #is( uncompact(qw[127.0.0.1:5000]),
     #    qq[\x7F\0\0\1\23\x88], q[large port number] );
 }
+
+# $Id$

@@ -11,7 +11,7 @@ L<Net::BitTorrent|Net::BitTorrent> is a mess.
 But it doesn't have to be!  This document is a first draft attempt at
 defining a roadmap for future C<Net::BitTorrent> development and a
 behavioral reference for third-party client developers.  There are bits in
-here that may eventually make it into a recipe book for users too.
+here that may be of some use to regular users too.
 
 Note: C<Net::BitTorrent::Notes> and the ideas behind it are a work in
 progress.
@@ -20,15 +20,18 @@ progress.
 
                                             .---- N::B::S::T::UDP
                                            /
-                     .-------- N::B::S::Tracker
-                    /  .-- N::B::S::File   \
-                   /  /                     `--- N::B::S::T::HTTP
-           .---- Net::BitTorrent::Session
+                      .-------- N::B::S::Tracker
+                     /                     \
+                    /   .-- N::B::S::File   `--- N::B::S::T::HTTP
+                   /   /
+            .---- Net::BitTorrent::Session
+           /
           /   .--- Net::BitTorrent::DHT
          /   /           \
   Net::BitTorrent         `---- N::B::D::Node
          \
           `---- Net::BitTorrent::Peer
+
 
 See Also: L<Class Pseudo-structures|/"Class Pseudo-structures">
 
@@ -99,8 +102,7 @@ and a list of the current 'working' pieces and their progress.  Saving
 the DHT ID and routing table would be a good idea too.  Add to that some
 sort of verification scheme to be sure you're loading information that
 hasn't been tampered with or corrupted.  Then, when you load the torrent,
-set the C<skip_hashcheck> parameter to a C<true> value and reload the
-torrent with your stored data.
+reload the torrent with your stored data.
 
 [TODO]
 
@@ -262,91 +264,7 @@ C<Net::BitTorrent> work.  Or not work.  It depends.
 
 =head2 Peer ID Specification
 
-This section describes and provides examples of the Peer ID format used
-by the current release of the C<Net::BitTorrent> module.
-
-=head3 Format
-
-This non-standard format was developed to be URL-safe, unique to the
-implementation, and "human parsable."
-
-There are three distinct sections to the Peer IDs generated: the
-L<header|/Header>, the L<mid-section|/Mid-section>, and the
-L<signature|/Signature>.  Consider this example:
-
- NB004S-rogzGB1v--SVN
-
-Here, C<NB004S> is the header, C<-rogzGB1v> is the mid-section, and
-C<--SVN> is the trailing signature.
-
-=head4 Header
-
-Two uppercase characters ('C<NB>') followed by three digits representing
-the SVN revision number with leading zeros, a single character
-potentially indicating stability and how the release was obtained, and a
-single hyphen (C<->).
-
-If the client is a CPAN build, the sixth byte is the capital letter
-'C<C>'.  If the client is running a version checked out from public SVN
-(considered unstable), the sixth byte is the capital letter 'S'.  Any
-other characters in the sixth byte are unsupported and may indicate a bad
-client.
-
-=head4 Mid-section
-
-Following that are eight random characters in the following range:
-
- ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~
-
-That is, all uppercase and lowercase letters, decimal digits, as well as
-the hyphen, period, underscore, and tilde (66 total).  These are all
-characters allowed in a URL without encoded (referred to as "Unreserved
-Characters in [rfc://3986]) to reduce weight on the tracker during
-announce.  On a popular tracker, every bit (and byte) helps.
-
-This section is inspired by the pseudo-base64 set used by SHADOW's
-BitTornado client.
-
-=head4 Signature
-
-The final five characters may be random or static and should not be used
-in identifying the version of the client software.  Some early versions
-even have my name in this spot.  .:shrugs:.
-
-=head3 CPAN Version Numbers
-
-Stable CPAN releases will have the sixth byte set to 'C<C>' (capital
-letter 'c').
-
-Unstable releases (referred to as DEVELOPER releases on PAUSE) on CPAN
-will have this bit set as if the user checked the source out from SVN,
-that is, the sixth byte will be 'C<S>' (capital letter 's').  These will
-be released on CPAN with version numbers matching C<m[\d\.\d+_\d]>.  See
-the PAUSE FAQ section entitled "Developer Releases"
-(L<http://www.cpan.org/modules/04pause.html>).
-
-Version numbers will be some value less than one with the revision number
-in the three significant decimal places.  Eventually, I would like to
-make a v1.0 release of Net::BitTorrent on CPAN.  The information in this
-document and the means of generating the module's version number will
-need to reflect that.
-
-=head3 Examples
-
-=over
-
-=item C<NB393C-04.9EraQ--SVN>
-
-This would be the stable CPAN release C<v0.393>.  The C<--SVN> signature
-should be ignored.
-
-=item C<NB003X-9E-ayR6b-BTE<lt>3>
-
-Improper Peer ID; the sixth bit is neither 'C' nor 'S'.  Possibly fake.
-
-=item C<NB065S--09Egae69sy8W>
-
-Completely legal Peer ID generated by SVN/Dev r65.
+Please see L<Net::BitTorrent::Version|Net::BitTorrent::Version>.
 
 =back
 
@@ -384,8 +302,8 @@ Count the number of unrequested C<$free_blocks> in all working pieces.
 
 Count how many C<$free_slots> we have open to us.  To calculate this, we
 iterate through all peers who aren't choking us adding the difference
-between the total number of outgoing requests and the user-defined
-C<maximum_requests_per_peer> value.
+between the total number of outgoing requests and the peer-defined
+maximum or our own internal 'safe' max of 20.
 
 =item *
 
@@ -523,16 +441,14 @@ IPv6 right now.
 
 =head2 Portability Hacks
 
-Net::BitTorrent aims to be portable between the big three OS (Win32,
-Linux [*buntu], MacOS X);  When possible, this should be achieved without
-a glut of code using easily obtained third-party modules.  Core modules
-are considered first followed by well tested CPAN modules.  Modules that
-prevent broad use (ie. fails to install on a majority of systems) will
-not be considered.
+Net::BitTorrent aims to be portable between the big three OS When
+possible, this should be achieved without a glut of code using easily
+obtained third-party modules.  Core modules are considered first
+followed by well tested CPAN modules.  Modules that prevent broad use
+(ie. fails to install on a majority of systems) will not be considered.
 
-There will be times, though, that C<$^O>-based clutter (and, eventually,
-OS-based subclassing) is needed.  Here is a list of both stable and
-experimental workarounds by OS:
+There will be times, though, that C<$^O>-based clutter is needed.  Here
+is a list of both stable and experimental workarounds by OS:
 
 =over 2
 

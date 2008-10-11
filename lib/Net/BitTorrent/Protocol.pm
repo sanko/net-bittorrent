@@ -1,3 +1,4 @@
+#!C:\perl\bin\perl.exe 
 package Net::BitTorrent::Protocol;
 {
     use strict;      # core as of perl 5
@@ -446,7 +447,7 @@ package Net::BitTorrent::Protocol;
                        Payload => @payload
             } if @payload;
         }
-        elsif ((unpack(q[N], $$data) =~ m[\d])) {
+        elsif ((defined unpack(q[N], $$data)) and (unpack(q[N], $$data) =~ m[\d])) {
             if ((unpack(q[N], $$data) <= length($$data))) {
                 (my ($packet_data), $$data) = unpack(q[N/aa*], $$data);
                 (my ($type), $packet_data) = unpack(q[ca*], $packet_data);
