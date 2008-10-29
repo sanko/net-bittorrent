@@ -7,25 +7,23 @@ package Net::BitTorrent::Version;
     #
     use version qw[qv];    # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION_BASE = 27; our $UNSTABLE_RELEASE = 6; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 27; our $UNSTABLE_RELEASE = 7; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     our $PRODUCT_TOKEN = qq[Net::BitTorrent/$VERSION ($^O)];    # ext protocol
 
-    sub gen_peerid {                                            #
+    sub gen_peerid {
         return pack(
             q[a20],
             (sprintf(
                  q[NB%03d%1s-%8s%5s],
-
-                 #(q[$Rev$] =~ m[(\d+)]g),
-                 $VERSION_BASE,
-                 ($UNSTABLE_RELEASE ? q[S] : q[C]),
+                 $VERSION_BASE,      # formerly: (q[$Rev$] =~ m[(\d+)]g),
+                 ($UNSTABLE_RELEASE ? q[U] : q[S]),
                  (join q[],
                   map {
                       [q[A] .. q[Z], q[a] .. q[z], 0 .. 9, qw[- . _ ~]]
                       ->[rand(66)]
                       } 1 .. 8
                  ),
-                 q[Sanko],
+                 q[*****]
              )
             )
         );
@@ -43,6 +41,8 @@ package Net::BitTorrent::Version;
     1;
 }
 
+=pod
+
 =head1 NAME
 
 Net::BitTorrent::Version - Net::BitTorrent's project-wide version numbers
@@ -55,95 +55,114 @@ module provides a central location for the project's overal release
 number, the version string provided in Extended Protocol handshakes,
 and the Peer ID generator.
 
+=head1 Methods
+
+=head2 C<gen_node_id>
+
+Returns a random 20-byte string that can be used to identify ourself in a
+DHT swarm.
+
+=head2 C<gen_peerid>
+
+Generates a unique Peer ID based on Net::BitTorrent's
+L<Specification|/"Peer ID Specification">.
+
 =head1 Peer ID Specification
 
 This section describes and provides examples of the Peer ID format used
-by the current release of the C<Net::BitTorrent> module.
+by this release of the C<Net::BitTorrent> module.
 
-=head2 Format
+=head2 Overview
 
 This non-standard format was developed to be URL-safe, unique to the
 implementation, and "human parsable."
 
-There are three distinct sections to the Peer IDs generated: the
-L<header|/Header>, the L<mid-section|/Mid-section>, and the
-L<signature|/Signature>.  Consider this example:
+There are two distinct sections to the Peer IDs generated: the
+L<header|/Header> which may be used to identify the software and its
+version, and the L<signature|/Signature> which is... well, it's junk.
+Consider this example:
 
  NB004S-rogzGB1v--SVN
 
-Here, C<NB004S> is the header, C<-rogzGB1v> is the mid-section, and
-C<--SVN> is the trailing signature.
+Here, C<NB004S> is the header and C<-rogzGB1v--SVN> is the trailing
+signature.
 
 =head3 Header
 
-Two uppercase characters ('C<NB>') followed by three digits representing
-the SVN revision number with leading zeros, a single character
-potentially indicating stability and how the release was obtained, and a
-single hyphen (C<->).
+The header consists of two uppercase characters ('C<NB>') followed by
+three digits (with leading zeros) representing the SVN revision, and a
+single character used to (potentially) indicate stability.
 
-If the client is a CPAN build, the sixth byte is the capital letter
-'C<C>'.  If the client is running a version checked out from public SVN
-(considered unstable), the sixth byte is the capital letter 'S'.  Any
-other characters in the sixth byte are unsupported and may indicate a bad
-client.
+If the client is a stable build, the sixth character is the capital
+letter 'C<C>' (as these are usually obtained from CPAN).  If the client
+is a version checked out from SVN, the sixth character is the capital
+letter 'C<S>'.  Any other characters in the sixth byte are unsupported
+and may indicate a bad client.
 
-=head3 Mid-section
+=head3 Signature
 
-Following that are eight random characters in the following range:
+The remainder of the Peer ID is a hyphen followed by 13 random characters
+in the following range:
 
  ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~
 
 That is, all uppercase and lowercase letters, decimal digits, as well as
 the hyphen, period, underscore, and tilde (66 total).  These are all
-characters allowed in a URL without encoded (referred to as "Unreserved
-Characters in [rfc://3986]) to reduce weight on the tracker during
-announce.  On a popular tracker, every bit (and byte) helps.
+characters allowed in a URL without being encoded (referred to as
+"Unreserved Characters" in rfc://3986) to reduce weight on the tracker
+during announce.
 
-This section is inspired by the pseudo-base64 set used by SHADOW's
-BitTornado client.
+=head2 Version Numbers and Stability
 
-=head3 Signature
+Version numbers will be some value less than one (C<1>) with the revision
+number in the three significant decimal places.
 
-The final five characters may be random or static and should not be used
-in identifying the version of the client software.  Some early versions
-even have my name in this spot.  .:shrugs:.
+Stable revisions will have the sixth char set to 'C<S>' (capital
+letter 's'). The most recent of these stable builds will be found on
+CPAN.
 
-=head2 CPAN Version Numbers
-
-Stable CPAN releases will have the sixth byte set to 'C<C>' (capital
-letter 'c').
-
-Unstable releases (referred to as DEVELOPER releases on PAUSE) on CPAN
-will have this bit set as if the user checked the source out from SVN,
-that is, the sixth byte will be 'C<S>' (capital letter 's').  These will
-be released on CPAN with version numbers matching C<m[\d\.\d+_\d]>.  See
-the PAUSE FAQ section entitled "Developer Releases"
+Unstable revisions will have the sixth char set to 'C<U>' (capital
+letter 'u').  These will most likely be SVN checkouts and temporary
+uploads to CPAN where the package's filename matches  C<m[\d\.\d+_\d]>.
+See the PAUSE FAQ section entitled "Developer Releases"
 (L<http://www.cpan.org/modules/04pause.html>).
-
-Version numbers will be some value less than one with the revision number
-in the three significant decimal places.  Eventually, I would like to
-make a v1.0 release of Net::BitTorrent on CPAN.  The information in this
-document and the means of generating the module's version number will
-need to reflect that.
 
 =head2 Examples
 
 =over
 
-=item C<NB393C-04.9EraQ--SVN>
+=item C<NB393S-04.9EraQ--SVN>
 
-This would be the stable CPAN release C<v0.393>.  The C<--SVN> signature
-should be ignored.
+This would be the stable CPAN release C<v0.393>/SVN r393.  The C<--SVN>
+signature does not imply an unstable build.
 
-=item C<NB003X-9E-ayR6b-BTE<lt>3>
+=item C<NB003X-9E-ayR6-I<lt>3BTE>
 
-Improper Peer ID; the sixth bit is neither 'C' nor 'S'.  Possibly fake.
+Improper Peer ID; the sixth char is neither 'C<S>' nor 'C<U>'.
 
-=item C<NB065S--09Egae69sy8W>
+=item C<NB065C--09Egae69sy8W>
 
-Completely legal Peer ID generated by SVN/Dev r65.
+Completely legal Peer ID generated by unstable SVN/Dev r65.
 
 =back
+
+=head1 See Also
+
+RFC 3986 (URI: Generic Syntax)
+Section 2.3. "Unreserved Characters"
+(http://tools.ietf.org/html/rfc3986#section-2.3)
+
+PAUSE FAQ sub-section entitled "Developer Releases"
+(http://www.cpan.org/modules/04pause.html)
+
+http://slashdot.org/comments.pl?sid=997033&cid=25390887
+
+=head1 Disclaimer
+
+This document and the specification behind it are subject to change.
+All modifications will be documented in the Changes file included with
+this distribution.  All versions of this file can be found in the
+project's svn repository.
 
 =head1 Author
 

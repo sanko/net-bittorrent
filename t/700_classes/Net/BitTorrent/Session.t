@@ -23,14 +23,15 @@ my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
+my $threads         = $build->notes(q[threads]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
-my ($flux_capacitor, %peers) = (0, ());
+my ($flux_capacitor) = (0, ());
 
 #
 BEGIN {
-    plan tests => 41;
+    plan tests => 52;
     use_ok(q[File::Temp],            qw[tempdir]);
     use_ok(q[Scalar::Util],          qw[/weak/]);
     use_ok(q[File::Spec::Functions], qw[rel2abs]);
@@ -89,6 +90,9 @@ SKIP: {
     is($session->bitfield,       chr(0),  q[Bitfield is correct]);
     is($session->_client,        $client, q[Client is correct]);
     is($session->_compact_nodes, q[],     q[Empty list of compact nodes]);
+    ok($session->status,       q[Status indicates...]);
+    ok($session->status & 64,  q[ ...session is attached to a client.]);
+    ok($session->status & 128, q[ ...session was loaded properly.]);
 
     # Try bad stuff
     is(Net::BitTorrent::Session->new(),
@@ -99,20 +103,6 @@ SKIP: {
         undef, q[Requires a 'Path' parameter]);
     is(Net::BitTorrent::Session->new({Path => q[]}),
         undef, q[! -f Path parameter]);
-    is(Net::BitTorrent::Session->new({Path => $simple_dot_torrent}),
-        undef, q[Requires a 'Client' parameter]);
-    is( Net::BitTorrent::Session->new(
-                                {Path => $simple_dot_torrent, Client => undef}
-        ),
-        undef,
-        q[Requires a 'Client' parameter (2)]
-    );
-    is( Net::BitTorrent::Session->new(
-                              {Path => $simple_dot_torrent, Client => q[Test]}
-        ),
-        undef,
-        q[Requires a blessed 'Client' object]
-    );
     is( Net::BitTorrent::Session->new(
                                      {Path   => $simple_dot_torrent,
                                       Client => bless(\{}, q[Not::BitTorrent])
@@ -127,8 +117,24 @@ SKIP: {
            q[Net::BitTorrent::Session],
            q[Requires a blessed 'Client' object (3)]
     );
+    my $orphan_session = Net::BitTorrent::Session->new(
+                              {Path => $simple_dot_torrent, Client => undef});
+    isa_ok($orphan_session, q[Net::BitTorrent::Session],
+           q[Works without a 'Client' parameter too]);
+    ok($orphan_session->status, q[Status indicates...]);
+    ok($orphan_session->status | 64,
+        q[ ...session is not attached to a client.]);
+    ok($orphan_session->status & 128, q[ ...session was loaded properly.]);
+    $orphan_session = undef;
+    is( Net::BitTorrent::Session->new(
+                              {Path => $simple_dot_torrent, Client => q[Test]}
+        ),
+        undef,
+        q[Requires a blessed 'Client' object if defined]
+    );
 TODO: {
-        todo_skip q[Undocumented stuff may fail. ...that's why it's undocumented.],
+        todo_skip
+            q[Undocumented stuff may fail. ...that's why it's undocumented.],
             2;
 
         # Undocumented BlockLength parameter tests
@@ -172,6 +178,46 @@ TODO: {
     is($session->_add_uploaded(-1024),    1024, q[_add_uploaded(-1024)]);
     is($session->_add_uploaded('dude'),   1024, q[_add_uploaded('dude')]);
     is($session->_uploaded,               1024, q[    _uploaded == 1024]);
+
+=for status
+        # (201=Started, 961=Force Download, 1000=finished)
+        #     1 = Started
+        #     2 = Checking
+        #     4 = Start after check
+        #     8 = Checked
+        #    16 = Error
+        #    32 = Paused
+        #    64 = Queued
+        #   128 = Loaded
+        #   256 =
+        #   512 = Force
+        #  1000 = Complete
+=cut
+
+    #
+    warn q[Test multithreaded stuff...];
+SKIP: {
+        skip q[Multi-threaded tests have been skipped], 4 if !$threads;
+        use_ok(q[threads]);
+        use_ok(q[threads::shared]);
+
+        #
+        my $_threaded_session
+            = Net::BitTorrent::Session->new({Path => $simple_dot_torrent});
+        ok($_threaded_session->_set_bitfield(chr(0)),
+            q[Parent sets bitfield to "\0"]);
+        ok($_threaded_session->_set_status(4), q[Parent sets status to 4]);
+        threads->create(
+            sub {
+                $_threaded_session->_set_bitfield(chr(1));
+                $_threaded_session->_set_status(0);
+                return 1;
+            }
+        )->join();
+        is($_threaded_session->bitfield,
+            chr(1), q[Parent reads bitfield as "\1"]);
+        is($_threaded_session->status, 0, q[Parent reads status as 0]);
+    }
 }
 
 # $Id$

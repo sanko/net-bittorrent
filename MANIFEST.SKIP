@@ -21,6 +21,9 @@
 # Avoid Devel::Cover generated files
 \bcover_db
 
+# Avoid profiler stuff
+\.out$
+
 # Avoid temp and backup files.
 ~$
 \.tmp$
@@ -35,15 +38,29 @@
 \B\.DS_Store
 #   Mac OSX SMB mount metadata files
 \B\._
+
 # Avoid archives of this distribution
 \bNet-BitTorrent-[\d\.\_]+
 
 # Don't package incomplete/private stuff
-scripts/gui.pl
-scripts/gui.xrc
-scripts/POE.pl
-scripts/.*.bencode
-scripts/.*.torrent
+scripts/gui\.pl
+scripts/gui\.xrc
+scripts/POE\.pl
+scripts/web.*gui\.pl
+scripts/x\.pl
+scripts/.*\.zip
+scripts/.*\.js
+scripts/.*\.bencode
+scripts/.*\.torrent
 
-# Avoid profiler stuff
-\.out$
+# Don't package downloaded/perif files
+\.avi
+\.mpe?g
+\.wmv
+\.mp3
+\.wiki
+\.ico
+\.png
+\.gif
+\.html?
+\.css

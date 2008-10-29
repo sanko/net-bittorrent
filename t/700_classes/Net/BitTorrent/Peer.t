@@ -22,6 +22,7 @@ my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
+my $threads         = $build->notes(q[threads]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
@@ -29,7 +30,7 @@ my ($flux_capacitor, %peers) = (0, ());
 
 #
 BEGIN {
-    plan tests => 320;
+    plan tests => 315;
     *CORE::GLOBAL::time    # Let's do the time warp again!
         = sub () { return CORE::time + ($flux_capacitor * 60); };
 
@@ -49,12 +50,10 @@ BEGIN {
 
 #
 SKIP: {
-
-     skip(
-         q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
-         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
-     ) if not $release_testing;
-
+    skip(
+        q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
+        ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) if not $release_testing;
     skip(q[Socket-based tests have been disabled.],
          ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
     ) if not $okay_tcp;
@@ -190,7 +189,7 @@ SKIP: {
                     # know what's in $args->{q[Peer]}; It's basically just a
                     # socket at this point.
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                like($_peer->_as_string,
+                like($$_peer,
                      qr[127.0.0.1:\d+],
                      sprintf q[%s connection %s '%s'],
                      ($_peer->_incoming ? q[Incoming] : q[Outgoing]),
@@ -733,7 +732,7 @@ SKIP: {
             isa_ok($peers{q[A]}, q[Net::BitTorrent::Peer], q[new()]);
             weaken $peers{q[A]};
             ok(isweak($peers{q[A]}), q[  ...make $peers{q[A]} a weak ref]);
-            is($peers{q[A]}->_as_string, q[127.0.0.1:1995], q[_as_string]);
+            ok($peers{q[A]}->_as_string, q[_as_string]);
             isa_ok($peers{q[A]}->_socket, q[GLOB], q[_socket]);
             isa_ok($peers{q[A]}->_session,
                    q[Net::BitTorrent::Session], q[_session]);
@@ -779,7 +778,7 @@ SKIP: {
 
         #
         {    # Peer_B provides our own peer_id. (Simulating a loopback)
-            warn sprintf q[%d|%d], 99, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], 95, $test_builder->{q[Curr_Test]};
             is( syswrite($newsock_B,
                          build_handshake(chr(0) x 8,
                                          pack(q[H40], $session->infohash),
@@ -797,7 +796,7 @@ SKIP: {
 
         #
         {    # Peer_C closes the socket in the middle of conversation
-            warn sprintf q[%d|%d], 121, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (121-4), $test_builder->{q[Curr_Test]};
             is( syswrite($newsock_C,
                          build_handshake(chr(0) x 8,
                                          pack(q[H40], $session->infohash),
@@ -815,7 +814,7 @@ SKIP: {
                 q[Peer removed from list of connections]);
         }
         {    # Peer_D is well behaved but times out later on (time warp)
-            warn sprintf q[%d|%d], 151, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (151-4), $test_builder->{q[Curr_Test]};
             is( syswrite($newsock_D,
                          build_handshake(chr(0) x 8,
                                          pack(q[H40], $session->infohash),
@@ -840,16 +839,14 @@ SKIP: {
             } values %{$client->_connections};
             weaken $peers{q[C]};
             ok(isweak($peers{q[C]}), q[  ...make $peers{q[C]} a weak ref]);
-            warn sprintf q[%d|%d], 178, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (178-4), $test_builder->{q[Curr_Test]};
 
             # Status check
             like(${$peers{q[C]}}, qr[127.0.0.1:\d+],
                  q[Address properly resolved]);
-            like($peers{q[C]}->_as_string,
-                 qr[127.0.0.1:\d+], q[ ...double check using _as_string]);
             is($peers{q[C]}->peerid, q[C] x 20, q[PeerID check]);
             isa_ok($peers{q[C]}->_socket, q[GLOB], q[Socket stored properly]);
-            warn sprintf q[%d|%d], 182, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (181-4), $test_builder->{q[Curr_Test]};
             is($peers{q[C]}->_am_choking, 1,
                 q[Initial outgoing choke status]);
             is($peers{q[C]}->_peer_choking,
@@ -858,7 +855,7 @@ SKIP: {
                 0, q[Initial outgoing interest status]);
             is($peers{q[C]}->_peer_interested,
                 0, q[Initial incoming interest status]);
-            warn sprintf q[%d|%d], 186, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (185-4), $test_builder->{q[Curr_Test]};
 
             #
             is(syswrite($newsock_D, build_keepalive()),
@@ -867,7 +864,7 @@ SKIP: {
             is(syswrite($newsock_D, build_unchoke()),
                 5, q[Sent unchoke to client]);
             $client->do_one_loop();
-            warn sprintf q[%d|%d], 200, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (199-4), $test_builder->{q[Curr_Test]};
             is($peers{q[C]}->_am_choking,
                 1, q[Post-unchoke outgoing choke status]);
             is($peers{q[C]}->_peer_choking,
@@ -876,7 +873,7 @@ SKIP: {
                 0, q[Post-unchoke outgoing interest status]);
             is($peers{q[C]}->_peer_interested,
                 0, q[Post-unchoke incoming interest status]);
-            warn sprintf q[%d|%d], 204, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (203-4), $test_builder->{q[Curr_Test]};
             is(syswrite($newsock_D, build_choke()),
                 5, q[Sent choke to client]);
             $client->do_one_loop();
@@ -886,7 +883,7 @@ SKIP: {
                 1, q[Post-choke incoming choke status]);
             is($peers{q[C]}->_am_interested,
                 0, q[Post-choke outgoing interest status]);
-            warn sprintf q[%d|%d], 216, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (215-4), $test_builder->{q[Curr_Test]};
             is($peers{q[C]}->_peer_interested,
                 0, q[Post-choke incoming interest status]);
             is(syswrite($newsock_D, build_interested()),
@@ -894,14 +891,14 @@ SKIP: {
             $client->do_one_loop();
             is($peers{q[C]}->_am_choking,
                 0, q[Post-interested outgoing choke status]);
-            warn sprintf q[%d|%d], 229, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (228-4), $test_builder->{q[Curr_Test]};
             is($peers{q[C]}->_peer_choking,
                 1, q[Post-interested incoming choke status]);
             is($peers{q[C]}->_am_interested,
                 0, q[Post-interested outgoing interest status]);
             is($peers{q[C]}->_peer_interested,
                 1, q[Post-interested incoming interest status]);
-            warn sprintf q[%d|%d], 232, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (231-4), $test_builder->{q[Curr_Test]};
             is(syswrite($newsock_D, build_not_interested()),
                 5, q[Sent not interested to client]);
             $client->do_one_loop();
@@ -909,7 +906,7 @@ SKIP: {
                 q[Sent have to client]);
             $client->do_one_loop();
             ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-            warn sprintf q[%d|%d], 252, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (251-4), $test_builder->{q[Curr_Test]};
 
             #is(syswrite($newsock_D, build_have(1)), 9,
             #    q[Sent have to client]);
@@ -922,7 +919,7 @@ SKIP: {
             my $fake_piece = q[A] x 16384;
             is(syswrite($newsock_D, build_piece(0, 0, \$fake_piece)),
                 16397, q[Sent piece i:0 o:0 l:16384 to client]);
-            warn sprintf q[%d|%d], 269, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (269-4), $test_builder->{q[Curr_Test]};
             $client->do_one_loop();
             is(syswrite($newsock_D, build_choke()),
                 5, q[Sent choke to client]);
@@ -933,20 +930,20 @@ SKIP: {
             $client->do_one_loop();
 
             #ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-            warn sprintf q[%d|%d], 302, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (301-4), $test_builder->{q[Curr_Test]};
 
             #
             $flux_capacitor = 1.5;
             $client->do_one_loop();
 
             #ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-            warn sprintf q[%d|%d], 314, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (313-4), $test_builder->{q[Curr_Test]};
 
             #
             $flux_capacitor = 2.5;
             $client->do_one_loop;
             ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-            warn sprintf q[%d|%d], 320, $test_builder->{q[Curr_Test]};
+            warn sprintf q[%d|%d], (319-4), $test_builder->{q[Curr_Test]};
 
 #
 #use Data::Dump;
@@ -958,6 +955,23 @@ SKIP: {
         #
         #$client->do_one_loop for 1 .. 50;
     }
+    warn q[TODO: Test multithreaded stuff...];
+
+    #SKIP: {
+    #        skip q[Multi-threaded tests have been skipped], 4 if !$threads;
+    #        use_ok(q[threads]);
+    #        use_ok(q[threads::shared]);
+    #
+    #if ($threads::shared::threads_shared) {
+    #       threads::shared::share($_bitfield{refaddr $self})
+    #           if defined $_bitfield{refaddr $self};
+    #       threads::shared::share($_am_choking{refaddr $self});
+    #       threads::shared::share($_am_interested{refaddr $self});
+    #       threads::shared::share($_peer_choking{refaddr $self});
+    #       threads::shared::share($_peer_interested{refaddr $self});
+    #   }
+    #
+    #    }
 }
 {    # Utility functions
 

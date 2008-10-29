@@ -51,7 +51,9 @@ my $Peers       = 5;
 my $Timeout     = 45;
 
 #
-plan tests => int($Seeds + $Peers);
+plan tests => int(($Seeds * 2) + ($Peers * 2));
+#plan tests => int($Seeds + $Peers + 1) * 2;
+
 
 #
 my $sprintf = q[%0] . length($Peers > $Seeds ? $Peers : $Seeds) . q[d];
@@ -123,6 +125,9 @@ SKIP: {
                      - $test_builder->{q[Curr_Test]}
             ) if not $session;
             $session->hashcheck;
+
+            warn $session->_as_string(1);
+
             skip(
                 sprintf(
                     q[Failed to load session for seed_%s: Seed data is missing/corrupt],
@@ -130,13 +135,22 @@ SKIP: {
                 $test_builder->{q[Expected_Tests]}
                     - $test_builder->{q[Curr_Test]}
             ) if not $session->_complete;
-            ok(scalar($session->_complete), sprintf(q[seed_%s ok], $chr));
+            ok(scalar($session->_complete), sprintf(q[seed_%s is seeding], $chr));
             skip(sprintf(q[Failed to load session for seed_%s], $chr),
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
             ) if not $session->_complete;
             my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
             $session->_add_tracker([$tracker]);
+            $client{q[seed_] . $chr}->on_event(
+                q[tracker_announce_okay],
+                sub {
+                    my ($s, $a) = @_;
+                    my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
+                    ok(1, sprintf(q[seed_%s announce okay], $chr));
+                    return $t->_tier->_session->_new_peer();
+                }
+            );
             $client{q[seed_] . $chr}->do_one_loop(0.1);    # let them announce
         }
         for my $chr (1 .. $Peers) {
@@ -191,7 +205,7 @@ SKIP: {
                    #    ) # if $ENV{q[RELEASE_TESTING]}
                    #    ;
                     ok($args->{q[Session]}->_complete,
-                        sprintf(q[peer_%s complete], $chr))
+                        sprintf(q[peer_%s is seeding], $chr))
                         if $args->{q[Session]}->_complete;
                     return;
                 }
@@ -201,6 +215,7 @@ SKIP: {
                 sub {
                     my ($s, $a) = @_;
                     my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
+                    ok(1, sprintf(q[peer_%s announce okay], $chr));
                     return $t->_tier->_session->_new_peer();
                 }
             );
@@ -309,69 +324,3 @@ SKIP: {
         exit;
     }
 }
-
-
-__END__
-
-1..6
-ok 1 - seed_1 ok
-ok 2 - peer_1 complete
-ok 3 - peer_3 complete
-ok 4 - peer_2 complete
-ok 5 - peer_4 complete
-ok 6 - peer_5 complete
-Total Elapsed Time = 43.06840 Seconds
-         Real Time = 43.06840 Seconds
-Exclusive Times
-%Time ExclSec CumulS #Calls sec/call Csec/c  Name
- 66.6   28.68 30.553    288   0.0996 0.1061  main::check_tracker
- 27.5   11.84 13.395    325   0.0364 0.0412  Net::BitTorrent::do_one_loop
- 0.97   0.418  0.764    557   0.0008 0.0014  Net::BitTorrent::Peer::_rw
- 0.93   0.401  0.483    106   0.0038 0.0046  Net::BitTorrent::Peer::new
- 0.58   0.251  0.251      6   0.0418 0.0418  Net::BitTorrent::__socket_open
- 0.47   0.203  1.031    208   0.0010 0.0050  Net::BitTorrent::_process_connecti
-                                             ons
- 0.33   0.141  0.141      2   0.0705 0.0705  Module::Build::Base::_backticks
- 0.33   0.140  0.308      8   0.0175 0.0385  Module::Build::BEGIN
- 0.26   0.110  0.110      6   0.0183 0.0183  IO::Socket::BEGIN
- 0.25   0.109  0.774     14   0.0078 0.0553  main::BEGIN
- 0.22   0.094  0.140     26   0.0036 0.0054  Module::Build::Base::BEGIN
- 0.15   0.063  0.063     21   0.0030 0.0030  Exporter::export
- 0.13   0.056  0.113   1589   0.0000 0.0001  Net::BitTorrent::_event
- 0.11   0.046  0.046     22   0.0021 0.0021  Net::BitTorrent::Session::File::_s
-                                             ysopen
- 0.11   0.046  0.046    520   0.0001 0.0001  Net::BitTorrent::Protocol::HANDSHA
-                                             KE
->Exit code: 0    Time: 47.744
-
-------------------------------------------------------------------------------
-1..6
-ok 1 - seed_1 ok
-ok 2 # skip This is taking too long and I have a train to catch.
-ok 3 # skip This is taking too long and I have a train to catch.
-ok 4 # skip This is taking too long and I have a train to catch.
-ok 5 # skip This is taking too long and I have a train to catch.
-ok 6 # skip This is taking too long and I have a train to catch.
-panic: Devel::DProf inconsistent subroutine return.
-# Looks like your test died just after 6.
-Total Elapsed Time = 44.73920 Seconds
-         Real Time = 44.73920 Seconds
-Exclusive Times
-%Time ExclSec CumulS #Calls sec/call Csec/c  Name
- 37.2   16.66 16.704    175   0.0952 0.0955  Net::BitTorrent::do_one_loop
- 30.1   13.50 16.449    138   0.0978 0.1192  main::check_tracker
- 4.30   1.924 10.339     14   0.1374 0.7385  main::BEGIN
- 3.67   1.641  1.641      6   0.2735 0.2735  Net::BitTorrent::__socket_open
- 2.79   1.250  4.701      8   0.1562 0.5876  Module::Build::BEGIN
- 2.41   1.077  1.077     12   0.0897 0.0897  DynaLoader::dl_load_file
- 2.24   1.000  2.734     26   0.0385 0.1052  Module::Build::Base::BEGIN
- 2.09   0.937  0.937      2   0.4685 0.4685  Module::Build::Base::_backticks
- 1.61   0.719  1.280     15   0.0479 0.0854  Net::BitTorrent::Session::BEGIN
- 0.84   0.376  2.452     13   0.0289 0.1886  Net::BitTorrent::BEGIN
- 0.70   0.312  0.312      6   0.0520 0.0520  IO::Socket::BEGIN
- 0.66   0.297  0.313      3   0.0990 0.1043  POSIX::SigRt::BEGIN
- 0.63   0.280  1.296      9   0.0311 0.1440  XSLoader::load
- 0.59   0.266  0.390      3   0.0887 0.1300  Module::Build::Dumper::BEGIN
- 0.56   0.250  0.293      6   0.0416 0.0488  Net::BitTorrent::Session::new
->Exit code: 0    Time: 55.182
-

@@ -99,8 +99,8 @@ package Net::BitTorrent::Util;
             while ($leftover and $leftover !~ s|^e||s) {
                 my ($key, $value);
                 ($key,   $leftover) = bdecode($leftover);
-                ($value, $leftover) = bdecode($leftover);
-                $return->{$key} = $value;
+                ($value, $leftover) = bdecode($leftover) if $leftover;
+                $return->{$key} = $value if defined $key;
             }
             return wantarray ? (\%$return, $leftover) : \%$return;
         }

@@ -5,22 +5,24 @@ package Net::BitTorrent::Session::File;
     use warnings;    # core as of perl 5.006
 
     #
-    use Carp qw[carp];                      # core as of perl 5
+    use Carp qw[carp];                              # core as of perl 5
     use Scalar::Util qw[blessed weaken refaddr];    # core as of perl 5.007003
-    use Fcntl qw[/O_/ /SEEK/ :flock];       # core as of perl 5
+    use Fcntl qw[/O_/ /SEEK/ :flock];               # core as of perl 5
 
     # Utility stuff... should be moved to N::B::S::F::Util?
     #use File::Path qw[mkpath]; # core as of perl 5.001
     #use File::Spec::Functions  # core as of perl 5.00504
     #    qw[splitpath catpath];
     #
-    use version qw[qv];                     # core as of 5.009
+    use version qw[qv];                             # core as of 5.009
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
-    my (%path,     %session, %size,   %index);          # parameters to new()
-    my (%priority, %mode,    %handle, %win32_handle);
+    my (@CONTENTS) = \my (
+           %path,     %session, %size,   %index,         # parameters to new()
+           %priority, %mode,    %handle, %win32_handle);
+    my %REGISTRY = ();
 
     # Constructor
     sub new {
@@ -114,13 +116,16 @@ package Net::BitTorrent::Session::File;
         $path{refaddr $self}    = $args->{q[Path]};
         $session{refaddr $self} = $args->{q[Session]};
         weaken $session{refaddr $self};
-        $size{refaddr $self}     = $args->{q[Size]};
-        $priority{refaddr $self} = 2;                  # default in 0-3 range where...
-                                               #  0 = don't download
-                                               #  1 = low priority
-                                               #  2 = normal priority
-                                               #  3 = high priority
-        $index{refaddr $self}    = $args->{q[Index]};
+        $size{refaddr $self}  = $args->{q[Size]};
+        $index{refaddr $self} = $args->{q[Index]};
+        $priority{refaddr $self} = 2;    # default in 0-3 range where...
+                                         #  0 = don't download
+                                         #  1 = low priority
+                                         #  2 = normal priority
+                                         #  3 = high priority
+
+        # threads suff
+        weaken($REGISTRY{refaddr $self} = $self);
 
         #
         # TODO (for client writers):
@@ -224,7 +229,8 @@ package Net::BitTorrent::Session::File;
 
         #
         $session{refaddr $self}->_client->_event(q[file_open],
-                                       {File => $self, Mode => $mode{refaddr $self}});
+                                {File => $self, Mode => $mode{refaddr $self}})
+            if defined $session{refaddr $self}->_client();
 
         #
         return defined $handle{refaddr $self};
@@ -257,8 +263,10 @@ package Net::BitTorrent::Session::File;
                 {File    => $self,
                  Message => sprintf(
                      q[Cannot write beyond end of file (tell: %d | data:%d bytes | size: %d) (%d > %d)],
-                     $self->_systell, length($data),
-                     $size{refaddr $self}, ($self->_systell + length($data)),
+                     $self->_systell,
+                     length($data),
+                     $size{refaddr $self},
+                     ($self->_systell + length($data)),
                      $size{refaddr $self}
                  )
                 }
@@ -268,7 +276,8 @@ package Net::BitTorrent::Session::File;
         truncate($handle{refaddr $self}, $size{refaddr $self})
             if -s $handle{refaddr $self} != $size{refaddr $self};
         my $expected_length = length $data;
-        my $actual_length = syswrite($handle{refaddr $self}, $data, $expected_length);
+        my $actual_length
+            = syswrite($handle{refaddr $self}, $data, $expected_length);
         if (defined $actual_length) {
             if ($actual_length != $expected_length) {
                 $session{refaddr $self}->_client->_event(
@@ -366,10 +375,10 @@ package Net::BitTorrent::Session::File;
             }
         }
         $session{refaddr $self}->_client->_event(q[file_read],
-                                         {File   => $self,
-                                          Length => length($data)
-                                         }
-        );
+                                                 {File   => $self,
+                                                  Length => length($data)
+                                                 }
+        ) if defined $session{refaddr $self}->_client;
         return $data;
     }
 
@@ -434,7 +443,8 @@ package Net::BitTorrent::Session::File;
                     Message => sprintf(
                                    q[Cannot seek beyond %s of file (%d > %d)],
                                    ($position > 0 ? q[start] : q[end]),
-                                   $position, $size{refaddr $self}
+                                   $position,
+                                   $size{refaddr $self}
                     )
                    }
             );
@@ -455,18 +465,21 @@ package Net::BitTorrent::Session::File;
         {   Win32API::File->import(qw[:ALL]);
             Encode->import(qw[find_encoding encode]);
             for my $null (qq[\0], q[]) {
-                $win32_handle{refaddr $self} =
-                    CreateFileW(encode(q[UTF-16LE], $path{refaddr $self} . $null),
-                                (($mode &= O_WRONLY) ? GENERIC_WRITE()
-                                 : GENERIC_READ()
-                                ),
-                                FILE_SHARE_READ(),
-                                [],
-                                (($mode &= O_WRONLY) ? OPEN_ALWAYS()
-                                 : OPEN_EXISTING()
-                                ),
-                                FILE_ATTRIBUTE_NORMAL(),
-                                0
+                $win32_handle{refaddr $self}
+                    = CreateFileW(
+                                 encode(
+                                     q[UTF-16LE], $path{refaddr $self} . $null
+                                 ),
+                                 (($mode &= O_WRONLY) ? GENERIC_WRITE()
+                                  : GENERIC_READ()
+                                 ),
+                                 FILE_SHARE_READ(),
+                                 [],
+                                 (($mode &= O_WRONLY) ? OPEN_ALWAYS()
+                                  : OPEN_EXISTING()
+                                 ),
+                                 FILE_ATTRIBUTE_NORMAL(),
+                                 0
                     ) and last;
             }
             return if not $win32_handle{refaddr $self};
@@ -512,7 +525,9 @@ package Net::BitTorrent::Session::File;
             delete $handle{refaddr $self};
 
             #
-            $session{refaddr $self}->_client->_event(q[file_close], {File => $self});
+            $session{refaddr $self}
+                ->_client->_event(q[file_close], {File => $self})
+                if defined $session{refaddr $self}->_client();
 
             #
             return $return;
@@ -524,7 +539,7 @@ package Net::BitTorrent::Session::File;
                             {File    => $self,
                              Message => sprintf(q[Cannot close file: %s], $^E)
                             }
-        );
+        ) if defined $session{refaddr $self}->_client();
 
         #
         return;
@@ -558,32 +573,53 @@ package Net::BitTorrent::Session::File;
         }
         return 1;
     }
-        sub _as_string {
-            my ($self, $advanced) = @_;
-            my $dump = q[TODO];
-            return print STDERR qq[$dump\n] unless defined wantarray;
-            return $dump;
-        }
 
-    #
+    sub _as_string {
+        my ($self, $advanced) = @_;
+        my $dump = q[TODO];
+        return print STDERR qq[$dump\n] unless defined wantarray;
+        return $dump;
+    }
+
+    sub CLONE {
+        for my $_oID (keys %REGISTRY) {
+
+            #  look under oID to find new, cloned reference
+            my $_obj = $REGISTRY{$_oID};
+            my $_nID = refaddr $_obj;
+
+            #  relocate data
+            for (@CONTENTS) {
+                $_->{$_nID} = $_->{$_oID};
+                delete $_->{$_oID};
+            }
+
+            # do some silly stuff to avoid user mistakes
+            weaken $session{$_nID};
+
+            #  update he weak refernce to the new, cloned object
+            weaken($REGISTRY{$_nID} = $_obj);
+            delete $REGISTRY{$_oID};
+        }
+        return 1;
+    }
+
+    # Destructor
     DESTROY {
         my ($self) = @_;
 
-        #
-        delete $path{refaddr $self};
-        delete $session{refaddr $self};
-        delete $size{refaddr $self};
-        delete $priority{refaddr $self};
-        delete $mode{refaddr $self};
-        delete $index{refaddr $self};
-        delete $handle{refaddr $self};
-        delete $win32_handle{refaddr $self};
+        #warn q[Goodbye, ] . $$self;
+        # Clean all data
+        for (@CONTENTS) {
+            delete $_->{refaddr $self};
+        }
+        delete $REGISTRY{refaddr $self};
 
         #
         return 1;
     }
     1;
-
+}
 =pod
 
 =head1 NAME
@@ -720,4 +756,3 @@ BitTorrent, Inc.
 
 =cut
 
-}

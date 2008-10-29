@@ -5,9 +5,9 @@ package Net::BitTorrent::Session::Tracker;
     use warnings;    # core as of perl 5.006
 
     #
-    use Carp qw[carp];                      # core as of perl 5
+    use Carp qw[carp];                              # core as of perl 5
     use Scalar::Util qw[blessed weaken refaddr];    # core as of 5.007003
-    use List::Util qw[shuffle];             # core as of 5.007003
+    use List::Util qw[shuffle];                     # core as of 5.007003
 
     #
     use lib q[./../../../];
@@ -15,13 +15,15 @@ package Net::BitTorrent::Session::Tracker;
     use Net::BitTorrent::Session::Tracker::UDP;
 
     #
-    use version qw[qv];                     # core as of 5.009
+    use version qw[qv];                             # core as of 5.009
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
-    my (%session,  %_urls);                 # params to new\
-    my (%complete, %incomplete);
+    my (@CONTENTS) = \my (
+                 %session,  %_urls,                          # params to new()
+                 %complete, %incomplete);
+    my %REGISTRY;
 
     #
     sub new {
@@ -103,22 +105,24 @@ package Net::BitTorrent::Session::Tracker;
         $incomplete{refaddr $self} = 0;
 
         #
-        $_urls{refaddr $self} = [map ($_ =~ m[^http://]i
-                              ? Net::BitTorrent::Session::Tracker::HTTP->new(
+        $_urls{refaddr $self} = [
+                          map ($_ =~ m[^http://]i
+                               ? Net::BitTorrent::Session::Tracker::HTTP->new(
                                                     {URL => $_, Tier => $self}
-                                  )
-                              : Net::BitTorrent::Session::Tracker::UDP->new(
+                                   )
+                               : Net::BitTorrent::Session::Tracker::UDP->new(
                                                     {URL => $_, Tier => $self}
-                              ),
-                              @{$args->{q[URLs]}})
+                               ),
+                               @{$args->{q[URLs]}})
         ];
 
         #
         $session{refaddr $self}->_client->_schedule({Time   => time,
-                                             Code   => \&_announce,
-                                             Object => $self
-                                            }
+                                                     Code   => \&_announce,
+                                                     Object => $self
+                                                    }
         );
+        weaken($REGISTRY{refaddr $self} = $self);
 
         #
         return $self;
@@ -144,34 +148,60 @@ package Net::BitTorrent::Session::Tracker;
         return $incomplete{refaddr $self} = $value;
     }
 
-    sub _as_string {
+
+    sub _shuffle {    # push first (bad) to the end of the list
+        my ($self) = @_;
+        return (
+             push(@{$_urls{refaddr $self}}, shift(@{$_urls{refaddr $self}})));
+    }
+
+    sub _announce {
+        my ($self) = @_;
+        return if not defined $self;
+        return if not defined $_urls{refaddr $self};
+        return if not scalar @{$_urls{refaddr $self}};
+        return $_urls{refaddr $self}->[0]->_announce(q[started]);
+    }
+ sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
         return print STDERR qq[$dump\n] unless defined wantarray;
         return $dump;
     }
-
-    sub _shuffle {    # push first (bad) to the end of the list
-        my ($self) = @_;
-        return (push(@{$_urls{refaddr $self}}, shift(@{$_urls{refaddr $self}})));
-    }
-
-    sub _announce {
-        my ($self) = @_;
-        return $_urls{refaddr $self}->[0]->_announce(q[started]);
-    }
-
     #
+    sub CLONE {
+        for my $_oID (keys %REGISTRY) {
+
+            #  look under oID to find new, cloned reference
+            my $_obj = $REGISTRY{$_oID};
+            my $_nID = refaddr $_obj;
+
+            #  relocate data
+            for (@CONTENTS) {
+                $_->{$_nID} = $_->{$_oID};
+                delete $_->{$_oID};
+            }
+
+            # do some silly stuff to avoid user mistakes
+            weaken $session{$_nID};
+
+            #  update he weak refernce to the new, cloned object
+            weaken($REGISTRY{$_nID} = $_obj);
+            delete $REGISTRY{$_oID};
+        }
+        return 1;
+    }
+
+    # Destructor
     DESTROY {
         my ($self) = @_;
 
-        #
-        delete $session{refaddr $self};
-        delete $_urls{refaddr $self};
-
-        #
-        delete $complete{refaddr $self};
-        delete $incomplete{refaddr $self};
+        #warn q[Goodbye, ] . $$self;
+        # Clean all data
+        for (@CONTENTS) {
+            delete $_->{refaddr $self};
+        }
+        delete $REGISTRY{refaddr $self};
 
         #
         return 1;

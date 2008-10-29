@@ -18,9 +18,12 @@ use warnings;
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     {
-        my (%dht, %packed_host, %node_id, %added, %infohashes, %_token,
-            %_last_seen);
-        my (%ping_schedule, %query_schedule);
+        my (@CONTENTS)
+            = \my (%dht,        %packed_host,   %node_id,
+                   %added,      %infohashes,    %_token,
+                   %_last_seen, %ping_schedule, %query_schedule
+            );
+        my %REGISTRY;
 
         sub new {
             my ($class, $args) = @_;
@@ -44,74 +47,83 @@ use warnings;
                                       Object => $self
                                      }
                     );
-                $query_schedule{refaddr $self} = $dht{refaddr $self}->_client->_schedule(
+                $query_schedule{refaddr $self}
+                    = $dht{refaddr $self}->_client->_schedule(
                     {   Code => sub {
                             my $s = shift;
                             for my $session (
-                                     values %{$dht{refaddr $self}->_client->sessions})
+                                    values
+                                    %{$dht{refaddr $self}->_client->sessions})
                             {   if (not $session->_private) {
                                     $s->_query_get_peers($session);
                                     $s->_query_announce_peer($session);
                                 }
                             }
                             $s->_query_find_node(pack q[H40],
-                                                 $dht{refaddr $self}->node_id);
+                                                $dht{refaddr $self}->node_id);
                         },
                         Time   => time + 1,
                         Object => $self
                     }
-                );
+                    );
             }
+
+            #
+            weaken($REGISTRY{refaddr $self} = $self);
+
+            #
             return $self;
         }
 
         sub _packed_host {
             return if defined $_[1];
-            return $packed_host{refaddr +$_[0]};
+            return $packed_host{refaddr + $_[0]};
         }
 
         sub _port {
             return if defined $_[1];
-            return if not $packed_host{refaddr +$_[0]};
-            my ($_port, undef) = unpack_sockaddr_in($packed_host{refaddr +$_[0]});
+            return if not $packed_host{refaddr + $_[0]};
+            my ($_port, undef)
+                = unpack_sockaddr_in($packed_host{refaddr + $_[0]});
             return $_port;
         }
 
         sub _host {
             return if defined $_[1];
-            return if not defined $packed_host{refaddr +$_[0]};
-            my (undef, $addr) = unpack_sockaddr_in($packed_host{refaddr +$_[0]});
+            return if not defined $packed_host{refaddr + $_[0]};
+            my (undef, $addr)
+                = unpack_sockaddr_in($packed_host{refaddr + $_[0]});
             return inet_ntoa($addr);
         }
 
         sub node_id {
             return if defined $_[1];
-            return $node_id{refaddr +$_[0]};
+            return $node_id{refaddr + $_[0]};
         }
 
         sub _last_seen {
             return if defined $_[1];
-            return $_last_seen{refaddr +$_[0]};
+            return $_last_seen{refaddr + $_[0]};
         }
 
         sub _infohashes {
             return if defined $_[1];
-            return [keys %{$infohashes{refaddr +$_[0]}}];
+            return [keys %{$infohashes{refaddr + $_[0]}}];
         }
 
         sub _add_infohash {
             return if not defined $_[1];
-            return $infohashes{refaddr +$_[0]}{$_[1]}++;
+            return $infohashes{refaddr + $_[0]}{$_[1]}++;
         }
 
         sub _query_ping {
             my ($self) = @_;
 
-            #
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self})
-            #    if defined $ping_schedule{refaddr $self};
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+        #
+        # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self})
+        #    if defined $ping_schedule{refaddr $self};
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
@@ -127,12 +139,12 @@ use warnings;
                      type => q[ping],
                      packet =>
                          bencode(
-                         {t => $tid,
-                          y => q[q],
-                          q => q[ping],
-                          a => {id => $dht{refaddr $self}->node_id},
-                          v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
-                         }
+                            {t => $tid,
+                             y => q[q],
+                             q => q[ping],
+                             a => {id => $dht{refaddr $self}->node_id},
+                             v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
+                            }
                          )
                     }
                 );
@@ -141,11 +153,12 @@ use warnings;
         sub _query_find_node {
             my ($self, $target) = @_;
             return if not $target;
-            $query_schedule{refaddr $self} = $dht{refaddr $self}->_client->_schedule(
+            $query_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                 {   Code => sub {
                         my $s = shift;
                         for my $session (
-                                     values %{$dht{refaddr $self}->_client->sessions})
+                             values %{$dht{refaddr $self}->_client->sessions})
                         {   if (not $session->_private) {
                                 $s->_query_get_peers($session);
                             }
@@ -156,8 +169,9 @@ use warnings;
                     Time => (time + (60 * 30)),
                     Object => $self
                 }
-            );
-            return if scalar(keys %{$dht{refaddr $self}->_routing_table}) >= 300;
+                );
+            return
+                if scalar(keys %{$dht{refaddr $self}->_routing_table}) >= 300;
             my $tid = $dht{refaddr $self}->_generate_token_id;
             $dht{refaddr $self}->_send(
                     {node => $self,
@@ -256,9 +270,9 @@ use warnings;
             return if not defined $packet;
             $_last_seen{refaddr $self} = time;
 
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+       # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
@@ -286,9 +300,9 @@ use warnings;
             return if not defined $packet;
             $_last_seen{refaddr $self} = time;
 
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+       # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
@@ -310,9 +324,9 @@ use warnings;
             $_last_seen{refaddr $self} = time;
             $_token{refaddr $self}     = $packet->{q[r]}{q[token]};
 
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+       # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
@@ -320,8 +334,9 @@ use warnings;
                 );
             if (defined $packet->{q[r]}{q[values]}) {
                 my $session =
-                    $dht{refaddr $self}->_client->_locate_session(unpack q[H*],
-                                                   $packet->{q[r]}{q[token]});
+                    $dht{refaddr $self}
+                    ->_client->_locate_session(unpack q[H*],
+                                               $packet->{q[r]}{q[token]});
                 if ($session) {
                     for my $_node (@{$packet->{q[r]}{q[values]}}) {
                         $session->_append_compact_nodes($_node);
@@ -377,22 +392,24 @@ use warnings;
             return if not defined $packet;
             $_last_seen{refaddr $self} = time;
 
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+       # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
                                      }
                 );
-            my ($_port, $packed_ip) = unpack_sockaddr_in($packed_host{refaddr $self});
+            my ($_port, $packed_ip)
+                = unpack_sockaddr_in($packed_host{refaddr $self});
 
             #use Data::Dump qw[pp];
             #warn sprintf q[%s:%d says get_peers! %s], inet_ntoa($packed_ip),
             #    $_port,
             #    pp $packet;
             my $target = unpack(q[H40], $packet->{q[a]}{q[info_hash]});
-            my $session = $dht{refaddr $self}->_client->_locate_session($target);
+            my $session
+                = $dht{refaddr $self}->_client->_locate_session($target);
 
             #warn q[$target  == ] . $target;
             #warn q[$session == ] . $session;
@@ -407,18 +424,18 @@ use warnings;
             }
             if (scalar @nodes) {
                 $dht{refaddr $self}->_send(
-                     {node => $self,
-                      packet =>
-                          bencode(
-                          {  y => q[r],
-                             t => $packet->{q[t]},
-                             r => {id     => $dht{refaddr $self}->node_id,
-                                   token  => $packet->{q[a]}{q[info_hash]},
-                                   values => \@nodes
-                             },
-                             v => sprintf(q[NB%s], $Net::BitTorrent::VERSION)
-                          }
-                          )
+                     {  node => $self,
+                        packet =>
+                            bencode(
+                             {y => q[r],
+                              t => $packet->{q[t]},
+                              r => {id     => $dht{refaddr $self}->node_id,
+                                    token  => $packet->{q[a]}{q[info_hash]},
+                                    values => \@nodes
+                              },
+                              v => sprintf(q[NB%s], $Net::BitTorrent::VERSION)
+                             }
+                            )
                      }
                 );
                 return 1;
@@ -451,9 +468,9 @@ use warnings;
             return if not defined $packet;
             $_last_seen{refaddr $self} = time;
 
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+       # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
@@ -461,15 +478,16 @@ use warnings;
                 );
 
             #
-            my $nodes   = q[];
-            my $target  = unpack(q[H40], $packet->{q[a]}{q[target]});
-            my $session = $dht{refaddr $self}->_client->_locate_session($target);
+            my $nodes = q[];
+            my $target = unpack(q[H40], $packet->{q[a]}{q[target]});
+            my $session
+                = $dht{refaddr $self}->_client->_locate_session($target);
             if ($session) {
                 $nodes = $session->_compact_nodes();
             }
             else {
-                for my $_node (values %{$dht{refaddr $self}->_routing_table}) {
-                    $nodes .= $_node->_packed_host
+                for my $_node (values %{$dht{refaddr $self}->_routing_table})
+                {   $nodes .= $_node->_packed_host
                         if grep {
                         $_ eq unpack(q[H*], $packet->{q[a]}{q[target]})
                         } @{$_node->_infohashes};
@@ -504,9 +522,9 @@ use warnings;
             return if not defined $packet;
             $_last_seen{refaddr $self} = time;
 
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+       # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
@@ -515,15 +533,16 @@ use warnings;
             $self->_add_infohash(
                                unpack(q[H40], $packet->{q[a]}{q[info_hash]}));
             return
-                $dht{refaddr $self}->_send({node => $self,
-                                    packet =>
-                                        bencode(
-                                        {y => q[r],
-                                         t => $packet->{q[t]},
-                                         r => {id => $dht{refaddr $self}->node_id}
-                                        }
-                                        )
-                                   }
+                $dht{refaddr $self}->_send(
+                            {node => $self,
+                             packet =>
+                                 bencode(
+                                    {y => q[r],
+                                     t => $packet->{q[t]},
+                                     r => {id => $dht{refaddr $self}->node_id}
+                                    }
+                                 )
+                            }
                 );
         }
 
@@ -532,9 +551,9 @@ use warnings;
             return if not defined $packet;
             $_last_seen{refaddr $self} = time;
 
-            # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
-            $ping_schedule{refaddr $self} =
-                $dht{refaddr $self}->_client->_schedule(
+       # $dht{refaddr $self}->_client->_cancel($ping_schedule{refaddr $self});
+            $ping_schedule{refaddr $self}
+                = $dht{refaddr $self}->_client->_schedule(
                                      {Code => sub { shift->_query_ping() },
                                       Time => (time + (60 * 15)),
                                       Object => $self
@@ -542,15 +561,16 @@ use warnings;
                 );
 
             #
-            $dht{refaddr $self}->_send({node => $self,
-                                packet =>
-                                    bencode(
-                                        {y => q[r],
-                                         t => $packet->{q[t]},
-                                         r => {id => $dht{refaddr $self}->node_id}
-                                        }
-                                    )
-                               }
+            $dht{refaddr $self}->_send(
+                            {node => $self,
+                             packet =>
+                                 bencode(
+                                 {y => q[r],
+                                  t => $packet->{q[t]},
+                                  r => {id => $dht{refaddr $self}->node_id}
+                                 }
+                                 )
+                            }
             );
 
             #
@@ -563,19 +583,41 @@ use warnings;
             return print STDERR qq[$dump\n] unless defined wantarray;
             return $dump;
         }
-        DESTROY {
-            my $self = shift;
 
-            #
-            delete $dht{refaddr $self};
-            delete $packed_host{refaddr $self};
-            delete $node_id{refaddr $self};
-            delete $infohashes{refaddr $self};
-            delete $added{refaddr $self};
-            delete $_last_seen{refaddr $self};
-            delete $ping_schedule{refaddr $self};
-            delete $query_schedule{refaddr $self};
-            delete $_token{refaddr $self};
+        sub CLONE {
+            for my $_oID (keys %REGISTRY) {
+
+                #  look under oID to find new, cloned reference
+                my $_obj = $REGISTRY{$_oID};
+                my $_nID = refaddr $_obj;
+
+                #  relocate data
+                for (@CONTENTS) {
+                    $_->{$_nID} = $_->{$_oID};
+                    delete $_->{$_oID};
+                }
+
+                # do some silly stuff to avoid user mistakes
+                #weaken($_client{$_nID} = $_client{$_oID});
+                weaken $dht{$_nID};
+
+                #  update he weak refernce to the new, cloned object
+                weaken($REGISTRY{$_nID} = $_obj);
+                delete $REGISTRY{$_oID};
+            }
+            return 1;
+        }
+
+        # Destructor
+        DESTROY {
+            my ($self) = @_;
+
+            #warn q[Goodbye, ] . $$self;
+            # Clean all data
+            for (@CONTENTS) {
+                delete $_->{refaddr $self};
+            }
+            delete $REGISTRY{refaddr $self};
 
             #
             return 1;

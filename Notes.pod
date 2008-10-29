@@ -84,6 +84,10 @@ Parts that aren't handled internally are described here with sample code
 to get you started.  In the future, this will probably be in a separate
 pod.
 
+=head2 Get basic info from a.torrent without adding it to a client
+
+[TODO]
+
 =head2 Pause and Resume a .torrent Session
 
 [TODO]

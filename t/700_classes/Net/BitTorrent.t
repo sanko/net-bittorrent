@@ -27,7 +27,7 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
 BEGIN {
-    plan tests => 99;
+    plan tests => 98;
 
     # Ours
     use_ok(q[File::Temp],   qw[tempdir]);
@@ -72,10 +72,10 @@ SKIP: {
     warn(q[Testing (private) Net::BitTorrent::__socket_open()]);
     is(Net::BitTorrent::__socket_open(),
         undef, q[__socket_open() returns undef]);
-    is(Net::BitTorrent::__socket_open(22000),
-        undef, q[__socket_open(22000) returns undef]);
-    is(Net::BitTorrent::__socket_open(undef, 34000),
-        undef, q[__socket_open(undef, 34000) returns undef]);
+    is(Net::BitTorrent::__socket_open(0),
+        undef, q[__socket_open(0) returns undef]);
+    is(Net::BitTorrent::__socket_open(undef, 0),
+        undef, q[__socket_open(undef, 0) returns undef]);
     is(Net::BitTorrent::__socket_open(undef, undef),
         undef, q[__socket_open(undef, undef) returns undef]);
     is( Net::BitTorrent::__socket_open(inet_aton(q[127.0.0.1]), q[test]),
@@ -88,7 +88,7 @@ SKIP: {
         undef, q[__socket_open(q[127.0.0.1:25012]) returns undef]);
 
     #
-    my $socket_one = Net::BitTorrent::__socket_open(q[127.0.0.1], 20532);
+    my $socket_one = Net::BitTorrent::__socket_open(q[127.0.0.1], 0);
     isa_ok($socket_one, q[GLOB],
            q[__socket_open(q[127.0.0.1], 0) returns a socket...]);
     my ($port_one, $packed_ip_one)
@@ -198,13 +198,10 @@ TODO: {
 
     #
     is($bt_top->_add_connection($bt_wo, q[wo]),
-        undef, q[BTW, we can only add a socket once]);
+        undef, q[BTW, we can only add a socket once with the same mode]);
 
     #
     warn(q[TODO: Check list of _sockets()]);
-
-    #use Data::Dump qw[pp];
-    #warn pp $bt_top->_connections;
     is(scalar(keys %{$bt_top->_connections}),
         4, q[Check list of _connections() == 4]);
 
@@ -316,8 +313,6 @@ TODO: {
     is($port, 20505, q[Correct port was opened (20505).]);
 
     #
-    like($client_list_port->peerid, qr[^NB\d{3}[CS]-.{8}.{5}$],
-         q[Peer ID conforms to spec.]);
     warn(q[Testing Net::BitTorrent->add_session()]);
     is( $client->add_session(q[./t/900_data/950_torrents/952_multi.torrent]),
         undef, q[Needs hash ref params]
@@ -345,9 +340,6 @@ TODO: {
         undef, q[Attempt to remove not-a-session]);
     is_deeply($client->sessions, {}, q[   Check if session was removed]);
 
-    #use Data::Dump qw[pp];
-    #warn pp $client->sessions();
-    #warn pp $client->_connections;
     ok($client->do_one_loop, q[do_one_loop]);
     like($client->_peers_per_session, qr[^\d+$],
          q[_peers_per_session() is a number]);
@@ -388,7 +380,7 @@ SKIP: {
                       },
                       q[_sockets() returns the dht object and the client itself]
             );
-            is($client->_use_dht(1), undef, q[DHT is already enabled]);
+            is($client->_use_dht(1), 1, q[DHT is already enabled]);
             isa_ok($client->_dht, q[Net::BitTorrent::DHT],
                    q[DHT is still active]);
             ok($client->_use_dht(0), q[DHT has been disabled]);
@@ -402,12 +394,13 @@ SKIP: {
                       },
                       q[_sockets() returns the dht object and the client itself]
             );
-            is($client->_use_dht(0), undef,
+            is($client->_use_dht(0), 1,
                 q[DHT has been disabled (round two)]);
             is($client->_dht, undef, q[DHT is disabled (round two)]);
             ok($client->_use_dht(1), q[DHT has been enabled (round three?)]);
             isa_ok($client->_dht, q[Net::BitTorrent::DHT],
                    q[DHT is active (round three?)]);
+
             is(scalar(keys %{$client->_connections}),
                 2, q[Check list of _connections() == 2]);
             is_deeply($client->_connections,

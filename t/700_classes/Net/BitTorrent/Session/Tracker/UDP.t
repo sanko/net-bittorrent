@@ -73,7 +73,7 @@ SKIP: {
     }
 
     #
-    diag(q[TODO: Install event handlers]);
+    warn q[TODO: Install event handlers];
 
     #
 }

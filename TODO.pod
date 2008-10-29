@@ -16,6 +16,8 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over 2
 
+=item * Verify multi-thread processing (for non-blocking hashcheck, for example.)
+
 =item * Complete test suite
 
 Create a series of bad .torrent files to test N::B::Session with:
@@ -34,15 +36,15 @@ Create a series of bad .torrent files to test N::B::Session with:
 
 =back
 
-=item * private .torrent
-
-=item * private .torrent without trackers should cause some sort of warning
-
 =back
 
 =item * Improve detection of bad .torrent metadata.
 
-=item * Per-session transfer limits
+=item * Per-session transfer limits.
+
+=item * Start, stop, pause individual sessions.
+
+=item * Taint safe.
 
 =back
 
@@ -104,11 +106,6 @@ Create a series of bad .torrent files to test N::B::Session with:
 
 =back
 
-
-=item * DHT/PEX
-
-Working but disabled by default
-
 =item * UDP trackers
 
 =item * Fast Peers
@@ -122,8 +119,6 @@ Partial support currently
 =over 2
 
 =item * perlcritic severity=stern
-
-=item * non-blocking hash_check()
 
 =over 2
 
