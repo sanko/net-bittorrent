@@ -31,8 +31,8 @@ BEGIN {
      plan tests => 140;
     use_ok(q[File::Temp], qw[tempfile tempdir]);
     use_ok(q[File::Spec]);
-    use_ok(q[Net::BitTorrent::Session::File]);
-    use_ok(q[Net::BitTorrent::Session]);
+    use_ok(q[Net::BitTorrent::Torrent::File]);
+    use_ok(q[Net::BitTorrent::Torrent]);
     use_ok(q[Net::BitTorrent]);
 }
 
@@ -46,8 +46,8 @@ SKIP: {
 #
 #
     my $client = Net::BitTorrent->new();
-    my $session =
-        Net::BitTorrent::Session->new({Client => $client,
+    my $torrent =
+        Net::BitTorrent::Torrent->new({Client => $client,
                                        Path   => $single_dot_torrent
                                       }
         );
@@ -104,67 +104,67 @@ SKIP: {
     warn(sprintf(q[ File::Temp created '%s' for us to play with], $filename));
 
     #
-    warn(q[Net::BitTorrent::Session::File->new() requires parameters...]);
-    is(Net::BitTorrent::Session::File->new(),
-        undef, q[Net::BitTorrent::Session::File->new( )]);
-    is( Net::BitTorrent::Session::File->new(Path => $filename),
+    warn(q[Net::BitTorrent::Torrent::File->new() requires parameters...]);
+    is(Net::BitTorrent::Torrent::File->new(),
+        undef, q[Net::BitTorrent::Torrent::File->new( )]);
+    is( Net::BitTorrent::Torrent::File->new(Path => $filename),
         undef,
-        sprintf(q[Net::BitTorrent::Session::File->new(Path => q[%s])],
+        sprintf(q[Net::BitTorrent::Torrent::File->new(Path => q[%s])],
                 $filename)
     );
-    is(Net::BitTorrent::Session::File->new({}),
-        undef, q[Net::BitTorrent::Session::File->new({ })]);
-    is(Net::BitTorrent::Session::File->new({Path => $filename}),
-        undef, q[Missing Session]);
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => 0
+    is(Net::BitTorrent::Torrent::File->new({}),
+        undef, q[Net::BitTorrent::Torrent::File->new({ })]);
+    is(Net::BitTorrent::Torrent::File->new({Path => $filename}),
+        undef, q[Missing Torrent]);
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => 0
                                             }
         ),
         undef,
-        q[Session => 0]
+        q[Torrent => 0]
     );
-    is( Net::BitTorrent::Session::File->new(
+    is( Net::BitTorrent::Torrent::File->new(
                         {Path    => $filename,
-                         Session => bless(\{}, q[Net::BitTorrent::Session])
+                         Torrent => bless(\{}, q[Net::BitTorrent::Torrent])
                         }
         ),
         undef,
         q[Missing Size]
     );
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => undef
                                             }
         ),
         undef,
         q[Size => undef]
     );
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => q[QQQ]
                                             }
         ),
         undef,
         q[Size => q[QQQ]],
     );
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => -1024
                                             }
         ),
         undef,
         q[Size => -1024]
     );
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => 1024
                                             }
         ),
         undef,
         q[Missing Index]
     );
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => 1024,
                                              Index   => undef,
                                             }
@@ -172,9 +172,9 @@ SKIP: {
         undef,
         q[Index => undef]
     );
-    is( Net::BitTorrent::Session::File->new(
+    is( Net::BitTorrent::Torrent::File->new(
                        {Path    => $filename,
-                        Session => bless(\{}, q[Net::BitTorrent::Session]),
+                        Torrent => bless(\{}, q[Net::BitTorrent::Torrent]),
                         Size    => 1024,
                         Index   => -1
                        }
@@ -182,8 +182,8 @@ SKIP: {
         undef,
         q[Index => -1]
     );
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => 1024,
                                              Index   => q[AAA]
                                             }
@@ -191,8 +191,8 @@ SKIP: {
         undef,
         q[Index => 'AAA']
     );
-    is( Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+    is( Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => 1024,
                                              Index   => \0
                                             }
@@ -203,13 +203,13 @@ SKIP: {
 
     #
     my $file =
-        Net::BitTorrent::Session::File->new({Path    => $filename,
-                                             Session => $session,
+        Net::BitTorrent::Torrent::File->new({Path    => $filename,
+                                             Torrent => $torrent,
                                              Size    => 1024,
                                              Index   => 1
                                             }
         );
-    isa_ok($file, q[Net::BitTorrent::Session::File], q[Path => ] . $filename);
+    isa_ok($file, q[Net::BitTorrent::Torrent::File], q[Path => ] . $filename);
     warn(q[Check all sorts of stuff...]);
     is($file->priority, 2, q[   ...priority() defaults to 2]);
     is($file->set_priority(), undef,
@@ -221,7 +221,7 @@ SKIP: {
     is($file->priority, 3, q[   ...priority() is now 3]);
 
     #
-    is_deeply($file->session(), $session, q[Session is correct]);
+    is_deeply($file->torrent(), $torrent, q[Torrent is correct]);
     is($file->index(), 1,    q[Index is okay]);
     is($file->size(),  1024, q[Size is okay]);
     ok($file->path() eq $filename, q[Path is correct]);
@@ -305,18 +305,18 @@ SKIP: {
              10)
             if sprintf(q[%vd], $^V) lt q[5.08.01];
         my $utf8_file =
-            Net::BitTorrent::Session::File->new(
+            Net::BitTorrent::Torrent::File->new(
                 {Path =>
                      File::Spec->catfile(
                         $tempdir, q[three], q[dirs], q[deep], qq[\x{4EAC}.tmp]
                      ),
-                 Session => $session,
+                 Torrent => $torrent,
                  Size    => 1024,
                  Index   => 1
                 }
             );
         isa_ok($utf8_file,
-               q[Net::BitTorrent::Session::File],
+               q[Net::BitTorrent::Torrent::File],
                q[Filename with wide char]);
 
         #

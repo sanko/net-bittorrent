@@ -38,7 +38,7 @@ BEGIN {
 
     # Mine
     use_ok(q[Net::BitTorrent]);
-    use_ok(q[Net::BitTorrent::Session]);
+    use_ok(q[Net::BitTorrent::Torrent]);
     use_ok(q[Net::BitTorrent::Util]);
 }
 SKIP: {
@@ -60,50 +60,50 @@ SKIP: {
              )
         );
     }
-    my $session = $client->add_session({Path    => $simple_dot_torrent,
+    my $torrent = $client->add_torrent({Path    => $simple_dot_torrent,
                                         BaseDir => $tempdir
                                        }
     );
     warn sprintf q[%d|%d], 6, $test_builder->{q[Curr_Test]};
 
     END {
-        return if not defined $session;
-        for my $file (@{$session->files}) { $file->_close() }
+        return if not defined $torrent;
+        for my $file (@{$torrent->files}) { $file->_close() }
     }
 
     #
     warn(q[Very simple .torrent file]);
-    is($session->path,
+    is($torrent->path,
         rel2abs($simple_dot_torrent),
         q[Absolute paths returned from path()]);
-    is_deeply($session->trackers, [], q[Empty list of trackers]);
-    is($session->_complete,     0,     q[Download is incomplete]);
-    is($session->_downloaded,   0,     q[Nothing has been downloaded]);
-    is($session->_uploaded,     0,     q[Nothing has been uploaded]);
-    is($session->size,          49998, q[Full size is correct]);
-    is($session->_block_length, 16384, q[Block size is correct]);
-    is($session->_piece_length, 32768, q[Piece size is correct]);
-    is($session->_private,      0,     q[.torrent is not private]);
-    is($session->infohash,
+    is_deeply($torrent->trackers, [], q[Empty list of trackers]);
+    is($torrent->_complete,     0,     q[Download is incomplete]);
+    is($torrent->_downloaded,   0,     q[Nothing has been downloaded]);
+    is($torrent->_uploaded,     0,     q[Nothing has been uploaded]);
+    is($torrent->size,          49998, q[Full size is correct]);
+    is($torrent->_block_length, 16384, q[Block size is correct]);
+    is($torrent->_piece_length, 32768, q[Piece size is correct]);
+    is($torrent->_private,      0,     q[.torrent is not private]);
+    is($torrent->infohash,
         q[2b3aaf361bd40540bf7e3bfd140b954b90e4dfbc],
         q[Infohash checks out]);
-    is($session->bitfield,       chr(0),  q[Bitfield is correct]);
-    is($session->_client,        $client, q[Client is correct]);
-    is($session->_compact_nodes, q[],     q[Empty list of compact nodes]);
-    ok($session->status,       q[Status indicates...]);
-    ok($session->status & 64,  q[ ...session is attached to a client.]);
-    ok($session->status & 128, q[ ...session was loaded properly.]);
+    is($torrent->bitfield,       chr(0),  q[Bitfield is correct]);
+    is($torrent->_client,        $client, q[Client is correct]);
+    is($torrent->_compact_nodes, q[],     q[Empty list of compact nodes]);
+    ok($torrent->status,       q[Status indicates...]);
+    ok($torrent->status & 64,  q[ ...torrent is attached to a client.]);
+    ok($torrent->status & 128, q[ ...torrent was loaded properly.]);
 
     # Try bad stuff
-    is(Net::BitTorrent::Session->new(),
+    is(Net::BitTorrent::Torrent->new(),
         undef, q[Requires a set of parameters]);
-    is(Net::BitTorrent::Session->new(q[FAIL!]),
+    is(Net::BitTorrent::Torrent->new(q[FAIL!]),
         undef, q[Requires parameters to be passed as a hashref]);
-    is(Net::BitTorrent::Session->new({}),
+    is(Net::BitTorrent::Torrent->new({}),
         undef, q[Requires a 'Path' parameter]);
-    is(Net::BitTorrent::Session->new({Path => q[]}),
+    is(Net::BitTorrent::Torrent->new({Path => q[]}),
         undef, q[! -f Path parameter]);
-    is( Net::BitTorrent::Session->new(
+    is( Net::BitTorrent::Torrent->new(
                                      {Path   => $simple_dot_torrent,
                                       Client => bless(\{}, q[Not::BitTorrent])
                                      }
@@ -111,22 +111,22 @@ SKIP: {
         undef,
         q[Requires a blessed 'Client' object (2)]
     );
-    isa_ok(Net::BitTorrent::Session->new(
+    isa_ok(Net::BitTorrent::Torrent->new(
                               {Path => $simple_dot_torrent, Client => $client}
            ),
-           q[Net::BitTorrent::Session],
+           q[Net::BitTorrent::Torrent],
            q[Requires a blessed 'Client' object (3)]
     );
-    my $orphan_session = Net::BitTorrent::Session->new(
+    my $orphan_torrent = Net::BitTorrent::Torrent->new(
                               {Path => $simple_dot_torrent, Client => undef});
-    isa_ok($orphan_session, q[Net::BitTorrent::Session],
+    isa_ok($orphan_torrent, q[Net::BitTorrent::Torrent],
            q[Works without a 'Client' parameter too]);
-    ok($orphan_session->status, q[Status indicates...]);
-    ok($orphan_session->status | 64,
-        q[ ...session is not attached to a client.]);
-    ok($orphan_session->status & 128, q[ ...session was loaded properly.]);
-    $orphan_session = undef;
-    is( Net::BitTorrent::Session->new(
+    ok($orphan_torrent->status, q[Status indicates...]);
+    ok($orphan_torrent->status | 64,
+        q[ ...torrent is not attached to a client.]);
+    ok($orphan_torrent->status & 128, q[ ...torrent was loaded properly.]);
+    $orphan_torrent = undef;
+    is( Net::BitTorrent::Torrent->new(
                               {Path => $simple_dot_torrent, Client => q[Test]}
         ),
         undef,
@@ -138,20 +138,20 @@ TODO: {
             2;
 
         # Undocumented BlockLength parameter tests
-        isa_ok(Net::BitTorrent::Session->new({Path   => $simple_dot_torrent,
+        isa_ok(Net::BitTorrent::Torrent->new({Path   => $simple_dot_torrent,
                                               Client => $client,
                                               BlockLength => q[Test]
                                              }
                ),
-               q[Net::BitTorrent::Session],
+               q[Net::BitTorrent::Torrent],
                q[Undocumented BlockLength parameter]
         );
-        isa_ok(Net::BitTorrent::Session->new({Path   => $simple_dot_torrent,
+        isa_ok(Net::BitTorrent::Torrent->new({Path   => $simple_dot_torrent,
                                               Client => $client,
                                               BlockLength => 4000000
                                              }
                ),
-               q[Net::BitTorrent::Session],
+               q[Net::BitTorrent::Torrent],
                q[Undocumented BlockLength parameter]
         );
     }
@@ -160,7 +160,7 @@ TODO: {
     warn(q[TODO: Test BaseDir param]);
 
     #
-    is( Net::BitTorrent::Session->new(
+    is( Net::BitTorrent::Torrent->new(
                                  {Path => $credits_dot_txt, Client => $client}
         ),
         undef,
@@ -168,16 +168,16 @@ TODO: {
     );
 
     # Back to the original...
-    is($session->_downloaded,             0,    q[    _downloaded == 0]);
-    is($session->_add_downloaded(1024),   1024, q[_add_downloaded(1024)]);
-    is($session->_add_downloaded(-1024),  1024, q[_add_downloaded(-1024)]);
-    is($session->_add_downloaded('dude'), 1024, q[_add_downloaded('dude')]);
-    is($session->_downloaded,             1024, q[    _downloaded == 1024]);
-    is($session->_uploaded,               0,    q[    _uploaded == 0]);
-    is($session->_add_uploaded(1024),     1024, q[_add_uploaded(1024)]);
-    is($session->_add_uploaded(-1024),    1024, q[_add_uploaded(-1024)]);
-    is($session->_add_uploaded('dude'),   1024, q[_add_uploaded('dude')]);
-    is($session->_uploaded,               1024, q[    _uploaded == 1024]);
+    is($torrent->_downloaded,             0,    q[    _downloaded == 0]);
+    is($torrent->_add_downloaded(1024),   1024, q[_add_downloaded(1024)]);
+    is($torrent->_add_downloaded(-1024),  1024, q[_add_downloaded(-1024)]);
+    is($torrent->_add_downloaded('dude'), 1024, q[_add_downloaded('dude')]);
+    is($torrent->_downloaded,             1024, q[    _downloaded == 1024]);
+    is($torrent->_uploaded,               0,    q[    _uploaded == 0]);
+    is($torrent->_add_uploaded(1024),     1024, q[_add_uploaded(1024)]);
+    is($torrent->_add_uploaded(-1024),    1024, q[_add_uploaded(-1024)]);
+    is($torrent->_add_uploaded('dude'),   1024, q[_add_uploaded('dude')]);
+    is($torrent->_uploaded,               1024, q[    _uploaded == 1024]);
 
 =for status
         # (201=Started, 961=Force Download, 1000=finished)
@@ -202,21 +202,21 @@ SKIP: {
         use_ok(q[threads::shared]);
 
         #
-        my $_threaded_session
-            = Net::BitTorrent::Session->new({Path => $simple_dot_torrent});
-        ok($_threaded_session->_set_bitfield(chr(0)),
+        my $_threaded_torrent
+            = Net::BitTorrent::Torrent->new({Path => $simple_dot_torrent});
+        ok($_threaded_torrent->_set_bitfield(chr(0)),
             q[Parent sets bitfield to "\0"]);
-        ok($_threaded_session->_set_status(4), q[Parent sets status to 4]);
+        ok($_threaded_torrent->_set_status(4), q[Parent sets status to 4]);
         threads->create(
             sub {
-                $_threaded_session->_set_bitfield(chr(1));
-                $_threaded_session->_set_status(0);
+                $_threaded_torrent->_set_bitfield(chr(1));
+                $_threaded_torrent->_set_status(0);
                 return 1;
             }
         )->join();
-        is($_threaded_session->bitfield,
+        is($_threaded_torrent->bitfield,
             chr(1), q[Parent reads bitfield as "\1"]);
-        is($_threaded_session->status, 0, q[Parent reads status as 0]);
+        is($_threaded_torrent->status, 0, q[Parent reads status as 0]);
     }
 }
 

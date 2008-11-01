@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe 
+#!C:\perl\bin\perl.exe
 package Net::BitTorrent::DHT::Node;
 use strict;
 use warnings;
@@ -51,12 +51,12 @@ use warnings;
                     = $dht{refaddr $self}->_client->_schedule(
                     {   Code => sub {
                             my $s = shift;
-                            for my $session (
+                            for my $torrent (
                                     values
-                                    %{$dht{refaddr $self}->_client->sessions})
-                            {   if (not $session->_private) {
-                                    $s->_query_get_peers($session);
-                                    $s->_query_announce_peer($session);
+                                    %{$dht{refaddr $self}->_client->torrents})
+                            {   if (not $torrent->_private) {
+                                    $s->_query_get_peers($torrent);
+                                    $s->_query_announce_peer($torrent);
                                 }
                             }
                             $s->_query_find_node(pack q[H40],
@@ -157,10 +157,10 @@ use warnings;
                 = $dht{refaddr $self}->_client->_schedule(
                 {   Code => sub {
                         my $s = shift;
-                        for my $session (
-                             values %{$dht{refaddr $self}->_client->sessions})
-                        {   if (not $session->_private) {
-                                $s->_query_get_peers($session);
+                        for my $torrent (
+                             values %{$dht{refaddr $self}->_client->torrents})
+                        {   if (not $torrent->_private) {
+                                $s->_query_get_peers($torrent);
                             }
                         }
                         $s->_query_find_node(pack q[H40],
@@ -193,10 +193,10 @@ use warnings;
         }
 
         sub _query_get_peers {
-            my ($self, $session) = @_;
-            return if not defined $session;
-            return if not $session->isa(q[Net::BitTorrent::Session]);
-            return if $session->_private;
+            my ($self, $torrent) = @_;
+            return if not defined $torrent;
+            return if not $torrent->isa(q[Net::BitTorrent::Torrent]);
+            return if $torrent->_private;
             my $tid = $dht{refaddr $self}->_generate_token_id;
             $dht{refaddr $self}->_send(
                    {node => $self,
@@ -208,7 +208,7 @@ use warnings;
                          y => q[q],
                          q => q[get_peers],
                          a => {
-                             info_hash => pack(q[H40], $session->infohash),
+                             info_hash => pack(q[H40], $torrent->infohash),
                              id => $dht{refaddr $self}->node_id
                          },
                          v => sprintf(q[NB:%s], $Net::BitTorrent::VERSION)
@@ -219,23 +219,23 @@ use warnings;
         }
 
         sub _query_announce_peer {
-            my ($self, $session) = @_;
-            if (not defined $session) {
+            my ($self, $torrent) = @_;
+            if (not defined $torrent) {
                 carp
-                    q[Net::BitTorrent::DHT::Node->_query_announce_peer() requires a Net::BitTorrent::Session];
+                    q[Net::BitTorrent::DHT::Node->_query_announce_peer() requires a Net::BitTorrent::Torrent];
                 return;
             }
-            if (not blessed $session) {
+            if (not blessed $torrent) {
                 carp
-                    q[Net::BitTorrent::DHT::Node->_query_announce_peer() requires a Net::BitTorrent::Session];
+                    q[Net::BitTorrent::DHT::Node->_query_announce_peer() requires a Net::BitTorrent::Torrent];
                 return;
             }
-            if (not $session->isa(q[Net::BitTorrent::Session])) {
+            if (not $torrent->isa(q[Net::BitTorrent::Torrent])) {
                 carp
-                    q[Net::BitTorrent::DHT::Node->_query_announce_peer() requires a Net::BitTorrent::Session];
+                    q[Net::BitTorrent::DHT::Node->_query_announce_peer() requires a Net::BitTorrent::Torrent];
                 return;
             }
-            if ($session->_private) {
+            if ($torrent->_private) {
                 warn q[...no announce on private torrents];
                 return;
             }
@@ -252,7 +252,7 @@ use warnings;
                          y => q[q],
                          q => q[announce_peer],
                          a => {
-                             info_hash => pack(q[H40], $session->infohash),
+                             info_hash => pack(q[H40], $torrent->infohash),
                              port  => $dht{refaddr $self}->_client->_port,
                              token => $_token{refaddr $self}
                          }
@@ -333,20 +333,20 @@ use warnings;
                                      }
                 );
             if (defined $packet->{q[r]}{q[values]}) {
-                my $session =
+                my $torrent =
                     $dht{refaddr $self}
-                    ->_client->_locate_session(unpack q[H*],
+                    ->_client->_locate_torrent(unpack q[H*],
                                                $packet->{q[r]}{q[token]});
-                if ($session) {
+                if ($torrent) {
                     for my $_node (@{$packet->{q[r]}{q[values]}}) {
-                        $session->_append_compact_nodes($_node);
+                        $torrent->_append_compact_nodes($_node);
                     }
 
- #warn join q[, ], Net::BitTorrent::Util::uncompact($session->_compact_nodes);
+ #warn join q[, ], Net::BitTorrent::Util::uncompact($torrent->_compact_nodes);
                 }
                 else {
                     warn sprintf
-                        q[...session '%s' not found!?!?!?!?!?!?!?!?],
+                        q[...torrent '%s' not found!?!?!?!?!?!?!?!?],
                         unpack q[H*], $packet->{q[r]}{q[token]};
                 }
                 return 1;
@@ -408,14 +408,14 @@ use warnings;
             #    $_port,
             #    pp $packet;
             my $target = unpack(q[H40], $packet->{q[a]}{q[info_hash]});
-            my $session
-                = $dht{refaddr $self}->_client->_locate_session($target);
+            my $torrent
+                = $dht{refaddr $self}->_client->_locate_torrent($target);
 
             #warn q[$target  == ] . $target;
-            #warn q[$session == ] . $session;
+            #warn q[$torrent == ] . $torrent;
             my @nodes;
-            if (defined $session) {
-                @nodes = map {m[.{6}]g} $session->_compact_nodes;
+            if (defined $torrent) {
+                @nodes = map {m[.{6}]g} $torrent->_compact_nodes;
             }
             for my $_node (values %{$dht{refaddr $self}->_routing_table}) {
                 push @nodes,
@@ -480,10 +480,10 @@ use warnings;
             #
             my $nodes = q[];
             my $target = unpack(q[H40], $packet->{q[a]}{q[target]});
-            my $session
-                = $dht{refaddr $self}->_client->_locate_session($target);
-            if ($session) {
-                $nodes = $session->_compact_nodes();
+            my $torrent
+                = $dht{refaddr $self}->_client->_locate_torrent($target);
+            if ($torrent) {
+                $nodes = $torrent->_compact_nodes();
             }
             else {
                 for my $_node (values %{$dht{refaddr $self}->_routing_table})

@@ -41,7 +41,7 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 #
 {    # Simulate a private .torrent
     no warnings q[redefine];
-    *Net::BitTorrent::Session::_private = sub { return 1 };
+    *Net::BitTorrent::Torrent::_private = sub { return 1 };
 }
 
 #
@@ -115,40 +115,40 @@ SKIP: {
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
             ) if not $client{q[seed_] . $chr};
-            my $session = $client{q[seed_] . $chr}->add_session(
+            my $torrent = $client{q[seed_] . $chr}->add_torrent(
                                   {Path    => $miniswarm_dot_torrent,
                                    BaseDir => q[./t/900_data/930_miniswarm]
                                   }
             );
-            skip(sprintf(q[Failed to load session for seed_%s], $chr),
+            skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
-            ) if not $session;
-            $session->hashcheck;
+            ) if not $torrent;
+            $torrent->hashcheck;
 
-            warn $session->_as_string(1);
+            warn $torrent->_as_string(1);
 
             skip(
                 sprintf(
-                    q[Failed to load session for seed_%s: Seed data is missing/corrupt],
+                    q[Failed to load torrent for seed_%s: Seed data is missing/corrupt],
                     $chr),
                 $test_builder->{q[Expected_Tests]}
                     - $test_builder->{q[Curr_Test]}
-            ) if not $session->_complete;
-            ok(scalar($session->_complete), sprintf(q[seed_%s is seeding], $chr));
-            skip(sprintf(q[Failed to load session for seed_%s], $chr),
+            ) if not $torrent->_complete;
+            ok(scalar($torrent->_complete), sprintf(q[seed_%s is seeding], $chr));
+            skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
-            ) if not $session->_complete;
+            ) if not $torrent->_complete;
             my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
-            $session->_add_tracker([$tracker]);
+            $torrent->_add_tracker([$tracker]);
             $client{q[seed_] . $chr}->on_event(
                 q[tracker_announce_okay],
                 sub {
                     my ($s, $a) = @_;
                     my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
                     ok(1, sprintf(q[seed_%s announce okay], $chr));
-                    return $t->_tier->_session->_new_peer();
+                    return $t->_tier->_torrent->_new_peer();
                 }
             );
             $client{q[seed_] . $chr}->do_one_loop(0.1);    # let them announce
@@ -164,36 +164,36 @@ SKIP: {
                 q[piece_hash_pass],
                 sub {
                     my ($self, $args) = @_;
-                    my $piece = $args->{q[Session]}
+                    my $piece = $args->{q[Torrent]}
                         ->_piece_by_index($args->{q[Index]});
                     my $sum = 0;
                     for my $offset (
-                                   0 .. $args->{q[Session]}->_piece_count - 1)
+                                   0 .. $args->{q[Torrent]}->_piece_count - 1)
                     {   $sum
-                            += vec($args->{q[Session]}->bitfield, $offset, 1);
+                            += vec($args->{q[Torrent]}->bitfield, $offset, 1);
                     }
 
                    #
                    #my $completion = (
-                   #              ((($args->{q[Session]}->_piece_count - $sum)
-                   #                / ($args->{q[Session]}->_piece_count)
+                   #              ((($args->{q[Torrent]}->_piece_count - $sum)
+                   #                / ($args->{q[Torrent]}->_piece_count)
                    #               )
                    #              ) * 100
                    #);
                    #use Data::Dump qw[pp];
-                   #warn pp $args->{q[Session]}->_piece_by_index(0);
+                   #warn pp $args->{q[Torrent]}->_piece_by_index(0);
                    #die pp $piece;
                    #warn $completion;
                    #my @have;
                    #for my $_index (
-                   #               0 .. $args->{q[Session]}->_piece_count - 1)
+                   #               0 .. $args->{q[Torrent]}->_piece_count - 1)
                    #{   push @have,
-                   #          vec($args->{q[Session]}->bitfield, $_index, 1)
+                   #          vec($args->{q[Torrent]}->bitfield, $_index, 1)
                    #        ? $_ == $args->{q[Index]}
                    #            ? q[*]
                    #            : q[|]
                    #        : defined(
-                   #            $args->{q[Session]}->_piece_by_index($_index))
+                   #            $args->{q[Torrent]}->_piece_by_index($_index))
                    #        ? q[.]
                    #        : q[ ];
                    #}
@@ -204,9 +204,9 @@ SKIP: {
                    #     )
                    #    ) # if $ENV{q[RELEASE_TESTING]}
                    #    ;
-                    ok($args->{q[Session]}->_complete,
+                    ok($args->{q[Torrent]}->_complete,
                         sprintf(q[peer_%s is seeding], $chr))
-                        if $args->{q[Session]}->_complete;
+                        if $args->{q[Torrent]}->_complete;
                     return;
                 }
             );
@@ -216,10 +216,10 @@ SKIP: {
                     my ($s, $a) = @_;
                     my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
                     ok(1, sprintf(q[peer_%s announce okay], $chr));
-                    return $t->_tier->_session->_new_peer();
+                    return $t->_tier->_torrent->_new_peer();
                 }
             );
-            my $session = $client{$chr}->add_session(
+            my $torrent = $client{$chr}->add_torrent(
                 {   Path => $miniswarm_dot_torrent,
                     BaseDir =>
                         File::Temp::tempdir(
@@ -230,12 +230,12 @@ SKIP: {
                     BlockLength => $BlockLength    # Undocumented
                 }
             );
-            skip(sprintf(q[Failed to load session for leech_%s], $chr),
+            skip(sprintf(q[Failed to load torrent for leech_%s], $chr),
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
-            ) if not $session;
+            ) if not $torrent;
             my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
-            $session->_add_tracker([$tracker]);
+            $torrent->_add_tracker([$tracker]);
         }
         while ($test_builder->{q[Curr_Test]}
                < $test_builder->{q[Expected_Tests]})
@@ -316,7 +316,7 @@ SKIP: {
 
         END {
             for my $client (values %client) {
-                for my $file (@{$client->sessions->{$_infohash}->files}) {
+                for my $file (@{$client->torrents->{$_infohash}->files}) {
                     $file->_close;
                 }
             }

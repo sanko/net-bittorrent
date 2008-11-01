@@ -43,7 +43,7 @@ BEGIN {
 
     # Mine
     use_ok(q[Net::BitTorrent]);
-    use_ok(q[Net::BitTorrent::Session]);
+    use_ok(q[Net::BitTorrent::Torrent]);
     use_ok(q[Net::BitTorrent::Peer]);
     use_ok(q[Net::BitTorrent::Protocol], qw[:all]);
 }
@@ -71,15 +71,15 @@ SKIP: {
              q[Failed to create client]
         );
     }
-    my $session = $client->add_session({Path    => $simple_dot_torrent,
+    my $torrent = $client->add_torrent({Path    => $simple_dot_torrent,
                                         BaseDir => $tempdir
                                        }
     );
     warn sprintf q[%d|%d], 7, $test_builder->{q[Curr_Test]};
 
     END {
-        return if not defined $session;
-        for my $file (@{$session->files}) { $file->_close() }
+        return if not defined $torrent;
+        for my $file (@{$torrent->files}) { $file->_close() }
     }
 
     #
@@ -297,8 +297,8 @@ SKIP: {
                           ],
                           q[Correct args passed to 'packet_incoming_block' event handler]
                 );
-                is($args->{q[Peer]}->_session->_downloaded,
-                    16384, q[Session downloaded amount updated]);
+                is($args->{q[Peer]}->_torrent->_downloaded,
+                    16384, q[Torrent downloaded amount updated]);
 
                 #
                 warn(
@@ -308,7 +308,7 @@ SKIP: {
                     $args->{q[Index]},
                     $args->{q[Offset]},
                     $args->{q[Length]},
-                    $args->{q[Peer]}->_session->_downloaded
+                    $args->{q[Peer]}->_torrent->_downloaded
                 );
             }
         ),
@@ -326,7 +326,7 @@ SKIP: {
                     $args->{q[Offset]},
                     $args->{q[Length]},
                     $args->{q[Peer]}->_as_string,
-                    $args->{q[Peer]}->_session->_uploaded;
+                    $args->{q[Peer]}->_torrent->_uploaded;
             }
         )
     );
@@ -664,7 +664,7 @@ SKIP: {
     warn(q[For this next bit, we're testing outgoing peers...]);
     {
         is( Net::BitTorrent::Peer->new({Client  => $client,
-                                        Session => $session,
+                                        Torrent => $torrent,
                                         Address => q[junk]
                                        }
             ),
@@ -672,7 +672,7 @@ SKIP: {
             q[Address => 'junk']
         );
         is( Net::BitTorrent::Peer->new({Client  => $client,
-                                        Session => $session,
+                                        Torrent => $torrent,
                                         Address => undef
                                        }
             ),
@@ -684,39 +684,39 @@ SKIP: {
                                        }
             ),
             undef,
-            q[Missing Session]
+            q[Missing Torrent]
         );
         is( Net::BitTorrent::Peer->new({Client  => $client,
-                                        Session => undef,
+                                        Torrent => undef,
                                         Address => q[127.0.0.1:1995]
                                        }
             ),
             undef,
-            q[Session => undef]
+            q[Torrent => undef]
         );
         is( Net::BitTorrent::Peer->new({Client  => $client,
-                                        Session => 0,
+                                        Torrent => 0,
                                         Address => q[127.0.0.1:1995]
                                        }
             ),
             undef,
-            q[Session => 0]
+            q[Torrent => 0]
         );
         is( Net::BitTorrent::Peer->new({Client  => $client,
-                                        Session => 'junk',
+                                        Torrent => 'junk',
                                         Address => q[127.0.0.1:1995]
                                        }
             ),
             undef,
-            q[Session => 'junk']
+            q[Torrent => 'junk']
         );
         is( Net::BitTorrent::Peer->new({Client  => $client,
-                                        Session => bless(\{}, 'junk'),
+                                        Torrent => bless(\{}, 'junk'),
                                         Address => q[127.0.0.1:1995]
                                        }
             ),
             undef,
-            q[Session => bless(\{}, 'junk')]
+            q[Torrent => bless(\{}, 'junk')]
         );
         warn sprintf q[%d|%d], 42, $test_builder->{q[Curr_Test]};
         {
@@ -725,7 +725,7 @@ SKIP: {
             warn(q[Test incoming peers]);
             $peers{q[A]} =
                 Net::BitTorrent::Peer->new({Client  => $client,
-                                            Session => $session,
+                                            Torrent => $torrent,
                                             Address => q[127.0.0.1:1995]
                                            }
                 );
@@ -734,8 +734,8 @@ SKIP: {
             ok(isweak($peers{q[A]}), q[  ...make $peers{q[A]} a weak ref]);
             ok($peers{q[A]}->_as_string, q[_as_string]);
             isa_ok($peers{q[A]}->_socket, q[GLOB], q[_socket]);
-            isa_ok($peers{q[A]}->_session,
-                   q[Net::BitTorrent::Session], q[_session]);
+            isa_ok($peers{q[A]}->_torrent,
+                   q[Net::BitTorrent::Torrent], q[_torrent]);
             is($peers{q[A]}->_bitfield, qq[\0], q[_bitfield]);
             is($peers{q[A]}->_peer_choking, 1,
                 q[Default peer_choking status]);
@@ -781,7 +781,7 @@ SKIP: {
             warn sprintf q[%d|%d], 95, $test_builder->{q[Curr_Test]};
             is( syswrite($newsock_B,
                          build_handshake(chr(0) x 8,
-                                         pack(q[H40], $session->infohash),
+                                         pack(q[H40], $torrent->infohash),
                                          $client->peerid
                          )
                 ),
@@ -799,7 +799,7 @@ SKIP: {
             warn sprintf q[%d|%d], (121-4), $test_builder->{q[Curr_Test]};
             is( syswrite($newsock_C,
                          build_handshake(chr(0) x 8,
-                                         pack(q[H40], $session->infohash),
+                                         pack(q[H40], $torrent->infohash),
                                          q[C] x 20
                          )
                 ),
@@ -817,7 +817,7 @@ SKIP: {
             warn sprintf q[%d|%d], (151-4), $test_builder->{q[Curr_Test]};
             is( syswrite($newsock_D,
                          build_handshake(chr(0) x 8,
-                                         pack(q[H40], $session->infohash),
+                                         pack(q[H40], $torrent->infohash),
                                          q[C] x 20
                          )
                 ),

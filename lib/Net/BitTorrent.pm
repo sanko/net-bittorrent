@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe 
+#!C:\perl\bin\perl.exe
 package Net::BitTorrent;
 {
     use strict;      # core as of perl 5
@@ -29,7 +29,7 @@ package Net::BitTorrent;
 
     #
     use lib q[../../lib];
-    use Net::BitTorrent::Session;
+    use Net::BitTorrent::Torrent;
     use Net::BitTorrent::Peer;
     use Net::BitTorrent::DHT;
     use Net::BitTorrent::Util qw[:log];
@@ -40,8 +40,8 @@ package Net::BitTorrent;
     #
     my (@CONTENTS)
         = \my (%_socket,            %_peerid,      %_schedule,
-               %_peers_per_session, %_event,       %_dht,
-               %_sessions,          %_connections, %_max_ul_rate,
+               %_peers_per_torrent, %_event,       %_dht,
+               %_torrents,          %_connections, %_max_ul_rate,
                %_k_up,              %_max_dl_rate, %_k_down,
                %_tid
         );
@@ -52,10 +52,10 @@ package Net::BitTorrent;
     #~                      Net::BitTorrent::DHT::Azureus
     #~                      Net::BitTorrent::DHT::Mainline
     #~    peers     =>  [Net::BitTorrent::Peer]
-    #~    session   =>  [Net::BitTorrent::Session]
-    #~                  [Net::BitTorrent::Session::Tracker]
-    #~ 		                [Net::BitTorrent::Session::Tracker::UDP]
-    #~                      [Net::BitTorrent::Session::Tracker::HTTP]
+    #~    torrent   =>  [Net::BitTorrent::Torrent]
+    #~                  [Net::BitTorrent::Torrent::Tracker]
+    #~ 		                [Net::BitTorrent::Torrent::Tracker::UDP]
+    #~                      [Net::BitTorrent::Torrent::Tracker::HTTP]
     #
     # Constructor
     sub new {
@@ -122,12 +122,12 @@ package Net::BitTorrent;
         }
 
         # Settings
-        $_peers_per_session{refaddr $self} = 50;
+        $_peers_per_torrent{refaddr $self} = 50;
         $_max_dl_rate{refaddr $self}       = 0;
         $_max_ul_rate{refaddr $self}       = 0;
 
         #
-        $_sessions{refaddr $self} = {};           # by infohash
+        $_torrents{refaddr $self} = {};           # by infohash
 
         #
         #$self->_schedule(
@@ -184,11 +184,11 @@ package Net::BitTorrent;
             = unpack_sockaddr_in(getsockname($_socket{refaddr $self}));
         return inet_ntoa($packed_ip);
     }
-    sub _peers_per_session { return $_peers_per_session{refaddr +shift}; }
+    sub _peers_per_torrent { return $_peers_per_torrent{refaddr +shift}; }
 
     # Accessors | Public
     sub peerid   { return $_peerid{refaddr +shift} }
-    sub sessions { return $_sessions{refaddr +shift} }
+    sub torrents { return $_torrents{refaddr +shift} }
 
     # Methods | Public
     sub do_one_loop {    # Clunky.  I really need to replace this.
@@ -397,7 +397,7 @@ package Net::BitTorrent;
            #            defined $_
            #                and $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
            #            } values %{$_connections{refaddr $self}}
-           #    ) >= $_peers_per_session{refaddr $self}
+           #    ) >= $_peers_per_torrent{refaddr $self}
            #    )
            #{   close $new_socket;
            #}
@@ -465,63 +465,63 @@ package Net::BitTorrent;
         return 1;
     }
 
-    # Methods | Private | Sessions
-    sub _locate_session {
+    # Methods | Private | Torrents
+    sub _locate_torrent {
         my ($self, $infohash) = @_;
 
         #
-        carp q[Bad infohash for Net::BitTorrent->_locate_session(INFOHASH)]
+        carp q[Bad infohash for Net::BitTorrent->_locate_torrent(INFOHASH)]
             if $infohash !~ m[^[\d|a-f]{40}$];
 
         #
         return
-            defined $_sessions{refaddr $self}{$infohash}
-            ? $_sessions{refaddr $self}{$infohash}
+            defined $_torrents{refaddr $self}{$infohash}
+            ? $_torrents{refaddr $self}{$infohash}
             : undef;
     }
 
-    # Methods | Public | Sessions
-    sub add_session {
+    # Methods | Public | Torrents
+    sub add_torrent {
 
-        # Adds a session to the list of loaded .torrents.  Beyond that, this
-        # is a simple passthru for Net::BitTorrent::Session::new().
+        # Adds a torrent to the list of loaded .torrents.  Beyond that, this
+        # is a simple passthru for Net::BitTorrent::Torrent::new().
         my ($self, $args) = @_;
         if (ref($args) ne q[HASH]) {
             carp
-                q[Net::BitTorrent->add_session() requires params passed as a hash ref];
+                q[Net::BitTorrent->add_torrent() requires params passed as a hash ref];
             return;
         }
         $args->{q[Client]} = $self;
-        my $session = Net::BitTorrent::Session->new($args);
-        return if not defined $session;
-        return if $self->_locate_session($session->infohash);
-        return $_sessions{refaddr $self}{$$session} = $session;
+        my $torrent = Net::BitTorrent::Torrent->new($args);
+        return if not defined $torrent;
+        return if $self->_locate_torrent($torrent->infohash);
+        return $_torrents{refaddr $self}{$torrent->infohash} = $torrent;
     }
 
-    sub remove_session {
-        my ($self, $session) = @_;
+    sub remove_torrent {
+        my ($self, $torrent) = @_;
 
         #
-        if (   not blessed($session)
-            or not $session->isa(q[Net::BitTorrent::Session]))
+        if (   not blessed($torrent)
+            or not $torrent->isa(q[Net::BitTorrent::Torrent]))
         {   carp
-                q[Net::BitTorrent->remove_session(SESSION) requires a blessed Net::BitTorrent::Session object];
+                q[Net::BitTorrent->remove_torrent(TORRENT) requires a blessed Net::BitTorrent::Torrent object];
             return;
         }
 
         # close peers
-        for my $_peer (@{$session->_peers}) {
+        for my $_peer (@{$torrent->_peers}) {
             $_peer->_disconnect(
-                              q[Removing .torrent session from local client]);
+                              q[Removing .torrent torrent from local client]);
         }
 
         # let the trackers know
-        for my $_tracker (@{$session->trackers}) {
+        for my $_tracker (@{$torrent->trackers}) {
             $_tracker->_urls->[0]->_announce(q[stopped]);
         }
 
         #
-        return delete $_sessions{refaddr $self}{$session->infohash};
+        return delete $_torrents{refaddr $self}{$torrent->infohash};
     }
 
     # Methods | Public | Callback system
@@ -794,7 +794,7 @@ Net::BitTorrent - BitTorrent peer-to-peer protocol class
       sub {
           my ($self, $args) = @_;
           printf(qq[pass: piece number %04d of %s\n],
-                 $args->{q[Index]}, $args->{q[Session]}->infohash);
+                 $args->{q[Index]}, $args->{q[Torrent]}->infohash);
       }
   );
   $client->on_event(
@@ -802,11 +802,11 @@ Net::BitTorrent - BitTorrent peer-to-peer protocol class
       sub {
           my ($self, $args) = @_;
           printf(qq[fail: piece number %04d of %s\n],
-                 $args->{q[Index]}, $args->{q[Session]}->infohash);
+                 $args->{q[Index]}, $args->{q[Torrent]}->infohash);
       }
   );
 
-  my $torrent = $client->add_session({Path => q[a.legal.torrent]})
+  my $torrent = $client->add_torrent({Path => q[a.legal.torrent]})
       or die q[Cannot load .torrent];
 
   $torrent->hashcheck;    # Verify any existing data
@@ -872,49 +872,49 @@ with remote L<peers|Net::BitTorrent::Peer>.
 See also: theory.org (http://tinyurl.com/4a9cuv),
 L<Peer ID Specification|Net::BitTorrent::Notes/"Peer ID Specification">
 
-=item C<sessions( )>
+=item C<torrents( )>
 
-Returns the list of loaded .torrent L<sessions|Net::BitTorrent::Session>.
+Returns the list of loaded .torrent L<Torrents|Net::BitTorrent::Torrent>.
 
-See also: L<add_session ( )|/add_session ( { ... } )>,
-L<remove_session ( )|/remove_session ( SESSION )>
+See also: L<add_torrent ( )|/add_torrent ( { ... } )>,
+L<remove_torrent ( )|/remove_torrent ( TORRENT )>
 
-=item C<add_session ( { ... } )>
+=item C<add_torrent ( { ... } )>
 
 Loads a .torrent file and adds the new
-L<Net::BitTorrent::Session|Net::BitTorrent::Session> object to the
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object to the
 client.
 
 Most arguments passed to this method are handed directly to
-L<Net::BitTorrent::Session::new( )|Net::BitTorrent::Session/"new ( { [ARGS] } )">.
+L<Net::BitTorrent::Torrent::new( )|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">.
 The only mandatory parameter is C<Path>.  C<Path>'s value is the filename
 of the .torrent file to load.  Please see
-L<Net::BitTorrent::Session::new( )|Net::BitTorrent::Session/"new ( { [ARGS] } )">
+L<Net::BitTorrent::Torrent::new( )|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">
 for a list of possible parameters.
 
 This method returns the new
-L<Net::BitTorrent::Session|Net::BitTorrent::Session> object on success.
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object on success.
 
-See also: L<sessions|/sessions( )>,
-L<remove_session|/remove_session ( SESSION )>,
-L<Net::BitTorrent::Session|Net::BitTorrent::Session>
+See also: L<torrents|/torrents( )>,
+L<remove_torrent|/remove_torrent ( TORRENT )>,
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>
 
-=item C<remove_session ( SESSION )>
+=item C<remove_torrent ( TORRENT )>
 
-Removes a L<Net::BitTorrent::Session|Net::BitTorrent::Session> object
+Removes a L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object
 from the client.
 
 =begin future
 
-Before the torrent session is closed, we announce to the tracker that we
+Before the torrent torrent is closed, we announce to the tracker that we
 have 'stopped' downloading and the callback to store the current state is
 called.
 
 =end future
 
-See also: L<sessions ( )|/sessions( )>,
-L<add_session|/"add_session ( { ... } )">,
-L<Net::BitTorrent::Session|Net::BitTorrent::Session>
+See also: L<torrents ( )|/torrents( )>,
+L<add_torrent|/"add_torrent ( { ... } )">,
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>
 
 =item C<do_one_loop ( [TIMEOUT] )>
 

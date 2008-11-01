@@ -53,21 +53,21 @@ sub piece_status {
     my ($msg, $args) = @_;
 
     #
-    my $session  = $args->{q[Session]};
-    my $bitfield = $session->bitfield;
+    my $torrent  = $args->{q[Torrent]};
+    my $bitfield = $torrent->bitfield;
     printf q[%shash%s: %04d|%s|%4d/%4d|%3.2f%%%s],
         qq[\r], $msg, $args->{q[Index]},
-        $$session,
-        sum(split q[], unpack(q[b*], $session->bitfield)),
-        $session->_piece_count,
-        ((((sum split q[], unpack q[b*], $bitfield) / ($session->_piece_count)
+        $$torrent,
+        sum(split q[], unpack(q[b*], $torrent->bitfield)),
+        $torrent->_piece_count,
+        ((((sum split q[], unpack q[b*], $bitfield) / ($torrent->_piece_count)
           )
          ) * 100
         ),
         ($loaded_okay ? qq[\n] : q[]);
 
     # ...we should really seed a while first...
-    if ($session->_complete) { $bt->remove_session($session); }
+    if ($torrent->_complete) { $bt->remove_torrent($torrent); }
 
     #
     return 1;
@@ -274,7 +274,7 @@ if ($verbose) {
                 $args->{q[Index]},
                 $args->{q[Offset]},
                 $args->{q[Length]},
-                $args->{q[Peer]}->_session->_downloaded;
+                $args->{q[Peer]}->_torrent->_downloaded;
         }
     );
     $bt->on_event(
@@ -289,7 +289,7 @@ if ($verbose) {
                 $args->{q[Offset]},
                 $args->{q[Length]},
                 $args->{q[Peer]}->_as_string,
-                $args->{q[Peer]}->_session->_uploaded;
+                $args->{q[Peer]}->_torrent->_uploaded;
         }
     );
     $bt->on_event(
@@ -405,18 +405,18 @@ if ($verbose) {
 TORRENT: for my $dot_torrent (sort @dot_torrents) {
     next if not -e $dot_torrent;
     printf q[Loading '%s'...], $dot_torrent;
-    my $session =
-        $bt->add_session({Path    => $dot_torrent,
+    my $torrent =
+        $bt->add_torrent({Path    => $dot_torrent,
                           BaseDir => $basedir
                          }
         );
-    if (not defined $session) {
+    if (not defined $torrent) {
         carp sprintf q[Cannot load .torrent (%s): %s], $dot_torrent, $^E;
         next TORRENT;
     }
 
     # TODO: command line param for file priorities
-    #for my $file (@{$session->files}) {
+    #for my $file (@{$torrent->files}) {
     #    $file->set_priority($file->path =~ m[(?:[avi|(?:jm)pe?g])$] ? 1 : 0);
     #    $file->set_priority($file->path =~ m[jpe?g$] ? 50 : $file->priority);
     #    printf qq[[%d] prio: %d - %s\n], $file->index, $file->priority,
@@ -425,7 +425,7 @@ TORRENT: for my $dot_torrent (sort @dot_torrents) {
     #
     if ($hashcheck) {
         print qq[Hash checking...\n];
-        $session->hashcheck;
+        $torrent->hashcheck;
     }
     else {
         print qq[Hash checking... Skipped\n];
@@ -433,8 +433,8 @@ TORRENT: for my $dot_torrent (sort @dot_torrents) {
 
     #
     printf qq[\rLoaded '%s' [%s...%s%s]\n], $dot_torrent,
-        ($$session =~ (m[^(.{4}).+(.{4})$])),
-        ($session->_private ? q[|No DHT] : q[]);
+        ($$torrent =~ (m[^(.{4}).+(.{4})$])),
+        ($torrent->_private ? q[|No DHT] : q[]);
 }
 
 #
@@ -444,7 +444,7 @@ $loaded_okay = 1;
 if ($dht) { $bt->_use_dht(1); }
 
 #
-$bt->do_one_loop(1) while keys %{$bt->sessions};
+$bt->do_one_loop(1) while keys %{$bt->torrents};
 
 #
 exit;
@@ -454,11 +454,11 @@ __END__
 
 =head1 NAME
 
-client.pl - Very basic BitTorrent client
+bittorrent.pl - Very basic BitTorrent client
 
 =head1 Synopsis
 
-client.pl [options] [file ...]
+bittorrent.pl [options] [file ...]
 
  Options:
    -torrent           .torrent file to load
@@ -479,7 +479,7 @@ client.pl [options] [file ...]
 Open this .torrent file.
 
 You may pass several -torrent parameters and load more than one .torrent
-session.
+torrent.
 
 =item B<-port>
 

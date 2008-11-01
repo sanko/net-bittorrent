@@ -71,8 +71,8 @@ SKIP: {
 
     END {
         for my $client (values %client) {
-            next if not defined $client->sessions->{$_infohash};
-            for my $file (@{$client->sessions->{$_infohash}->files}) {
+            next if not defined $client->torrents->{$_infohash};
+            for my $file (@{$client->torrents->{$_infohash}->files}) {
                 $file->_close;
             }
         }
@@ -93,27 +93,27 @@ SKIP: {
         $client{q[seed_] . $chr}->_use_dht(1);
         ok($client{q[seed_] . $chr}->_dht,
             sprintf q[seed_%s has enabled dht], $chr);
-        my $session = $client{q[seed_] . $chr}->add_session(
+        my $torrent = $client{q[seed_] . $chr}->add_torrent(
                                      {Path    => $miniswarm_dot_torrent,
                                       BaseDir => q[./t/900_data/930_miniswarm]
                                      }
         );
-        skip(sprintf(q[Failed to load session for seed_%s], $chr),
+        skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
-        ) if not $session;
-        $session->hashcheck;
+        ) if not $torrent;
+        $torrent->hashcheck;
         skip(
             sprintf(
-                q[Failed to load session for seed_%s: Seed data is missing/corrupt],
+                q[Failed to load torrent for seed_%s: Seed data is missing/corrupt],
                 $chr),
             $test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]}
-        ) if not $session->_complete;
-        ok(scalar($session->_complete), sprintf(q[seed_%s is seeding], $chr));
-        skip(sprintf(q[Failed to load session for seed_%s], $chr),
+        ) if not $torrent->_complete;
+        ok(scalar($torrent->_complete), sprintf(q[seed_%s is seeding], $chr));
+        skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
-        ) if not $session->_complete;
+        ) if not $torrent->_complete;
         $client{q[seed_] . $chr}->_dht->_add_node(
                sprintf(q[%s:%d], q[127.0.0.1], $client{q[DHT]}->_dht->_port));
         $client{q[seed_] . $chr}->do_one_loop(0.1);    # let them announce
@@ -132,18 +132,18 @@ SKIP: {
             sub {
                 my ($self, $args) = @_;
                 my $piece
-                    = $args->{q[Session]}->_piece_by_index($args->{q[Index]});
+                    = $args->{q[Torrent]}->_piece_by_index($args->{q[Index]});
                 my $sum = 0;
-                for my $offset (0 .. $args->{q[Session]}->_piece_count - 1) {
-                    $sum += vec($args->{q[Session]}->bitfield, $offset, 1);
+                for my $offset (0 .. $args->{q[Torrent]}->_piece_count - 1) {
+                    $sum += vec($args->{q[Torrent]}->bitfield, $offset, 1);
                 }
-                ok($args->{q[Session]}->_complete,
+                ok($args->{q[Torrent]}->_complete,
                     sprintf(q[peer_%s is seeding], $chr))
-                    if $args->{q[Session]}->_complete;
+                    if $args->{q[Torrent]}->_complete;
                 return;
             }
         );
-        my $session = $client{$chr}->add_session(
+        my $torrent = $client{$chr}->add_torrent(
             {Path => $miniswarm_dot_torrent,
              BaseDir =>
                  File::Temp::tempdir(sprintf(q[miniswarm_%s_XXXX], $chr),
@@ -153,10 +153,10 @@ SKIP: {
              BlockLength => $BlockLength    # Undocumented
             }
         );
-        skip(sprintf(q[Failed to load session for dht_%s], $chr),
+        skip(sprintf(q[Failed to load torrent for dht_%s], $chr),
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
-        ) if not $session;
+        ) if not $torrent;
         $client{$chr}->_dht->_add_node(
                sprintf(q[%s:%d], q[127.0.0.1], $client{q[DHT]}->_dht->_port));
     }

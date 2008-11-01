@@ -66,20 +66,22 @@ my $mb = Module::Build->new(
     build_requires => {q[Module::Build] => 0.30,        # dev on 0.30
                        q[Test::More]    => 0.80,        # dev on 0.80
     },
-    recommends => {
-        q[Data::Dumper] => 0,            # dev on 2.121_17|core
-        ($^O eq q[MSWin32]               # For extended charset filenames
-         ? (q[Encode]         => 0,           # dev on 2.26
-            q[perl]           => q[5.8.7],    # dev on 5.11.0
-            q[utf8]           => 0,           # dev on 1.07
-            q[Win32]          => 0,           # dev on 0.38
-            q[Win32API::File] => 0.10,        # dev on 0.1001_01
-             )
-         : ()
-        )
+    recommends    => {q[Data::Dump] => 0},
+    auto_features => {
+        win32_utf8_support => {
+            description => q[Support for Wide-char filenames on Windows],
+            requires    => {
+                         q[Encode]         => 0,           # dev on 2.26
+                         q[perl]           => q[5.8.7],    # dev on 5.11.0
+                         q[utf8]           => 0,           # dev on 1.07
+                         q[Win32]          => 0,           # dev on 0.38
+                         q[Win32API::File] => 0.10,        # dev on 0.1001_01
+            },
+        }
     },
-    test_files => \@tests,
-    meta_merge => {
+    script_files => qw[./scripts/bittorrent.pl],
+    test_files   => \@tests,
+    meta_merge   => {
          resources => {
              bugtracker =>
                  q[http://code.google.com/p/net-bittorrent/issues/list],
@@ -109,9 +111,8 @@ $mb->notes(threads => $Config::Config{q[useithreads]} ? 1 : 0);
 # things up...
 # $mb->add_to_cleanup(qw[./Build.bat]);
 # I'm lazy and... well... yeah...
-$mb->fix_shebang_line(@tests);
-$mb->fix_shebang_line(@{($mb->rscan_dir(q[./lib], qr[\.pm$]))[0]});
-
+#$mb->fix_shebang_line(@tests);
+#$mb->fix_shebang_line(@{($mb->rscan_dir(q[./lib], qr[\.pm$]))[0]});
 # Break it off, let's go.
 $mb->create_build_script;
 exit 0;

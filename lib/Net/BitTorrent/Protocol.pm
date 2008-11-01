@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe 
+#!C:\perl\bin\perl.exe
 package Net::BitTorrent::Protocol;
 {
     use strict;      # core as of perl 5
@@ -482,11 +482,12 @@ package Net::BitTorrent::Protocol;
                                )
                     };
                 }
-                else {
-                    require Data::Dumper;
-                    carp q[Unhandled/Unknown packet where ]
-                        . Data::Dumper->Dump([$type, $packet],
-                                             [qw[Type Packet]]);
+                elsif (require Data::Dump) {
+                    carp sprintf <<END, Data::Dump->pp($type),Data::Dump->pp($packet);
+Unhandled/Unknown packet where:
+Type   = %s
+Packet = %s
+END
                 }
             }
         }

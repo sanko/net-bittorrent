@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe 
+#!C:\perl\bin\perl.exe
 package Net::BitTorrent::DHT;
 {
     use Socket
@@ -326,12 +326,12 @@ package Net::BitTorrent::DHT;
                                               }
                         );
                     my $node = $routing_table{refaddr $self}{$packed_host};
-                    if (ref $packet ne q[HASH])
-                    {    # An attempt to track down a strange bug...
-                        require Data::Dumper;
-                        warn Data::Dumper->Dump([$packet, $leftover],
-                                                [qw[Packet Leftover]]);
-                    }
+                    #if (ref $packet ne q[HASH])
+                    #{    # An attempt to track down a strange bug...
+                    #    require Data::Dumper;
+                    #    warn Data::Dumper->Dump([$packet, $leftover],
+                    #                            [qw[Packet Leftover]]);
+                    #}
                     if (defined $packet->{q[y]}
                         and $packet->{q[y]} eq q[q])
                     {   my %dispatch = (
@@ -352,10 +352,8 @@ package Net::BitTorrent::DHT;
                             and defined $dispatch{$packet->{q[q]}})
                         {   $dispatch{$packet->{q[q]}}($node, $packet);
                         }
-                        else {    # xxx - do something drastic
-                            require Data::Dumper;
-                            carp q[Unhandled DHT packet: ]
-                                . Data::Dumper->Dump([$packet], [qw[Packet]]);
+                        elsif(require Data::Dump) {    # xxx - do something drastic
+                            carp q[Unhandled DHT packet: ] . Data::Dump->pp($packet);
                         }
                     }
                     elsif (defined $packet->{q[y]}

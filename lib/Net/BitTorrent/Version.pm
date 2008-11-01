@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe 
+#!C:\perl\bin\perl.exe
 package Net::BitTorrent::Version;
 {
     use strict;
@@ -136,7 +136,7 @@ See the PAUSE FAQ section entitled "Developer Releases"
 This would be the stable CPAN release C<v0.393>/SVN r393.  The C<--SVN>
 signature does not imply an unstable build.
 
-=item C<NB003X-9E-ayR6-I<lt>3BTE>
+=item C<NB003X-9E-ayR6-I<lt>3BT>
 
 Improper Peer ID; the sixth char is neither 'C<S>' nor 'C<U>'.
 

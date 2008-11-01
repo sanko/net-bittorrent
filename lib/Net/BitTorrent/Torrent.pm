@@ -1,5 +1,5 @@
 #!C:\perl\bin\perl.exe
-package Net::BitTorrent::Session;
+package Net::BitTorrent::Torrent;
 {
     use strict;      # core as of perl 5
     use warnings;    # core as of perl 5.006
@@ -16,8 +16,8 @@ package Net::BitTorrent::Session;
     #
     use lib q[../../../lib];
     use Net::BitTorrent::Util qw[:bencode :compact];
-    use Net::BitTorrent::Session::File;
-    use Net::BitTorrent::Session::Tracker;
+    use Net::BitTorrent::Torrent::File;
+    use Net::BitTorrent::Torrent::Tracker;
     use Net::BitTorrent::Peer;
 
     #
@@ -51,7 +51,7 @@ package Net::BitTorrent::Session;
     # Constructor
     sub new {
 
-        # Creates a new N::B::Session object
+        # Creates a new N::B::Torrent object
         # Accepts parameters as key/value pairs in a hash reference
         # Required parameters:
         #  - Path    (.torrent)
@@ -91,48 +91,48 @@ package Net::BitTorrent::Session;
 
         # Param validation... Ugh...
         if (not defined $args) {
-            carp q[Net::BitTorrent::Session->new({}) requires ]
+            carp q[Net::BitTorrent::Torrent->new({}) requires ]
                 . q[a set of parameters];
             return;
         }
         if (ref($args) ne q[HASH]) {
-            carp q[Net::BitTorrent::Session->new({}) requires ]
+            carp q[Net::BitTorrent::Torrent->new({}) requires ]
                 . q[parameters to be passed as a hashref];
             return;
         }
         if (not defined $args->{q[Path]}) {
-            carp q[Net::BitTorrent::Session->new({}) requires a ]
+            carp q[Net::BitTorrent::Torrent->new({}) requires a ]
                 . q['Path' parameter];
             return;
         }
         if (not -f $args->{q[Path]}) {
             carp
-                sprintf(q[Net::BitTorrent::Session->new({}) cannot find '%s'],
+                sprintf(q[Net::BitTorrent::Torrent->new({}) cannot find '%s'],
                         $args->{q[Path]});
             return;
         }
         if (defined $args->{q[Client]}) {
             if (not blessed $args->{q[Client]}) {
-                carp q[Net::BitTorrent::Session->new({}) requires a ]
+                carp q[Net::BitTorrent::Torrent->new({}) requires a ]
                     . q[blessed 'Client' object];
                 return;
             }
             if (not $args->{q[Client]}->isa(q[Net::BitTorrent])) {
-                carp q[Net::BitTorrent::Session->new({}) requires a ]
+                carp q[Net::BitTorrent::Torrent->new({}) requires a ]
                     . q[blessed Net::BitTorrent object in the 'Client' parameter];
                 return;
             }
         }
         if (defined $args->{q[BlockLength]}) {    # Undocumented
             if ($args->{q[BlockLength]} !~ m[^\d+$]) {
-                carp q[Net::BitTorrent::Session->new({}) requires an ]
+                carp q[Net::BitTorrent::Torrent->new({}) requires an ]
                     . q[integer 'BlockLength' parameter];
                 delete $args->{q[BlockLength]};
             }
         }
         if (defined $args->{q[Status]}) {         # Undocumented
             if ($args->{q[Status]} !~ m[^\d+$]) {
-                carp q[Net::BitTorrent::Session->new({}) requires an ]
+                carp q[Net::BitTorrent::Torrent->new({}) requires an ]
                     . q[integer 'Status' parameter];
                 delete $args->{q[Status]};
             }
@@ -150,7 +150,7 @@ package Net::BitTorrent::Session;
         if (not sysopen($TORRENT_FH, $args->{q[Path]}, O_RDONLY)) {
             carp    # difficult to trigger for a test suite
                 sprintf(
-                 q[Net::BitTorrent::Session->new({}) could not open '%s': %s],
+                 q[Net::BitTorrent::Torrent->new({}) could not open '%s': %s],
                  $args->{q[Path]}, $!);
             return;
         }
@@ -161,7 +161,7 @@ package Net::BitTorrent::Session;
             != -s $args->{q[Path]})
         {   carp    # difficult to trigger for a test suite
                 sprintf(
-                q[Net::BitTorrent::Session->new({}) could not read all %d bytes of '%s' (Read %d instead)],
+                q[Net::BitTorrent::Torrent->new({}) could not read all %d bytes of '%s' (Read %d instead)],
                 -s $args->{q[Path]},
                 $args->{q[Path]}, length($TORRENT_RAW)
                 );
@@ -172,7 +172,7 @@ package Net::BitTorrent::Session;
         if (not close($TORRENT_FH)) {
             carp    # difficult to trigger for a test suite
                 sprintf(
-                q[Net::BitTorrent::Session->new({}) could not close '%s': %s],
+                q[Net::BitTorrent::Torrent->new({}) could not close '%s': %s],
                 $args->{q[Path]}, $!);
             return;
         }
@@ -354,10 +354,10 @@ package Net::BitTorrent::Session;
                     );
             }
             push(@{$files{refaddr $self}},
-                 Net::BitTorrent::Session::File->new(
+                 Net::BitTorrent::Torrent::File->new(
                                  {Size    => $size,
                                   Path    => $path,
-                                  Session => $self,
+                                  Torrent => $self,
                                   Index   => scalar(@{$files{refaddr $self}})
                                  }
                  )
@@ -370,8 +370,8 @@ package Net::BitTorrent::Session;
         {    # Multitracker
             for my $tier (@{$_raw_data{refaddr $self}{q[announce-list]}}) {
                 push(@{$trackers{refaddr $self}},
-                     Net::BitTorrent::Session::Tracker->new(
-                                             {Session => $self, URLs => $tier}
+                     Net::BitTorrent::Torrent::Tracker->new(
+                                             {Torrent => $self, URLs => $tier}
                      )
                 );
             }
@@ -379,8 +379,8 @@ package Net::BitTorrent::Session;
         elsif (defined $_raw_data{refaddr $self}{q[announce]})
         {    # Single tracker
             push(@{$trackers{refaddr $self}},
-                 Net::BitTorrent::Session::Tracker->new(
-                          {Session => $self,
+                 Net::BitTorrent::Torrent::Tracker->new(
+                          {Torrent => $self,
                            URLs    => [$_raw_data{refaddr $self}{q[announce]}]
                           }
                  )
@@ -586,7 +586,7 @@ package Net::BitTorrent::Session;
             #
             my $peer =
                 Net::BitTorrent::Peer->new({Address => $node,
-                                            Session => $self
+                                            Torrent => $self
                                            }
                 );
             last
@@ -610,8 +610,8 @@ package Net::BitTorrent::Session;
         my $_connections = $_client{refaddr $self}->_connections;
         my @return       = map {
             (    ($_->{q[Object]}->isa(q[Net::BitTorrent::Peer]))
-             and ($_->{q[Object]}->_session)
-             and ($_->{q[Object]}->_session eq $self))
+             and ($_->{q[Object]}->_torrent)
+             and ($_->{q[Object]}->_torrent eq $self))
                 ? $_->{q[Object]}
                 : ()
         } values %$_connections;
@@ -627,8 +627,8 @@ package Net::BitTorrent::Session;
             unless ref $tier eq q[ARRAY];
         return
             push(@{$trackers{refaddr $self}},
-                 Net::BitTorrent::Session::Tracker->new(
-                                             {Session => $self, URLs => $tier}
+                 Net::BitTorrent::Torrent::Tracker->new(
+                                             {Torrent => $self, URLs => $tier}
                  )
             );
     }
@@ -639,14 +639,14 @@ package Net::BitTorrent::Session;
         #
         if (not defined $index) {
             carp
-                q[Net::BitTorrent::Session->_piece_by_index() requires an index];
+                q[Net::BitTorrent::Torrent->_piece_by_index() requires an index];
             return;
         }
 
         #
         if ($index !~ m[^\d+$]) {
             carp
-                q[Net::BitTorrent::Session->_piece_by_index() requires a positive integer];
+                q[Net::BitTorrent::Torrent->_piece_by_index() requires a positive integer];
             return;
         }
 
@@ -666,15 +666,15 @@ package Net::BitTorrent::Session;
                                                       # TODO: param validation
         if (not defined $peer) {
             carp
-                q[Net::BitTorrent::Session->_pick_piece(PEER) requires a peer];
+                q[Net::BitTorrent::Torrent->_pick_piece(PEER) requires a peer];
         }
         if (not blessed $peer) {
             carp
-                q[Net::BitTorrent::Session->_pick_piece(PEER) requires a blessed peer];
+                q[Net::BitTorrent::Torrent->_pick_piece(PEER) requires a blessed peer];
         }
         if (not $peer->isa(q[Net::BitTorrent::Peer])) {
             carp
-                q[Net::BitTorrent::Session->_pick_piece(PEER) requires a peer object];
+                q[Net::BitTorrent::Torrent->_pick_piece(PEER) requires a peer object];
         }
 
         #
@@ -959,7 +959,7 @@ package Net::BitTorrent::Session;
         # close peers
         for my $_peer (@{$self->_peers}) {
             $_peer->_disconnect(
-                              q[Removing .torrent session from local client]);
+                              q[Removing torrent from local client]);
         }
         for my $index (0 .. ($self->_piece_count - 1)) {
             $self->_check_piece_by_index($index);
@@ -973,12 +973,12 @@ package Net::BitTorrent::Session;
 
         #
         if (not defined $index) {
-            carp q[Net::BitTorrent::Session->_check_piece_by_index( INDEX ) ]
+            carp q[Net::BitTorrent::Torrent->_check_piece_by_index( INDEX ) ]
                 . q[requires an index.];
             return;
         }
         if ($index !~ m[^\d+$]) {
-            carp q[Net::BitTorrent::Session->_check_piece_by_index( INDEX ) ]
+            carp q[Net::BitTorrent::Torrent->_check_piece_by_index( INDEX ) ]
                 . q[requires an integer index.];
             return;
         }
@@ -1019,7 +1019,7 @@ package Net::BitTorrent::Session;
             )
         {   vec(${$bitfield{refaddr $self}}, $index, 1) = 0;
             $_client{refaddr $self}->_event(q[piece_hash_fail],
-                                          {Session => $self, Index => $index})
+                                          {Torrent => $self, Index => $index})
                 if defined $_client{refaddr $self};
             return 0;
         }
@@ -1029,7 +1029,7 @@ package Net::BitTorrent::Session;
         {    # Only if pass is 'new'
             vec(${$bitfield{refaddr $self}}, $index, 1) = 1;
             $_client{refaddr $self}->_event(q[piece_hash_pass],
-                                          {Session => $self, Index => $index})
+                                          {Torrent => $self, Index => $index})
                 if defined $_client{refaddr $self};
         }
 
@@ -1043,7 +1043,7 @@ package Net::BitTorrent::Session;
             = !$advanced
             ? $self->infohash
             : sprintf <<END,
-Session: %s
+Torrent: %s
  Path:       %s
  Storage:    %s
  Infohash:   %s
@@ -1165,7 +1165,7 @@ END
 
 =head1 NAME
 
-Net::BitTorrent::Session - Class Representing a Single .torrent File
+Net::BitTorrent::Torrent - Class Representing a Single .torrent File
 
 =head1 Description
 
@@ -1175,9 +1175,9 @@ Net::BitTorrent::Session - Class Representing a Single .torrent File
 
 =item C<new ( { [ARGS] } )>
 
-Creates a C<Net::BitTorrent::Session> object.  This constructor is
+Creates a C<Net::BitTorrent::Torrent> object.  This constructor is
 called by
-L<Net::BitTorrent::add_session( )|Net::BitTorrent/add_session ( { ... } )>
+L<Net::BitTorrent::add_torrent( )|Net::BitTorrent/add_torrent ( { ... } )>
 and should not be used directly.
 
 C<new( )> accepts arguments as a hash, using key-value pairs:
@@ -1186,7 +1186,7 @@ C<new( )> accepts arguments as a hash, using key-value pairs:
 
 =item C<BaseDir>
 
-The root directory used to store the files related to this session.  This
+The root directory used to store the files related to this torrent.  This
 directory is created if not preexisting.
 
 This is an optional parameter.
@@ -1195,7 +1195,7 @@ Default: C<./> (Current working directory)
 
 =item C<Client>
 
-The L<Net::BitTorrent|Net::BitTorrent> object this session will
+The L<Net::BitTorrent|Net::BitTorrent> object this torrent will
 eventually be served from.
 
 This is an optional parameter.
@@ -1225,20 +1225,20 @@ downloaded.
 =item C<files>
 
 Returns a list of
-L<Net::BitTorrent::Session::File|Net::BitTorrent::Session::File> objects
+L<Net::BitTorrent::Torrent::File|Net::BitTorrent::Torrent::File> objects
 representing all files contained in the related .torrent file.
 
 =item C<hashcheck>
 
-Verifies the integrity of all L<files|Net::BitTorrent::Session::File>
-associated with this session.
+Verifies the integrity of all L<files|Net::BitTorrent::Torrent::File>
+associated with this torrent.
 
 This is a blocking method; all processing will stop until this function
 returns.
 
 =item C<infohash>
 
-Returns the 20 byte SHA1 hash used to identify this session internally,
+Returns the 20 byte SHA1 hash used to identify this torrent internally,
 with trackers, and with remote peers.
 
 =item C<path>
@@ -1252,8 +1252,8 @@ Returns the total size of all files listed in the .torrent file.
 =item C<trackers>
 
 Returns a list of all
-L<Net::BitTorrent::Session::Tracker|Net::BitTorrent::Session::Tracker>
-objects related to the session.
+L<Net::BitTorrent::Torrent::Tracker|Net::BitTorrent::Torrent::Tracker>
+objects related to the torrent.
 
 =back
 

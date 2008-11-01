@@ -46,11 +46,11 @@ if (!$client) {
          q[Failed to create client]
     );
 }
-my $session;
+my $torrent;
 
 END {
-    return if not defined $session;
-    for my $file (@{$session->files}) { $file->_close() }
+    return if not defined $torrent;
+    for my $file (@{$torrent->files}) { $file->_close() }
 }
 SKIP: {
 
@@ -313,36 +313,36 @@ TODO: {
     is($port, 20505, q[Correct port was opened (20505).]);
 
     #
-    warn(q[Testing Net::BitTorrent->add_session()]);
-    is( $client->add_session(q[./t/900_data/950_torrents/952_multi.torrent]),
+    warn(q[Testing Net::BitTorrent->add_torrent()]);
+    is( $client->add_torrent(q[./t/900_data/950_torrents/952_multi.torrent]),
         undef, q[Needs hash ref params]
     );
-    $session = $client->add_session(
+    $torrent = $client->add_torrent(
                       {Path => q[./t/900_data/950_torrents/952_multi.torrent],
                        BaseDir => $tempdir
                       }
     );
-    isa_ok($session, q[Net::BitTorrent::Session], q[Added session]);
-    is_deeply($client->sessions,
-              {$$session => $session},
-              q[Net::BitTorrent correctly stores sessions]);
-    is( $client->add_session(
+    isa_ok($torrent, q[Net::BitTorrent::Torrent], q[Added torrent]);
+    is_deeply($client->torrents,
+              {$$torrent => $torrent},
+              q[Net::BitTorrent correctly stores torrents]);
+    is( $client->add_torrent(
                       {Path => q[./t/900_data/950_torrents/952_multi.torrent]}
         ),
         undef,
         q[   ...but only once.]
     );
-    is_deeply($client->sessions,
-              {$$session => $session},
+    is_deeply($client->torrents,
+              {$$torrent => $torrent},
               q[   (Double check that to be sure)]);
-    ok($client->remove_session($session), q[Attempt to remove session]);
-    is($client->remove_session(q[Junk!]),
-        undef, q[Attempt to remove not-a-session]);
-    is_deeply($client->sessions, {}, q[   Check if session was removed]);
+    ok($client->remove_torrent($torrent), q[Attempt to remove torrent]);
+    is($client->remove_torrent(q[Junk!]),
+        undef, q[Attempt to remove not-a-torrent]);
+    is_deeply($client->torrents, {}, q[   Check if torrent was removed]);
 
     ok($client->do_one_loop, q[do_one_loop]);
-    like($client->_peers_per_session, qr[^\d+$],
-         q[_peers_per_session() is a number]);
+    like($client->_peers_per_torrent, qr[^\d+$],
+         q[_peers_per_torrent() is a number]);
 
     #
     #use Devel::Peek;
