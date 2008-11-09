@@ -66,7 +66,7 @@ package Net::BitTorrent::Util;
     }
 
     sub bdecode {      # needs work
-        my($string)=@_;
+        my ($string) = @_;
         return if not defined $string;
         my ($return, $leftover);
         if (   $string =~ m[^([1-9]\d*):]s
@@ -98,7 +98,7 @@ package Net::BitTorrent::Util;
             $leftover = $1;
             while ($leftover and $leftover !~ s|^e||s) {
                 my ($key, $value);
-                ($key,   $leftover) = bdecode($leftover);
+                ($key, $leftover) = bdecode($leftover);
                 ($value, $leftover) = bdecode($leftover) if $leftover;
                 $return->{$key} = $value if defined $key;
             }

@@ -447,8 +447,9 @@ package Net::BitTorrent::Protocol;
                        Payload => @payload
             } if @payload;
         }
-        elsif ((defined unpack(q[N], $$data)) and (unpack(q[N], $$data) =~ m[\d])) {
-            if ((unpack(q[N], $$data) <= length($$data))) {
+        elsif (    (defined unpack(q[N], $$data))
+               and (unpack(q[N], $$data) =~ m[\d]))
+        {   if ((unpack(q[N], $$data) <= length($$data))) {
                 (my ($packet_data), $$data) = unpack(q[N/aa*], $$data);
                 (my ($type), $packet_data) = unpack(q[ca*], $packet_data);
 
@@ -482,12 +483,13 @@ package Net::BitTorrent::Protocol;
                                )
                     };
                 }
-                elsif (require Data::Dump) {
-                    carp sprintf <<END, Data::Dump->pp($type),Data::Dump->pp($packet);
+                elsif (eval q[require Data::Dump]) {
+                    carp sprintf <<'END',
 Unhandled/Unknown packet where:
 Type   = %s
 Packet = %s
 END
+                        Data::Dump::pp($type), Data::Dump::pp($packet);
                 }
             }
         }

@@ -24,6 +24,9 @@
 # Avoid profiler stuff
 \.out$
 
+# Avoid NYTProf stuff
+\bnytprof\b
+
 # Avoid temp and backup files.
 ~$
 \.tmp$
@@ -64,3 +67,9 @@ scripts/.*\.torrent
 \.gif
 \.html?
 \.css
+
+# Skip between-commit-changelog
+commitlog.txt
+
+# Skip perltidy backups
+\.ti?dy

@@ -145,13 +145,14 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         my $infohash = $_tier{refaddr $self}->_torrent->infohash;
         $infohash =~ s|(..)|\%$1|g;    # urlencode
         my %query_hash = (
-              q[info_hash]  => $infohash,
-              q[peer_id]    => $_tier{refaddr $self}->_client->peerid(),
-              q[port]       => $_tier{refaddr $self}->_client->_port(),
-              q[uploaded]   => $_tier{refaddr $self}->_torrent->_uploaded(),
-              q[downloaded] => $_tier{refaddr $self}->_torrent->_downloaded(),
-              q[left]       => (
-                   $_tier{refaddr $self}->_torrent->_piece_length() * sum(
+               q[info_hash]  => $infohash,
+               q[peer_id]    => $_tier{refaddr $self}->_client->peerid(),
+               q[port]       => $_tier{refaddr $self}->_client->_port(),
+               q[uploaded]   => $_tier{refaddr $self}->_torrent->uploaded(),
+               q[downloaded] => $_tier{refaddr $self}->_torrent->downloaded(),
+               q[left]       => (
+                   $_tier{refaddr $self}
+                       ->_torrent->raw_data->{q[info]}{q[piece length]} * sum(
                        split(q[],
                              unpack(
                                    q[b*],
@@ -160,21 +161,22 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                                    )
                              )
                        )
-                   )
-              ),
-              q[key]        => $^T,
-              q[numwant]    => 200,
-              q[compact]    => 1,
-              q[no_peer_id] => 1,
-              (defined($event{refaddr $self})
-               ? (q[event] => $event{refaddr $self})
-               : ()
-              )
+                       )
+               ),
+               q[key]        => $^T,
+               q[numwant]    => 200,
+               q[compact]    => 1,
+               q[no_peer_id] => 1,
+               (defined($event{refaddr $self})
+                ? (q[event] => $event{refaddr $self})
+                : ()
+               )
         );
+
         #use Data::Dump qw[pp];
         #warn pp \%query_hash;
-        my $url
-            = $path
+        my $url 
+            = $path 
             . ($path =~ m[\?] ? q[&] : q[?])
             . (join q[&],
                map { sprintf q[%s=%s], $_, $query_hash{$_} }
@@ -358,7 +360,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless defined wantarray;
+        return print STDERR qq[$dump\n] unless wantarray;
         return $dump;
     }
 

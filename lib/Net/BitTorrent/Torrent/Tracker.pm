@@ -121,7 +121,7 @@ package Net::BitTorrent::Torrent::Tracker;
                                                      Code   => \&_announce,
                                                      Object => $self
                                                     }
-        );
+        ) if defined $torrent{refaddr $self}->_client;
         weaken($REGISTRY{refaddr $self} = $self);
 
         #
@@ -148,7 +148,6 @@ package Net::BitTorrent::Torrent::Tracker;
         return $incomplete{refaddr $self} = $value;
     }
 
-
     sub _shuffle {    # push first (bad) to the end of the list
         my ($self) = @_;
         return (
@@ -162,12 +161,14 @@ package Net::BitTorrent::Torrent::Tracker;
         return if not scalar @{$_urls{refaddr $self}};
         return $_urls{refaddr $self}->[0]->_announce(q[started]);
     }
- sub _as_string {
+
+    sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless defined wantarray;
+        return print STDERR qq[$dump\n] unless wantarray;
         return $dump;
     }
+
     #
     sub CLONE {
         for my $_oID (keys %REGISTRY) {

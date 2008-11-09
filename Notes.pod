@@ -18,13 +18,13 @@ progress.
 
 =head1 Net::BitTorrent's Way-too-Obvious Class Hierarchy
 
-                                            .---- N::B::S::T::UDP
+                                            .---- N::B::T::T::UDP
                                            /
-                      .-------- N::B::S::Tracker
+                      .-------- N::B::T::Tracker
                      /                     \
-                    /   .-- N::B::S::File   `--- N::B::S::T::HTTP
+                    /   .-- N::B::T::File   `--- N::B::T::T::HTTP
                    /   /
-            .---- Net::BitTorrent::Session
+            .---- Net::BitTorrent::Torrent
            /
           /   .--- Net::BitTorrent::DHT
          /   /           \
@@ -84,17 +84,30 @@ Parts that aren't handled internally are described here with sample code
 to get you started.  In the future, this will probably be in a separate
 pod.
 
-=head2 Get basic info from a.torrent without adding it to a client
+=head2 Get basic info from a .torrent without adding it to a client
 
-[TODO]
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> objects can be
+created diretly without a parent client.  While functionally limited
+(obvious things like an inability to serve data, etc.) basic information
+is available and some 'advanced' functions still work (hashchecking, for
+example).  See L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> for
+more.
 
 =head2 Pause and Resume a .torrent Session
 
-[TODO]
+See
+L<Net::BitTorrent::Torrent::pause( )|Net::BitTorrent::Torrent/"pause( )">
+and
+L<Net::BitTorrent::Torrent::start( )|Net::BitTorrent::Torrent/"start( )">
 
 =head2 Stop and Resume a .torrent Session
 
-[TODO]
+See
+See
+L<Net::BitTorrent::Torrent::stop( )|Net::BitTorrent::Torrent/"stop( )">
+and
+L<Net::BitTorrent::Torrent::start( )|Net::BitTorrent::Torrent/"start( )">
+
 
 =head2 Quick Resume a .torrent Session Between Client Sessions
 
@@ -112,7 +125,7 @@ reload the torrent with your stored data.
 
 =head2 Set File Priorities
 
-See L<Net::BitTorrent::Session::File/"priority( [NEWVAL] )">.
+See L<Net::BitTorrent::Torrent::File/"priority( [NEWVAL] )">.
 
 =head2 Implement My Own Event Loop
 
@@ -128,142 +141,43 @@ C<Net::BitTorrent> work.  Or not work.  It depends.
 =head3 C<Net::BitTorrent>
 
  Net::BitTorrent = {
-    peer_id                   => string,
-    socket                    => GLOB,
-    maximum_peers_per_client  => integer,
-    maximum_peers_per_session => integer,
-    maximum_peers_half_open   => integer,
-    maximum_buffer_size       => integer,
-    maximum_requests_size     => integer,
-    maximum_requests_per_peer => integer,
-    timeout                   => integer,
-    debug_level               => integer,
-    connections               => array, # N::B and N::B::Session objects
-    callbacks                 => hash,  # key:value::(str)type:coderef
-    sessions                  => array, # N::B::Session objects
-    fileno                    => integer,
-    kBps_up                   => integer,
-    kBps_down                 => integer,
-    k_up                      => integer,
-    k_down                    => integer,
+   TODO
  }
 
 =head3 C<Net::BitTorrent::Session>
 
  Net::BitTorrent::Session = {
-    path                     => string,
-    base_dir                 => string,
-    private                  => bool,    # from metadata
-    infohash                 => string,
-    piece_count              => integer,
-    piece_size               => integer,
-    block_size               => integer, # can be defined by the user
-    total_size               => integer,
-    uploaded                 => integer,
-    downloaded               => integer,
-    trackers                 => array,   # N::B::S::Tracker objects (tiers)
-    client                   => N::B object,
-    files                    => array,   # N::B::S::File objects
-    pieces                   => array,   # N::B::S::Piece objects
-    endgame                  => bool,    # cache value
-    nodes                    => string,  # compacted list of potential peers
-    name                     => string,  # from metadata, not used internally
+   TODO
  }
 
 =head3 C<Net::BitTorrent::Session::Tracker>
 
  Net::BitTorrent::Session::Tracker = {
-    urls                     =>
-    socket                   =>
-    session                  =>
-    fileno                   =>
-    next_announce            =>
-    next_scrape              =>
-    connection_timestamp     =>
-    scrape_complete          =>
-    scrape_incomplete        =>
-    scrape_downloaded        =>
-    connected                =>
-    queue_outgoing           =>
-    queue_incoming           =>
+   TODO
  }
 
 =head3 C<Net::BitTorrent::Session::Peer>
 
  Net::BitTorrent::Session::Peer = {
-    client                   =>
-    peer_id                  =>
-    bitfield                 =>
-    incoming_requests        =>
-    outgoing_requests        =>
-    session                  =>
-    queue_incoming           =>
-    queue_outgoing           =>
-    is_interested            =>
-    is_choked                =>
-    is_interesting           =>
-    is_choking               =>
-    reserved                 =>
-    extentions               =>
-    incoming_connection      => bool,
-    connection_timestamp     => integer, # time of creation
-    connected                =>
-    socket                   =>
-    previous_outgoing_keepalive =>
-    previous_incoming_data      =>
-    previous_outgoing_request   =>
-    previous_incoming_block  =>
-    downloaded               =>
-    uploaded                 =>
-    fileno                   => integer, # cached value
-    peerhost                 =>
-    peerport                 =>
+   TODO
  }
 
 =head3 C<Net::BitTorrent::Session::Peer::Request>
 
  Net::BitTorrent::Session::Peer::Request = {
-    peer                     =>
-    index                    =>
-    offset                   =>
-    length                   =>
-    timestamp                =>
+  TODO
  }
 
 =head3 C<Net::BitTorrent::Session::File>
 
  Net::BitTorrent::Session::File = {
-    size                     =>
-    path                     =>
-    piece_range              =>
-    session                  =>
-    handle                   =>
-    win32_handle             => # Win32API::File ID (w/ utf8 filename)
-    open_timestamp           =>
-    open_mode                =>
-    touch_timestamp          =>
+   TODO
  }
 
 =head3 C<Net::BitTorrent::Session::Piece>
 
  Net::BitTorrent::Session::Piece = {
-    hash                     =>
-    priority                 =>
-    index                    =>
-    working                  =>
-    blocks                   =>
-    check                    =>
-    session                  =>
-    previous_incoming_block  => integer # timestamp
- }
-
-=head3 C<Net::BitTorrent::Session::Piece::Block>
-
- Net::BitTorrent::Session::Piece::Block = {
-    offset                   =>
-    length                   =>
-    piece                    =>
-    peer                     =>
+   TODO
  }
 
 =head2 Peer ID Specification
@@ -376,9 +290,9 @@ exit the loop.
 =item *
 
 If C<$weights[$i]> is defined, we set the working value to true and
-request a free L<block|Net::BitTorrent::Session::Piece::Block>.  Blocks
-are requested in order from the beginning of the piece to the end.
-Finally, we re-request any rejected or canceled blocks.
+request a free block.  Blocks are requested in order from the beginning
+of the piece to the end.  Finally, we re-request any rejected or canceled
+blocks.
 
 =item *
 
@@ -388,7 +302,7 @@ Finally, we re-request any rejected or canceled blocks.
 
 The language used in this section probably only makes sense to me and
 will require a rewrite.  For the actual code, see
-C<Net::BitTorrent::Session::_pick_piece()>.
+C<Net::BitTorrent::Torrent::_pick_piece()>.
 
 =head2 Outgoing Requests
 

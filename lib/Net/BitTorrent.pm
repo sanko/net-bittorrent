@@ -161,12 +161,14 @@ package Net::BitTorrent;
     # Setters | Private
     sub _set_max_ul_rate {
         warn q[TODO: Param validation];
-        return $_max_ul_rate{refaddr +shift} = shift;
+        my ($self, $value) = @_;
+        return $_max_ul_rate{refaddr $self} = $value;
     }
 
     sub _set_dl_rate {
         warn q[TODO: Param validation];
-        return $_max_dl_rate{refaddr +shift} = shift;
+        my ($self, $value) = @_;
+        return $_max_dl_rate{refaddr $self} = $value;
     }
 
     sub _port {
@@ -441,13 +443,13 @@ package Net::BitTorrent;
                         ->_rw((($_max_dl_rate{refaddr $self}
                                 ? (($_max_dl_rate{refaddr $self} * 1024)
                                    - $_k_down{refaddr $self})
-                                : 2**15
+                                : 2**20
                                ) * $read
                               ),
                               (($_max_ul_rate{refaddr $self}
                                 ? (($_max_ul_rate{refaddr $self} * 1024)
                                    - $_k_up{refaddr $self})
-                                : 2**15
+                                : 2**20
                                ) * $write
                               ),
                               $error
@@ -510,7 +512,7 @@ package Net::BitTorrent;
         }
 
         # close peers
-        for my $_peer (@{$torrent->_peers}) {
+        for my $_peer ($torrent->_peers) {
             $_peer->_disconnect(
                               q[Removing .torrent torrent from local client]);
         }
@@ -730,7 +732,7 @@ package Net::BitTorrent;
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless defined wantarray;
+        return print STDERR qq[$dump\n] unless wantarray;
         return $dump;
     }
 
@@ -877,7 +879,7 @@ L<Peer ID Specification|Net::BitTorrent::Notes/"Peer ID Specification">
 Returns the list of loaded .torrent L<Torrents|Net::BitTorrent::Torrent>.
 
 See also: L<add_torrent ( )|/add_torrent ( { ... } )>,
-L<remove_torrent ( )|/remove_torrent ( TORRENT )>
+L<remove_torrent ( )|/"remove_torrent ( TORRENT )">
 
 =item C<add_torrent ( { ... } )>
 
@@ -944,7 +946,7 @@ C<Net::BitTorrent> and related classes trigger a number of events
 
 
 
-
+ TODO
 
 
 

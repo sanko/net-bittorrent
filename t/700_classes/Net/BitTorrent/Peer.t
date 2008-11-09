@@ -54,7 +54,7 @@ SKIP: {
         q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
     ) if not $release_testing;
-    skip(q[Socket-based tests have been disabled.],
+    skip(q[Socket-based tests have been disabled due to bad system config.],
          ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
     ) if not $okay_tcp;
 
@@ -297,7 +297,7 @@ SKIP: {
                           ],
                           q[Correct args passed to 'packet_incoming_block' event handler]
                 );
-                is($args->{q[Peer]}->_torrent->_downloaded,
+                is($args->{q[Peer]}->_torrent->downloaded,
                     16384, q[Torrent downloaded amount updated]);
 
                 #
@@ -308,7 +308,7 @@ SKIP: {
                     $args->{q[Index]},
                     $args->{q[Offset]},
                     $args->{q[Length]},
-                    $args->{q[Peer]}->_torrent->_downloaded
+                    $args->{q[Peer]}->_torrent->downloaded
                 );
             }
         ),
@@ -326,7 +326,7 @@ SKIP: {
                     $args->{q[Offset]},
                     $args->{q[Length]},
                     $args->{q[Peer]}->_as_string,
-                    $args->{q[Peer]}->_torrent->_uploaded;
+                    $args->{q[Peer]}->_torrent->uploaded;
             }
         )
     );

@@ -28,7 +28,7 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
 BEGIN {
-     plan tests => 140;
+     plan tests => 139;
     use_ok(q[File::Temp], qw[tempfile tempdir]);
     use_ok(q[File::Spec]);
     use_ok(q[Net::BitTorrent::Torrent::File]);

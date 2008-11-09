@@ -39,7 +39,7 @@ my $verbose  = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
-{    # Simulate a private .torrent
+{   # Simulate a private .torrent to make sure we aren't getting peers via DHT
     no warnings q[redefine];
     *Net::BitTorrent::Torrent::_private = sub { return 1 };
 }
@@ -52,8 +52,6 @@ my $Timeout     = 45;
 
 #
 plan tests => int(($Seeds * 2) + ($Peers * 2));
-#plan tests => int($Seeds + $Peers + 1) * 2;
-
 
 #
 my $sprintf = q[%0] . length($Peers > $Seeds ? $Peers : $Seeds) . q[d];
@@ -125,21 +123,18 @@ SKIP: {
                      - $test_builder->{q[Curr_Test]}
             ) if not $torrent;
             $torrent->hashcheck;
-
-            warn $torrent->_as_string(1);
-
             skip(
                 sprintf(
                     q[Failed to load torrent for seed_%s: Seed data is missing/corrupt],
                     $chr),
                 $test_builder->{q[Expected_Tests]}
                     - $test_builder->{q[Curr_Test]}
-            ) if not $torrent->_complete;
-            ok(scalar($torrent->_complete), sprintf(q[seed_%s is seeding], $chr));
+            ) if not $torrent->is_complete;
+            ok(scalar($torrent->is_complete), sprintf(q[seed_%s is seeding], $chr));
             skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
-            ) if not $torrent->_complete;
+            ) if not $torrent->is_complete;
             my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
             $torrent->_add_tracker([$tracker]);
             $client{q[seed_] . $chr}->on_event(
@@ -204,9 +199,9 @@ SKIP: {
                    #     )
                    #    ) # if $ENV{q[RELEASE_TESTING]}
                    #    ;
-                    ok($args->{q[Torrent]}->_complete,
+                    ok($args->{q[Torrent]}->is_complete,
                         sprintf(q[peer_%s is seeding], $chr))
-                        if $args->{q[Torrent]}->_complete;
+                        if $args->{q[Torrent]}->is_complete;
                     return;
                 }
             );

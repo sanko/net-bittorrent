@@ -204,7 +204,9 @@ package Net::BitTorrent::Torrent::File;
                                      ($mode eq q[r] ? q[read] : q[write]), $^E
                   )
                  }
-            );
+                )
+                if defined $torrent{refaddr $self}->_client
+                    and $mode eq q[w];
             return;
         }
 
@@ -224,6 +226,12 @@ package Net::BitTorrent::Torrent::File;
                   )
                  }
             );
+            $torrent{refaddr $self}->_set_error(
+                             sprintf(q[Cannot lock '%s' for %s: %s],
+                                     $path{refaddr $self},
+                                     ($mode eq q[r] ? q[read] : q[write]), $^E
+                             )
+            );
             return;
         }
 
@@ -241,19 +249,27 @@ package Net::BitTorrent::Torrent::File;
         if (not defined $data) {return}
         if (not $handle{refaddr $self}) {
             $torrent{refaddr $self}->_client->_event(
-                           q[file_error],
-                           {File    => $self,
-                            Message => q[Cannot read from file: File not open]
-                           }
+                            q[file_error],
+                            {File    => $self,
+                             Message => q[Cannot write to file: File not open]
+                            }
+            );
+            $torrent{refaddr $self}->_set_error(
+                               sprintf(q[Cannot write to '%s': File not open],
+                                       $path{refaddr $self})
             );
             return;
         }
         elsif ($mode{refaddr $self} ne q[w]) {
             $torrent{refaddr $self}->_client->_event(
-                 q[file_error],
-                 {File    => $self,
-                  Message => q[Cannot read from file: File not open for write]
-                 }
+                  q[file_error],
+                  {File    => $self,
+                   Message => q[Cannot write to file: File not open for write]
+                  }
+            );
+            $torrent{refaddr $self}->_set_error(
+                     sprintf(q[Cannot write to '%s': File not open for write],
+                             $path{refaddr $self})
             );
             return;
         }
@@ -270,6 +286,21 @@ package Net::BitTorrent::Torrent::File;
                      $size{refaddr $self}
                  )
                 }
+            );
+            $torrent{refaddr $self}->_set_error(
+                sprintf(
+                    <<'END', $path{refaddr $self},
+Cannot write to '%s': Beyond end of file.
+
+This may be a bug in Net::BitTorrent.
+Status for bug report: (tell: %d | data:%d bytes | size: %d) (%d > %d)
+END
+                    $self->_systell,
+                    length($data),
+                    $size{refaddr $self},
+                    ($self->_systell + length($data)),
+                    $size{refaddr $self}
+                )
             );
             return;
         }
@@ -289,6 +320,13 @@ package Net::BitTorrent::Torrent::File;
                      )
                     }
                 );
+                $torrent{refaddr $self}->_set_error(
+                    sprintf(
+                        q[Cannot write %d bytes to '%s': Wrote %d bytes instead (%s)],
+                        length($data),  $path{refaddr $self},
+                        $actual_length, $^E
+                    )
+                );
                 return;
             }
         }
@@ -301,6 +339,11 @@ package Net::BitTorrent::Torrent::File;
                                 length($data), $^E
                     )
                    }
+            );
+            $torrent{refaddr $self}->_set_error(
+                              sprintf(q[Cannot write %d bytes to '%s' (%s)],
+                                      length($data), $path{refaddr $self}, $^E
+                              )
             );
             return;
         }
@@ -339,6 +382,10 @@ package Net::BitTorrent::Torrent::File;
                             Message => q[Cannot read from file: File not open]
                            }
             );
+            $torrent{refaddr $self}->_set_error(
+                              sprintf(q[Cannot read from '%s': File not open],
+                                      $path{refaddr $self})
+            );
             return;
         }
         elsif ($mode{refaddr $self} ne q[r]) {
@@ -348,6 +395,10 @@ package Net::BitTorrent::Torrent::File;
                    Message => q[Cannot read from file: File not open for read]
                   }
             );
+            $torrent{refaddr $self}->_set_error(
+                     sprintf(q[Cannot read from '%s': File not open for read],
+                             $path{refaddr $self})
+            );
             return;
         }
         elsif ($self->_systell + $length > $size{refaddr $self}) {
@@ -356,6 +407,11 @@ package Net::BitTorrent::Torrent::File;
                                  {File    => $self,
                                   Message => q[Cannot read beyond end of file]
                                  }
+            );
+            $torrent{refaddr $self}->_set_error(
+                 sprintf(
+                     q[Cannot read from '%s': Cannot read beyond end of file],
+                     $path{refaddr $self})
             );
             return;
         }
@@ -370,6 +426,11 @@ package Net::BitTorrent::Torrent::File;
                       Message => sprintf(q[Failed to read %d bytes from file],
                                          $length)
                      }
+                );
+                $torrent{refaddr $self}->_set_error(
+                                    sprintf(q[Cannot read %d bytes from '%s'],
+                                            $length, $path{refaddr $self}
+                                    )
                 );
                 return;
             }
@@ -391,6 +452,11 @@ package Net::BitTorrent::Torrent::File;
                   Message => q[Cannot get filehandle position: File not open],
                  }
             );
+            $torrent{refaddr $self}->_set_error(
+                sprintf(
+                    q[Cannot get filehandle position for '%s': File not open],
+                    $path{refaddr $self})
+            );
             return;
         }
         return sysseek($handle{refaddr $self}, 0, SEEK_CUR);
@@ -406,6 +472,11 @@ package Net::BitTorrent::Torrent::File;
                    Message => q[Cannot set filehandle position: File not open]
                   }
             );
+            $torrent{refaddr $self}->_set_error(
+                sprintf(
+                    q[Cannot set filehandle position for '%s': File not open],
+                    $path{refaddr $self})
+            );
             return;
         }
         elsif (not defined $position) {
@@ -416,6 +487,11 @@ package Net::BitTorrent::Torrent::File;
                                 {File    => $self,
                                  Message => q[Cannot seek: Undefined position]
                                 }
+            );
+            $torrent{refaddr $self}->_set_error(
+                sprintf(
+                    q[Cannot get filehandle position for '%s': Undefined position],
+                    $path{refaddr $self})
             );
             return;
         }
@@ -434,6 +510,12 @@ package Net::BitTorrent::Torrent::File;
                              $position)
                 }
             );
+            $torrent{refaddr $self}->_set_error(
+                sprintf(
+                    q[Cannot set filehandle position for '%s': Beyond start of file (0 > %d)],
+                    $path{refaddr $self}, $position
+                )
+            );
             return;
         }
         elsif ((abs($position) > $size{refaddr $self})) {
@@ -447,6 +529,15 @@ package Net::BitTorrent::Torrent::File;
                                    $size{refaddr $self}
                     )
                    }
+            );
+            $torrent{refaddr $self}->_set_error(
+                sprintf(
+                    q[Cannot set filehandle position for '%s': Beyond %s of file (%d > %d)],
+                    $path{refaddr $self},
+                    ($position > 0 ? q[start] : q[end]),
+                    $position,
+                    $size{refaddr $self}
+                )
             );
             return;
         }
@@ -541,6 +632,10 @@ package Net::BitTorrent::Torrent::File;
                             }
         ) if defined $torrent{refaddr $self}->_client();
 
+        # $torrent{refaddr $self}->_set_error(
+        #sprintf(q[Cannot close filehandle for '%s': %s],
+        #$path{refaddr $self},$^E
+        #);
         #
         return;
     }
@@ -577,7 +672,7 @@ package Net::BitTorrent::Torrent::File;
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless defined wantarray;
+        return print STDERR qq[$dump\n] unless wantarray;
         return $dump;
     }
 
@@ -620,6 +715,7 @@ package Net::BitTorrent::Torrent::File;
     }
     1;
 }
+
 =pod
 
 =head1 NAME
@@ -755,4 +851,3 @@ BitTorrent, Inc.
 =for svn $Id$
 
 =cut
-

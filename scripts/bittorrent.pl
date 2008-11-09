@@ -18,10 +18,16 @@ my $hashcheck    = 1;
 my $dht          = 1;
 my $sig_int      = 0;
 my $loaded_okay  = 0;
+my $max_upload   = 0;
+my $max_download = 0;
+
+#
 GetOptions(q[help|?]             => \$help,
            q[man]                => \$man,
            q[torrent|t=s@]       => \@dot_torrents,
            q[port|p:i]           => \$localport,
+           q[upload:i]           => \$max_upload,
+           q[download:i]         => \$max_download,
            q[store|d|base_dir:s] => \$basedir,
            q[hashcheck!]         => \$hashcheck,
            q[dht!]               => \$dht,
@@ -35,6 +41,8 @@ pod2usage(1) if $help or not scalar @dot_torrents;
 pod2usage(-verbose => 2) if $man;
 my $bt = new Net::BitTorrent({LocalPort => $localport})
     or croak sprintf q[Failed to create Net::BitTorrent object (%s)], $^E;
+$bt->_set_max_ul_rate($max_upload);      # undocumented
+$bt->_set_max_ul_rate($max_download);    # undocumented
 
 #
 $SIG{q[INT]} = sub {    # One Ctrl-C combo shows status.  Two exits.
@@ -65,9 +73,6 @@ sub piece_status {
          ) * 100
         ),
         ($loaded_okay ? qq[\n] : q[]);
-
-    # ...we should really seed a while first...
-    if ($torrent->_complete) { $bt->remove_torrent($torrent); }
 
     #
     return 1;
@@ -100,7 +105,13 @@ $bt->on_event(
     q[piece_hash_pass],
     sub {
         my ($self, $args) = @_;
-        return piece_status(q[pass], $args);
+        piece_status(q[pass], $args);
+
+        # ...we should really seed a while first...
+        if ($args->{q[Torrent]}->is_complete) {
+            $bt->remove_torrent($args->{q[Torrent]});
+        }
+        return 1;
     }
 );
 $bt->on_event(
@@ -274,7 +285,7 @@ if ($verbose) {
                 $args->{q[Index]},
                 $args->{q[Offset]},
                 $args->{q[Length]},
-                $args->{q[Peer]}->_torrent->_downloaded;
+                $args->{q[Peer]}->_torrent->downloaded;
         }
     );
     $bt->on_event(
@@ -289,7 +300,7 @@ if ($verbose) {
                 $args->{q[Offset]},
                 $args->{q[Length]},
                 $args->{q[Peer]}->_as_string,
-                $args->{q[Peer]}->_torrent->_uploaded;
+                $args->{q[Peer]}->_torrent->uploaded;
         }
     );
     $bt->on_event(
@@ -434,7 +445,7 @@ TORRENT: for my $dot_torrent (sort @dot_torrents) {
     #
     printf qq[\rLoaded '%s' [%s...%s%s]\n], $dot_torrent,
         ($$torrent =~ (m[^(.{4}).+(.{4})$])),
-        ($torrent->_private ? q[|No DHT] : q[]);
+        ($torrent->private ? q[|No DHT] : q[]);
 }
 
 #

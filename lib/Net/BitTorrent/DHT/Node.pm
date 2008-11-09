@@ -54,7 +54,7 @@ use warnings;
                             for my $torrent (
                                     values
                                     %{$dht{refaddr $self}->_client->torrents})
-                            {   if (not $torrent->_private) {
+                            {   if (not $torrent->private) {
                                     $s->_query_get_peers($torrent);
                                     $s->_query_announce_peer($torrent);
                                 }
@@ -159,7 +159,7 @@ use warnings;
                         my $s = shift;
                         for my $torrent (
                              values %{$dht{refaddr $self}->_client->torrents})
-                        {   if (not $torrent->_private) {
+                        {   if (not $torrent->private) {
                                 $s->_query_get_peers($torrent);
                             }
                         }
@@ -196,7 +196,7 @@ use warnings;
             my ($self, $torrent) = @_;
             return if not defined $torrent;
             return if not $torrent->isa(q[Net::BitTorrent::Torrent]);
-            return if $torrent->_private;
+            return if $torrent->private;
             my $tid = $dht{refaddr $self}->_generate_token_id;
             $dht{refaddr $self}->_send(
                    {node => $self,
@@ -235,7 +235,7 @@ use warnings;
                     q[Net::BitTorrent::DHT::Node->_query_announce_peer() requires a Net::BitTorrent::Torrent];
                 return;
             }
-            if ($torrent->_private) {
+            if ($torrent->private) {
                 warn q[...no announce on private torrents];
                 return;
             }
@@ -580,7 +580,7 @@ use warnings;
         sub _as_string {
             my ($self, $advanced) = @_;
             my $dump = q[TODO];
-            return print STDERR qq[$dump\n] unless defined wantarray;
+            return print STDERR qq[$dump\n] unless wantarray;
             return $dump;
         }
 

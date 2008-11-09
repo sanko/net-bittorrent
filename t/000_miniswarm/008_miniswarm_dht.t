@@ -108,12 +108,12 @@ SKIP: {
                 q[Failed to load torrent for seed_%s: Seed data is missing/corrupt],
                 $chr),
             $test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]}
-        ) if not $torrent->_complete;
-        ok(scalar($torrent->_complete), sprintf(q[seed_%s is seeding], $chr));
+        ) if not $torrent->is_complete;
+        ok(scalar($torrent->is_complete), sprintf(q[seed_%s is seeding], $chr));
         skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
-        ) if not $torrent->_complete;
+        ) if not $torrent->is_complete;
         $client{q[seed_] . $chr}->_dht->_add_node(
                sprintf(q[%s:%d], q[127.0.0.1], $client{q[DHT]}->_dht->_port));
         $client{q[seed_] . $chr}->do_one_loop(0.1);    # let them announce
@@ -137,9 +137,9 @@ SKIP: {
                 for my $offset (0 .. $args->{q[Torrent]}->_piece_count - 1) {
                     $sum += vec($args->{q[Torrent]}->bitfield, $offset, 1);
                 }
-                ok($args->{q[Torrent]}->_complete,
+                ok($args->{q[Torrent]}->is_complete,
                     sprintf(q[peer_%s is seeding], $chr))
-                    if $args->{q[Torrent]}->_complete;
+                    if $args->{q[Torrent]}->is_complete;
                 return;
             }
         );
