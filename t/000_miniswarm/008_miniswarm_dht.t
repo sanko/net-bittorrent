@@ -109,7 +109,8 @@ SKIP: {
                 $chr),
             $test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]}
         ) if not $torrent->is_complete;
-        ok(scalar($torrent->is_complete), sprintf(q[seed_%s is seeding], $chr));
+        ok(scalar($torrent->is_complete),
+            sprintf(q[seed_%s is seeding], $chr));
         skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}

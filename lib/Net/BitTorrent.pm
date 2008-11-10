@@ -130,13 +130,6 @@ package Net::BitTorrent;
         $_torrents{refaddr $self} = {};           # by infohash
 
         #
-        #$self->_schedule(
-        #    {Time    => time + 5,
-        #     Code => $self->_add_connections }
-        #    }
-        #);
-        #
-        #
         $self->_schedule(
             {Time => time + 5,
              Code => sub {
@@ -732,8 +725,7 @@ package Net::BitTorrent;
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless wantarray;
-        return $dump;
+        return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     sub CLONE {
@@ -826,9 +818,9 @@ BitTorrent Protocol for distributed data exchange.
 
 =item C<new ( { [ARGS] } )>
 
-Creates a L<Net::BitTorrent|Net::BitTorrent> object.  C<new ( )> accepts
-arguments as a hash, using key-value pairs, all of which are optional.
-The most common are:
+Creates a L<Net::BitTorrent|Net::BitTorrent> object.  This constructor
+expects arguments as a hashref, using key-value pairs, all of which are
+optional.  The most common are:
 
 =over 4
 
@@ -837,20 +829,16 @@ The most common are:
 Local host bind address.  The value must be an IPv4 ("dotted quad") IP-
 address of the C<xxx.xxx.xxx.xxx> form.
 
-Default: 0.0.0.0 (any address)
+Default: C<0.0.0.0> (any address)
 
 =item C<LocalPort>
 
 TCP port opened to remote peers for incoming connections.  If handed a
-list of ports, L<Net::BitTorrent|Net::BitTorrent> will traverse the list,
-attempting to open on each of the ports until we succeed.  If this value
-is C<undef> or C<0>, we allow the OS to choose an open port at random.
+list of ports (ex. C<{ LocalPort => [6952, 6881..6889] }>),
+L<Net::BitTorrent|Net::BitTorrent> will traverse the list, attempting to
+open on each of the ports until we succeed.
 
-Though the default in most clients is a random port in the 6881..6889
-range, BitTorrent has not been assigned a port number or range by the
-IANA.  Nor is such a standard needed.
-
-Default: 0 (any available)
+Default: C<0> (any available, chosen by the OS)
 
 =back
 
@@ -858,41 +846,43 @@ Default: 0 (any available)
 
 =head1 Methods
 
-Unless otherwise stated, all methods return either a C<true> or C<false>
-value, with C<true> meaning that the operation was a success.  When a
-method states that it returns some other specific value, failure will
-result in C<undef> or an empty list.
+Unless stated, all methods return either a C<true> or C<false> value,
+with C<true> meaning that the operation was a success.  When a method
+states that it returns some other specific value, failure will result in
+C<undef> or an empty list.
 
 =over 4
 
 =item C<peerid ( )>
 
-Returns the Peer ID generated to identify this
-L<Net::BitTorrent|Net::BitTorrent> object internally, with trackers, and
-with remote L<peers|Net::BitTorrent::Peer>.
+Returns the <Peer ID|Net::BitTorrent::Version|/"gen_peerid ( )">
+generated to identify this L<Net::BitTorrent|Net::BitTorrent> object
+internally, with remote L<peers|Net::BitTorrent::Peer> and
+L<trackers|Net::BitTorrent::Session::Tracker>.
 
-See also: theory.org (http://tinyurl.com/4a9cuv),
-L<Peer ID Specification|Net::BitTorrent::Notes/"Peer ID Specification">
+See also: wiki.theory.org (http://tinyurl.com/4a9cuv),
+L<Peer ID Specification|Net::BitTorrent::Version/"Peer ID Specification">
 
 =item C<torrents( )>
 
-Returns the list of loaded .torrent L<Torrents|Net::BitTorrent::Torrent>.
+Returns the list of queued L<torrents|Net::BitTorrent::Torrent>.
 
-See also: L<add_torrent ( )|/add_torrent ( { ... } )>,
+See also: L<add_torrent ( )|/"add_torrent ( { ... } )">,
 L<remove_torrent ( )|/"remove_torrent ( TORRENT )">
 
 =item C<add_torrent ( { ... } )>
 
-Loads a .torrent file and adds the new
+Loads a .torrent file and adds the
 L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object to the
-client.
+client's queue.
 
 Most arguments passed to this method are handed directly to
-L<Net::BitTorrent::Torrent::new( )|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">.
-The only mandatory parameter is C<Path>.  C<Path>'s value is the filename
-of the .torrent file to load.  Please see
+L<Net::BitTorrent::Torrent::new( )|Net::BitTorrent::Torrent>.
+Please see
 L<Net::BitTorrent::Torrent::new( )|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">
-for a list of possible parameters.
+for a list of expected parameters.  Note: The C<Client> parameter, is
+automatically filled and should not be passed to
+C<Net::BitTorrent->add_torrent ( )>.
 
 This method returns the new
 L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object on success.

@@ -60,6 +60,10 @@ SKIP: {
 #~     ) if not $release_testing;
 #
 #
+    skip(
+        q[Due to system configuration, socket-based tests have been disabled.  ...which makes N::B pretty useless],
+        ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) unless $okay_tcp;
     warn(q[TODO: Install event handlers]);
 
     #
@@ -115,12 +119,8 @@ TODO: {
                 = Net::BitTorrent::__socket_open(q[127.0.0.1], $port_one, 1,
                                                  1);
         };
-        todo_skip
-            q[Undocumented stuff may fail. ...that's why it's undocumented.],
-            8
+        todo_skip q[ReuseAddr and ReusePort is undocumented behavior], 8
             if not defined $socket_two;
-        local $TODO
-            = q[Undocumented stuff may fail. ...that's why it's undocumented.];
         isa_ok(
             $socket_two,
             q[GLOB],
@@ -271,23 +271,25 @@ TODO: {
     is(Net::BitTorrent->new({LocalPort => $client->_port}),
         undef, sprintf q[new({LocalPort => %d}) (Attempt to reuse port)],
         $client->_port);
-TODO: {
-        todo_skip
-            q[Undocumented stuff may fail. ...that's why it's undocumented.],
-            2;
-        is( Net::BitTorrent->new(
-                      {LocalPort => $client->_port, LocalAddr => q[127.0.0.1]}
-            ),
-            undef,
-            sprintf q[Attempt to reuse address (Undocumented)],
-            $client->_port
-        );
+SKIP: {
+        my ($_tmp_fail, $_tmp_okay);
+        eval {
+            $_tmp_fail
+                = Net::BitTorrent->new(
+                    {LocalPort => $client->_port, LocalAddr => q[127.0.0.1]});
+            $_tmp_okay =
+                Net::BitTorrent->new({LocalPort => $client->_port,
+                                      LocalAddr => q[127.0.0.1],
+                                      ReuseAddr => 1
+                                     }
+                );
+        };
+        is($_tmp_fail, undef, sprintf q[Attempt to reuse port (%d) fails],
+            $client->_port);
+        skip q[ReuseAddr behavior is not well defined and has failed], 1
+            if not $_tmp_okay;
         isa_ok(
-            Net::BitTorrent->new({LocalPort => $client->_port,
-                                  LocalAddr => q[127.0.0.1],
-                                  ReuseAddr => 1
-                                 }
-            ),
+            $_tmp_okay,
             q[Net::BitTorrent],
             sprintf
                 q[Attempt to reuse address with undocumented ReuseAddress argument],
@@ -339,7 +341,6 @@ TODO: {
     is($client->remove_torrent(q[Junk!]),
         undef, q[Attempt to remove not-a-torrent]);
     is_deeply($client->torrents, {}, q[   Check if torrent was removed]);
-
     ok($client->do_one_loop, q[do_one_loop]);
     like($client->_peers_per_torrent, qr[^\d+$],
          q[_peers_per_torrent() is a number]);
@@ -394,13 +395,11 @@ SKIP: {
                       },
                       q[_sockets() returns the dht object and the client itself]
             );
-            is($client->_use_dht(0), 1,
-                q[DHT has been disabled (round two)]);
+            is($client->_use_dht(0), 1, q[DHT has been disabled (round two)]);
             is($client->_dht, undef, q[DHT is disabled (round two)]);
             ok($client->_use_dht(1), q[DHT has been enabled (round three?)]);
             isa_ok($client->_dht, q[Net::BitTorrent::DHT],
                    q[DHT is active (round three?)]);
-
             is(scalar(keys %{$client->_connections}),
                 2, q[Check list of _connections() == 2]);
             is_deeply($client->_connections,

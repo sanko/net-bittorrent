@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Module::Build;
-    use Test::More;
+use Test::More;
 
 #
 use lib q[../../../../../../lib];
@@ -23,6 +23,7 @@ my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
+
 #
 my ($flux_capacitor, %peers) = (0, ());
 

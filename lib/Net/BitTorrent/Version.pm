@@ -7,7 +7,7 @@ package Net::BitTorrent::Version;
     #
     use version qw[qv];    # core as of 5.009
     our $SVN = q[$Id$];
-    our $VERSION_BASE = 27; our $UNSTABLE_RELEASE = 7; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 27; our $UNSTABLE_RELEASE = 8; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     our $PRODUCT_TOKEN = qq[Net::BitTorrent/$VERSION ($^O)];    # ext protocol
 
     sub gen_peerid {
@@ -57,12 +57,12 @@ and the Peer ID generator.
 
 =head1 Methods
 
-=head2 C<gen_node_id>
+=head2 C<gen_node_id ( )>
 
 Returns a random 20-byte string that can be used to identify ourself in a
 DHT swarm.
 
-=head2 C<gen_peerid>
+=head2 C<gen_peerid ( )>
 
 Generates a unique Peer ID based on Net::BitTorrent's
 L<Specification|/"Peer ID Specification">.

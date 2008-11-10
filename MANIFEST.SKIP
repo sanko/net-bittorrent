@@ -73,3 +73,7 @@ commitlog.txt
 
 # Skip perltidy backups
 \.ti?dy
+
+# Skip .torrents I don't want bundled but are helpful for dev
+\b959_Mandriva_DVD.torrent
+\b957_PlaneShift.torrent

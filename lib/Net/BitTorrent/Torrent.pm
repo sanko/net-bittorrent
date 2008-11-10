@@ -318,40 +318,27 @@ package Net::BitTorrent::Torrent;
         }
 
         # Trackers
-        if (defined $raw_data{refaddr $self}{q[announce-list]})
-        {    # Multitracker
-            for my $tier (@{$raw_data{refaddr $self}{q[announce-list]}}) {
-                push(@{$trackers{refaddr $self}},
-                     Net::BitTorrent::Torrent::Tracker->new(
-                                             {Torrent => $self, URLs => $tier}
-                     )
-                );
-            }
-        }
-        elsif (defined $raw_data{refaddr $self}{q[announce]})
-        {    # Single tracker
-            push(@{$trackers{refaddr $self}},
+        $trackers{refaddr $self} = [];
+        foreach my $_tier (
+            $raw_data{refaddr $self}{q[announce-list]}
+            ? @{$raw_data{refaddr $self}{q[announce-list]}}    # Multitracker
+            : $raw_data{refaddr $self}{q[announce]}
+            ? [$raw_data{refaddr $self}{q[announce]}]    # Single tracker
+            : ()    # Trackerless | requires DHT
+            )
+        {   push(@{$trackers{refaddr $self}},
                  Net::BitTorrent::Torrent::Tracker->new(
-                           {Torrent => $self,
-                            URLs    => [$raw_data{refaddr $self}{q[announce]}]
-                           }
+                                            {Torrent => $self, URLs => $_tier}
                  )
             );
         }
-        else {    # No trackers; requires DHT
-            $trackers{refaddr $self} = [];
-            if ($self->private) {    # I'm not sure how to handle this.  We...
-                 # could resort to Webseeding but... why would anyone do this?
-                carp q[This torrent does not contain any trackers and does ]
-                    . q[not allow DHT];
-                return;
-            }
-        }
 
+        #use Data::Dump qw[pp];
+        #warn q[-=-- ] x 6 . pp $trackers{refaddr $self};
         # threads stuff
         weaken($REGISTRY{refaddr $self} = $self);
         if ($threads::shared::threads_shared)
-        {        # allows non-blocking hashcheck
+        {    # allows non-blocking hashcheck
             threads::shared::share($bitfield{refaddr $self});
             threads::shared::share($status{refaddr $self});
             threads::shared::share($error{refaddr $self});
@@ -524,7 +511,6 @@ package Net::BitTorrent::Torrent;
 
     sub start {    # untested
         my ($self) = @_;
-        warn ${$status{refaddr $self}};
         if (!${$status{refaddr $self}} & 128) {
             carp q[Cannot start an orphan torrent];
             return;
@@ -1205,16 +1191,18 @@ END
              @{$files{refaddr $self}}),
 
             # Trackers
-            (map { qq[\n\t] . $_->_as_string($advanced) }
-             @{$trackers{refaddr $self}}),
+            (scalar @{$trackers{refaddr $self}}
+             ? map { qq[\n\t] . $_->_as_string($advanced) }
+                 @{$trackers{refaddr $self}}
+             : q[]
+            ),
 
             # DHT
             ($self->private
              ? q[[Private - DHT/Peer EXchange disabled]]
              : q[]
             );
-        return print STDERR qq[$dump\n] unless wantarray;
-        return $dump;
+        return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     sub CLONE {

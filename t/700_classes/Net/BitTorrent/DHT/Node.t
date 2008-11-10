@@ -29,7 +29,7 @@ my ($flux_capacitor, %peers) = (0, ());
 
 #
 BEGIN {
-     plan tests => 4;
+    plan tests => 4;
 
     # Ours
     use_ok(q[File::Temp],   qw[tempdir]);

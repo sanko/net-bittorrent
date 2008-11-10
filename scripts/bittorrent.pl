@@ -33,7 +33,6 @@ GetOptions(q[help|?]             => \$help,
            q[dht!]               => \$dht,
            q[verbose|v]          => \$verbose
 ) or pod2usage(2);
-
 if (not scalar @dot_torrents and scalar @ARGV) {
     push @dot_torrents, shift @ARGV while (defined $ARGV[0] and -f $ARGV[0]);
 }

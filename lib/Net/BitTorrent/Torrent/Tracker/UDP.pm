@@ -73,8 +73,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless wantarray;
-        return $dump;
+        return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     sub CLONE {
@@ -92,7 +91,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
 
             # do some silly stuff to avoid user mistakes
             #weaken($_client{$_nID} = $_client{$_oID});
-            weaken tier {$_nID};
+            weaken $tier{$_nID};
 
             #  update he weak refernce to the new, cloned object
             weaken($REGISTRY{$_nID} = $_obj);

@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Module::Build;
-    use Test::More;
+use Test::More;
 
 #
 use lib q[../../../../../lib];
@@ -28,7 +28,7 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 
 #
 BEGIN {
-     plan tests => 139;
+    plan tests => 139;
     use_ok(q[File::Temp], qw[tempfile tempdir]);
     use_ok(q[File::Spec]);
     use_ok(q[Net::BitTorrent::Torrent::File]);

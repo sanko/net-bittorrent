@@ -90,9 +90,6 @@ package Net::BitTorrent::Torrent::Tracker;
             return;
         }
 
-        # According to spec, multi-tracker tiers are shuffled initially
-        $args->{q[URLs]} = shuffle($args->{q[URLs]});
-
         #
         $self = bless(\$args->{q[URLs]}->[0], $class);
 
@@ -105,16 +102,14 @@ package Net::BitTorrent::Torrent::Tracker;
         $incomplete{refaddr $self} = 0;
 
         #
-        $_urls{refaddr $self} = [
-                          map ($_ =~ m[^http://]i
-                               ? Net::BitTorrent::Torrent::Tracker::HTTP->new(
-                                                    {URL => $_, Tier => $self}
-                                   )
-                               : Net::BitTorrent::Torrent::Tracker::UDP->new(
-                                                    {URL => $_, Tier => $self}
-                               ),
-                               @{$args->{q[URLs]}})
-        ];
+        $_urls{refaddr $self} = [];
+        for my $_url (@{$args->{q[URLs]}}) {
+            push @{$_urls{refaddr $self}},
+                ($_url =~ m[^http://]i
+                 ? q[Net::BitTorrent::Torrent::Tracker::HTTP]
+                 : q[Net::BitTorrent::Torrent::Tracker::UDP]
+                )->new({URL => $_url, Tier => $self});
+        }
 
         #
         $torrent{refaddr $self}->_client->_schedule({Time   => time,
@@ -123,6 +118,9 @@ package Net::BitTorrent::Torrent::Tracker;
                                                     }
         ) if defined $torrent{refaddr $self}->_client;
         weaken($REGISTRY{refaddr $self} = $self);
+
+        # According to spec, multi-tracker tiers are shuffled initially
+        @{$_urls{refaddr $self}} = shuffle(@{$_urls{refaddr $self}});
 
         #
         return $self;
@@ -165,8 +163,7 @@ package Net::BitTorrent::Torrent::Tracker;
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless wantarray;
-        return $dump;
+        return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     #

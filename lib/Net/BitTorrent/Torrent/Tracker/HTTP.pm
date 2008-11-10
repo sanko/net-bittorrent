@@ -360,8 +360,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = q[TODO];
-        return print STDERR qq[$dump\n] unless wantarray;
-        return $dump;
+        return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     sub CLONE {

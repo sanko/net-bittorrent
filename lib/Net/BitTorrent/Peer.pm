@@ -1520,8 +1520,7 @@ END
             = !$advanced
             ? $$self
             : q[TODO];
-        return print STDERR qq[$dump\n] unless wantarray;
-        return $dump;
+        return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     sub CLONE {

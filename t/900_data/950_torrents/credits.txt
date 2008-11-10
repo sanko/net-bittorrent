@@ -1,4 +1,18 @@
-951_single.torrent
+951_single.torrent | single file, multiple trackers in single tier
 OpenOffice.org 3.0.0beta2rc1 for Windows (English; without JRE)
 http://borft.student.utwente.nl/~adrian/torrentphp/torrent.php/OOo_3.0.0beta2rc1_20080701_Win32Intel_install_en-US.exe.torrent
 ---
+957_PlaneShift.torrent | | devel only
+PlaneShift MMORPG v0.4.02 for Windows
+http://laanx.fragnetics.com/bt/PlaneShift-v0.4.02.exe.torrent
+http://www.planeshift.it/download.html
+---
+954_perl-5.10.0.tar.gz.torrent | single file, multiple tiers, udp
+Perl 5.10 source | initially seeded by acme
+http://torrents.thepiratebay.org/3938859/perl-5.10.0.tar.gz.3938859.TPB.torrent
+http://use.perl.org/articles/07/12/18/1836229.shtml?tid=34
+---
+959_Mandriva_DVD.torrent | gigantic metadata | devel only
+Mandriva Linux 2006 (Free) DVD
+http://www.tlm-project.org/public/distributions/mandrake/official/iso/2006.0/i586/Mandriva-Linux-Free-2006-DVD.i586.iso.torrent
+http://www.tlm-project.org/public/distributions/mandrake/official/iso/2006.0/i586/

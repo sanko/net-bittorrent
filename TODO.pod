@@ -8,15 +8,13 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over 2
 
-=item * Get help
+=item * ...none?
 
 =back
 
 =head1 Short term goals
 
 =over 2
-
-=item * Verify multi-thread processing (for non-blocking hashcheck, for example.)
 
 =item * Complete test suite
 
@@ -32,7 +30,7 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 
 =item * string is shorter than 40 chars
 
-=item * piece_length * num_pieces is nowhere near total_size_of_torrent
+=item * (piece_length * num_pieces) is nowhere near total_size_of_torrent
 
 =back
 
@@ -41,10 +39,6 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 =item * Improve detection of bad .torrent metadata.
 
 =item * Per-torrent transfer limits.
-
-=item * Start, stop, pause individual torrents.
-
-=item * Taint safe.
 
 =back
 
@@ -60,8 +54,6 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 
 =item * Behavior
 
-=item * Shortfalls
-
 =back
 
 =item * improve file handling
@@ -71,14 +63,6 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 =item * large torrents (> 4G) typically require 64bit math
 
 =item * .piece file to store incoming blocks
-
-=back
-
-=item * Wire protocol encryption (?)
-
-=over 2
-
-=item * Not internal.  A callback, perhaps.
 
 =back
 
@@ -98,14 +82,6 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 
 =back
 
-=item * PoCo::BitTorrent
-
-=over 2
-
-=item * Not to be confused with the other PoCo::BitTorrent
-
-=back
-
 =item * UDP trackers
 
 =item * Fast Peers
@@ -118,23 +94,11 @@ Partial support currently
 
 =over 2
 
-=item * perlcritic severity=stern
+=item * Wire protocol encryption
 
-=over 2
+=item * PoCo::BitTorrent
 
-=item * This is actually possible now with a bit of work.
-
-=back
-
-=over 2
-
-=item * Single class
-
-=item * No extensions
-
-=item * Trimmed API
-
-=back
+Not to be confused with the other PoCo::BitTorrent
 
 =back
 

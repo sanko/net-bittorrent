@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Module::Build;
-    use Test::More;
+use Test::More;
 
 #
 use lib q[../../../../../../lib];
