@@ -3,54 +3,29 @@ use strict;
 use warnings;
 use Module::Build;
 use Test::More;
-
-# Yours
 use Digest::SHA qw[sha1_hex];
 use File::Temp qw[tempdir];
 use Scalar::Util qw[/weak/];
 use File::Spec::Functions qw[rel2abs];
-
-#
 use lib q[../../../../lib];
-
-# Mine
 use Net::BitTorrent::Util qw[/code/];
 use Net::BitTorrent::Torrent;
 use Net::BitTorrent;
-
-#
 $|++;
-
-# Make sure the path is correct
 my $credits_dot_txt = q[./t/900_data/950_torrents/credits.txt];
 chdir q[../../../../] if not -f $credits_dot_txt;
-
-# Keep track of where we are...
 my $test_builder = Test::More->builder;
 my $build        = Module::Build->current;
-
-# List will be filled automatically
-my %torrents = ();
+my %torrents     = ();
 _locate_torrents();
-
-#
 plan tests => int(6 + (80 * scalar keys %torrents));
-
-# M::B stuff
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 my $threads         = $build->notes(q[threads]);
 my $profile         = $build->notes(q[profile]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-
-#
 SKIP: {
-
-#skip(
-#    q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
-#    ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
-#) if not $release_testing;
     is(Net::BitTorrent::Torrent->new(), undef, q[new() returns undef]);
     is(Net::BitTorrent::Torrent->new(q[FAIL!]),
         undef, q[new('FAIL!') returns undef (requires hashref)]);
@@ -62,13 +37,9 @@ SKIP: {
         $credits_dot_txt);
     is( Net::BitTorrent::Torrent->new({Path => q[./]}), undef,
         sprintf q[{ Path => '%s' } returns undef], q[./]);
-
-    # sort through the different sorts of .torrents
-    for my $_key (sort keys %torrents) {
+    for my $_key (sort { $a cmp $b } keys %torrents) {
         my $dot_torrent = $torrents{$_key};
         warn sprintf q[Testing with '%s'], $dot_torrent;
-
-        #
         my ($tempdir)
             = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
         warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir)
@@ -92,19 +63,16 @@ SKIP: {
             return if not defined $torrent;
             for my $file (@{$torrent->files}) { $file->_close() }
         }
-
-        #
         is($torrent->path, rel2abs($dot_torrent),
             q[Absolute paths returned from path()]);
         is_deeply($torrent->raw_data, _raw_data($_key),
                   sprintf q[Raw data for %s torrent looks good.], $_key);
-        is($torrent->infohash, _infohash($_key),
-            sprintf q[Infohash checks out (%s)], $_key);
-
-        #use Data::Dump qw[pp];
-        #warn pp _raw_data($_key);
-        #warn pp [_trackers($_key)];
-        #warn pp $torrent->trackers;
+        is( $torrent->infohash,
+            _infohash($_key),
+            sprintf q[Infohash checks out as %s (%s)],
+            (join(q[ ... ], $torrent->infohash =~ m[^(.{4}).+(.{4})$])),
+            $_key
+        );
         is_deeply($torrent->trackers, [_trackers($_key)],
                   sprintf q[List of trackers (%s)], $_key);
         is($torrent->is_complete, 0, sprintf q[Download is incomplete (%s)],
@@ -148,15 +116,11 @@ SKIP: {
         is($torrent->name,
             _raw_data($_key)->{q[info]}{q[name]},
             sprintf q[name is correct (%s)], $_key);
-
-        # we do more later
         ok($torrent->status, sprintf q[Status indicates (%s )...], $_key);
         ok($torrent->status & 128,
             sprintf q[ ...%s torrent is attached to a client.], $_key);
         ok($torrent->status & 64,
             sprintf q[ ...%s torrent was loaded properly.], $_key);
-
-        # Try bad stuff
         is( Net::BitTorrent::Torrent->new(
                                   {Path    => $dot_torrent,
                                    BaseDir => $tempdir,
@@ -221,32 +185,16 @@ SKIP: {
                 sprintf q[ ...BlockLength == 4000000 (%s)], $_key);
         }
         {
-
-=status
-           1 = Started  (New peers are accepted, etc.)
-           2 = Checking (Currently hashchecking)
-           4 = Start after Check*
-           8 = Checked
-          16 = Error*   (Activity is halted and may require user intervention)
-          32 = Paused
-          64 = Loaded
-         128 = Queued   (Has an associated Net::BitTorrent parent)
- * Currently unused
-=cut
             my %IS = qw[
                 Started  1 Checking  2 StartAfterCheck  4 Checked   8
                 Error   16 Paused   32 Loaded          64 Queued  128
             ];
-
-            #
             ok($orphan_torrent->status, sprintf q[Status indicates... (%s)],
                 $_key);
             warn $orphan_torrent->status;
             is($orphan_torrent->status, $IS{q[Loaded]},
                 sprintf q[ ...torrent is loaded but has no parent. (%s)],
                 $_key);
-
-            #
             my $_torrent_Test =
                 Net::BitTorrent::Torrent->new({Path    => $dot_torrent,
                                                BaseDir => $tempdir,
@@ -282,11 +230,9 @@ SKIP: {
             warn $_torrent_Test->status;
             ok($_torrent_Test->status ^ $IS{q[Paused]},
                 sprintf q[ ...Status says we're started. (%s)], $_key);
-
-            #die;
             warn
                 q[TODO: 'Bad' status like this one should fall back to default];
-            my $_torrent_unchecked =    # Undocumented Status param
+            my $_torrent_unchecked =
                 Net::BitTorrent::Torrent->new(
                                          {Path    => $dot_torrent,
                                           BaseDir => $tempdir,
@@ -315,11 +261,7 @@ SKIP: {
                 $_key
             );
         }
-
-        # TODO: Test BaseDir param
         warn(q[TODO: Test BaseDir param]);
-
-        #
         is($torrent->downloaded, 0, sprintf q[    downloaded == 0 (%s)],
             $_key);
         is( $torrent->_add_downloaded(1024),       1024,
@@ -339,11 +281,6 @@ SKIP: {
             sprintf q[_add_uploaded('dude') (%s)], $_key);
         is($torrent->uploaded, 1024, sprintf q[    uploaded == 1024 (%s)],
             $_key);
-
-       #
-       #my $torrent_with_files = new_ok( # Requires Test::More 0.30+
-       #              q[Net::BitTorrent::Torrent] => [{Path => $dot_torrent}],
-       #              sprintf q[Created new object to play with (%s)], $_key);
         my $torrent_with_files = Net::BitTorrent::Torrent->new(
                                 {Path => $dot_torrent, BaseDir => $tempdir,});
         isa_ok($torrent_with_files, q[Net::BitTorrent::Torrent],
@@ -351,13 +288,12 @@ SKIP: {
         my $_wanted = $torrent_with_files->_wanted;
         like(unpack(q[b*], $torrent_with_files->_wanted()), qr[^1+0*$],
              sprintf q[By default, we want everything (%s)], $_key);
+
         for my $file (@{$torrent_with_files->files()}) {
             $file->set_priority(0);
         }
         like(unpack(q[b*], $torrent_with_files->_wanted()), qr[^0+$],
              sprintf q[And now we want nothing (%s)], $_key);
-
-        #
         warn q[TODO: _piece_by_index  # returns undef];
         is($torrent->_piece_by_index(),
             undef, sprintf q[_piece_by_index( ) requires an index (%s)],
@@ -387,28 +323,6 @@ SKIP: {
             undef,
             sprintf q[_piece_by_index(%d) orphans never have pieces (%s)],
             (0), $_key);
-
-#warn q[TODO: _pick_piece      # returns piece];
-#is($torrent->_pick_piece(), undef, sprintf q[_pick_piece( ) requires an peer (%s)], $_key);
-#is($torrent->_pick_piece(bless \%ENV, q[Net::BitTorrent::Peer]), undef, sprintf q[_pick_piece(%d) doesn't exist yet (%s)],0, $_key);
-#is($torrent->_pick_piece($torrent->_piece_count), undef, sprintf q[_pick_piece(%d) doesn't exist yet (%s)],$torrent->_piece_count , $_key);
-#is($torrent->_pick_piece($torrent->_piece_count + 1), undef, sprintf q[_pick_piece(%d) will never exist (%s)],($torrent->_piece_count + 1), $_key);
-#die;
-        warn q[TODO: _piece_by_index  # returns piece ...maybe];
-
-#is($torrent->_piece_by_index(), undef, sprintf q[_piece_by_index( ) requires an index (%s)], $_key);
-#is($torrent->_piece_by_index(0), undef, sprintf q[_piece_by_index(%d) doesn't exist yet (%s)],0, $_key);
-#is($torrent->_piece_by_index($torrent->_piece_count), undef, sprintf q[_piece_by_index(%d) doesn't exist yet (%s)],$torrent->_piece_count , $_key);
-#is($torrent->_piece_by_index($torrent->_piece_count + 1), undef, sprintf q[_piece_by_index(%d) will never exist (%s)],($torrent->_piece_count + 1), $_key);
-        warn q[TODO: _write_data];
-        warn q[TODO: _read_data];
-        warn q[TODO: _check_piece_by_index];
-        warn q[TODO: hashcheck];
-        warn q[TODO: _add_tracker];
-        warn q[TODO: _append_compact_nodes];
-        warn q[TODO: _new_peer  # skipped if no tcp tests];
-        warn q[TODO: _peers     # skipped if no tcp tests requires parent];
-        warn q[We try something similar in the multi-threaded tests];
         my $_bitfield     = $torrent->bitfield();
         my $_new_bitfield = $_bitfield;
         vec($_new_bitfield, 0, 8) = 1;
@@ -422,7 +336,7 @@ SKIP: {
             sprintf q[Bitfield is too short... (%s)], $_key);
         is($torrent->bitfield, $_new_bitfield,
             sprintf q[Bitfield has not changed. (%s)], $_key);
-        ok( $torrent->_set_status($torrent->status | 2),    # Ruins everything
+        ok($torrent->_set_status($torrent->status | 2),
             sprintf q[Set status | 2 (hashchecking).. (%s)], $_key);
         is( $torrent->_set_bitfield($_bitfield),
             undef,
@@ -436,8 +350,6 @@ SKIP: {
             $_key);
         ok($torrent->_as_string(1),
             sprintf q[_as_string(1) | advanced (%s)], $_key);
-
-        #
         warn q[Test multithreaded stuff...];
     SKIP: {
             skip q[Multi-threaded tests have been skipped], 5 if !$threads;
@@ -451,8 +363,6 @@ SKIP: {
                 if $profile;
             use_ok(q[threads]);
             use_ok(q[threads::shared]);
-
-            #
             my $_threaded_torrent = Net::BitTorrent::Torrent->new(
                                 {Path => $dot_torrent, BaseDir => $tempdir,});
             ok($_threaded_torrent->_set_status(4),
@@ -524,4 +434,30 @@ sub _infohash {
     return sha1_hex(bencode(_raw_data($key)->{q[info]}));
 }
 
-# $Id$
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of The Artistic License 2.0.  See the F<LICENSE>
+file included with this distribution or
+http://www.perlfoundation.org/artistic_license_2_0.  For
+clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
+
+When separated from the distribution, all POD documentation is covered
+by the Creative Commons Attribution-Share Alike 3.0 License.  See
+http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
+clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
+
+Neither this module nor the L<Author|/Author> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

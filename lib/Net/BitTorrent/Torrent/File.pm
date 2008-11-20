@@ -1,137 +1,58 @@
 #!C:\perl\bin\perl.exe
 package Net::BitTorrent::Torrent::File;
 {
-    use strict;      # core as of perl 5
-    use warnings;    # core as of perl 5.006
-
-    #
-    use Carp qw[carp];                              # core as of perl 5
-    use Scalar::Util qw[blessed weaken refaddr];    # core as of perl 5.007003
-    use Fcntl qw[/O_/ /SEEK/ :flock];               # core as of perl 5
-
-    # Utility stuff... should be moved to N::B::S::F::Util?
-    #use File::Path qw[mkpath]; # core as of perl 5.001
-    #use File::Spec::Functions  # core as of perl 5.00504
-    #    qw[splitpath catpath];
-    #
-    use version qw[qv];                             # core as of 5.009
+    use strict;
+    use warnings;
+    use Carp qw[carp];
+    use Scalar::Util qw[blessed weaken refaddr];
+    use Fcntl qw[/O_/ /SEEK/ :flock];
+    use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
-
-    #
-    my (@CONTENTS) = \my (
-           %path,     %torrent, %size,   %index,         # parameters to new()
-           %priority, %mode,    %handle, %win32_handle);
+    my (@CONTENTS)
+        = \
+        my (%path, %torrent, %size, %index, %priority, %mode, %handle,
+            %win32_handle);
     my %REGISTRY = ();
 
-    # Constructor
     sub new {
-
-        # Creates a new N::B::Torrent object
-        # Accepts parameters as key/value pairs in a hash reference
-        # Required parameters:
-        #  - Path    (filename)
-        #  - Torrent (blessed N::B::Torrent object)
-        #  - Size    (length of this file when complete)
-        # Returns
-        #    - a new blessed object on success
-        #    - undef on failure
-        # MO
-        # - validate incoming parameters
-        # -
-        # -
-        # -
-        # -
-        # -
-        # -
-        # - return $self
         my ($class, $args) = @_;
         my $self;
-
-        # Param validation... Ugh...
-        if (not defined $args) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires ]
-            #    . q[parameters a set of parameters];
+        if ((!$args) || (ref($args) ne q[HASH])) {
+            carp
+                q[Net::BitTorrentS::Torrent::File->new({}) requires parameters to be passed as a hashref];
             return;
         }
-        if (ref($args) ne q[HASH]) {
-
-            #carp q[Net::BitTorrentS::Torrent::File->new({}) requires ]
-            #    . q[parameters to be passed as a hashref];
+        if (!$args->{q[Path]}) {
+            carp
+                q[Net::BitTorrent::Torrent::File->new({}) requires a 'Path' parameter];
             return;
         }
-        if (not defined $args->{q[Path]}) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires a ]
-            #    . q['Path' parameter];
+        if (   (!$args->{q[Torrent]})
+            || (!blessed $args->{q[Torrent]})
+            || (!$args->{q[Torrent]}->isa(q[Net::BitTorrent::Torrent])))
+        {   carp
+                q[Net::BitTorrent::Torrent::File->new({}) requires a 'Torrent' parameter];
             return;
         }
-        if (not defined $args->{q[Torrent]}) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires a ]
-            #    . q['Torrent' parameter];
+        if ((!defined $args->{q[Size]}) || ($args->{q[Size]} !~ m[^\d+$])) {
+            carp
+                q[Net::BitTorrent::Torrent::File->new({}) requires an integer value for 'Size'];
             return;
         }
-        if (not blessed $args->{q[Torrent]}) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires a ]
-            #    . q[blessed 'Torrent' object];
+        if ((!defined $args->{q[Index]}) || ($args->{q[Index]} !~ m[^\d+$])) {
+            carp
+                q[Net::BitTorrent::Torrent::File->new({}) requires an 'Index' parameter];
             return;
         }
-        if (not $args->{q[Torrent]}->isa(q[Net::BitTorrent::Torrent])) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires a ]
-            #    . q[blessed Net::BitTorrent::Torrent object in the ]
-            #    . q['Torrent' parameter];
-            return;
-        }
-        if (not defined $args->{q[Size]}) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires a ]
-            #    . q['Size' parameter];
-            return;
-        }
-        if ($args->{q[Size]} !~ m[^\d+$]) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires an ]
-            #    . q[integer value for 'Size'];
-            return;
-        }
-        if (not defined $args->{q[Index]}) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires an ]
-            #    . q['Index' parameter];
-            return;
-        }
-        if ($args->{q[Index]} !~ m[^\d+$]) {
-
-            #carp q[Net::BitTorrent::Torrent::File->new({}) requires an ]
-            #    . q[integer value for 'Index'];
-            return;
-        }
-
-        #
         $self = bless \$args->{q[Path]}, $class;
         $path{refaddr $self}    = $args->{q[Path]};
         $torrent{refaddr $self} = $args->{q[Torrent]};
         weaken $torrent{refaddr $self};
-        $size{refaddr $self}  = $args->{q[Size]};
-        $index{refaddr $self} = $args->{q[Index]};
-        $priority{refaddr $self} = 2;    # default in 0-3 range where...
-                                         #  0 = don't download
-                                         #  1 = low priority
-                                         #  2 = normal priority
-                                         #  3 = high priority
-
-        # threads suff
+        $size{refaddr $self}     = $args->{q[Size]};
+        $index{refaddr $self}    = $args->{q[Index]};
+        $priority{refaddr $self} = 2;
         weaken($REGISTRY{refaddr $self} = $self);
-
-        #
-        # TODO (for client writers):
-        # if -f $args{q[Path]}
-        #   we should force a hash check?
-        #
         return $self;
     }
 
@@ -141,15 +62,13 @@ package Net::BitTorrent::Torrent::File;
     sub set_priority {
         my ($self, $newval) = @_;
         if (not defined $newval) {
-
-#carp
-#    q[Net::BitTorrent::Torrent::File->set_priority() requires an priority parameter];
+            carp
+                q[Net::BitTorrent::Torrent::File->set_priority() requires an priority parameter];
             return;
         }
         if ($newval !~ m[^\d+$]) {
-
-   #carp
-   #    q[Net::BitTorrent::Torrent::File->set_priority() requires an integer];
+            carp
+                q[Net::BitTorrent::Torrent::File->set_priority() requires an integer];
             return;
         }
         return $priority{refaddr $self} = $newval;
@@ -160,41 +79,23 @@ package Net::BitTorrent::Torrent::File;
     sub index   { return $index{refaddr +shift} }
     sub path    { return $path{refaddr +shift} }
 
-    # Accessors | private
-    #
-    # Methods | public
-    #
     # Methods | private
     sub _open {
         my ($self, $mode) = @_;
-        if (not defined $mode) {
-
-            #carp q[Net::BitTorrent::Torrent::File->_open() requires a mode];
+        if ((!$mode) || ($mode !~ m[^[rw]$])) {
+            carp q[Net::BitTorrent::Torrent::File->_open() requires a mode];
             return;
         }
-        if ($mode !~ m[^[rw]$]) {
-
-           #carp
-           #    q[Malformed mode to Net::BitTorrent::Torrent::File->_open(): ]
-           #    . $mode;
-            return;
-        }
-
-        #
         if (defined $handle{refaddr $self} and defined $mode{refaddr $self}) {
             if ($mode{refaddr $self} eq $mode) {
                 return sysseek($handle{refaddr $self}, 0, SEEK_SET);
             }
             if ($mode{refaddr $self} eq q[w]) {
-                flock($handle{refaddr $self}, LOCK_UN) or return;    # unlock
+                flock($handle{refaddr $self}, LOCK_UN) or return;
             }
             $self->_close;
         }
-
-        #
         $self->_mkpath;
-
-        #
         my $mode_Fcntl = $mode eq q[r] ? O_RDONLY : O_WRONLY;
         if (not $self->_sysopen(($mode eq q[r] ? (O_RDONLY) : (O_WRONLY)))) {
             $torrent{refaddr $self}->_client->_event(
@@ -209,11 +110,7 @@ package Net::BitTorrent::Torrent::File;
                     and $mode eq q[w];
             return;
         }
-
-        #
         $mode{refaddr $self} = $mode;
-
-        #
         if (not flock($handle{refaddr $self},
                       (($mode{refaddr $self} eq q[r]) ? LOCK_SH : LOCK_EX)
             )
@@ -234,13 +131,9 @@ package Net::BitTorrent::Torrent::File;
             );
             return;
         }
-
-        #
         $torrent{refaddr $self}->_client->_event(q[file_open],
                                 {File => $self, Mode => $mode{refaddr $self}})
             if defined $torrent{refaddr $self}->_client();
-
-        #
         return defined $handle{refaddr $self};
     }
 
@@ -347,33 +240,18 @@ END
             );
             return;
         }
-
-        #
         $torrent{refaddr $self}->_client->_event(q[file_write],
                                    {File => $self, Length => $actual_length});
-
-        #
         return $actual_length;
     }
 
     sub _read {
         my ($self, $length) = @_;
-
-        #
-        if (not defined $length) {
-
-    #carp
-    #    q[Net::BitTorrent::Torrent::File->_read( LENGTH ) requires a length];
+        if ((!defined $length) || ($length !~ m[^\d+$])) {
+            carp
+                q[Net::BitTorrent::Torrent::File->_read( LENGTH ) requires a length];
             return;
         }
-        if ($length !~ m[^\d+$]) {
-
-#carp
-#    q[Net::BitTorrent::Torrent::File->_read( LENGTH ) requires an integer length];
-            return;
-        }
-
-        #
         my $data = q[];
         if (not $handle{refaddr $self}) {
             $torrent{refaddr $self}->_client->_event(
@@ -464,7 +342,7 @@ END
 
     sub _sysseek {
         my ($self, $position, $wence) = @_;
-        $wence = defined $wence ? $wence : SEEK_SET;    # default
+        $wence = defined $wence ? $wence : SEEK_SET;
         if (not defined $handle{refaddr $self}) {
             $torrent{refaddr $self}->_client->_event(
                   q[file_error],
@@ -480,8 +358,6 @@ END
             return;
         }
         elsif (not defined $position) {
-
-            # XXX - is this a param error or a file error?
             $torrent{refaddr $self}->_client->_event(
                                 q[file_error],
                                 {File    => $self,
@@ -598,45 +474,25 @@ END
     sub _close {
         my ($self) = @_;
         return if not defined $mode{refaddr $self};
-
-        #
         if (defined $win32_handle{refaddr $self} and require Win32API::File) {
             Win32API::File::CloseHandle($win32_handle{refaddr $self});
             delete $win32_handle{refaddr $self};
         }
-
-        #
         my $return = CORE::close($handle{refaddr $self});
-
-        #
         if ($return) {
-
-            #
             delete $mode{refaddr $self};
             delete $handle{refaddr $self};
-
-            #
             $torrent{refaddr $self}
                 ->_client->_event(q[file_close], {File => $self})
                 if defined $torrent{refaddr $self}->_client();
-
-            #
             return $return;
         }
-
-        #
         $torrent{refaddr $self}->_client->_event(
                             q[file_error],
                             {File    => $self,
                              Message => sprintf(q[Cannot close file: %s], $^E)
                             }
         ) if defined $torrent{refaddr $self}->_client();
-
-        # $torrent{refaddr $self}->_set_error(
-        #sprintf(q[Cannot close filehandle for '%s': %s],
-        #$path{refaddr $self},$^E
-        #);
-        #
         return;
     }
 
@@ -671,46 +527,48 @@ END
 
     sub _as_string {
         my ($self, $advanced) = @_;
-        my $dump = q[TODO];
+        my $dump = !$advanced ? $path{refaddr $self} : sprintf <<'END',
+Net::BitTorrent::Torrent::File
+
+Path: %s
+Size: %d bytes
+Priority: %d
+Open mode: %s
+
+Torrent: %s
+Index: %d of %d
+END
+            $path{refaddr $self}, $size{refaddr $self},
+            $priority{refaddr $self},
+            ( !$mode{refaddr $self} ? q[Closed]
+             : $mode{refaddr $self} eq q[ro] ? q[Read only]
+             : $mode{refaddr $self} eq q[wo] ? q[Write only]
+             : $mode{refaddr $self} eq q[rw] ? q[Read/Write]
+             : q[Closed]
+            ),
+            $torrent{refaddr $self}->infohash, $index{refaddr $self},
+            scalar(@{$torrent{refaddr $self}->files});
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     sub CLONE {
         for my $_oID (keys %REGISTRY) {
-
-            #  look under oID to find new, cloned reference
             my $_obj = $REGISTRY{$_oID};
             my $_nID = refaddr $_obj;
-
-            #  relocate data
             for (@CONTENTS) {
                 $_->{$_nID} = $_->{$_oID};
                 delete $_->{$_oID};
             }
-
-            # do some silly stuff to avoid user mistakes
             weaken $torrent{$_nID};
-
-            #  update he weak refernce to the new, cloned object
             weaken($REGISTRY{$_nID} = $_obj);
             delete $REGISTRY{$_oID};
         }
         return 1;
     }
-
-    # Destructor
     DESTROY {
         my ($self) = @_;
-
-        #warn q[Goodbye, ] . $$self;
-        # Clean all data
-        for (@CONTENTS) {
-            delete $_->{refaddr $self};
-        }
-        delete $REGISTRY{refaddr $self};
-
-        #
-        return 1;
+        for (@CONTENTS) { delete $_->{refaddr $self}; }
+        return delete $REGISTRY{refaddr $self};
     }
     1;
 }
@@ -760,7 +618,7 @@ Returns the absolute path of the related file.
 
 Returns the download priority of this file.
 
-See also: L<set_priority ( )|"/set_priority ( NEWVAL )">
+See also: L<set_priority ( )|/"set_priority ( NEWVAL )">
 
 =item C<set_priority ( NEWVAL )>
 
@@ -771,12 +629,12 @@ intent being on a C<0> (skip), C<1> (low), C<2> (normal), C<3> (high)
 priority scale but you may use any scale you want.  For example, you
 could set a file's priority to say... C<1,000,000>, leave everything
 else at the default C<2> and and be positive we'll work on it first.
-To avoid downloading this file, set priority to zero.
+To avoid downloading this file, set priority to C<0>.
 
 See also: L<priority ( )|/"priority ( )">
 
-NOTE: Setting the priority to zero will tell C<Net::BitTorrrent> not
-to bother requesting these pieces but the file will still be created
+NOTE: Setting the priority to C<0> will tell C<Net::BitTorrrent> not
+to bother requesting these pieces however, the file will still be created
 on disk if a piece we want overlaps onto this file.  Just give me some
 time to work on an intermediate .piece file and this problem will go
 away.
@@ -791,37 +649,6 @@ object related to this file.
 Returns the size of the file represented by this object.
 
 =back
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 =head1 Author
 

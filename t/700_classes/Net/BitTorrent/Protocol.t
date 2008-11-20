@@ -3,56 +3,41 @@ use strict;
 use warnings;
 use Test::More;
 use Module::Build;
-
-#
 use lib q[../../../../lib];
 $|++;
-
-# let's keep track of where we are...
-my $test_builder = Test::More->builder;
-
-#
+my $test_builder       = Test::More->builder;
 my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
-
-# Make sure the path is correct
 chdir q[../../../../] if not -f $simple_dot_torrent;
-
-#
 my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-
-#
 $|++;
 
-#
 BEGIN {
     plan tests => 267;
     use_ok(q[Net::BitTorrent::Protocol], qw[:all]);
 }
-{    # basics
-    is(HANDSHAKE,      -1,  q[Handshake]);
-    is(KEEPALIVE,      q[], q[Keepalive]);
-    is(CHOKE,          0,   q[Choke]);
-    is(UNCHOKE,        1,   q[Unchoke]);
-    is(INTERESTED,     2,   q[Interested]);
-    is(NOT_INTERESTED, 3,   q[Not Interested]);
-    is(HAVE,           4,   q[Have]);
-    is(BITFIELD,       5,   q[Bitfield]);
-    is(REQUEST,        6,   q[Request]);
-    is(PIECE,          7,   q[Piece]);
-    is(CANCEL,         8,   q[Cancel]);
-    is(PORT,           9,   q[Port]);
-    is(SUGGEST,        13,  q[Suggest]);
-    is(HAVE_ALL,       14,  q[Have All]);
-    is(HAVE_NONE,      15,  q[Have None]);
-    is(REJECT,         16,  q[Reject]);
-    is(ALLOWED_FAST,   17,  q[Allowed Fast]);
-    is(EXTPROTOCOL,    20,  q[Extended]);
-
-    #
+SKIP: {
+    is(HANDSHAKE,         -1,    q[Handshake]);
+    is(KEEPALIVE,         q[],   q[Keepalive]);
+    is(CHOKE,             0,     q[Choke]);
+    is(UNCHOKE,           1,     q[Unchoke]);
+    is(INTERESTED,        2,     q[Interested]);
+    is(NOT_INTERESTED,    3,     q[Not Interested]);
+    is(HAVE,              4,     q[Have]);
+    is(BITFIELD,          5,     q[Bitfield]);
+    is(REQUEST,           6,     q[Request]);
+    is(PIECE,             7,     q[Piece]);
+    is(CANCEL,            8,     q[Cancel]);
+    is(PORT,              9,     q[Port]);
+    is(SUGGEST,           13,    q[Suggest]);
+    is(HAVE_ALL,          14,    q[Have All]);
+    is(HAVE_NONE,         15,    q[Have None]);
+    is(REJECT,            16,    q[Reject]);
+    is(ALLOWED_FAST,      17,    q[Allowed Fast]);
+    is(EXTPROTOCOL,       20,    q[Extended]);
     is(build_handshake(), undef, q[   ...requires three params]);
     is(build_handshake(undef, undef, undef),
         undef, q[   ...uh, defined params]);
@@ -79,8 +64,6 @@ BEGIN {
             . q[AAAAAAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBBBBB],
         q[   Double check.]
     );
-
-    #
     is(build_keepalive(), qq[\0\0\0\0],
         q[   ...requires no params and has no payload]);
 SKIP: {
@@ -88,24 +71,14 @@ SKIP: {
             q[fine grain regression tests; turn on $ENV{RELESE_TESTING} to enable],
             157
         ) if not $release_testing;
-
-        #
         is(build_choke(), qq[\0\0\0\1\0],
             q[   ...requires no params and has no payload]);
-
-        #
         is(build_unchoke(), qq[\0\0\0\1\1],
             q[   ...requires no params and has no payload]);
-
-        #
         is(build_interested(), qq[\0\0\0\1\2],
             q[   ...requires no params and has no payload]);
-
-        #
         is(build_not_interested(), qq[\0\0\0\1\3],
             q[   ...requires no params and has no payload]);
-
-        #
         is(build_have(),            undef, q[   ...requires a single param]);
         is(build_have(q[1desfdds]), undef, q[   ...an index]);
         is(build_have(9), qq[\0\0\0\5\4\0\0\0\t],
@@ -118,9 +91,7 @@ SKIP: {
         warn(
             q[     (A quadrillion piece torrent? Ha! The .torrent itself would be several GBs)]
         );
-        is(build_have(-5), undef, q[   ...as long as it's positive]);
-
-        #
+        is(build_have(-5),      undef, q[   ...as long as it's positive]);
         is(build_bitfield(),    undef, q[   ...requires a single param]);
         is(build_bitfield(q[]), undef, q[   ...a packed bitfield]);
         is(build_bitfield(q[abcdefg]),
@@ -130,8 +101,6 @@ SKIP: {
         is(build_bitfield($tmp),
             pack(q[N], length($tmp) + 1) . chr(5) . $tmp,
             q[   ...more testing]);
-
-        #
         is(build_request(undef, 2,     3), undef, q[   ...requires an index]);
         is(build_request(1,     undef, 3), undef, q[   ...an offset]);
         is(build_request(1, 2, undef), undef, q[   ...and a length.]);
@@ -154,8 +123,6 @@ SKIP: {
             pack(q[H*], q[0000000d06ffffffffffffffffffffffff]),
             q[   They should all be positive numbers (H)]
         );
-
-        #
         is(build_piece(undef, 2, 3), undef, q[   ...requires an index]);
         is(build_piece(1,   undef, q[test]), undef, q[   ...an offset]);
         is(build_piece(1,   2,     undef),   undef, q[   ...and data]);
@@ -169,8 +136,6 @@ SKIP: {
         is(build_piece(1, 2, \$tmp),
             (pack(q[NcN2a*], length($tmp) + 9, 7, 1, 2, $tmp)),
             q[   validation (F)]);
-
-        #
         is(build_cancel(undef, 2,     3), undef, q[   ...requires an index]);
         is(build_cancel(1,     undef, 3), undef, q[   ...an offset]);
         is(build_cancel(1, 2, undef), undef, q[   ...and a length.]);
@@ -193,16 +158,12 @@ SKIP: {
             pack(q[H*], q[0000000d08ffffffffffffffffffffffff]),
             q[   They should all be positive numbers (H)]
         );
-
-        #
         is(build_port(),    undef, q[   Requires a port number]);
         is(build_port(-5),  undef, q[   ...and ports are always positive]);
         is(build_port(3.3), undef, q[   ...integers]);
         is(build_port(q[test]), undef, q[   Validation (A)]);
         is(build_port(8555), qq[\0\0\0\5\t\0\0!k], q[   Validation (B)]);
         is(build_port(652145), qq[\0\0\0\a\t\0\t\xF3q], q[   Validation (C)]);
-
-        #
         is(build_allowed_fast(), undef, q[   Requires a piece index]);
         is(build_allowed_fast(-5), undef,
             q[   ...which is always a positive]);
@@ -214,8 +175,6 @@ SKIP: {
             qq[\0\0\0\5\21\0\t\xF3q], q[   Validation (C)]);
         is(build_allowed_fast(0), qq[\0\0\0\5\21\0\0\0\0],
             q[   Validation (D)]);
-
-        #
         is(build_reject(undef, 2,     3), undef, q[   ...requires an index]);
         is(build_reject(1,     undef, 3), undef, q[   ...an offset]);
         is(build_reject(1, 2, undef), undef, q[   ...and a length.]);
@@ -238,16 +197,10 @@ SKIP: {
             pack(q[H*], q[0000000d10ffffffffffffffffffffffff]),
             q[   They should all be positive numbers (H)]
         );
-
-        #
         is(build_have_all(), qq[\0\0\0\1\16],
             q[   ...requires no params and has no payload]);
-
-        #
         is(build_have_none(), qq[\0\0\0\1\17],
             q[   ...requires no params and has no payload]);
-
-        #
         is(build_suggest(),    undef, q[   Requires a piece index]);
         is(build_suggest(-5),  undef, q[   ...which is always a positive]);
         is(build_suggest(3.3), undef, q[   ...integer]);
@@ -256,8 +209,6 @@ SKIP: {
         is(build_suggest(652145), qq[\0\0\0\5\r\0\t\xF3q],
             q[   Validation (C)]);
         is(build_suggest(0), qq[\0\0\0\5\r\0\0\0\0], q[   Validation (D)]);
-
-        #
         is(build_extended(), undef,
             q[   ...requires a message id and a playload]);
         is(build_extended(undef, {}), undef, q[   ...validation (A)]);
@@ -271,25 +222,18 @@ SKIP: {
             qq[\0\0\0\4\24\0de],
             q[   ...validation (H)]
         );
-        is( build_extended(
-                0,
-                {m => {ut_pex => 1, q[µT_PEX] => 2},
-                 (    # is incoming ? ():
-                    (p => 30)    # port
-                 ),
-                 v      => q[Net::BitTorrent r0.30],
-                 yourip => pack(q[C4], (q[127.0.0.1] =~ m[(\d+)]g)),
-                 reqq => 30      # XXX - Lies.  It's on my todo list...
-                       # reqq == An integer, the number of outstanding request messages
-                       # this client supports without dropping any.  The default in in
-                       # libtorrent is 2050.
-                }
+        is( build_extended(0,
+                           {m => {ut_pex => 1, q[µT_PEX] => 2},
+                            ((p => 30)),
+                            v => q[Net::BitTorrent r0.30],
+                            yourip =>
+                                pack(q[C4], (q[127.0.0.1] =~ m[(\d+)]g)),
+                            reqq => 30
+                           }
             ),
             qq[\0\0\0Z\24\0d1:md6:ut_pexi1e7:\xC2\xB5T_PEXi2ee1:pi30e4:reqqi30e1:v21:Net::BitTorrent r0.306:yourip4:\x7F\0\0\1e],
             q[   ...validation (I | initial handshake)]
         );
-
-        #
         is(_parse_handshake(),          undef, q[Undef]);
         is(_parse_handshake(q[]),       undef, q[Empty]);
         is(_parse_handshake(q[Hahaha]), undef, q[Not enough data]);
@@ -306,45 +250,29 @@ SKIP: {
                   [qq[\0] x 8, q[A] x 20, q[B] x 20],
                   q[Correct handshake]
         );
-
-        #
         is(_parse_keepalive(), undef,
             q[  ...has no payload and nothing to test]);
-
-        #
         is(_parse_choke(), undef, q[  ...has no payload and nothing to test]);
-
-        #
         is(_parse_unchoke(), undef,
             q[  ...has no payload and nothing to test]);
-
-        #
         is(_parse_interested(), undef,
             q[  ...has no payload and nothing to test]);
-
-        #
         is(_parse_not_interested(), undef,
             q[  ...has no payload and nothing to test]);
-
-        #
         is(_parse_have(),             undef,     q[Undef]);
         is(_parse_have(q[]),          undef,     q[Empty]);
         is(_parse_have(qq[\0\0\0d]),  100,       q[ ...100]);
         is(_parse_have(qq[\0\0\0\0]), 0,         q[ ...0]);
         is(_parse_have(qq[\0\0\4\0]), 1024,      q[ ...1024]);
         is(_parse_have(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
-
-        #
-        is(_parse_bitfield(),    undef, q[Undef]);
-        is(_parse_bitfield(q[]), undef, q[Empty]);
+        is(_parse_bitfield(),         undef,     q[Undef]);
+        is(_parse_bitfield(q[]),      undef,     q[Empty]);
         is(_parse_bitfield(pack q[B*], q[1110010100010]),
             qq[\xA7\b], q[ ...1110010100010]);
         is(_parse_bitfield(pack q[B*], q[00]),    qq[\0],  q[ ..00]);
         is(_parse_bitfield(pack q[B*], q[00001]), qq[\20], q[ ...00001]);
         is(_parse_bitfield(pack q[B*], q[1111111111111]),
             qq[\xFF\37], q[ ...1111111111111]);
-
-        #
         is(_parse_request(),    undef, q[Undef]);
         is(_parse_request(q[]), undef, q[Empty]);
         is_deeply(_parse_request(qq[\0\0\0\0\0\0\0\0\0\0\0\0]),
@@ -359,8 +287,6 @@ SKIP: {
         is_deeply(_parse_request(qq[\0\20\0\0\0\0\@\0\0\2\0\0]),
                   [2**20, 2**14, 2**17],
                   q[ ...i:2**20 o:2**14 l:2**17]);
-
-        #
         is(_parse_piece(),    undef, q[Undef]);
         is(_parse_piece(q[]), undef, q[Empty]);
         is_deeply(_parse_piece(qq[\0\0\0\0\0\0\0\0TEST]),
@@ -374,8 +300,6 @@ SKIP: {
                   q[ ...i:2**20 o:2**14 d:'TEST']);
         is_deeply([_parse_piece(qq[\0\20\0\0\0\0\@\0])],
                   [], q[ ...i:2**20 o:2**14 d:'TEST']);
-
-        #
         is(_parse_cancel(),    undef, q[Undef]);
         is(_parse_cancel(q[]), undef, q[Empty]);
         is_deeply(_parse_cancel(qq[\0\0\0\0\0\0\0\0\0\0\0\0]),
@@ -390,32 +314,22 @@ SKIP: {
         is_deeply(_parse_cancel(qq[\0\20\0\0\0\0\@\0\0\2\0\0]),
                   [2**20, 2**14, 2**17],
                   q[ ...i:2**20 o:2**14 l:2**17]);
-
-        #
-        is(_parse_port(),             undef,     q[Undef]);
-        is(_parse_port(q[]),          undef,     q[Empty]);
-        is(_parse_port(qq[\0\0\0d]),  100,       q[ ...100]);
-        is(_parse_port(qq[\0\0\0\0]), 0,         q[ ...0]);
-        is(_parse_port(qq[\0\0\4\0]), 1024,      q[ ...1024]);
-        is(_parse_port(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
-
-        #
+        is(_parse_port(),                undef,     q[Undef]);
+        is(_parse_port(q[]),             undef,     q[Empty]);
+        is(_parse_port(qq[\0\0\0d]),     100,       q[ ...100]);
+        is(_parse_port(qq[\0\0\0\0]),    0,         q[ ...0]);
+        is(_parse_port(qq[\0\0\4\0]),    1024,      q[ ...1024]);
+        is(_parse_port(qq[\f\f\f\f]),    202116108, q[ ...202116108]);
         is(_parse_suggest(),             undef,     q[Undef]);
         is(_parse_suggest(q[]),          undef,     q[Empty]);
         is(_parse_suggest(qq[\0\0\0d]),  100,       q[ ...100]);
         is(_parse_suggest(qq[\0\0\0\0]), 0,         q[ ...0]);
         is(_parse_suggest(qq[\0\0\4\0]), 1024,      q[ ...1024]);
         is(_parse_suggest(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
-
-        #
         is(_parse_have_all(), undef,
             q[  ...has no payload and nothing to test]);
-
-        #
         is(_parse_have_none(), undef,
             q[  ...has no payload and nothing to test]);
-
-        #
         is(_parse_reject(),    undef, q[Undef]);
         is(_parse_reject(q[]), undef, q[Empty]);
         is_deeply(_parse_reject(qq[\0\0\0\0\0\0\0\0\0\0\0\0]),
@@ -430,18 +344,14 @@ SKIP: {
         is_deeply(_parse_reject(qq[\0\20\0\0\0\0\@\0\0\2\0\0]),
                   [2**20, 2**14, 2**17],
                   q[ ...i:2**20 o:2**14 l:2**17]);
-
-        #
         is(_parse_allowed_fast(),             undef,     q[Undef]);
         is(_parse_allowed_fast(q[]),          undef,     q[Empty]);
         is(_parse_allowed_fast(qq[\0\0\0d]),  100,       q[ ...100]);
         is(_parse_allowed_fast(qq[\0\0\0\0]), 0,         q[ ...0]);
         is(_parse_allowed_fast(qq[\0\0\4\0]), 1024,      q[ ...1024]);
         is(_parse_allowed_fast(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
-
-        #
-        is(_parse_extended(),    undef, q[Undef]);
-        is(_parse_extended(q[]), undef, q[Empty]);
+        is(_parse_extended(),                 undef,     q[Undef]);
+        is(_parse_extended(q[]),              undef,     q[Empty]);
         is_deeply(
             _parse_extended(
                 qq[\0d1:md6:ut_pexi1e7:\xC2\xB5T_PEXi2ee1:pi30e4:reqqi30e1:v21:Net::BitTorrent r0.306:yourip4:\x7F\0\0\1e]
@@ -457,8 +367,6 @@ SKIP: {
             q[Extended Protocol...]
         );
     }
-
-    #
     is(parse_packet(),    undef, q[Undef]);
     is(parse_packet(q[]), undef, q[Empty]);
     is(parse_packet(\{}), undef, q[Hashref]);
@@ -472,72 +380,62 @@ SKIP: {
     is(parse_packet(\$blah_2), undef, q[Empty string]);
     my $blah_3 = qq[\0\0\0\r\25\0\0\4\0\0\4\0\0\0\1\0\0];
     is(parse_packet(\$blah_3), undef, q[Bad/unknown packet]);
-
-    #
     warn(q[Here we simulate a 'real' P2P session to check packet parsing]);
-    my @original_data = (
-        build_handshake(pack(q[C*], split(q[], q[00000000])),
-                        pack(q[H*], q[0123456789] x 4),
-                        q[random peer id here!]
-        ),
-        build_bitfield(q[11100010]),
-        build_extended(
-            0,
-            {m => {ut_pex => 1, q[µT_PEX] => 2},
-             (    # is incoming ? ():
-                (p => 30)    # port
-             ),
-             v      => q[Net::BitTorrent r0.30],
-             yourip => pack(q[C4], (q[127.0.0.1] =~ m[(\d+)]g)),
-             reqq => 30      # XXX - Lies.  It's on my todo list...
-                   # reqq == An integer, the number of outstanding request messages
-                   # this client supports without dropping any.  The default in in
-                   # libtorrent is 2050.
-            }
-        ),
-        build_keepalive(),
-        build_keepalive(),
-        build_keepalive(),
-        build_keepalive(),
-        build_keepalive(),
-        build_interested(),
-        build_keepalive(),
-        build_not_interested(),
-        build_unchoke(),
-        build_choke(),
-        build_keepalive(),
-        build_interested(),
-        build_unchoke(),
-        build_keepalive(),
-        build_have(75),
-        build_have(0),
-        build_keepalive(),
-        build_port(1024),
-        build_request(0,     0,     2**15),
-        build_request(99999, 2**17, 2**15),
-        build_cancel(99999, 2**17, 2**15),
-        build_piece(1,     2,  \q[XXX]),
-        build_piece(0,     6,  \q[XXX]),
-        build_piece(99999, 12, \q[XXX]),
-        build_suggest(0),
-        build_suggest(2**14),
-        build_have_all(),           # this would never come this late...
-        build_have_none(),          # this would never come this late...
-        build_allowed_fast(0),
-        build_allowed_fast(1024),
-        build_reject(10),
-        build_reject(0,    0,     1024),
-        build_reject(1024, 2**18, 2**16),
+    my @original_data = (build_handshake(pack(q[C*], split(q[], q[00000000])),
+                                         pack(q[H*], q[0123456789] x 4),
+                                         q[random peer id here!]
+                         ),
+                         build_bitfield(q[11100010]),
+                         build_extended(
+                                0,
+                                {m => {ut_pex => 1, q[µT_PEX] => 2},
+                                 ((p => 30)),
+                                 v => q[Net::BitTorrent r0.30],
+                                 yourip =>
+                                     pack(q[C4], (q[127.0.0.1] =~ m[(\d+)]g)),
+                                 reqq => 30
+                                }
+                         ),
+                         build_keepalive(),
+                         build_keepalive(),
+                         build_keepalive(),
+                         build_keepalive(),
+                         build_keepalive(),
+                         build_interested(),
+                         build_keepalive(),
+                         build_not_interested(),
+                         build_unchoke(),
+                         build_choke(),
+                         build_keepalive(),
+                         build_interested(),
+                         build_unchoke(),
+                         build_keepalive(),
+                         build_have(75),
+                         build_have(0),
+                         build_keepalive(),
+                         build_port(1024),
+                         build_request(0,     0,     2**15),
+                         build_request(99999, 2**17, 2**15),
+                         build_cancel(99999, 2**17, 2**15),
+                         build_piece(1,     2,  \q[XXX]),
+                         build_piece(0,     6,  \q[XXX]),
+                         build_piece(99999, 12, \q[XXX]),
+                         build_suggest(0),
+                         build_suggest(2**14),
+                         build_have_all(),
+                         build_have_none(),
+                         build_allowed_fast(0),
+                         build_allowed_fast(1024),
+                         build_reject(0,    0,     1024),
+                         build_reject(1024, 2**18, 2**16),
     );
     my $data = join q[], @original_data;
     is(parse_packet($data), undef, q[Requires a ref]);
     is($data, join(q[], @original_data), q[   ...left data alone.]);
-
-#skip(
-#        q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
-#        ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
-#    ) if not $release_testing;
-#
+    skip(
+        q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
+        ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) if not $release_testing;
     is_deeply(parse_packet(\$data),
               {Payload => [qq[\0\0\0\0\0\0\0\0],
                            qq[\1#Eg\x89\1#Eg\x89\1#Eg\x89\1#Eg\x89],
@@ -692,9 +590,33 @@ SKIP: {
               q[Reject...]);
     shift @original_data;
     is($data, join(q[], @original_data), q[   ...was shifted from data.]);
-
-    #
     is_deeply(\@original_data, [], q[Looks like we're done.]);
 }
 
-# $Id$
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of The Artistic License 2.0.  See the F<LICENSE>
+file included with this distribution or
+http://www.perlfoundation.org/artistic_license_2_0.  For
+clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
+
+When separated from the distribution, all POD documentation is covered
+by the Creative Commons Attribution-Share Alike 3.0 License.  See
+http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
+clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
+
+Neither this module nor the L<Author|/Author> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

@@ -1,121 +1,288 @@
 #!C:\perl\bin\perl.exe
 package Net::BitTorrent::Torrent::Tracker::UDP;
 {
-    use strict;      # core as of perl 5
-    use warnings;    # core as of perl 5.006
-
-    #
-    use Carp qw[carp];                              # core as of perl 5
-    use Scalar::Util qw[blessed weaken refaddr];    # core since perl 5.007003
-                                                    #
-    use version qw[qv];                             # core as of 5.009
+    use strict;
+    use warnings;
+    use Carp qw[carp];
+    use Scalar::Util qw[blessed weaken refaddr];
+    use List::Util qw[sum];
+    use Socket qw[inet_aton pack_sockaddr_in];
+    use lib q[../../../../../lib];
+    use Net::BitTorrent::Util qw[uncompact];
+    use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    my %REGISTRY = ();
+    my @CONTENTS = \my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
+                        %_packed_host, %_event);
 
-    #
-    my (@CONTENTS) = \my (
-                  %url, %tier,                                # param to new()
-                  %socket);
-    my %REGISTRY;
-
-    #
     sub new {
         my ($class, $args) = @_;
-        my $self;
-        if (not defined $args) {
-            carp __PACKAGE__ . q[->new() requires params];
+        if (!$args) {
+            carp q[Net::[...]Tracker::UDP->new({}) requires params];
             return;
         }
-        if (not defined $args->{q[URL]}) {
-            carp __PACKAGE__ . q[->new() requires a 'URL' param];
+        if ((!$args->{q[URL]}) || ($args->{q[URL]} !~ m[^udp://]i)) {
+            carp q[Net::[...]Tracker::UDP->new({}) requires a valid URL];
             return;
         }
-        if ($args->{q[URL]} !~ m[^udp://]i) {
-            carp
-                sprintf(
-                  q[%s->new() doesn't know what to do with malformed url: %s],
-                  __PACKAGE__, $args->{q[URL]});
+        if (   (!$args->{q[Tier]})
+            || (!$args->{q[Tier]}->isa(q[Net::BitTorrent::Torrent::Tracker])))
+        {   carp q[Net::[...]Tracker::UDP->new({}) requires a parent Tracker];
             return;
         }
-        if (not defined $args->{q[Tier]}) {
-            carp __PACKAGE__ . q[->new() requires a 'Tier' param];
-            return;
+        my $self = bless \$args->{q[URL]}, $class;
+        my ($host, $port, $path)
+            = $args->{q[URL]} =~ m{^udp://([^/:]*)(?::(\d+))?(/.*)$};
+        $port = $port ? $port : 80;
+        my $packed_host = undef;
+        if ($host
+            !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4})$])
+        {   my ($name, $aliases, $addrtype, $length, @addrs)
+                = gethostbyname($host)
+                or return;
+            $packed_host = $addrs[0];
         }
-        if (not $args->{q[Tier]}->isa(q[Net::BitTorrent::Torrent::Tracker])) {
-            carp __PACKAGE__ . q[->new() requires a blessed Tracker 'Tier'];
-            return;
-        }
-
-        #
-        $self = bless \$args->{q[URL]}, $class;
-
-        #
-        $url{refaddr $self}  = $args->{q[URL]};
-        $tier{refaddr $self} = $args->{q[Tier]};
-        weaken $tier{refaddr $self};
+        else { $packed_host = inet_aton($host) }
+        $_packed_host{refaddr $self}
+            = pack_sockaddr_in($port, inet_aton($host));
+        $_url{refaddr $self}   = $args->{q[URL]};
+        $_event{refaddr $self} = q[];
+        $_tier{refaddr $self}  = $args->{q[Tier]};
+        $_tid{refaddr $self}   = int(rand() * 26**5);
+        weaken $_tier{refaddr $self};
         weaken($REGISTRY{refaddr $self} = $self);
-
-        #
         return $self;
     }
 
+    # Accessors | Private
+    sub _packed_host { return $_packed_host{refaddr +shift} }
+    sub _tier        { return $_tier{refaddr +shift}; }
+    sub _url         { return $_url{refaddr +shift}; }
+
+    # Methods | Private
     sub _announce {
         my ($self, $event) = @_;
         if (defined $event) {
-            if ($event !~ m[([started|stopped|complete])]) {
+            if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) {
                 carp sprintf q[Invalid event for announce: %s], $event;
                 return;
             }
+            $_event{refaddr $self} = $event;
         }
-        warn sprintf q[UDP!!!!!!!!!!!!!!!!!!!! | %s|%s], $self, $event;
+        my $tid = $self->_generate_token_id();
+        if (not $_cid{refaddr $self}) {
+            my $packet = pack q[a8NN], ___pack64(4497486125440), 0, $tid;
+            $_outstanding_requests{refaddr $self}{$tid} = {Timestamp => time,
+                                                           Attempt   => 1,
+                                                           Packet => $packet
+            };
+        }
+        else {
+            my $packet = pack q[a8NN]
+                . q[a20 a20 a8 a8 a8 N N N N n],
+                $_cid{refaddr $self}, 1, $tid,
+                pack(q[H*], $_tier{refaddr $self}->_torrent->infohash),
+                $_tier{refaddr $self}->_client->peerid(),
+                ___pack64($_tier{refaddr $self}->_torrent->downloaded()),
+                ___pack64(
+                   $_tier{refaddr $self}
+                       ->_torrent->raw_data->{q[info]}{q[piece length]} * sum(
+                       split(q[],
+                             unpack(
+                                   q[b*],
+                                   ($_tier{refaddr $self}->_torrent->_wanted()
+                                        || q[]
+                                   )
+                             )
+                       )
+                       )
+                ),
+                ___pack64($_tier{refaddr $self}->_torrent->uploaded()),
+                (  $_event{refaddr $self} eq q[completed] ? 1
+                 : $_event{refaddr $self} eq q[started]   ? 2
+                 : $_event{refaddr $self} eq q[stopped]   ? 3
+                 : 0
+                ),
+                0, $^T, 200, $_tier{refaddr $self}->_client->_tcp_port;
+
+            #
+            $_outstanding_requests{refaddr $self}{$tid} = {Timestamp => time,
+                                                           Attempt   => 1,
+                                                           Packet => $packet
+            };
+        }
+        $self->_send($tid);
+    }
+
+    sub _send {
+        my ($self, $tid) = @_;
+        if (!$_tier{refaddr $self}->_client->_udp) {
+            $_tier{refaddr $self}->_client->_socket_open();
+        }
+        return if not $_tier{refaddr $self}->_client->_udp;
+        if (not send($_tier{refaddr $self}->_client->_udp,
+                     $_outstanding_requests{refaddr $self}{$tid}{q[Packet]},
+                     0,
+                     $_packed_host{refaddr $self}
+            )
+            )
+        {   carp sprintf(
+                    q[Cannot send %d bytes to %s: [%d] %s],
+                    length(
+                        $_outstanding_requests{refaddr $self}{$tid}{q[Packet]}
+                    ),
+                    q[TODO], $^E, $^E
+            );
+            return;
+        }
+        $_tier{refaddr $self}->_client->_event(
+                                         q[tracker_connect],
+                                         {Tracker => $self,
+                                          ($_event{refaddr $self}
+                                           ? (Event => $_event{refaddr $self})
+                                           : ()
+                                          )
+                                         }
+        );
+        $_tier{refaddr $self}->_client->_event(
+                   q[tracker_write],
+                   {Tracker => $self,
+                    Length  => length(
+                        $_outstanding_requests{refaddr $self}{$tid}{q[Packet]}
+                    )
+                   }
+        );
+        return 1;
+    }
+
+    sub _on_data {
+        my ($self, $paddr, $data) = @_;
+        my ($action, $tid, $packet) = unpack q[NNa*], $data;
+        $_tier{refaddr $self}->_client->_event(q[tracker_read],
+                                 {Tracker => $self, Length => length($data)});
+        return if not $_outstanding_requests{refaddr $self}{$tid};
+        my $_request = $_outstanding_requests{refaddr $self}{$tid};
+        delete $_outstanding_requests{refaddr $self}{$tid};
+        if ($action == 0) {
+            if (length($data) == 16) {
+                my ($cid) = unpack(q[a8], $packet);
+                $_cid{refaddr $self} = $cid;
+                $self->_announce();
+                return $self;
+            }
+            return;
+        }
+        elsif ($action == 1) {
+            if (length($data) >= 20) {
+                my ($min_interval, $leeches, $seeds, $peers)
+                    = unpack(q[N N N a*], $packet);
+                $_tier{refaddr $self}
+                    ->_torrent->_append_compact_nodes($peers);
+                $_tier{refaddr $self}->_set_complete($seeds);
+                $_tier{refaddr $self}->_set_incomplete($leeches);
+                $_tier{refaddr $self}->_client->_event(
+                                            q[tracker_success],
+                                            {Tracker => $self,
+                                             Payload => {
+                                                 complete     => $seeds,
+                                                 incomplete   => $leeches,
+                                                 peers        => $peers,
+                                                 min_interval => $min_interval
+                                             }
+                                            }
+                );
+                $_tier{refaddr $self}->_client->_schedule(
+                    {   Time => (time + (  $min_interval
+                                         ? $min_interval
+                                         : 1800
+                                 )
+                        ),
+                        Code =>
+                            sub { return $_tier{refaddr +shift}->_announce() }
+                        ,
+                        Object => $self
+                    }
+                );
+            }
+            $_event{refaddr $self} = q[];
+            return $self;
+        }
+        elsif ($action == 2) {
+        }
+        elsif ($action == 3) {
+            $_tier{refaddr $self}->_client->_event(q[tracker_failure],
+                                                   {Tracker => $self,
+                                                    Reason  => $packet
+                                                   }
+            );
+            $_tier{refaddr $self}->_shuffle();
+            return;
+        }
+        else { }
+        return;
+    }
+
+    sub _generate_token_id {
+        return if defined $_[1];
+        my ($self) = @_;
+        my ($len) = ($_tid{refaddr $self} =~ m[^(\d+)]);
+        $_tid{refaddr $self}
+            = ($_tid{refaddr $self} >= (26**5) ? 0 : ++$_tid{refaddr $self});
+        return $_tid{refaddr $self};
     }
 
     sub _as_string {
         my ($self, $advanced) = @_;
-        my $dump = q[TODO];
+        my $dump = !$advanced ? $$self : sprintf <<'END',
+Net::BitTorrent::Torrent::Tracker::UDP
+
+URL: %s
+END
+            $_url{refaddr $self};
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
+    }
+
+    sub ___pack64 {    # [id://163389]
+        my ($value) = @_;
+        my $return;
+        if (!eval { $return = pack(q[Q], $value); 1; }) {
+            require Math::BigInt;
+            my $i = new Math::BigInt $value;
+            my ($int1, $int2) = do {
+                if ($i < 0) {
+                    $i = -1 - $i;
+                    (~(int($i / 2**32) % 2**32), ~int($i % 2**32));
+                }
+                else {
+                    (int($i / 2**32) % 2**32, int($i % 2**32));
+                }
+            };
+            $return = pack('NN', $int1, $int2);
+        }
+        return $return;
     }
 
     sub CLONE {
         for my $_oID (keys %REGISTRY) {
-
-            #  look under oID to find new, cloned reference
             my $_obj = $REGISTRY{$_oID};
             my $_nID = refaddr $_obj;
-
-            #  relocate data
             for (@CONTENTS) {
                 $_->{$_nID} = $_->{$_oID};
                 delete $_->{$_oID};
             }
-
-            # do some silly stuff to avoid user mistakes
-            #weaken($_client{$_nID} = $_client{$_oID});
-            weaken $tier{$_nID};
-
-            #  update he weak refernce to the new, cloned object
+            weaken $_tier{$_nID};
             weaken($REGISTRY{$_nID} = $_obj);
             delete $REGISTRY{$_oID};
         }
         return 1;
     }
-
-    # Destructor
     DESTROY {
         my ($self) = @_;
-
-        #warn q[Goodbye, ] . $$self;
-        # Clean all data
-        for (@CONTENTS) {
-            delete $_->{refaddr $self};
-        }
+        for (@CONTENTS) { delete $_->{refaddr $self}; }
         delete $REGISTRY{refaddr $self};
-
-        #
         return 1;
     }
-
-    #
     1;
 }
 
@@ -142,7 +309,27 @@ constructor should not be used directly.
 
 =item *
 
-...this doesn't work.  Yet.
+This is ALPHA code and as such may not work as expected.
+
+=item *
+
+Does not retry as suggested in the spec.
+
+=item *
+
+Should we pretend UDP uses connections and trigger the 'tracker_connect'
+callback whenever we send() data just to keep things even?
+
+=back
+
+=head1 See Also
+
+=over
+
+=item BEP 15
+
+UDP Tracker Protocol for BitTorrent
+http://bittorrent.org/beps/bep_0015.html
 
 =back
 

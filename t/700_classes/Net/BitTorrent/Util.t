@@ -3,50 +3,19 @@ use strict;
 use warnings;
 use Test::More;
 use Module::Build;
-
-#
 use lib q[../../../../lib];
+use Net::BitTorrent::Util qw[:all];
 $|++;
-
-# let's keep track of where we are...
-my $test_builder = Test::More->builder;
-
-#
+my $test_builder       = Test::More->builder;
 my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
-
-# Make sure the path is correct
 chdir q[../../../../] if not -f $simple_dot_torrent;
-
-#
 my $build    = Module::Build->current;
 my $okay_tcp = $build->notes(q[okay_tcp]);
 my $verbose  = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-
-#
 $|++;
-
-#
-BEGIN {
-    plan tests => 95;
-    use_ok(q[Net::BitTorrent::Util], qw[:all]);
-}
+plan tests => 88;
 SKIP: {
-
-#     skip(
-#~         q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
-#~         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
-#~     ) if not $release_testing;
-#
-#
-    is(TRACE, 32, q[Trace]);
-    is(DEBUG, 16, q[Debug]);
-    is(INFO,  8,  q[Info]);
-    is(WARN,  4,  q[Warn]);
-    is(ERROR, 2,  q[Error]);
-    is(FATAL, 1,  q[Fatal]);
-
-    #
     is(bencode(4),   q[i4e],   q[integer]);
     is(bencode(0),   q[i0e],   q[zero]);
     is(bencode(-0),  q[i0e],   q[zero w/ sign]);
@@ -85,12 +54,9 @@ SKIP: {
         {sub => sub { return my $brain; }
         }
     );
-
-    #
-    my $test_string
-        = q[d7:Integeri42e4:Listl6:item 1i2ei3ee6:String9:The Valuee];
+    my $str = q[d7:Integeri42e4:Listl6:item 1i2ei3ee6:String9:The Valuee];
     is(bdecode, undef, q[Empty string]);
-    my ($hashref) = bdecode($test_string);
+    my ($hashref) = bdecode($str);
     ok defined $hashref, q[bdecode() returned something];
     is ref $hashref, q[HASH], q[bdecode() returned a valid hash ref];
     ok defined $hashref->{q[Integer]}, q[Integer key present];
@@ -104,8 +70,7 @@ SKIP: {
     is ${$hashref->{q[List]}}[2], 3,         q[    third element correct];
     my ($encoded_string) = bencode($hashref);
     ok defined $encoded_string, q[bencode() returned something];
-    is $encoded_string, $test_string,
-        q[  and it appears to be the correct value];
+    is $encoded_string, $str, q[  and it appears to be the correct value];
     is(bdecode(q[i4e]),      4,      q[integer]);
     is(bdecode(q[i0e]),      0,      q[zero]);
     is(bdecode(q[i-0e]) + 0, 0,      q[zero w/ sign]);
@@ -117,8 +82,6 @@ SKIP: {
               q[list in scalar context]);
     is_deeply(scalar bdecode(bencode({qw[this that the other]})),
               {qw[this that the other]}, q[dictionary in scalar context]);
-
-    # strange data
     is(bdecode(q[10:1234567890]), q[1234567890], q[integer cast as string]);
     is(bdecode(q[02:xy]), undef, q[string with leading zero in length]);
     is(bdecode(q[i03e]),  3,     q[integer with leading zero]);
@@ -162,8 +125,6 @@ SKIP: {
               ],
               q[Complex structure (empty dictionary, 'safe' hex chars)]
     );
-
-    #
     is(compact(qw[127.0.0.1:98]), qq[\x7F\0\0\1\0b],  q[localhost]);
     is(compact(qw[127.0.0.1:0]),  qq[\x7F\0\0\1\0\0], q[port number of zero]);
     is(compact(qw[127.0.0.1:5000]),
@@ -173,12 +134,8 @@ SKIP: {
     is(compact(qw[127.0.0.1:3265 255.25.21.32:0]),
         qq[\x7F\0\0\1\f\xC1\xFF\31\25 \0\0],
         q[short list of peers]);
-
-    # TODO: invalid IPv4 (ex: 999.999.999.999)
     is(compact(qw[127.0.0.1:3265 127.0.0.1:3265]),
         qq[\x7F\0\0\1\f\xC1], q[Filter duplicates]);
-
-    #
     is(compact(qw[127.0.0.1:000065]),
         qq[\x7F\0\0\1\0A], q[Port with leading zeros]);
     is(compact(qw[270.0.0.1:0]), undef, q[Invalid IP address: 270.0.0.1:0]);
@@ -191,12 +148,10 @@ SKIP: {
     is(compact(q[127.0.0.1:ABC]), undef, q[Bad port number: 127.0.0.1:ABC]);
     is(compact(qw[127.0.0.1:3265 255.25.21.32:0:4554845]),
         qq[\x7F\0\0\1\f\xC1], q[Invalid peer in list]);
-    is(compact(qw[]),  undef, q[Empty list]);
-    is(compact(q[]),   undef, q[String]);
-    is(compact(undef), undef, q[undef]);
-    is(compact(),      undef, q[undef]);
-
-    # TODO: IPv6 passing itself off as IPv4.
+    is(compact(qw[]),    undef, q[Empty list]);
+    is(compact(q[]),     undef, q[String]);
+    is(compact(undef),   undef, q[undef]);
+    is(compact(),        undef, q[undef]);
     is(uncompact(q[]),   undef, q[Empty string]);
     is(uncompact(undef), undef, q[undef string]);
     is(uncompact(),      undef, q[undef string]);
@@ -207,7 +162,7 @@ SKIP: {
     is($peers[0], q[127.0.0.1:3265], q[   ...First checks out.]);
     is($peers[1], q[255.25.21.32:0], q[   ...Second is okay too.]);
 
-    #
+    # TODO: IPv6 faking IPv4 and invalid IPv4 (ex: 999.999.999.999)
     #is( uncompact(qw[127.0.0.1:98]), qq[\x7F\0\0\1\0b], q[localhost] );
     #is( uncompact(qw[127.0.0.1:0]),
     #    qq[\x7F\0\0\1\0\0], q[port number of zero] );
@@ -215,4 +170,30 @@ SKIP: {
     #    qq[\x7F\0\0\1\23\x88], q[large port number] );
 }
 
-# $Id$
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of The Artistic License 2.0.  See the F<LICENSE>
+file included with this distribution or
+http://www.perlfoundation.org/artistic_license_2_0.  For
+clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
+
+When separated from the distribution, all POD documentation is covered
+by the Creative Commons Attribution-Share Alike 3.0 License.  See
+http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
+clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
+
+Neither this module nor the L<Author|/Author> is affiliated with
+BitTorrent, Inc.
+
+=for svn $Id$
+
+=cut

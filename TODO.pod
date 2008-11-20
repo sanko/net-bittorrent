@@ -6,7 +6,7 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =head1 High priorities
 
-=over 2
+=over
 
 =item * ...none?
 
@@ -14,93 +14,99 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =head1 Short term goals
 
-=over 2
+=over
 
-=item * Complete test suite
+=item * Trim down the docs
 
-Create a series of bad .torrent files to test N::B::Torrent with:
+=item * DHT callbacks
 
-=over 2
+=item * Everything marked inline as XXX (possible bugs) or TODO
 
-=item * invalid pieces string
+=item * Public quick resume interface
 
-=over 2
+=item * Make trackers keep track of their own complete/incomplete tally
 
-=item * string length does not % 40 evenly
-
-=item * string is shorter than 40 chars
-
-=item * (piece_length * num_pieces) is nowhere near total_size_of_torrent
-
-=back
-
-=back
-
-=item * Improve detection of bad .torrent metadata.
-
-=item * Per-torrent transfer limits.
+...rather than stuffing their value in the parent tier.
 
 =back
 
 =head1 Long term goals
 
-=over 2
+=over
 
-=item * Net::BitTorrent::Notes - Description of N::B's internals
+=item * Net::BitTorrent::Notes
 
-=over 2
+=item * Complete test suite
 
-=item * Data layout
+Create a series of bad .torrent files to test N::B::Torrent with:
 
-=item * Behavior
+=over
+
+=item * invalid pieces string
+
+=over
+
+=item * string length does not % 40 evenly
+
+=item * string is shorter than 40 chars
+
+=item * (piece_length * num_pieces) != total_size_of_torrent
 
 =back
+
+=back
+
+=item * Per-torrent transfer limits.
 
 =item * improve file handling
 
-=over 2
+=over
 
 =item * large torrents (> 4G) typically require 64bit math
 
-=item * .piece file to store incoming blocks
+=item * intermediate .piece file to store incoming blocks
 
 =back
 
-=item * scripts/gui-client.pl?
+=item * scripts/wx-gui-client.pl (perhaps)
 
-=over 2
+=item * Full Fast Extension support
 
-=item * very light gui example using Wx
-
-=back
-
-=item *  Internal bans for 'bad' peers
-
-=over 2
-
-=item * Penalty (and eventual ban) for peers who always seem involved with bad pieces
-
-=back
-
-=item * UDP trackers
-
-=item * Fast Peers
-
-Partial support currently
+=item * PoCo::BitTorrent
 
 =back
 
 =head1 Duke Nukem: Forever
 
-=over 2
+=over
 
 =item * Wire protocol encryption
 
-=item * PoCo::BitTorrent
-
-Not to be confused with the other PoCo::BitTorrent
-
 =back
+
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of The Artistic License 2.0.  See the F<LICENSE>
+file included with this distribution or
+http://www.perlfoundation.org/artistic_license_2_0.  For
+clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
+
+When separated from the distribution, all POD documentation is covered
+by the Creative Commons Attribution-Share Alike 3.0 License.  See
+http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
+clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
+
+Neither this module nor the L<Author|/Author> is affiliated with
+BitTorrent, Inc.
 
 =for svn $Id$
 

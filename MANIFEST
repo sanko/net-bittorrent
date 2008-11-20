@@ -20,6 +20,7 @@ README
 scripts/bittorrent.pl
 t/000_miniswarm/007_miniswarm_http.t
 t/000_miniswarm/008_miniswarm_dht.t
+t/000_miniswarm/009_miniswarm_udp.t
 t/700_classes/Net/BitTorrent.t
 t/700_classes/Net/BitTorrent/DHT.t
 t/700_classes/Net/BitTorrent/DHT/Node.t

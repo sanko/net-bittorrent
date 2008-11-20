@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use Module::Build;
 use Test::More;
-use Socket;
+use Socket qw[SOCK_DGRAM /F_INET/ unpack_sockaddr_in inet_ntoa];
 use Fcntl qw[:flock];
 use Time::HiRes;
 use IO::Socket qw[SOMAXCONN];
@@ -19,10 +19,11 @@ $|++;
 my $test_builder       = Test::More->builder;
 my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 chdir q[../../] if not -f $simple_dot_torrent;
-my $build    = Module::Build->current;
-my $okay_tcp = $build->notes(q[okay_tcp]);
-my $okay_udp = $build->notes(q[okay_udp]);
-my $verbose  = $build->notes(q[verbose]);
+my $build           = Module::Build->current;
+my $okay_tcp        = $build->notes(q[okay_tcp]);
+my $okay_udp        = $build->notes(q[okay_udp]);
+my $release_testing = $build->notes(q[release_testing]);
+my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 {
     no warnings q[redefine];
@@ -42,16 +43,19 @@ SKIP: {
     skip(q[TCP-based tests have been disabled.],
          ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
     ) unless $okay_tcp;
+    skip(q[UDP-based tests have been disabled.],
+         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) unless $okay_udp;
     my %_tracker_data;
     my $_tracker_port = 0;
     my $_tracker_host = q[127.0.0.1];
-    socket(my ($httpd), PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
+    socket(my ($udpd), PF_INET, SOCK_DGRAM, getprotobyname(q[udp]))
         || skip(q[Failed to open socket for tracker],
                 (      $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
                 )
         );
-    bind($httpd,
+    bind($udpd,
          pack(q[Sna4x8],
               &AF_INET, $_tracker_port,
               (join q[], map { chr $_ } ($_tracker_host =~ m[(\d+)]g)))
@@ -61,14 +65,9 @@ SKIP: {
                      - $test_builder->{q[Curr_Test]}
                 )
         );
-    listen($httpd, SOMAXCONN)
-        || skip(sprintf(q[Failed to listen on port: [%d] %s], $^E, $^E),
-                (      $test_builder->{q[Expected_Tests]}
-                     - $test_builder->{q[Curr_Test]}
-                )
-        );
-    (undef, $_tracker_port, undef) = unpack(q[SnC4x8], getsockname($httpd));
-    warn(sprintf q[HTTP Mini-Tracker running on 127.0.0.1:%d],
+    ($_tracker_port, $_tracker_host) = unpack_sockaddr_in(getsockname($udpd));
+    warn(sprintf q[UDP Mini-Tracker running on udp://%s:%d/],
+         inet_ntoa($_tracker_host),
          $_tracker_port);
 SKIP: {
         my %client;
@@ -81,6 +80,7 @@ SKIP: {
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
             ) if not $client{q[seed_] . $chr};
+            $client{q[seed_] . $chr}->_use_dht($okay_udp);
             my $torrent = $client{q[seed_] . $chr}->add_torrent(
                                   {Path    => $miniswarm_dot_torrent,
                                    BaseDir => q[./t/900_data/930_miniswarm]
@@ -104,7 +104,7 @@ SKIP: {
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
             ) if not $torrent->is_complete;
-            my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
+            my $tracker = qq[udp://127.0.0.1:$_tracker_port/announce];
             $torrent->_add_tracker([$tracker]);
             $client{q[seed_] . $chr}->on_event(
                 q[tracker_success],
@@ -124,6 +124,7 @@ SKIP: {
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
             ) if not $client{$chr};
+            $client{$chr}->_use_dht($okay_udp);
             $client{$chr}->on_event(
                 q[piece_hash_pass],
                 sub {
@@ -167,7 +168,7 @@ SKIP: {
                  $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
             ) if not $torrent;
-            my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
+            my $tracker = qq[udp://127.0.0.1:$_tracker_port/announce];
             $torrent->_add_tracker([$tracker]);
         }
         while ($test_builder->{q[Curr_Test]}
@@ -182,65 +183,85 @@ SKIP: {
 
         sub check_tracker {
             my $rin = q[];
-            vec($rin, fileno($httpd), 1) = 1;
+            vec($rin, fileno($udpd), 1) = 1;
             my ($nfound, $timeleft) = select($rin, undef, undef, 0.1);
             return if $nfound == 0;
-            return if vec($rin, fileno($httpd), 1) != 1;
-            if (my $paddr = accept(my ($client), $httpd)) {
-                grep { $_->do_one_loop(0.1); } values %client;
-                my $gotten = q[];
-                if (sysread($client, my ($data), 1024 * 16)) {
-                    $gotten .= $data;
-                    if ($data =~ m[^GET\s+(/(announce|scrape)\?([^\s]*))]) {
-                        my $type = $2;
-                        my %hash = split m[[=&]], $3;
-                        $hash{q[info_hash]}
-                            =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
-                        my (undef, undef, @address)
-                            = unpack(q[SnC4x8], getsockname($client));
-                        my %reply;
-                        if ($type eq q[announce]) {
-                            $hash{q[peer_id]}
-                                =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
-                            %reply = (
-                                     interval => 1500,
-                                     peers => $_tracker_data{$hash{info_hash}}
-                                         || q[]
-                            );
-                            $_tracker_data{$hash{info_hash}}
-                                = compact(
-                                ((join q[.], @address) . q[:] . $hash{port}),
-                                uncompact($_tracker_data{$hash{info_hash}}));
-                        }
-                        else {
-                        }
-                        syswrite(
-                              $client,
-                              join(qq[\015\012],
-                                  q[HTTP/1.0 200 Here ya go!],
-                                  q[Date: ] . scalar(gmtime) . q[ GMT],
-                                  q[Server: Net::BitTorrent test tracker/1.0],
-                                  q[Content-type: text/plain],
-                                  q[],
-                                  bencode(\%reply))
-                        );
-                    }
-                    else {
-                        syswrite(
-                              $client,
-                              join(qq[\015\012],
-                                  q[HTTP/1.0 404 Go away!],
-                                  q[Date: ] . scalar(gmtime) . q[ GMT],
-                                  q[Server: Net::BitTorrent test tracker/1.0],
-                                  q[Content-type: text/plain],
-                                  q[],
-                                  q[Bye!])
-                        );
-                    }
+            return if vec($rin, fileno($udpd), 1) != 1;
+            my $paddr = recv($udpd, my ($data), 1024 * 16, 0);
+            if (length($data) == 16) {
+                my ($cid, $action, $tid) = unpack q[a8NN], $data;
+                if (    $cid eq qq[\0\0\4\27'\20\31\x80]
+                    and $action == 0)
+                {   $cid
+                        = chr(rand(128))
+                        . chr(rand(256))
+                        . qq[\4\27'\20\31\x80];
+                    $_tracker_data{q[peers]}{$paddr} = {ConnectionID => $cid,
+                                                        Infohashes   => {},
+                    };
+                    send($udpd, pack(q[NNa8], 0, $tid, $cid), 0, $paddr);
                 }
-                close $client;
+            }
+            elsif (length($data) == 98) {
+                my ($cid,     $action,     $tid,  $info_hash,
+                    $peer_id, $downloaded, $left, $uploaded,
+                    $event,   $ipaddress,  $key,  $num_want,
+                    $port
+                    )
+                    = unpack q[a8NN] . q[a20 a20 a8 a8 a8 N N N N n],
+                    $data;
+                if ($cid eq $_tracker_data{q[peers]}{$paddr}{q[ConnectionID]}
+                    and $action == 1)
+                {   my $_torrent = {
+                            Infohash   => unpack(q[H*], $info_hash),
+                            PeerID     => $peer_id,
+                            Downloaded => unpack64($downloaded),
+                            Left       => unpack64($left),
+                            Uploaded   => unpack64($uploaded),
+                            Event      => $event,
+                            IPAddress  => (
+                                  $ipaddress
+                                ? $ipaddress
+                                : inet_ntoa([unpack_sockaddr_in($paddr)]->[1])
+                            ),
+                            Key  => $key,
+                            Port => $port
+                    };
+                    $_tracker_data{q[peers]}{$paddr}{q[Infohashes]}
+                        {$info_hash} = $_torrent;
+                    my @_peers = grep {
+                               $_->{q[Infohashes]}{$info_hash}
+                            && $cid ne $_->{q[ConnectionID]}
+                    } values %{$_tracker_data{q[peers]}};
+                    my $seeds = grep {
+                        $_->{q[Infohashes]}{$info_hash}{q[Event]} == 1
+                    } @_peers;
+                    my $leech = scalar @_peers - $seeds;
+                    send(
+                        $udpd,
+                        pack(
+                            q[N N] . q[N N N a*],
+                            1, $tid, 1800, $leech,
+                            $seeds,
+                            compact(
+                                map {
+                                    $_->{q[Infohashes]}{$info_hash}
+                                        {q[IPAddress]} . q[:]
+                                        . $_->{q[Infohashes]}{$info_hash}
+                                        {q[Port]}
+                                    } @_peers
+                            )
+                        ),
+                        0,
+                        $paddr
+                    );
+                }
+            }
+            else {
+                die q[Next!];
             }
         }
+        exit;
 
         END {
             for my $client (values %client) {
@@ -249,7 +270,23 @@ SKIP: {
                 }
             }
         }
-        exit;
+    }
+    my $little;
+    BEGIN { $little = unpack q[C], pack q[S], 1; }
+
+    sub unpack64 {    # [id://36314]
+        my ($str) = @_;
+        $str = reverse $str if $little;
+        my $big;
+        if (!eval { $big = unpack(q[Q], $str); 1; }) {
+            my ($lo, $hi) = unpack q[LL], $str;
+            ($hi, $lo) = ($lo, $hi) if !$little;
+            $big = $lo + $hi * (1 + ~0);
+            if ($big + 1 == $big) {
+                warn q[Forced to approximate!\n];
+            }
+        }
+        return $big;
     }
 }
 

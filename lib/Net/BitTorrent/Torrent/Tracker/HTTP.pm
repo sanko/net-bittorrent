@@ -1,108 +1,68 @@
 #!C:\perl\bin\perl.exe
 package Net::BitTorrent::Torrent::Tracker::HTTP;
 {
-    use strict;      # core as of perl 5
-    use warnings;    # core as of perl 5.006
-
-    #
-    use Carp qw[carp];                              # core as of perl 5
-    use Scalar::Util qw[blessed weaken refaddr];    # core since perl 5.007003
-    use List::Util qw[sum];                         # core since perl 5.007003
-    use Socket                                      # core as of perl 5
-        qw[PF_INET SOMAXCONN SOCK_STREAM
-        inet_aton pack_sockaddr_in
-    ];
-    use Fcntl qw[F_SETFL O_NONBLOCK];               # core as of perl 5
-
-    #
+    use strict;
+    use warnings;
+    use Carp qw[carp];
+    use Scalar::Util qw[blessed weaken refaddr];
+    use List::Util qw[sum];
+    use Socket qw[PF_INET SOMAXCONN SOCK_STREAM inet_aton pack_sockaddr_in];
+    use Fcntl qw[F_SETFL O_NONBLOCK];
     use lib q[../../../../../lib];
     use Net::BitTorrent::Util qw[:bencode uncompact];
-
-    #
-    use version qw[qv];                             # core as of 5.009
+    use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
-
-    #
-    my (@CONTENTS) = \my (
-        %url, %_tier,                               # param to new()
-        %resolve, %event, %_socket, %_data_out);
+    my (@CONTENTS)
+        = \my (%_url, %_tier, %resolve, %event, %_socket, %_data_out);
     my %REGISTRY;
 
-    #
     sub new {
         my ($class, $args) = @_;
-        my $self;
-        if (not defined $args) {
-            carp __PACKAGE__ . q[->new() requires params];
+        if (!$args) {
+            carp q[Net::[...]Tracker::HTTP->new({}) requires params];
             return;
         }
-        if (not defined $args->{q[URL]}) {
-            carp __PACKAGE__ . q[->new() requires a 'URL' param];
+        if ((!$args->{q[URL]}) || ($args->{q[URL]} !~ m[^http://]i)) {
+            carp q[Net::[...]Tracker::HTTP->new({}) requires a valid URL];
             return;
         }
-        if ($args->{q[URL]} !~ m[^http://]i) {
-            carp
-                sprintf(
-                  q[%s->new() doesn't know what to do with malformed url: %s],
-                  __PACKAGE__, $args->{q[URL]});
+        if (   (!$args->{q[Tier]})
+            || (!$args->{q[Tier]}->isa(q[Net::BitTorrent::Torrent::Tracker])))
+        {   carp
+                q[Net::[...]Tracker::HTTP->new({}) requires a parent Tracker];
             return;
         }
-        if (not defined $args->{q[Tier]}) {
-            carp __PACKAGE__ . q[->new() requires a 'Tier' param];
-            return;
-        }
-        if (not $args->{q[Tier]}->isa(q[Net::BitTorrent::Torrent::Tracker])) {
-            carp __PACKAGE__ . q[->new() requires a blessed Tracker 'Tier'];
-            return;
-        }
-
-        #
-        $self = bless \$args->{q[URL]}, $class;
-
-        #
-        $url{refaddr $self}   = $args->{q[URL]};
+        my $self = bless \$args->{q[URL]}, $class;
+        $_url{refaddr $self}  = $args->{q[URL]};
         $_tier{refaddr $self} = $args->{q[Tier]};
         weaken $_tier{refaddr $self};
-
-        # threads stuff...
         weaken($REGISTRY{refaddr $self} = $self);
-
-        #share($bitfield{refaddr $self}); # allows non-blocking hashcheck
-        #
         return $self;
     }
 
     # Accesors | Private
     sub _socket { return $_socket{refaddr +shift}; }
-    sub _tier   { return $_tier{refaddr +shift}; }     # Make public?
+    sub _tier   { return $_tier{refaddr +shift}; }
+    sub _url    { return $_url{refaddr +shift}; }
 
     # Methods | Private
     sub _announce {
         my ($self, $event) = @_;
-
-        #warn sprintf q[%s | %s_announce(%s)], scalar(localtime), $self,
-        #    ($event || q[]);
         if (defined $event) {
-            if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) { # don't be silly
+            if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) {
                 carp sprintf q[Invalid event for announce: %s], $event;
                 return;
             }
+            $event{refaddr $self} = $event;
         }
-        $event{refaddr $self} = $event;
-
-        #
         my ($host, $port, $path)
-            = $url{refaddr $self} =~ m{^http://([^/:]*)(?::(\d+))?(/.*)$};
+            = $_url{refaddr $self} =~ m{^http://([^/:]*)(?::(\d+))?(/.*)$};
         $port = $port ? $port : 80;
-
-        # Resolve hostname
         my $packed_host = undef;
         if ($host
             !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4})$])
-        {    # it's not an IPv4 so it may be a hostname
-                # No point resolving an IP address.  Right?
-            my ($name, $aliases, $addrtype, $length, @addrs)
+        {   my ($name, $aliases, $addrtype, $length, @addrs)
                 = gethostbyname($host)
                 or return;
             $packed_host = $addrs[0];
@@ -110,28 +70,19 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         else { $packed_host = inet_aton($host) }
         socket($_socket{refaddr $self},
                PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
-            or return;    # TODO: re-Schedule announce
-
-        # Set socket to non-blocking
+            or return;
         if (not($^O eq q[MSWin32]
                 ? ioctl($_socket{refaddr $self}, 0x8004667e, pack(q[I], 1))
                 : fcntl($_socket{refaddr $self}, F_SETFL, O_NONBLOCK)
             )
             )
-        {                 # !!! - impossible to test failure for coverage...
-            carp
+        {   carp
                 q[There was a problem making an outgoing socket non-blocking: ]
                 . $^E;
-            return;       # TODO: re-Schedule announce
+            return;
         }
-
-        # Here, connect() is non-blocking so it doesn't return a valid
-        # value to test agiainst.  We see how things are progressing by
-        # checking $^E further down.
         connect($_socket{refaddr $self},
                 pack_sockaddr_in($port, inet_aton($host)));
-
-        #
         $_tier{refaddr $self}->_client->_event(q[tracker_connect],
                                                {Tracker => $self,
                                                 (defined $event
@@ -140,14 +91,12 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                                                 )
                                                }
         );
-
-        #
         my $infohash = $_tier{refaddr $self}->_torrent->infohash;
-        $infohash =~ s|(..)|\%$1|g;    # urlencode
+        $infohash =~ s|(..)|\%$1|g;
         my %query_hash = (
                q[info_hash]  => $infohash,
                q[peer_id]    => $_tier{refaddr $self}->_client->peerid(),
-               q[port]       => $_tier{refaddr $self}->_client->_port(),
+               q[port]       => $_tier{refaddr $self}->_client->_tcp_port(),
                q[uploaded]   => $_tier{refaddr $self}->_torrent->uploaded(),
                q[downloaded] => $_tier{refaddr $self}->_torrent->downloaded(),
                q[left]       => (
@@ -172,9 +121,6 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                 : ()
                )
         );
-
-        #use Data::Dump qw[pp];
-        #warn pp \%query_hash;
         my $url 
             = $path 
             . ($path =~ m[\?] ? q[&] : q[?])
@@ -192,8 +138,6 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                  qq[User-Agent: Net::BitTorrent/] . $Net::BitTorrent::VERSION,
                  q[],
                  q[]);
-
-        #
         $_tier{refaddr $self}->_client->_remove_connection($self);
         return $_tier{refaddr $self}->_client->_add_connection($self, q[wo]);
     }
@@ -202,20 +146,15 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         my ($self, $read, $write, $error) = @_;
         my ($actual_read, $actual_write) = (0, 0);
         return if not defined $_tier{refaddr $self}->_client;
-
-        #
         if ($error) {
-            carp sprintf q[Error announce: (%d) %s], $^E, $^E;
             $_tier{refaddr $self}->_client->_remove_connection($self);
             close $_socket{refaddr $self};
-
-            # Reschedule announce
             $_tier{refaddr $self}->_client->_schedule(
                 {   Time => time + 30,
                     Code => sub {
                         my ($s) = @_;
-                        $_tier{$s}->_shuffle;
-                        return $_tier{$s}->_announce();
+                        $_tier{refaddr $s}->_shuffle;
+                        return $_tier{refaddr $s}->_announce();
                     },
                     Object => $self
                 }
@@ -227,16 +166,13 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                                      $_data_out{refaddr $self}, $write);
             if (not defined $actual_write) {
                 $_tier{refaddr $self}->_client->_event(
-                      q[tracker_failure],
-                      {Tracker => $self,
-                       Message => sprintf(q[Cannot write to tracker: %s], $^E)
-                      }
+                       q[tracker_failure],
+                       {Tracker => $self,
+                        Reason => sprintf(q[Cannot write to tracker: %s], $^E)
+                       }
                 );
                 $_tier{refaddr $self}->_client->_remove_connection($self);
                 close $_socket{refaddr $self};
-
-                #return;
-                # Reschedule announce
                 $_tier{refaddr $self}->_client->_schedule(
                     {   Time => time + 30,
                         Code => sub {
@@ -249,10 +185,8 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                 );
                 return;
             }
-            $_tier{refaddr $self}->_client->_event(q[tracker_data_out],
+            $_tier{refaddr $self}->_client->_event(q[tracker_write],
                                  {Tracker => $self, Length => $actual_write});
-
-            #
             substr($_data_out{refaddr $self}, 0, $actual_write, q[]);
             if (not length $_data_out{refaddr $self}) {
                 $_tier{refaddr $self}->_client->_remove_connection($self);
@@ -262,19 +196,15 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         if ($read) {
             $actual_read
                 = sysread($_socket{refaddr $self}, my ($data), $read, 0);
-
-            #
             if (not $actual_read) {
                 $_tier{refaddr $self}->_client->_event(
-                     q[tracker_failure],
-                     {Tracker => $self,
-                      Message => sprintf(q[Cannot read from tracker: %s], $^E)
-                     }
+                      q[tracker_failure],
+                      {Tracker => $self,
+                       Reason => sprintf(q[Cannot read from tracker: %s], $^E)
+                      }
                 );
                 $_tier{refaddr $self}->_client->_remove_connection($self);
                 close $_socket{refaddr $self};
-
-                # Reschedule announce
                 $_tier{refaddr $self}->_client->_schedule(
                     {   Time => time + 30,
                         Code => sub {
@@ -288,22 +218,20 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                 return;
             }
             else {
-                $_tier{refaddr $self}->_client->_event(q[tracker_data_in],
+                $_tier{refaddr $self}->_client->_event(q[tracker_read],
                                   {Tracker => $self, Length => $actual_read});
                 $data =~ s[^.+(?:\015?\012){2}][]s;
                 $data = bdecode($data);
                 if ($data) {
                     if (defined $data->{q[failure reason]}) {
                         $_tier{refaddr $self}->_client->_event(
-                                         q[tracker_announce_failure],
+                                         q[tracker_failure],
                                          {Tracker => $self,
                                           Reason => $data->{q[failure reason]}
                                          }
                         );
                     }
                     else {
-
-                        # XXX - cache resolve
                         $_tier{refaddr $self}
                             ->_torrent->_append_compact_nodes(
                                                            $data->{q[peers]});
@@ -312,12 +240,10 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                         $_tier{refaddr $self}
                             ->_set_incomplete($data->{q[incomplete]});
                         $_tier{refaddr $self}
-                            ->_client->_event(q[tracker_announce_okay],
+                            ->_client->_event(q[tracker_success],
                                         {Tracker => $self, Payload => $data});
                     }
                 }
-
-                # Reschedule announce
                 $_tier{refaddr $self}->_client->_schedule(
                     {   Time => (time + (defined $data->{q[interval]}
                                          ? $data->{q[interval]}
@@ -338,13 +264,11 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         }
         else {
             $_tier{refaddr $self}->_client->_event(
-                                     q[tracker_announce_failure],
+                                     q[tracker_failure],
                                      {Tracker => $self,
                                       Reason => q[Failed to read from tracker]
                                      }
             );
-
-            # Reschedule announce
             $_tier{refaddr $self}->_client->_schedule(
                   { Time => time + 300,
                     Code =>
@@ -359,49 +283,34 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
 
     sub _as_string {
         my ($self, $advanced) = @_;
-        my $dump = q[TODO];
+        my $dump = !$advanced ? $$self : sprintf <<'END',
+Net::BitTorrent::Torrent::Tracker::HTTP
+
+URL: %s
+END
+            $_url{refaddr $self};
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
     sub CLONE {
         for my $_oID (keys %REGISTRY) {
-
-            #  look under oID to find new, cloned reference
             my $_obj = $REGISTRY{$_oID};
             my $_nID = refaddr $_obj;
-
-            #  relocate data
             for (@CONTENTS) {
                 $_->{$_nID} = $_->{$_oID};
                 delete $_->{$_oID};
             }
-
-            # do some silly stuff to avoid user mistakes
             weaken $_tier{$_nID};
-
-            #  update he weak refernce to the new, cloned object
             weaken($REGISTRY{$_nID} = $_obj);
             delete $REGISTRY{$_oID};
         }
         return 1;
     }
-
-    # Destructor
     DESTROY {
         my ($self) = @_;
-
-        #warn q[Goodbye, ] . $$self;
-        # Clean all data
-        for (@CONTENTS) {
-            delete $_->{refaddr $self};
-        }
-        delete $REGISTRY{refaddr $self};
-
-        #
-        return 1;
+        for (@CONTENTS) { delete $_->{refaddr $self}; }
+        return delete $REGISTRY{refaddr $self};
     }
-
-    #
     1;
 }
 

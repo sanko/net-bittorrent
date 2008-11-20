@@ -6,15 +6,9 @@ Net::BitTorrent::Notes - Annotated Guide to the Ins and Outs of Net::BitTorrent
 
 =head1 Description
 
-L<Net::BitTorrent|Net::BitTorrent> is a mess.
-
-But it doesn't have to be!  This document is a first draft attempt at
-defining a roadmap for future C<Net::BitTorrent> development and a
-behavioral reference for third-party client developers.  There are bits in
-here that may be of some use to regular users too.
-
-Note: C<Net::BitTorrent::Notes> and the ideas behind it are a work in
-progress.
+This is a first draft attempt at defining a road map for future
+C<Net::BitTorrent> development and a behavioral reference for third-party
+client developers.  A few bits for users might slip in too.
 
 =head1 Net::BitTorrent's Way-too-Obvious Class Hierarchy
 
@@ -32,9 +26,6 @@ progress.
          \
           `---- Net::BitTorrent::Peer
 
-
-See Also: L<Class Pseudo-structures|/"Class Pseudo-structures">
-
 =head1 Installation
 
 This distribution uses C<Module::Build> for installation, so use the
@@ -45,49 +36,32 @@ following procedure:
   ./Build test
   ./Build install
 
-If you would like to contribute automated test reports (and I hope
-you do), first install C<CPAN::Reporter> from the CPAN shell and then
-install C<Net::BitTorrent>:
-
- $ cpan
- cpan> install CPAN::Reporter
- cpan> reload cpan
- cpan> o conf init test_report
-   [...follow the CPAN::Reporter setup prompts...]
- cpan> o conf commit
- cpan> install Net::BitTorrent
-
-For more on becoming a CPAN tester and why this is useful, please see
-the L<CPAN::Reporter|CPAN::Reporter/"DESCRIPTION"> documentation,
-L<http://cpantesters.perl.org/>, and the CPAN Testers Wiki
-(L<http://cpantest.grango.org/>)
+See also: L<Automated Test Reports|/"Automated Test Reports">
 
 =head2 Prerequisites
 
 C<Net::BitTorrent> requires L<version|version> and
-L<Digest::SHA|Digest::SHA>.  On Win32, we require
-L<Win32API::File|Win32API::File> and L<Encode|Encode> when handling
-.torrents holding files with extended charset filenames.*  As of perl
-5.10, all of these modules are are CORE; they come bundled with the
-distribution.
+L<Digest::SHA|Digest::SHA>.  On Win32, we try to use
+L<Win32API::File|Win32API::File> and L<Encode|Encode> to handle extended
+charset filenamesL<[1]|/"[1]">.  As of perl 5.10, all of these modules
+are are CORE; they come bundled with the distribution.
 
 I have listed these modules as prerequisites in Build.PL so, unless you
 answer 'no' when prompted, the CPAN shell should automagically install
 them for you.
 
-* We also use the internal C<utf8()> functions which didn't appear until
-perl 5.8.1.  See L<Portability Hacks|/"Portability Hacks">.
+X<[1]> We also use the internal C<utf8()> functions which didn't appear
+until perl 5.8.1.  See L<Portability Hacks|/"Portability Hacks">.
 
 =head1 How Do I...
 
-Parts that aren't handled internally are described here with sample code
-to get you started.  In the future, this will probably be in a separate
-pod.
+Parts that aren't handled internally are described here (eventually) with
+sample code to get you started.
 
 =head2 Get basic info from a .torrent without adding it to a client
 
 L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> objects can be
-created diretly without a parent client.  While functionally limited
+created directly without a parent client.  While functionally limited
 (obvious things like an inability to serve data, etc.) basic information
 is available and some 'advanced' functions still work (hashchecking, for
 example).  See L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> for
@@ -116,16 +90,16 @@ reasons.  Adding this yourself is trivial, fortunately.  For each
 torrent, store the bitfield, nodes (compact list of peers), piece
 priorities, and the modified times for each file just to be safe.  Oh,
 and a list of the current 'working' pieces and their progress.  Saving
-the DHT ID and routing table would be a good idea too.  Add to that some
-sort of verification scheme to be sure you're loading information that
-hasn't been tampered with or corrupted.  Then, when you load the torrent,
-reload the torrent with your stored data.
-
-[TODO]
+the DHT node ID and routing table would be a good idea too.  Add to that
+some sort of verification scheme to be sure you're not loading corrupt
+data.  Then, when you reload the torrent, shove your data through all the
+related back alley private methods until I come up with a less insane way
+to do this safely.
 
 =head2 Set File Priorities
 
-See L<Net::BitTorrent::Torrent::File/"priority( [NEWVAL] )">.
+See
+L<Net::BitTorrent::Torrent::File|Net::BitTorrent::Torrent::File/"priority( [NEWVAL] )">.
 
 =head2 Implement My Own Event Loop
 
@@ -136,55 +110,9 @@ See L<Net::BitTorrent::Torrent::File/"priority( [NEWVAL] )">.
 This section describes all the behind the scenes stuff that makes
 C<Net::BitTorrent> work.  Or not work.  It depends.
 
-=head2 Class Pseudo-structures
-
-=head3 C<Net::BitTorrent>
-
- Net::BitTorrent = {
-   TODO
- }
-
-=head3 C<Net::BitTorrent::Session>
-
- Net::BitTorrent::Session = {
-   TODO
- }
-
-=head3 C<Net::BitTorrent::Session::Tracker>
-
- Net::BitTorrent::Session::Tracker = {
-   TODO
- }
-
-=head3 C<Net::BitTorrent::Session::Peer>
-
- Net::BitTorrent::Session::Peer = {
-   TODO
- }
-
-=head3 C<Net::BitTorrent::Session::Peer::Request>
-
- Net::BitTorrent::Session::Peer::Request = {
-  TODO
- }
-
-=head3 C<Net::BitTorrent::Session::File>
-
- Net::BitTorrent::Session::File = {
-   TODO
- }
-
-=head3 C<Net::BitTorrent::Session::Piece>
-
- Net::BitTorrent::Session::Piece = {
-   TODO
- }
-
 =head2 Peer ID Specification
 
 Please see L<Net::BitTorrent::Version|Net::BitTorrent::Version>.
-
-=back
 
 =head2 Handling of Errors and Bad Data
 
@@ -204,99 +132,87 @@ Please see L<Net::BitTorrent::Version|Net::BitTorrent::Version>.
 
 =head2 Piece Selection
 
-To have any symbolance of basic functionality, a BitTorrent client must
+To have any semblance of basic functionality, a BitTorrent client must
 have a good piece selection strategy.  The 'strict priority' based
-algorhythm used by L<Net::BitTorrent|Net::BitTorrent> seems to strike a
+algorithm used by L<Net::BitTorrent|Net::BitTorrent> seems to strike a
 balance between efficiency and speed while keeping the pipes full of
-incoming data.  Here's the pseudocode:
+incoming data.  I'll walk you through it...
 
 =over 4
 
-=item *
+=item 1.
 
-Count the number of unrequested C<$free_blocks> in all working pieces.
+Count the number of unrequited C<$free_blocks> in all working pieces.
 
-=item *
+=item 2.
 
 Count how many C<$free_slots> we have open to us.  To calculate this, we
 iterate through all peers who aren't choking us adding the difference
 between the total number of outgoing requests and the peer-defined
-maximum or our own internal 'safe' max of 20.
+maximum or our own internal 'safe' max.
 
-=item *
+=item 3.
 
 C<$max_working> is set to the current number of working pieces plus the
 bool value of C<$free_blocks E<lt> $free_slots>.
 
-=item *
+=item 4.
 
-Calculating the priority C<@weights> relys on [TODO]
+Calculate C<%weights> based on file priorities and our bitfield.
 
-=begin :reference
+=over
 
- (scalar(grep { $_->working } @{$pieces{$self}})
-                     < $max_working    # TODO: Make this ratio variable
-                )
-                ? (grep {
-                               not $_->check
-                           and $_->priority
-                           and vec($peer->bitfield, $_->index, 1)
-                           and ($_->working
-                                ? (scalar grep { scalar $_->peers == 0 }
-                                   values %{$_->blocks})
-                                : 1
-                           )
-                       } @{$pieces{$self}}
-                    )
-                : (grep {
-                       $_->working    # and $pieces{$self}->[$_->index]
-                           and (scalar grep { scalar $_->peers == 0 }
-                                values %{$_->blocks})
-                       } @{$pieces{$self}}
-                )
+=item 4b.
 
-=end :reference
+If C<%weights> is empty, we return without making a new request.
 
-If C<@weights> is empty, we return without making a new request.
+=back
 
-=item *
+=item 5.
 
 Take the sum of all the relative (priority) weights and call it C<$total>
 
-=item *
+=item 6.
 
 Take a random number between 0 and 1, and multiply it by C<$total>. Call
 the new number C<$rand_val>
 
-=item *
+=item 7.
 
 While C<$rand_val> is positive, iterate through each element of
 C<@weights> and do the following:
 
-=over 4
+=over
 
-=item *
+=item 7b.
 
 Subtract the (priority) weight of the element from C<$rand_val> and
 increment a temporary index C<$i>
 
-=item *
+=item 7c.
 
 If C<$rand_val> went negative or we run out of values for C<@weights>, we
 exit the loop.
 
 =back
 
-=item *
+=item 8.
 
-If C<$weights[$i]> is defined, we set the working value to true and
-request a free block.  Blocks are requested in order from the beginning
-of the piece to the end.  Finally, we re-request any rejected or canceled
-blocks.
+If C<%weights{$i}> is defined...
 
-=item *
+=over
+
+=item 8b.
+
+We set the working value to true and request a free block.  Blocks are
+requested in order from the beginning of the piece to the end.  Finally,
+we re-request any rejected or canceled blocks.
+
+=item 8c.
 
 ...otherwise, we return an undefined value.
+
+=back
 
 =back
 
@@ -355,24 +271,85 @@ IPv6 right now.
 
 =head2 Implemented Extensions
 
-[TODO]
+The BitTorrent Community Forum coordinates the development of the
+BitTorrent protocol suite, its reference implementation, and BitTorrent
+Enhancement Proposals (BEPs).  For more information, see BEP 0: Index of
+BitTorrent Enhancement Proposals
+http://bittorrent.org/beps/bep_0000.html
+
+This is the list of extensions used by this release of
+L<Net::BitTorrent|Net::BitTorrent> sorted by their progress toward
+standardization.
+
+=head3 Accepted BEPs
+
+These BEPs describe mechanisms that have been deployed in one or more
+BitTorrent implementations and have proven useful.  They may require
+minor revisions.  They await the blessing of the BDFL before they can be
+considered Final.
+
+=over
+
+=item *
+
+BEP 32: Tracker Returns Compact Peer Lists -
+http://bittorrent.org/beps/bep_0023.html
+
+=back
+
+=head3 Draft BEPs
+
+The following BEPs are under consideration for standardization.
+
+=over
+
+=item *
+
+BEP 5: DHT Protocol - http://bittorrent.org/beps/bep_0005.html
+
+=item *
+
+BEP 6: Fast Extension - http://bittorrent.org/beps/bep_0006.html
+
+Note: the Fast Extension is only partially implemented in
+L<Net::BitTorrent|Net::BitTorrent>.
+
+=item *
+
+BEP 10: Extension Protocol - http://bittorrent.org/beps/bep_0010.html
+
+=item *
+
+BEP 12: Multitracker Metadata Extension -
+http://bittorrent.org/beps/bep_0012.html
+
+=item *
+
+BEP 15: UDP Tracker Protocol - http://bittorrent.org/beps/bep_0015.html
+
+=item *
+
+BEP 27: Private Torrents - http://bittorrent.org/beps/bep_0027.html
+
+=back
 
 =head2 Portability Hacks
 
-Net::BitTorrent aims to be portable between the big three OS When
-possible, this should be achieved without a glut of code using easily
-obtained third-party modules.  Core modules are considered first
-followed by well tested CPAN modules.  Modules that prevent broad use
-(ie. fails to install on a majority of systems) will not be considered.
+L<Net::BitTorrent|Net::BitTorrent> aims to be portable between the big
+three OS when possible, this should be achieved without a glut of code
+using easily obtained third-party modules.  Core modules are considered
+first followed by well tested CPAN modules.  Modules that prevent broad
+use (ie. fails to install on a majority of systems) will not be
+considered.
 
 There will be times, though, that C<$^O>-based clutter is needed.  Here
 is a list of both stable and experimental workarounds by OS:
 
-=over 2
+=over
 
 =item MSWin32
 
-=over 2
+=over
 
 =item Extended charset filename support
 
@@ -382,46 +359,67 @@ is a list of both stable and experimental workarounds by OS:
 
 =back
 
-=head1 Do Your Part
+=head1 Giving back
 
-=head2 Automated Testing
+If you're interested in assisting with
+L<Net::BitTorent|Net::BitTorrent>'s development but don't know where to
+begin, here are a few ideas.
 
-[TODO]
+=head2 Automated Test Reports
+
+Becoming a CPAN Tester is an easy, automatic way to contribute to the
+quality of your favorite module and CPAN in general.  If you would like
+to contribute automated test reports for C<Net::BitTorrent>, install
+C<CPAN::Reporter> from the CPAN shell first:
+
+ $ cpan
+ cpan> install CPAN::Reporter
+ cpan> reload cpan
+ cpan> o conf init test_report
+   [...follow the CPAN::Reporter setup prompts...]
+ cpan> o conf commit
+ cpan> install Net::BitTorrent
+
+For more on becoming a CPAN Tester and why this is useful, see the
+L<CPAN::Reporter|CPAN::Reporter/"DESCRIPTION"> documentation and
+http://cpantesters.org/.
 
 =head2 Bug Reporting
 
-Right now, the best way to contribute would be through bug reports and
-patch submissions.
-
-Before creating a new report through C<Net::BitTorrent>'s
+Found bugs should be reported through C<Net::BitTorrent>'s
+L<Issue Tracker|/"Issue Tracker">.  Please include as much information as
+possible.  Before creating a new report through C<Net::BitTorrent>'s
 L<Issue Tracker|/"Issue Tracker">, please review the following list:
 
-=over 2
+=over
 
-=item *
+=item 1.
 
 Make sure you are using the most recent release of C<Net::BitTorrent>.
-This may mean checking out the latest svn commit.  All patches should be
-made against the most recent revision and well tested.  For a list of svn
+This may mean checking out the latest SVN commit.  All patches should be
+made against the most recent revision and well tested.  For a list of SVN
 clients, some of which make patch creation a little easier, see
 L<http://subversion.tigris.org/links.html#clients>.
 
-=item *
+=item 2.
 
 Make sure the bug is reproducible.
 
-=item *
+=item 3.
 
 Please write in clear English.
 
-=item *
+=item 4.
 
 Include as much detail as possible when describing the bug.  Provide
 "baby steps" to describe exactly how to replicate the bug.  Sample code
 is welcome.  Net::BitTorrent's issue tracker also allows attachments so,
-if relevant, also include the .torrent file regardless of its content.
+if relevant, also include the .torrent file.
 
-=item *
+If the bug is related to one .torrent in particular, please attach it to
+your report.
+
+=item 5.
 
 Search the list of open and resolved issues to make sure the flaw hasn't
 already been reported.  If it has, you can star the issue to stay up to
@@ -429,34 +427,29 @@ date.  You'll know what I mean by 'star' it when you get there...  I can
 see how many people have stars on a particular issue and popular bugs get
 priority.
 
-=item *
+=item 6.
 
 Issues are open to the public, so don't include passwords or other
 confidential information.  Beyond that, you can never provide too much
 information in a bug report.
 
-=item *
+=item 7.
 
 One bug is one bug report.  Please do not include multiple, separate
 issues in one report unless they are explicitly related to each other.
 
-=item *
-
-If the bug is related to one .torrent in particular, please attach it to
-your report.
-
-=item *
+=item 8.
 
 It never hurts to do a little homework.  If you run into a problem, find
 the place that's causing trouble and manage to fix it, please attach a
 patch (diff against the latest svn revision) or at least a very good
 description (with code) of what you did.
 
-=item *
+=item 9.
 
 Star the issue so you can stay up to date with my progress.
 
-=item *
+=item 10.
 
 Look over your report before submission to be sure you've included as
 much detail as possible.  Seriously.  Get up, have a drink of water, come
@@ -468,10 +461,10 @@ intended, and then submit.
 =head2 Co-Development and Patch Submission
 
 C<Net::BitTorrent> is too large for just one person to hack on.  If
-you're Perl proficient and would like to help, you can start by fixing
+you're Perl adept and would like to help, you can start by fixing
 problems reported in the L<Issue Tracker|/"Issue Tracker"> and bugs you
-find on your own.  When I decide to start looking for permanant co-devs,
-you'll already have your foot in the door.
+find on your own.  I am currently seeking co-devs and patches are a great
+way to get your foot in the door.
 
 Please submit patches for review by attaching it through the
 C<Net::BitTorrent> L<Issue Tracker|/"Issue Tracker">.  If it's a patch to
@@ -483,7 +476,7 @@ Ahhh.
 
 =head1 See Also
 
-=over 2
+=over
 
 =item Support and Information Links for C<Net::BitTorrent>
 
@@ -516,7 +509,8 @@ L<http://groups.google.com/group/net-bittorrent-discuss>.
 =item Issue Tracker
 
 Use L<http://code.google.com/p/net-bittorrent/issues/list> for bug
-tracking.  Please include as much information as possible.
+tracking.  Please include as much information as possible and review the
+list L<above|/"Bug Reporting">.
 
 =item Stalk Me While I Tinker
 
@@ -577,15 +571,20 @@ Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
 
-=head1 Disclaimer and Legal
+=head1 License and Legal
 
-Copyright 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
-This document and the specifications behind it are subject to change.
+This program is free software; you can redistribute it and/or modify
+it under the terms of The Artistic License 2.0.  See the F<LICENSE>
+file included with this distribution or
+http://www.perlfoundation.org/artistic_license_2_0.  For
+clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
 
-This original documentation is covered by the Creative Commons
-Attribution-Noncommercial-Share Alike 3.0 License (United States
-jurisdiction).
+When separated from the distribution, all POD documentation is covered
+by the Creative Commons Attribution-Share Alike 3.0 License.  See
+http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
+clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.

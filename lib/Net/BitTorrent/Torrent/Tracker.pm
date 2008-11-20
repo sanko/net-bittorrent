@@ -1,108 +1,52 @@
 #!C:\perl\bin\perl.exe
 package Net::BitTorrent::Torrent::Tracker;
 {
-    use strict;      # core as of perl 5
-    use warnings;    # core as of perl 5.006
-
-    #
-    use Carp qw[carp];                              # core as of perl 5
-    use Scalar::Util qw[blessed weaken refaddr];    # core as of 5.007003
-    use List::Util qw[shuffle];                     # core as of 5.007003
-
-    #
+    use strict;
+    use warnings;
+    use Carp qw[carp];
+    use Scalar::Util qw[blessed weaken refaddr];
+    use List::Util qw[shuffle];
     use lib q[./../../../];
     use Net::BitTorrent::Torrent::Tracker::HTTP;
     use Net::BitTorrent::Torrent::Tracker::UDP;
 
     #
-    use version qw[qv];                             # core as of 5.009
+    use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
 
     #
-    my (@CONTENTS) = \my (
-                 %torrent,  %_urls,                          # params to new()
-                 %complete, %incomplete);
+    my (@CONTENTS) = \my (%torrent, %_urls, %complete, %incomplete);
     my %REGISTRY;
 
-    #
     sub new {
-
-        # Creates a new N::B::Torrent object
-        # Accepts parameters as key/value pairs in a hash reference
-        # Required parameters:
-        #  - Client  (Net::BitTorrent object)
-        #  - URLs    (list of urls)
-        # Returns
-        #    - a new blessed object on success
-        #    - undef on failure
-        # MO
-        # - validate incoming parameters
-        # - shuffle list of URLs
-        # - bless object
-        # - set basic data (urls, client)
-        # -
-        # -
-        # - return $self
         my ($class, $args) = @_;
         my $self;
-
-        # Param validation... Ugh...
-        if (not defined $args) {
-            carp q[Net::BitTorrent::Torrent::Tracker->new({}) requires ]
-                . q[parameters a set of parameters];
+        if ((!$args) || (ref($args) ne q[HASH])) {
+            carp
+                q[Net::BitTorrent::Torrent::Tracker->new({}) requires parameters to be passed as a hashref];
             return;
         }
-        if (ref($args) ne q[HASH]) {
-            carp q[Net::BitTorrentS::Torrent::Tracker->new({}) requires ]
-                . q[parameters to be passed as a hashref];
+        if (   (!$args->{q[URLs]})
+            || (ref $args->{q[URLs]} ne q[ARRAY])
+            || (!scalar(@{$args->{q[URLs]}})))
+        {   carp
+                q[Net::BitTorrent::Torrent::Tracker->new({}) requires a list of URLs];
             return;
         }
-        if (not defined $args->{q[URLs]}) {
-            carp q[Net::BitTorrent::Torrent::Tracker->new({}) requires a ]
-                . q['URLs' parameter];
+        if (   (!$args->{q[Torrent]})
+            || (!blessed $args->{q[Torrent]})
+            || (!$args->{q[Torrent]}->isa(q[Net::BitTorrent::Torrent])))
+        {   carp
+                q[Net::BitTorrent::Torrent::Tracker->new({}) requires a Torrent];
             return;
         }
-        if (ref $args->{q[URLs]} ne q[ARRAY]) {
-            carp q[Net::BitTorrent::Torrent::Tracker->new({}) requires a ]
-                . q[list of URLs];
-            return;
-        }
-        if (not scalar(@{$args->{q[URLs]}})) {
-            carp q[Net::BitTorrent::Torrent::Tracker->new({}) doesn't (yet) ]
-                . q[know what to do with an empty list of URLs];
-            return;
-        }
-        if (not defined $args->{q[Torrent]}) {
-            carp q[Net::BitTorrent::Torrent::Tracker->new({}) requires a ]
-                . q['Torrent' parameter];
-            return;
-        }
-        if (not blessed $args->{q[Torrent]}) {
-            carp q[Net::BitTorrent::Torrent::Tracker->new({}) requires a ]
-                . q[blessed 'Torrent' object];
-            return;
-        }
-        if (not $args->{q[Torrent]}->isa(q[Net::BitTorrent::Torrent])) {
-            carp q[Net::BitTorrent::Torrent::Tracker->new({}) requires a ]
-                . q[blessed Net::BitTorrent::Torrent object in the 'Torrent' ]
-                . q[parameter];
-            return;
-        }
-
-        #
         $self = bless(\$args->{q[URLs]}->[0], $class);
-
-        #
         $torrent{refaddr $self} = $args->{q[Torrent]};
         weaken $torrent{refaddr $self};
-
-        #
         $complete{refaddr $self}   = 0;
         $incomplete{refaddr $self} = 0;
-
-        #
-        $_urls{refaddr $self} = [];
+        $_urls{refaddr $self}      = [];
         for my $_url (@{$args->{q[URLs]}}) {
             push @{$_urls{refaddr $self}},
                 ($_url =~ m[^http://]i
@@ -110,19 +54,13 @@ package Net::BitTorrent::Torrent::Tracker;
                  : q[Net::BitTorrent::Torrent::Tracker::UDP]
                 )->new({URL => $_url, Tier => $self});
         }
-
-        #
         $torrent{refaddr $self}->_client->_schedule({Time   => time,
                                                      Code   => \&_announce,
                                                      Object => $self
                                                     }
         ) if defined $torrent{refaddr $self}->_client;
         weaken($REGISTRY{refaddr $self} = $self);
-
-        # According to spec, multi-tracker tiers are shuffled initially
         @{$_urls{refaddr $self}} = shuffle(@{$_urls{refaddr $self}});
-
-        #
         return $self;
     }
 
@@ -146,7 +84,7 @@ package Net::BitTorrent::Torrent::Tracker;
         return $incomplete{refaddr $self} = $value;
     }
 
-    sub _shuffle {    # push first (bad) to the end of the list
+    sub _shuffle {
         my ($self) = @_;
         return (
              push(@{$_urls{refaddr $self}}, shift(@{$_urls{refaddr $self}})));
@@ -162,47 +100,39 @@ package Net::BitTorrent::Torrent::Tracker;
 
     sub _as_string {
         my ($self, $advanced) = @_;
-        my $dump = q[TODO];
+        my $dump = !$advanced ? $$self : sprintf <<'END',
+Net::BitTorrent::Torrent::Tracker
+
+Complete: %d
+Incomplete: %d
+Number of URLs: %d
+    %s
+END
+            $complete{refaddr $self},
+            $incomplete{refaddr $self},
+            scalar(@{$_urls{refaddr $self}}),
+            join qq[\r\n    ], map { $_->_url() } @{$_urls{refaddr $self}};
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
-    #
     sub CLONE {
         for my $_oID (keys %REGISTRY) {
-
-            #  look under oID to find new, cloned reference
             my $_obj = $REGISTRY{$_oID};
             my $_nID = refaddr $_obj;
-
-            #  relocate data
             for (@CONTENTS) {
                 $_->{$_nID} = $_->{$_oID};
                 delete $_->{$_oID};
             }
-
-            # do some silly stuff to avoid user mistakes
             weaken $torrent{$_nID};
-
-            #  update he weak refernce to the new, cloned object
             weaken($REGISTRY{$_nID} = $_obj);
             delete $REGISTRY{$_oID};
         }
         return 1;
     }
-
-    # Destructor
     DESTROY {
         my ($self) = @_;
-
-        #warn q[Goodbye, ] . $$self;
-        # Clean all data
-        for (@CONTENTS) {
-            delete $_->{refaddr $self};
-        }
-        delete $REGISTRY{refaddr $self};
-
-        #
-        return 1;
+        for (@CONTENTS) { delete $_->{refaddr $self}; }
+        return delete $REGISTRY{refaddr $self};
     }
     1;
 }

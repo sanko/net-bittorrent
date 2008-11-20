@@ -1,45 +1,21 @@
-#!C:\perl\bin\perl.exe 
+#!C:\perl\bin\perl.exe
 package Net::BitTorrent::Util;
 {
-    use strict;      # core as of perl 5
-    use warnings;    # core as of perl 5.006
-
-    #
-    use Carp qw[carp];                         # core as of perl 5
-    use List::Util qw[min max shuffle sum];    # core as of 5.007003
-
-    #
-    #
-    use version qw[qv];                        # core as of 5.009
+    use strict;
+    use warnings;
+    use Carp qw[carp];
+    use List::Util qw[min max shuffle sum];
+    use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
-
-    #
-    use vars                                   # core as of perl 5.002
-        qw[@EXPORT_OK %EXPORT_TAGS];
-    use Exporter                               # core as of perl 5
-        qw[];
+    use vars qw[@EXPORT_OK %EXPORT_TAGS];
+    use Exporter qw[];
     *import = *import = *Exporter::import;
-    @EXPORT_OK = qw[bencode bdecode
-        compact uncompact
-        min max shuffle sum
-        TRACE DEBUG INFO WARN ERROR FATAL
-    ];
+    @EXPORT_OK = qw[bencode bdecode compact uncompact];
     %EXPORT_TAGS = (all     => [@EXPORT_OK],
                     bencode => [qw[bencode bdecode]],
                     compact => [qw[compact uncompact]],
-                    log     => [qw[TRACE DEBUG INFO WARN ERROR FATAL]]
     );
-
-    #
-    # http://tech.puredanger.com/2008/03/25/log-levels/
-    # http://www.sip-communicator.org/index.php/Documentation/LogLevels
-    sub TRACE { return 32 }
-    sub DEBUG { return 16 }
-    sub INFO  { return 8 }
-    sub WARN  { return 4 }
-    sub ERROR { return 2 }
-    sub FATAL { return 1 }
 
     sub bencode {
         my ($ref) = @_;
@@ -62,10 +38,10 @@ package Net::BitTorrent::Util;
                      q[e]
                 );
         }
-        return q[];    # $ref == undef
+        return q[];
     }
 
-    sub bdecode {      # needs work
+    sub bdecode {
         my ($string) = @_;
         return if not defined $string;
         my ($return, $leftover);
@@ -104,18 +80,12 @@ package Net::BitTorrent::Util;
             }
             return wantarray ? (\%$return, $leftover) : \%$return;
         }
-
-        #carp sprintf(q[Bad bencoded data: '%s'], $string);
         return;
     }
 
     sub compact {
         my (@peers) = @_;
-        if (not @peers) {
-
-            #carp q[Not enough parameters for compact(ARRAY)];
-            return;
-        }
+        if (not @peers) {return}
         my $return;
         my %seen;
     PEER: for my $peer (grep(defined && !$seen{$_}++, @peers)) {
@@ -124,13 +94,13 @@ package Net::BitTorrent::Util;
             if ($peer
                 !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4}):\d+$]
                 )
-            {    #carp q[Invalid IP address: ] . $peer;
+            {   carp q[Invalid IP address: ] . $peer;
             }
-            elsif ($port > 2**16) {    #
-                    #carp q[Port number beyond ephemeral range: ] . $peer;
+            elsif ($port > 2**16) {
+                carp q[Port number beyond ephemeral range: ] . $peer;
             }
             else {
-                $return .= pack q[C4n],    # XXX - use inet_aton
+                $return .= pack q[C4n],
                     ($ip =~ m[^([\d]+)\.([\d]+)\.([\d]+)\.([\d]+)$]),
                     int $port;
             }
@@ -172,39 +142,17 @@ You may import any of the following or use one or more of these tags:
 
 Everything is imported into your namespace.
 
-=item C<:log>
-
-Net::BitTorrent's log callback uses these to indicate how 'important' a
-certain message is:
-
-=over 2
-
-=item C<TRACE>
-
-=item C<FATAL>
-
-=item C<ERROR>
-
-=item C<WARN>
-
-=item C<INFO>
-
-=item C<DEBUG>
-
-=back
-
 =item C<:bencode>
 
-You get the two Bencode-related functions: C<bencode> and C<bedecode>.
-For more on Bencoding, see the BitTorrent Protocol documentation.
+You get the two Bencode-related functions: L<bencode|/"bencode ( ARGS )">
+and L<bedecode|/"bdecode ( STRING )">.  For more on Bencoding, see the
+BitTorrent Protocol documentation.
 
 =item C<:compact>
 
-C<compact>, C<uncompact>
+L<compact|/"compact ( LIST )">, L<uncompact|/"uncompact ( STRING )">
 
 These are tracker response-related functions.
-
-
 
 =back
 
@@ -221,27 +169,49 @@ Bencoding is the BitTorrent protocol's basic serialization and
 data organization format.  The specification supports integers,
 lists (arrays), dictionaries (hashes), and byte strings.
 
-See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
-
 =item C<bdecode ( STRING )>
 
 Expects a bencoded string.  The return value depends on the type of
 data contained in the string.
 
-See Also: L<Convert::Bencode>, L<Bencode>, L<Convert::Bencode_XS>
-
 =item C<compact ( LIST )>
 
 Compacts a list of IPv4:port strings into a single string.
 
-A compact peer is 6 bytes;  the first four bytes are the host (in
-network byte order), the last two bytes are the port (again in network
-byte order).
+A compact peer is 6 bytes; the first four bytes are the host (in network
+byte order), the last two bytes are the port (again, in network byte
+order).
 
 =item C<uncompact ( STRING )>
 
 Inflates a compacted string of peers and returns a list of IPv4:port
 strings.
+
+=back
+
+=head1 See Also
+
+=over
+
+=item The BitTorrent Protocol Specification
+
+http://bittorrent.org/beps/bep_0003.html#the-connectivity-is-as-follows
+
+=item BEP 32: Tracker Returns Compact Peer Lists
+
+http://bittorrent.org/beps/bep_0023.html
+
+=item Other Bencode related modules:
+
+=over
+
+=item L<Convert::Bencode|Convert::Bencode>
+
+=item L<Bencode|Bencode>
+
+=item L<Convert::Bencode_XS|Convert::Bencode_XS>
+
+=back
 
 =back
 
