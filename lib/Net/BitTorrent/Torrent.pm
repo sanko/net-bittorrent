@@ -12,9 +12,9 @@ package Net::BitTorrent::Torrent;
     use Fcntl qw[/O_/ /SEEK/ :flock];
     use lib q[../../../lib];
     use Net::BitTorrent::Util qw[:bencode :compact];
+    use Net::BitTorrent::Peer;
     use Net::BitTorrent::Torrent::File;
     use Net::BitTorrent::Torrent::Tracker;
-    use Net::BitTorrent::Peer;
     use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
@@ -268,7 +268,7 @@ package Net::BitTorrent::Torrent;
     sub _client       { return $_client{refaddr +shift}; }
     sub _block_length { return $_block_length{refaddr +shift} }
 
-    sub _piece_count {    # XXX - cache
+    sub _piece_count {    # XXX - cache?
         my ($self) = @_;
         return
             int(
@@ -351,7 +351,7 @@ package Net::BitTorrent::Torrent;
         ${$status{refaddr $self}} |= 1
             if !(${$status{refaddr $self}} & 1);
         $_client{refaddr $self}->_schedule(
-                                  {Time   => time + 15,
+                                  {Time   => time + 5,
                                    Code   => sub { shift->_new_peer if @_; },
                                    Object => $self
                                   }
@@ -399,6 +399,7 @@ package Net::BitTorrent::Torrent;
         if (!${$status{refaddr $self}} & 128) { return; }
         return if not defined $_client{refaddr $self};
         return if ${$status{refaddr $self}} & 2;
+        return if not $amount;
         $uploaded{refaddr $self} += (($amount =~ m[^\d+$]) ? $amount : 0);
     }
 
@@ -426,7 +427,7 @@ package Net::BitTorrent::Torrent;
         return if ${$status{refaddr $self}} & 2;
         return if !${$status{refaddr $self}} & 1;
         $_client{refaddr $self}->_schedule(
-                                         {Time   => time + 15,
+                                         {Time   => time + 5,
                                           Code   => sub { shift->_new_peer },
                                           Object => $self
                                          }
@@ -538,21 +539,27 @@ package Net::BitTorrent::Torrent;
             : 0
         );
         my $slots = int(
-              ((2**23) / $raw_data{refaddr $self}{q[info]}{q[piece length]}));
+              ((2**24) / $raw_data{refaddr $self}{q[info]}{q[piece length]}));
         my $unchoked_peers
-            = scalar(grep { $_->_peer_choking == 0 } $self->_peers);
+            = scalar(grep { $_->_peer_choking == 0 } $self->_peers) + 1;
         my $blocks_per_piece = int(
               $raw_data{refaddr $self}{q[info]}{q[piece length]} / (
                   ($raw_data{refaddr $self}{q[info]}{q[piece length]} < 2**14)
                   ? $raw_data{refaddr $self}{q[info]}{q[piece length]}
+                  : ($raw_data{refaddr $self}{q[info]}{q[piece length]}
+                     >= 2**22) ? 2**15
                   : 2**14
               )
         );
         my $max_working_pieces =
-            min(16,
-                max(2, int(($slots * $unchoked_peers) / $blocks_per_piece) + 1
-                )
-            );
+
+            #min(24,
+            #    min(($unchoked_peers * 2),
+            (int(($slots * $unchoked_peers) / $blocks_per_piece) + 1)
+
+            #    )
+            #)
+            ;
         if (scalar(grep { $_->{q[Slow]} == 0 }
                        values %{$working_pieces{refaddr $self}}
             ) >= $max_working_pieces
@@ -695,7 +702,7 @@ package Net::BitTorrent::Torrent;
         my ($self, $index, $offset, $length) = @_;
         return if not defined $index  || $index !~ m[^\d+$];
         return if not defined $offset || $offset !~ m[^\d+$];
-        return if not $length         || $length !~ m[^\d+$];
+        return if not defined $length || $length !~ m[^\d+$];
         my $data = q[];
         if (($length + (
                  ($raw_data{refaddr $self}{q[info]}{q[piece length]} * $index)

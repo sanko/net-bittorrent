@@ -388,7 +388,9 @@ SKIP: {
                          build_bitfield(q[11100010]),
                          build_extended(
                                 0,
-                                {m => {ut_pex => 1, q[µT_PEX] => 2},
+                                {m => {ut_pex     => 1,
+                                       q[µT_PEX] => 2
+                                 },
                                  ((p => 30)),
                                  v => q[Net::BitTorrent r0.30],
                                  yourip =>
@@ -592,31 +594,18 @@ SKIP: {
     is($data, join(q[], @original_data), q[   ...was shifted from data.]);
     is_deeply(\@original_data, [], q[Looks like we're done.]);
 }
+__END__
+Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
 
-=head1 Author
-
-Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
-
-CPAN ID: SANKO
-
-=head1 License and Legal
-
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of The Artistic License 2.0.  See the F<LICENSE>
-file included with this distribution or
+This program is free software; you can redistribute it and/or modify it
+under the terms of The Artistic License 2.0.  See the LICENSE file
+included with this distribution or
 http://www.perlfoundation.org/artistic_license_2_0.  For
 clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
 
-When separated from the distribution, all POD documentation is covered
-by the Creative Commons Attribution-Share Alike 3.0 License.  See
+When separated from the distribution, all POD documentation is covered by
+the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-Neither this module nor the L<Author|/Author> is affiliated with
-BitTorrent, Inc.
-
-=for svn $Id$
-
-=cut
+$Id$

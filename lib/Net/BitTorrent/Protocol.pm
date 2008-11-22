@@ -473,6 +473,9 @@ use the C<:all> tag.
 
 Packet types
 
+For more on what these packets actually mean, see the BitTorrent Spec.
+This is a list of the currently supported packet types:
+
 =over
 
 =item HANDSHAKE

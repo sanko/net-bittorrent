@@ -13,8 +13,10 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
-    my @CONTENTS = \my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
-                        %_packed_host, %_event);
+    my @CONTENTS
+        = \
+        my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
+            %_packed_host, %_event);
 
     sub new {
         my ($class, $args) = @_;
@@ -63,6 +65,11 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     # Methods | Private
     sub _announce {
         my ($self, $event) = @_;
+        if (!$_tier{refaddr $self}->_client->_udp) {
+            carp sprintf q[UDP port is not open];
+            $_tier{refaddr $self}->_shuffle();
+            return;
+        }
         if (defined $event) {
             if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) {
                 carp sprintf q[Invalid event for announce: %s], $event;
@@ -258,7 +265,7 @@ END
                     (int($i / 2**32) % 2**32, int($i % 2**32));
                 }
             };
-            $return = pack('NN', $int1, $int2);
+            $return = pack(q[NN], $int1, $int2);
         }
         return $return;
     }

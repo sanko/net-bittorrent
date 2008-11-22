@@ -5,10 +5,12 @@ use Getopt::Long;
 use Pod::Usage;
 use List::Util qw[sum];
 use Carp qw[croak carp];
+use Time::HiRes qw[sleep];
 use lib q[../lib];
+use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent;
 $|++;
-my ($VERSION, $dir, $check, $dht, $int, $man, $help, $port, $ver, @torrents)
+my ($VERSION, $dir, $check, $int, $man, $help, $port, $ver, @torrents)
     = (sprintf(q[%.3f], (qw$Rev$)[1] / 1000), q[./], 1, 1, 0);
 GetOptions(q[help|?]       => \$help,
            q[man]          => \$man,
@@ -16,7 +18,6 @@ GetOptions(q[help|?]       => \$help,
            q[port:i]       => \$port,
            q[directory:s]  => \$dir,
            q[check!]       => \$check,
-           q[dht!]         => \$dht,
            q[version]      => \$ver
 ) or pod2usage(2);
 @torrents = grep {-f} @torrents, @ARGV;
@@ -25,58 +26,30 @@ $ver && exit printf <<VER, $0, $VERSION, $Net::BitTorrent::VERSION, $^V, $^O;
 Net::BitTorrent version %s
 Perl version %vd on %s
 VER
-$man
-    && pod2usage({-verbose    => 99,
-                  -sections   => q[NAME|Options|Author|License and Legal],
-                  -exitstatus => 0
-                 }
-    );
-$help
-    or !@torrents
-    && pod2usage({-verbose    => 99,
-                  -sections   => q[NAME|Synopsis|Author],
-                  -exitstatus => 1
-                 }
-    );
+pod2usage({-verbose    => 99,
+           -sections   => q[NAME|Options|Author|License and Legal],
+           -exitstatus => 0
+          }
+) if $man;
+pod2usage({-verbose    => 99,
+           -sections   => q[NAME|Synopsis|Author],
+           -exitstatus => 1
+          }
+    )
+    if $help
+        or !@torrents;
 my $bt = new Net::BitTorrent({LocalPort => $port})
     or croak sprintf q[Failed to create Net::BitTorrent object (%s)], $^E;
-$bt->_set_use_dht($dht);
-
-sub piece_status {
-    my ($msg, $args) = @_;
-    my $torrent  = $_[1]->{q[Torrent]};
-    my $bitfield = $torrent->bitfield;
-    printf q[%shash%s: %04d|%s|%4d/%4d|%3.2f%%],
-        qq[\r], $msg, $_[1]->{q[Index]},
-        $$torrent,
-        sum(split q[], unpack(q[b*], $torrent->bitfield)),
-        $torrent->_piece_count,
-        ((((sum split q[], unpack q[b*], $bitfield) / ($torrent->_piece_count)
-          )
-         ) * 100
-        );
-    return 1;
-}
 $bt->on_event(
-    q[packet_incoming_block],
+    q[incoming_packet],
     sub {
-        return
-            printf(qq[\rRECIEVED   p:%15s:%-5d i:%4d o:%7d l:%5d],
-                   $_[1]->{q[Peer]}->_host, $_[1]->{q[Peer]}->_port,
-                   $_[1]->{q[Index]},       $_[1]->{q[Offset]},
-                   $_[1]->{q[Length]}
-            );
+        trans_status(q[RECEIVED], $_[1]) if $_[1]->{q[Type]} eq PIECE;
     }
 );
 $bt->on_event(
-    q[packet_outgoing_request],
+    q[outgoing_packet],
     sub {
-        return
-            printf(qq[\rREQUESTING p:%15s:%-5d i:%4d o:%7d l:%5d],
-                   $_[1]->{q[Peer]}->_host, $_[1]->{q[Peer]}->_port,
-                   $_[1]->{q[Index]},       $_[1]->{q[Offset]},
-                   $_[1]->{q[Length]}
-            );
+        trans_status(q[REQUESTING], $_[1]) if $_[1]->{q[Type]} eq REQUEST;
     }
 );
 $bt->on_event(q[piece_hash_pass], sub { piece_status(q[pass], $_[1]); });
@@ -86,7 +59,7 @@ for my $path (@torrents) {
     my $obj = $bt->add_torrent({Path => $path, BaseDir => $dir})
         || carp(qq[Cannot load '$path': $^E]) && next;
     print qq[Hash checking...\n] and $obj->hashcheck if $check;
-    printf qq[\rLoaded '$path' [%s...%s%s]\n],
+    printf qq[Loaded '$path' [%s...%s%s]\n],
         ($obj->infohash =~ (m[^(.{4}).+(.{4})$])),
         ($obj->private ? q[|No DHT] : q[]);
 }
@@ -96,8 +69,32 @@ $SIG{q[INT]} = sub {
         . $bt->_as_string(1)
         . (join q[\n], map { $_->_as_string(1) } values %{$bt->torrents});
 };
-$bt->do_one_loop while 1;
-__END__
+$bt->do_one_loop(0.25) && sleep(0.50) while 1;
+
+sub piece_status {
+    my ($msg, $args) = @_;
+    my $torrent = $args->{q[Torrent]};
+    return printf qq[hash%s: %04d|%s|%4d/%4d|%3.2f%%\r],
+        $msg, $args->{q[Index]}, $torrent->_as_string(),
+        sum(split q[], unpack(q[b*], $torrent->bitfield)),
+        $torrent->_piece_count,
+        (((  (sum split q[], unpack q[b*], $torrent->bitfield)
+           / ($torrent->_piece_count)
+          )
+         ) * 100
+        );
+}
+
+sub trans_status {
+    printf(qq[%-10s p:%15s:%-5d i:%4d o:%7d l:%5d\r],
+           shift,
+           $_[0]->{q[Peer]}->_host,
+           $_[0]->{q[Peer]}->_port,
+           $_[0]->{q[Payload]}->{q[Index]},
+           $_[0]->{q[Payload]}->{q[Offset]},
+           $_[0]->{q[Payload]}->{q[Length]}
+    );
+}
 
 =pod
 
@@ -112,12 +109,11 @@ bittorrent - Very basic example BitTorrent client
  bittorrent [options] [file ...]
 
  Options:
-   -t   --torrent       .torrent file to load
-   -p   --port          TCP/UDP port opened for incoming connections
-   -dir --directory     Base directory to store downloaded files
+   -t     --torrent     .torrent file to load
+   -p     --port        TCP/UDP port opened for incoming connections
+   -d     --directory   Base directory to store downloaded files
    --no-check           Skip integrity check at start
-   --no-dht             Disable DHT
-   -?   --help          Display brief help message
+   -?     --help        Display brief help message
    --man                Display full documentation
    --version            Display version information
 
@@ -151,10 +147,6 @@ related information.
 If found, the files will not be checked for integrity and we assume that
 we have none of the data of this torrent.
 
-=item B<--no-dht>
-
-Disables DHT.
-
 =item B<--help>
 
 Print a brief help message and exit.
@@ -165,8 +157,7 @@ Print the manual page and exit.
 
 =item B<--version>
 
-Print a standard version message that includes the program name, its
-version and the versions of Getopt::Long and Perl.
+Guess.
 
 =back
 
@@ -202,4 +193,3 @@ BitTorrent, Inc.
 =for svn $Id$
 
 =cut
-

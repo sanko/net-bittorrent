@@ -6,23 +6,20 @@ use strict;
 use warnings;
 use Module::Build;
 use Test::More;
-use Socket;
-use Fcntl qw[:flock];
-use Time::HiRes;
-use IO::Socket qw[SOMAXCONN];
-use List::Util qw[sum];
+use Socket qw[SOCK_STREAM /F_INET/ unpack_sockaddr_in inet_ntoa];
 use File::Temp qw[];
 use lib q[../../lib];
-use Net::BitTorrent;
 use Net::BitTorrent::Util qw[:compact :bencode];
+use Net::BitTorrent;
 $|++;
-my $test_builder       = Test::More->builder;
-my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
-chdir q[../../] if not -f $simple_dot_torrent;
-my $build    = Module::Build->current;
-my $okay_tcp = $build->notes(q[okay_tcp]);
-my $okay_udp = $build->notes(q[okay_udp]);
-my $verbose  = $build->notes(q[verbose]);
+my $test_builder          = Test::More->builder;
+my $miniswarm_dot_torrent = q[t/900_data/950_torrents/953_miniswarm.torrent];
+chdir q[../../] if not -f $miniswarm_dot_torrent;
+my $build           = Module::Build->current;
+my $okay_tcp        = $build->notes(q[okay_tcp]);
+my $okay_udp        = $build->notes(q[okay_udp]);
+my $release_testing = $build->notes(q[release_testing]);
+my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 {
     no warnings q[redefine];
@@ -34,18 +31,160 @@ my $Peers       = 5;
 my $Timeout     = 45;
 plan tests => int(($Seeds * 2) + ($Peers * 2));
 my $sprintf = q[%0] . length($Peers > $Seeds ? $Peers : $Seeds) . q[d];
-my $miniswarm_dot_torrent
-    = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 my $_infohash = q[2b3aaf361bd40540bf7e3bfd140b954b90e4dfbc];
-$|++;
+my (%client, %_tracker_data, $httpd);
 SKIP: {
     skip(q[TCP-based tests have been disabled.],
          ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
     ) unless $okay_tcp;
-    my %_tracker_data;
+    my $_tracker_port = setup_tracker();
+    skip(sprintf(q[Unable to bind HTTP tracker: [%d] %s], $^E, $^E),
+         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) unless $_tracker_port && $httpd;
+    my $test_builder = Test::More->builder;
+    for my $chr (1 .. $Seeds) {
+        $chr = sprintf $sprintf, $chr;
+        $client{q[seed_] . $chr}
+            = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
+        skip(sprintf(q[Failed to create seed_%s], $chr),
+             $test_builder->{q[Expected_Tests]}
+                 - $test_builder->{q[Curr_Test]}
+        ) if not $client{q[seed_] . $chr};
+        $client{q[seed_] . $chr}->_set_use_dht($okay_udp);
+        my $torrent = $client{q[seed_] . $chr}->add_torrent(
+                                     {Path    => $miniswarm_dot_torrent,
+                                      BaseDir => q[./t/900_data/930_miniswarm]
+                                     }
+        );
+        skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
+             $test_builder->{q[Expected_Tests]}
+                 - $test_builder->{q[Curr_Test]}
+        ) if not $torrent;
+        $torrent->hashcheck;
+        skip(
+            sprintf(
+                q[Failed to load torrent for seed_%s: Seed data is missing/corrupt],
+                $chr),
+            $test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]}
+        ) if not $torrent->is_complete;
+        ok(scalar($torrent->is_complete),
+            sprintf(q[seed_%s is seeding], $chr));
+        skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
+             $test_builder->{q[Expected_Tests]}
+                 - $test_builder->{q[Curr_Test]}
+        ) if not $torrent->is_complete;
+        my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
+        $torrent->_add_tracker([$tracker]);
+        $client{q[seed_] . $chr}->on_event(
+            q[tracker_success],
+            sub {
+                my ($s, $a) = @_;
+                my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
+                ok(1, sprintf(q[seed_%s announce okay], $chr));
+                return $t->_tier->_torrent->_new_peer();
+            }
+        );
+        $client{q[seed_] . $chr}->do_one_loop(0.1);
+    }
+    for my $chr (1 .. $Peers) {
+        $chr = sprintf $sprintf, $chr;
+        $client{$chr} = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
+        skip(sprintf(q[Failed to create leech_%s], $chr),
+             $test_builder->{q[Expected_Tests]}
+                 - $test_builder->{q[Curr_Test]}
+        ) if not $client{$chr};
+        $client{$chr}->_set_use_dht(0);
+        $client{$chr}->on_event(
+            q[piece_hash_pass],
+            sub {
+                my ($self, $args) = @_;
+                my $piece
+                    = $args->{q[Torrent]}->_piece_by_index($args->{q[Index]});
+                my $sum = 0;
+                for my $offset (0 .. $args->{q[Torrent]}->_piece_count - 1) {
+                    $sum += vec($args->{q[Torrent]}->bitfield, $offset, 1);
+                }
+                ok($args->{q[Torrent]}->is_complete,
+                    sprintf(q[peer_%s is seeding], $chr))
+                    if $args->{q[Torrent]}->is_complete;
+                return;
+            }
+        );
+        $client{$chr}->on_event(
+            q[tracker_success],
+            sub {
+                my ($s, $a) = @_;
+                my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
+                ok(1, sprintf(q[peer_%s announce okay], $chr));
+                return $t->_tier->_torrent->_new_peer();
+            }
+        );
+        my $torrent =
+            $client{$chr}->add_torrent(
+                                     {Path => $miniswarm_dot_torrent,
+                                      BaseDir =>
+                                          File::Temp::tempdir(
+                                          sprintf(q[miniswarm_%s_XXXX], $chr),
+                                          CLEANUP => 1,
+                                          TMPDIR  => 1
+                                          ),
+                                      BlockLength => $BlockLength
+                                     }
+            );
+        skip(sprintf(q[Failed to load torrent for leech_%s], $chr),
+             $test_builder->{q[Expected_Tests]}
+                 - $test_builder->{q[Curr_Test]}
+        ) if not $torrent;
+        my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
+        $torrent->_add_tracker([$tracker]);
+    }
+    for my $bt (values %client) {
+        for my $event (qw[ip_filter
+                       incoming_packet outgoing_packet
+                       peer_connect    peer_disconnect
+                       peer_read       peer_write
+                       tracker_connect tracker_disconnect
+                       tracker_read    tracker_write
+                       tracker_failure
+                       piece_hash_fail
+                       file_open       file_close
+                       file_read       file_write
+                       file_error
+                       ]
+            )
+        {   use Data::Dumper;
+            $bt->on_event(
+                $event,
+                sub {
+                    warn sprintf q[EVENT - %s - %s : %s],
+                        scalar(localtime), $event, Dumper $_[1];
+                }
+            );
+        }
+    }
+    while ($test_builder->{q[Curr_Test]} < $test_builder->{q[Expected_Tests]})
+    {   grep { $_->do_one_loop(0.1); check_tracker(); } values %client;
+        skip(q[This is taking too long and I have a train to catch.],
+             (      $test_builder->{q[Expected_Tests]}
+                  - $test_builder->{q[Curr_Test]}
+             )
+        ) if (int(time - $^T) > $Timeout);
+    }
+
+    END {
+        for my $client (values %client) {
+            for my $file (@{$client->torrents->{$_infohash}->files}) {
+                $file->_close;
+            }
+        }
+    }
+    exit;
+}
+
+sub setup_tracker {
     my $_tracker_port = 0;
     my $_tracker_host = q[127.0.0.1];
-    socket(my ($httpd), PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
+    socket($httpd, PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
         || skip(q[Failed to open socket for tracker],
                 (      $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
@@ -61,7 +200,7 @@ SKIP: {
                      - $test_builder->{q[Curr_Test]}
                 )
         );
-    listen($httpd, SOMAXCONN)
+    listen($httpd, 1)
         || skip(sprintf(q[Failed to listen on port: [%d] %s], $^E, $^E),
                 (      $test_builder->{q[Expected_Tests]}
                      - $test_builder->{q[Curr_Test]}
@@ -70,213 +209,80 @@ SKIP: {
     (undef, $_tracker_port, undef) = unpack(q[SnC4x8], getsockname($httpd));
     warn(sprintf q[HTTP Mini-Tracker running on 127.0.0.1:%d],
          $_tracker_port);
-SKIP: {
-        my %client;
-        my $test_builder = Test::More->builder;
-        for my $chr (1 .. $Seeds) {
-            $chr = sprintf $sprintf, $chr;
-            $client{q[seed_] . $chr}
-                = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
-            skip(sprintf(q[Failed to create seed_%s], $chr),
-                 $test_builder->{q[Expected_Tests]}
-                     - $test_builder->{q[Curr_Test]}
-            ) if not $client{q[seed_] . $chr};
-            my $torrent = $client{q[seed_] . $chr}->add_torrent(
-                                  {Path    => $miniswarm_dot_torrent,
-                                   BaseDir => q[./t/900_data/930_miniswarm]
-                                  }
-            );
-            skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
-                 $test_builder->{q[Expected_Tests]}
-                     - $test_builder->{q[Curr_Test]}
-            ) if not $torrent;
-            $torrent->hashcheck;
-            skip(
-                sprintf(
-                    q[Failed to load torrent for seed_%s: Seed data is missing/corrupt],
-                    $chr),
-                $test_builder->{q[Expected_Tests]}
-                    - $test_builder->{q[Curr_Test]}
-            ) if not $torrent->is_complete;
-            ok(scalar($torrent->is_complete),
-                sprintf(q[seed_%s is seeding], $chr));
-            skip(sprintf(q[Failed to load torrent for seed_%s], $chr),
-                 $test_builder->{q[Expected_Tests]}
-                     - $test_builder->{q[Curr_Test]}
-            ) if not $torrent->is_complete;
-            my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
-            $torrent->_add_tracker([$tracker]);
-            $client{q[seed_] . $chr}->on_event(
-                q[tracker_success],
-                sub {
-                    my ($s, $a) = @_;
-                    my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
-                    ok(1, sprintf(q[seed_%s announce okay], $chr));
-                    return $t->_tier->_torrent->_new_peer();
-                }
-            );
-            $client{q[seed_] . $chr}->do_one_loop(0.1);
-        }
-        for my $chr (1 .. $Peers) {
-            $chr = sprintf $sprintf, $chr;
-            $client{$chr} = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
-            skip(sprintf(q[Failed to create leech_%s], $chr),
-                 $test_builder->{q[Expected_Tests]}
-                     - $test_builder->{q[Curr_Test]}
-            ) if not $client{$chr};
-            $client{$chr}->on_event(
-                q[piece_hash_pass],
-                sub {
-                    my ($self, $args) = @_;
-                    my $piece = $args->{q[Torrent]}
-                        ->_piece_by_index($args->{q[Index]});
-                    my $sum = 0;
-                    for my $offset (
-                                   0 .. $args->{q[Torrent]}->_piece_count - 1)
-                    {   $sum
-                            += vec($args->{q[Torrent]}->bitfield, $offset, 1);
-                    }
-                    ok($args->{q[Torrent]}->is_complete,
-                        sprintf(q[peer_%s is seeding], $chr))
-                        if $args->{q[Torrent]}->is_complete;
-                    return;
-                }
-            );
-            $client{$chr}->on_event(
-                q[tracker_success],
-                sub {
-                    my ($s, $a) = @_;
-                    my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
-                    ok(1, sprintf(q[peer_%s announce okay], $chr));
-                    return $t->_tier->_torrent->_new_peer();
-                }
-            );
-            my $torrent =
-                $client{$chr}->add_torrent(
-                                  {Path => $miniswarm_dot_torrent,
-                                   BaseDir =>
-                                       File::Temp::tempdir(
-                                          sprintf(q[miniswarm_%s_XXXX], $chr),
-                                          CLEANUP => 1,
-                                          TMPDIR  => 1
-                                       ),
-                                   BlockLength => $BlockLength
-                                  }
-                );
-            skip(sprintf(q[Failed to load torrent for leech_%s], $chr),
-                 $test_builder->{q[Expected_Tests]}
-                     - $test_builder->{q[Curr_Test]}
-            ) if not $torrent;
-            my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
-            $torrent->_add_tracker([$tracker]);
-        }
-        while ($test_builder->{q[Curr_Test]}
-               < $test_builder->{q[Expected_Tests]})
-        {   grep { $_->do_one_loop(0.1); check_tracker(); } values %client;
-            skip(q[This is taking too long and I have a train to catch.],
-                 (      $test_builder->{q[Expected_Tests]}
-                      - $test_builder->{q[Curr_Test]}
-                 )
-            ) if (int(time - $^T) > $Timeout);
-        }
+    return $_tracker_port;
+}
 
-        sub check_tracker {
-            my $rin = q[];
-            vec($rin, fileno($httpd), 1) = 1;
-            my ($nfound, $timeleft) = select($rin, undef, undef, 0.1);
-            return if $nfound == 0;
-            return if vec($rin, fileno($httpd), 1) != 1;
-            if (my $paddr = accept(my ($client), $httpd)) {
-                grep { $_->do_one_loop(0.1); } values %client;
-                my $gotten = q[];
-                if (sysread($client, my ($data), 1024 * 16)) {
-                    $gotten .= $data;
-                    if ($data =~ m[^GET\s+(/(announce|scrape)\?([^\s]*))]) {
-                        my $type = $2;
-                        my %hash = split m[[=&]], $3;
-                        $hash{q[info_hash]}
-                            =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
-                        my (undef, undef, @address)
-                            = unpack(q[SnC4x8], getsockname($client));
-                        my %reply;
-                        if ($type eq q[announce]) {
-                            $hash{q[peer_id]}
-                                =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
-                            %reply = (
-                                     interval => 1500,
-                                     peers => $_tracker_data{$hash{info_hash}}
-                                         || q[]
-                            );
-                            $_tracker_data{$hash{info_hash}}
-                                = compact(
-                                ((join q[.], @address) . q[:] . $hash{port}),
-                                uncompact($_tracker_data{$hash{info_hash}}));
-                        }
-                        else {
-                        }
-                        syswrite(
-                              $client,
-                              join(qq[\015\012],
+sub check_tracker {
+    my $rin = q[];
+    vec($rin, fileno($httpd), 1) = 1;
+    my ($nfound, $timeleft) = select($rin, undef, undef, 0.1);
+    return if $nfound == 0;
+    return if vec($rin, fileno($httpd), 1) != 1;
+    vec($rin, fileno($httpd), 1) = 0;
+    if (my $paddr = accept(my ($client), $httpd)) {
+        return if !$paddr;
+        grep { $_->do_one_loop(0.1); } values %client;
+        my $gotten = q[];
+        while (sysread($client, my ($data), 1024)) { $gotten .= $data; }
+        shutdown($client, 0);
+        if ($gotten) {
+            if ($gotten =~ m[^GET\s+(/(announce|scrape)\?([^\s]*))]) {
+                my $type = $2;
+                my %hash = split m[[=&]], $3;
+                $hash{q[info_hash]}
+                    =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
+                my (undef, undef, @address)
+                    = unpack(q[SnC4x8], getsockname($client));
+                my %reply;
+                if ($type eq q[announce]) {
+                    $hash{q[peer_id]}
+                        =~ s|\%([a-f0-9]{2})|pack(q[C], hex($1))|ieg;
+                    %reply = (interval => 1500,
+                              peers => $_tracker_data{$hash{info_hash}} || q[]
+                    );
+                    $_tracker_data{$hash{info_hash}}
+                        = compact(
+                               ((join q[.], @address) . q[:] . $hash{port}),
+                               uncompact($_tracker_data{$hash{info_hash}}));
+                    syswrite($client,
+                             join(qq[\015\012],
                                   q[HTTP/1.0 200 Here ya go!],
                                   q[Date: ] . scalar(gmtime) . q[ GMT],
                                   q[Server: Net::BitTorrent test tracker/1.0],
                                   q[Content-type: text/plain],
                                   q[],
                                   bencode(\%reply))
-                        );
-                    }
-                    else {
-                        syswrite(
-                              $client,
-                              join(qq[\015\012],
-                                  q[HTTP/1.0 404 Go away!],
-                                  q[Date: ] . scalar(gmtime) . q[ GMT],
-                                  q[Server: Net::BitTorrent test tracker/1.0],
-                                  q[Content-type: text/plain],
-                                  q[],
-                                  q[Bye!])
-                        );
-                    }
-                }
-                close $client;
-            }
-        }
-
-        END {
-            for my $client (values %client) {
-                for my $file (@{$client->torrents->{$_infohash}->files}) {
-                    $file->_close;
+                    );
                 }
             }
+            else {
+                syswrite($client,
+                         join(qq[\015\012],
+                              q[HTTP/1.0 404 Go away!],
+                              q[Date: ] . scalar(gmtime) . q[ GMT],
+                              q[Server: Net::BitTorrent test tracker/1.0],
+                              q[Content-type: text/plain],
+                              q[],
+                              q[Bye!])
+                );
+            }
         }
-        exit;
+        shutdown($client, 2);
+        close $client;
     }
 }
+__END__
+Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
 
-=head1 Author
-
-Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
-
-CPAN ID: SANKO
-
-=head1 License and Legal
-
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of The Artistic License 2.0.  See the F<LICENSE>
-file included with this distribution or
+This program is free software; you can redistribute it and/or modify it
+under the terms of The Artistic License 2.0.  See the LICENSE file
+included with this distribution or
 http://www.perlfoundation.org/artistic_license_2_0.  For
 clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
 
-When separated from the distribution, all POD documentation is covered
-by the Creative Commons Attribution-Share Alike 3.0 License.  See
+When separated from the distribution, all POD documentation is covered by
+the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-Neither this module nor the L<Author|/Author> is affiliated with
-BitTorrent, Inc.
-
-=for svn $Id$
-
-=cut
+$Id$

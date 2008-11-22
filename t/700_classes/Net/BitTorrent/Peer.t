@@ -23,8 +23,7 @@ my $verbose         = $build->notes(q[verbose]);
 my $threads         = $build->notes(q[threads]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 my ($flux_capacitor, %peers) = (0, ());
-plan tests => 298;
-warn;
+plan tests => 297;
 
 BEGIN {
     *CORE::GLOBAL::time
@@ -56,7 +55,6 @@ SKIP: {
         return if not defined $torrent;
         for my $file (@{$torrent->files}) { $file->_close() }
     }
-    warn;
     ok( $client->on_event(
             q[peer_read],
             sub {
@@ -67,13 +65,13 @@ SKIP: {
                        q[  ... [$_[1]->{'Peer'}]]);
                 like($args->{q[Length]}, qr[^\d+$],
                      q[  ... [$_[1]->{'Length'}]]);
-                my $_peer = $args->{q[Peer]};
+                my $peer = $args->{q[Peer]};
                 delete $args->{q[Peer]};
                 my $_len = $args->{q[Length]};
                 delete $args->{q[Length]};
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
                 warn(sprintf(q[Read %d bytes from '%s'],
-                             $_len, $_peer->_as_string
+                             $_len, $peer->_as_string
                      )
                 );
             }
@@ -90,13 +88,13 @@ SKIP: {
                        q[  ... [$_[1]->{'Peer'}]]);
                 like($args->{q[Length]}, qr[^\d+$],
                      q[  ... [$_[1]->{'Length'}]]);
-                my $_peer = $args->{q[Peer]};
+                my $peer = $args->{q[Peer]};
                 delete $args->{q[Peer]};
                 my $_len = $args->{q[Length]};
                 delete $args->{q[Length]};
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
                 warn(sprintf(q[Wrote %d bytes from '%s'],
-                             $_len, $_peer->_as_string
+                             $_len, $peer->_as_string
                      )
                 );
             }
@@ -112,13 +110,13 @@ SKIP: {
                 isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
                        q[  ... [$_[1]->{'Peer'}]]);
                 ok(defined($args->{q[Reason]}), q[  ... [$_[1]->{'Reason'}]]);
-                my $_peer = $args->{q[Peer]};
+                my $peer = $args->{q[Peer]};
                 delete $args->{q[Peer]};
                 my $_why = $args->{q[Reason]};
                 delete $args->{q[Reason]};
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
                 warn(sprintf(q[Disconnected from '%s'%s],
-                             $_peer->_as_string,
+                             $peer->_as_string,
                              ($_why
                               ? (q[ (] . $_why . q[)])
                               : q[]
@@ -137,358 +135,370 @@ SKIP: {
                     q[Correct args passed to 'peer_connect' [$_[0]]]);
                 isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
                        q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
+                my $peer = $args->{q[Peer]};
                 delete $args->{q[Peer]};
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                like($$_peer,
+                like($peer->_host . q[:] . $peer->_port,
                      qr[127.0.0.1:\d+],
                      sprintf q[%s connection %s '%s'],
-                     ($_peer->_incoming ? q[Incoming] : q[Outgoing]),
-                     ($_peer->_incoming ? q[from]     : q[to]),
-                     $_peer->_as_string
+                     ($peer->_incoming ? q[Incoming] : q[Outgoing]),
+                     ($peer->_incoming ? q[from]     : q[to]),
+                     $peer->_as_string
                 );
                 return 1;
             }
         ),
         q[Installed 'peer_connect' event handler]
     );
-    ok( $client->on_event(
-            q[packet_incoming_request],
-            sub {
-                my ($self, $args) = @_;
-                warn sprintf q[%s is requesting [I:%4d O:%6d L:%6d]],
-                    $args->{q[Peer]}->_as_string,
-                    $args->{q[Index]},
-                    $args->{q[Offset]},
-                    $args->{q[Length]};
-            }
-        ),
-        q[Installed 'packet_incoming_request' event handler (TODO)]
-    );
     my @request_offsets = qw[0 16384 16384 16384];
+    my @cancel_offsets  = reverse @request_offsets;
+    my @indexes         = (0 .. 10);                  # have
     ok( $client->on_event(
-            q[packet_outgoing_request],
+            q[incoming_packet],
             sub {
                 my ($self, $args) = @_;
-                is_deeply(\@_,
-                          [$client,
-                           {Index  => 0,
-                            Length => 16384,
-                            Offset => shift(@request_offsets),
-                            Peer   => $peers{q[C]}
-                           }
-                          ],
-                          q[Correct args passed to 'packet_outgoing_request' event handler]
-                );
-                warn(sprintf q[Requesting [I:%4d O:%6d L:%6d] from %s],
-                     $args->{q[Index]},
-                     $args->{q[Offset]},
-                     $args->{q[Length]},
-                     $args->{q[Peer]}->_as_string
-                );
-                return 1;
-            }
-        ),
-        q[Installed 'packet_outgoing_request' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_incoming_cancel],
-            sub {
-                my ($self, $args) = @_;
-                warn sprintf q[%s has canceled [I:%4d O:%6d L:%6d]],
-                    $args->{q[Peer]}->_as_string,
-                    $args->{q[Index]},
-                    $args->{q[Offset]},
-                    $args->{q[Length]};
-            }
-        ),
-        q[Installed 'packet_incoming_cancel' event handler (TODO)]
-    );
-    my @cancel_offsets = reverse @request_offsets;
-    ok( $client->on_event(
-            q[packet_outgoing_cancel],
-            sub {
-                my ($self, $args) = @_;
-                is_deeply(\@_,
-                          [$client,
-                           {Index  => 0,
-                            Length => 16384,
-                            Offset => shift(@cancel_offsets),
-                            Peer   => $peers{q[C]}
-                           }
-                          ],
-                          q[Correct args passed to 'packet_outgoing_cancel' event handler]
-                );
-                warn(sprintf(q[I have canceled [I:%4d O:%6d L:%6d] from %s],
-                             $args->{q[Index]},  $args->{q[Offset]},
-                             $args->{q[Length]}, $args->{q[Peer]}->_as_string
-                     )
-                );
-            }
-        ),
-        q[Installed 'packet_outgoing_cancel' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_incoming_block],
-            sub {
-                my ($self, $args) = @_;
-                is_deeply(\@_,
-                          [$client,
-                           {Index  => 0,
-                            Length => 16384,
-                            Offset => 0,
-                            Peer   => $peers{q[C]}
-                           }
-                          ],
-                          q[Correct args passed to 'packet_incoming_block' event handler]
-                );
-                is($args->{q[Peer]}->_torrent->downloaded,
-                    16384, q[Torrent downloaded amount updated]);
-                warn(
-                    sprintf
-                        q[%s sent us [I:%4d O:%6d L:%6d] I have now downloaded %d bytes],
-                    $args->{q[Peer]}->_as_string,
-                    $args->{q[Index]},
-                    $args->{q[Offset]},
-                    $args->{q[Length]},
-                    $args->{q[Peer]}->_torrent->downloaded
-                );
-            }
-        ),
-        q[Installed 'packet_incoming_block' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_outgoing_block],
-            sub {
-                my ($self, $args) = @_;
-                warn sprintf
-                    q[Sending [I:%4d O:%6d L:%6d] to %s. I have now uploaded %d bytes],
-                    $args->{q[Index]},
-                    $args->{q[Offset]},
-                    $args->{q[Length]},
-                    $args->{q[Peer]}->_as_string,
-                    $args->{q[Peer]}->_torrent->uploaded;
-            }
-        ),
-        q[Installed 'packet_outgoing_block' event handler (TODO)]
-    );
-    my @indexes = (0 .. 10);
-    ok( $client->on_event(
-            q[packet_incoming_have],
-            sub {
-                my ($self, $args) = @_;
-                is_deeply(\@_,
-                          [$client,
-                           {Index => shift(@indexes),
-                            Peer  => $peers{q[C]}
-                           }
-                          ],
-                          q[Correct arguments passed to 'packet_incoming_have' event handler]
-                );
-                if ($args->{q[Peer]}->peerid eq q[C] x 20) {
-                    if ($args->{q[Index]} == 0) { pass(q[Good peer has i:0]) }
-                    elsif ($args->{q[Index]} == 1) {
-                        pass(q[Good peer has i:1]);
+                my $type    = $args->{q[Type]};
+                my $peer    = $args->{q[Peer]};
+                my $payload = $args->{q[Payload]};
+                if ($type eq KEEPALIVE) {
+                    warn q[TODO: keepalive];
+                }
+                elsif ($type == HANDSHAKE) {
+                    is($self, $client,
+                        q[Correct args passed to 'packet_incoming_handshake' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    is(scalar(keys %{$args->{'Payload'}}),
+                        3, q[  ... scalar(keys %{$payload})]);
+                    is(length($args->{'Payload'}{q[Reserved]}),
+                        8, q[  ... reserved conforms to spec]);
+                    is(length($args->{'Payload'}{q[Infohash]}),
+                        20, q[  ... infohash conforms to spec]);
+                    is(length($args->{'Payload'}{q[PeerID]}),
+                        20, q[  ... peerid conforms to spec]);
+                    delete $args->{q[Peer]};
+                    my $_len = $args->{q[Payload]};
+                    delete $args->{q[Payload]};
+                    is_deeply($args,
+                              {Type => HANDSHAKE},
+                              q[  ... No other keys in $_[1]]);
+
+                    if (   ($peer->peerid eq q[B] x 20)
+                        or ($peer->peerid eq q[C] x 20))
+                    {   pass(sprintf q[PeerID is okay (%s)], $peer->peerid);
+                    }
+                    elsif ($peer->peerid eq $self->peerid) {
+                        pass(sprintf q[Peerid match: %s eq %s],
+                             $self->peerid, $peer->peerid);
                     }
                     else {
-                        fail(sprintf q[Peer claims to have %d],
-                             $args->{q[Index]});
+                        fail(sprintf q[Unknown peerid: %s], $peer->peerid);
                     }
                 }
-                else {
-                    fail(sprintf q[Unknown peer '%s' has %d],
-                         $args->{q[Peer]}->peerid,
-                         $args->{q[Index]});
+                elsif ($type == CHOKE) {
+                    my ($self, $args) = @_;
+                    is($self, $client,
+                        q[Correct args passed to 'packet_incoming_choke' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Payload => {}, Type => CHOKE},
+                              q[  ... No other keys in $_[1]]);
+                    is($peer->peerid, q[C] x 20, q[Choked by 'CC..CC']);
                 }
-                return 1;
-            }
-        ),
-        q[Installed 'packet_incoming_have' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_outgoing_interested],
-            sub {
-                my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_outgoing_interested' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                warn(sprintf(q[I am interested in %s], $_peer->_as_string));
-            }
-        ),
-        q[Installed 'packet_outgoing_interested' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_incoming_interested],
-            sub {
-                my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_incoming_unchoke' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                warn(sprintf(q[%s is interested in me], $_peer->_as_string));
-            }
-        ),
-        q[Installed 'packet_incoming_interested' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_outgoing_unchoke],
-            sub {
-                my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_outgoing_unchoke' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                warn(sprintf(q[Unchoking %s], $_peer->_as_string));
-            }
-        ),
-        q[Installed 'packet_outgoing_unchoke' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_incoming_unchoke],
-            sub {
-                my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_incoming_unchoke' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                is($_peer->peerid, q[C] x 20, q[Unchoked by 'CC..CC']);
-                return 1;
-            }
-        ),
-        q[Installed 'packet_incoming_unchoke' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_outgoing_choke],
-            sub {
-                my ($self, $args) = @_;
-                warn sprintf q[ ===> Choking %s],
-                    $args->{q[Peer]}->_as_string;
-            }
-        ),
-        q[Installed 'packet_outgoing_choke' event handler (TODO)]
-    );
-    ok( $client->on_event(
-            q[packet_incoming_choke],
-            sub {
-                my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_incoming_choke' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                is($_peer->peerid, q[C] x 20, q[Choked by 'CC..CC']);
-                return 1;
-            }
-        ),
-        q[Installed 'packet_incoming_choke' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_outgoing_bitfield],
-            sub {
-                my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_outgoing_bitfield' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                warn(sprintf(q[Sent bitfield to %s], $_peer->_as_string));
-            }
-        ),
-        q[Installed 'packet_outgoing_bitfield' event handler]
-    );
-    ok( $client->on_event(
-            q[packet_incoming_bitfield],
-            sub {
-                my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_incoming_bitfield' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
-                if (   ($_peer->peerid eq q[B] x 20)
-                    or ($_peer->peerid eq q[C] x 20))
-                {   pass(sprintf q[PeerID is okay (%s)], $_peer->peerid);
+                elsif ($type == UNCHOKE) {
+                    my ($self, $args) = @_;
+                    is($self, $client,
+                        q[Correct args passed to 'packet_incoming_unchoke' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Payload => {}, Type => UNCHOKE},
+                              q[  ... No other keys in $_[1]]);
+                    is($peer->peerid, q[C] x 20, q[Unchoked by 'CC..CC']);
                 }
-                elsif ($_peer->peerid eq $self->peerid) {
-                    pass(sprintf q[Peerid match: %s eq %s],
-                         $self->peerid, $_peer->peerid);
+                elsif ($type == INTERESTED) {
+                    is($self, $client,
+                        q[Correct args passed to 'packet_incoming_unchoke' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Payload => {}, Type => INTERESTED},
+                              q[  ... No other keys in $_[1]]);
+                    warn(sprintf(q[%s is interested in me], $peer->_as_string)
+                    );
                 }
-                else {
-                    fail(sprintf q[Unknown peerid: %s], $_peer->peerid);
+                elsif ($type == NOT_INTERESTED) {
+                    is($self, $client,
+                        q[Correct args passed to 'packet_incoming_unchoke' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Payload => {}, Type => NOT_INTERESTED},
+                              q[  ... No other keys in $_[1]]);
+                    warn(sprintf(q[%s is interested in me], $peer->_as_string)
+                    );
                 }
-                warn(sprintf(q[Bitfield from %s], $_peer->_as_string));
-                return 1;
+                elsif ($type == HAVE) {
+                    is_deeply(\@_,
+                              [$client,
+                               {Payload => {Index => shift(@indexes)},
+                                Peer    => $peers{q[C]},
+                                Type    => HAVE
+                               }
+                              ],
+                              q[Correct arguments passed to 'packet_incoming_have' event handler]
+                    );
+                    if ($peer->peerid eq q[C] x 20) {
+                        if ($payload->{q[Index]} == 0) {
+                            pass(q[Good peer has i:0]);
+                        }
+                        elsif ($payload->{q[Index]} == 1) {
+                            pass(q[Good peer has i:1]);
+                        }
+                        else {
+                            fail(sprintf q[Peer claims to have %d],
+                                 $payload->{q[Index]});
+                        }
+                    }
+                    else {
+                        fail(sprintf q[Unknown peer '%s' has %d],
+                             $peer->peerid, $args->{q[Index]});
+                    }
+                }
+                elsif ($type == BITFIELD) {
+                    is($self, $client,
+                        q[Correct args passed to 'packet_incoming_bitfield' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Type    => BITFIELD,
+                               Payload => {}
+                              },
+                              q[  ... No other keys in $_[1]]
+                    );
+                    if (   ($peer->peerid eq q[B] x 20)
+                        or ($peer->peerid eq q[C] x 20))
+                    {   pass(sprintf q[PeerID is okay (%s)], $peer->peerid);
+                    }
+                    elsif ($peer->peerid eq $self->peerid) {
+                        pass(sprintf q[Peerid match: %s eq %s],
+                             $self->peerid, $peer->peerid);
+                    }
+                    else {
+                        fail(sprintf q[Unknown peerid: %s], $peer->peerid);
+                    }
+                    warn(sprintf(q[Bitfield from %s], $peer->_as_string));
+                }
+                elsif ($type == REQUEST) {
+                    warn sprintf q[%s is requesting [I:%4d O:%6d L:%6d]],
+                        $peer->_as_string,
+                        $payload->{q[Index]},
+                        $payload->{q[Offset]},
+                        $payload->{q[Length]};
+                }
+                elsif ($type == PIECE) {
+                    is_deeply(\@_,
+                              [$client,
+                               {Payload => {Index  => 0,
+                                            Length => 16384,
+                                            Offset => 0
+                                },
+                                Peer => $peers{q[C]},
+                                Type => PIECE
+                               }
+                              ],
+                              q[Correct args passed to 'packet_incoming_block' event handler]
+                    );
+                    is($peer->_torrent->downloaded,
+                        16384, q[Torrent downloaded amount updated]);
+                    warn(
+                        sprintf
+                            q[%s sent us [I:%4d O:%6d L:%6d] I have now downloaded %d bytes],
+                        $peer->_as_string,     $payload->{q[Index]},
+                        $payload->{q[Offset]}, $payload->{q[Length]},
+                        $peer->_torrent->downloaded
+                    );
+                }
+                elsif ($type == CANCEL) {
+                    warn sprintf q[%s has canceled [I:%4d O:%6d L:%6d]],
+                        $peer->_as_string,
+                        $args->{q[Index]},
+                        $args->{q[Offset]},
+                        $args->{q[Length]};
+                }
+                else { die q[Unhandled packet: ] . $type }
             }
         ),
-        q[Installed 'packet_incoming_bitfield' event handler]
+        q[Installed 'incoming_packet' event handler (TODO)]
     );
     ok( $client->on_event(
-            q[packet_incoming_handshake],
+            q[outgoing_packet],
             sub {
                 my ($self, $args) = @_;
-                is($self, $client,
-                    q[Correct args passed to 'packet_incoming_handshake' [$_[0]]]
-                );
-                isa_ok($args->{q[Peer]}, q[Net::BitTorrent::Peer],
-                       q[  ... [$_[1]->{'Peer'}]]);
-                is(scalar(@{$args->{'Payload'}}),
-                    3, q[  ... scalar(@{$_[1]->{'Payload'}})]);
-                is(length($args->{'Payload'}->[0]), 8,
-                    q[  ... [length($_[1]->{'Payload'}->[0]) ==  8] (reserved)]
-                );
-                is(length($args->{'Payload'}->[1]), 20,
-                    q[  ... [length($_[1]->{'Payload'}->[1]) == 20] (infohash)]
-                );
-                is(length($args->{'Payload'}->[2]), 20,
-                    q[  ... [length($_[1]->{'Payload'}->[2]) == 20] (peerid)]
-                );
-                my $_peer = $args->{q[Peer]};
-                delete $args->{q[Peer]};
-                my $_len = $args->{q[Payload]};
-                delete $args->{q[Payload]};
-                is_deeply($args, {}, q[  ... No other keys in $_[1]]);
+                my $type    = $args->{q[Type]};
+                my $peer    = $args->{q[Peer]};
+                my $payload = $args->{q[Payload]};
+                if ($type == HANDSHAKE) {
+                    is($self, $client,
+                        q[Correct args passed for outgoing handshake [$_[0]]]
+                    );
+                    isa_ok($peer, q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]);
+                    is(scalar(keys %{$payload}),
+                        3, q[  ... scalar(@{$payload})]);
+                    is(length($payload->{q[Reserved]}), 8,
+                        q[  ... [length($payload->{q[Reserved]}) ==  8] (reserved)]
+                    );
+                    is(length($payload->{q[Infohash]}), 20,
+                        q[  ... [length($payload->{q[Infohash]}) == 20] (infohash)]
+                    );
+                    is(length($payload->{q[PeerID]}), 20,
+                        q[  ... [length($payload->{q[PeerID]}) == 20] (peerid)]
+                    );
+                    delete $args->{q[Peer]};
+                    my $_len = $args->{q[Payload]};
+                    delete $args->{q[Payload]};
+                    is_deeply($args,
+                              {Type => HANDSHAKE},
+                              q[  ... No other keys in $_[1]]);
 
-                if (   ($_peer->peerid eq q[B] x 20)
-                    or ($_peer->peerid eq q[C] x 20))
-                {   pass(sprintf q[PeerID is okay (%s)], $_peer->peerid);
+                    if ($peer->_incoming) {
+                        if (   ($peer->peerid eq q[B] x 20)
+                            or ($peer->peerid eq q[C] x 20))
+                        {   pass(sprintf q[PeerID is okay (%s)],
+                                 $peer->peerid);
+                        }
+                        elsif ($peer->peerid eq $self->peerid) {
+                            pass(sprintf q[Peerid match: %s eq %s],
+                                 $self->peerid, $peer->peerid);
+                        }
+                        else {
+                            fail(sprintf q[Unknown peerid: %s],
+                                 $peer->peerid);
+                        }
+                    }
                 }
-                elsif ($_peer->peerid eq $self->peerid) {
-                    pass(sprintf q[Peerid match: %s eq %s],
-                         $self->peerid, $_peer->peerid);
+                elsif ($type == UNCHOKE) {
+                    my ($self, $args) = @_;
+                    is($self, $client,
+                        q[Correct args passed to 'outgoing unchoke' [$_[0]]]);
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Payload => {}, Type => UNCHOKE},
+                              q[  ... No other keys in $_[1]]);
+                    warn(sprintf(q[Unchoking %s], $peer->_as_string));
                 }
-                else {
-                    fail(sprintf q[Unknown peerid: %s], $_peer->peerid);
+                elsif ($type == REQUEST) {
+                    is_deeply(\@_,
+                              [$client,
+                               {Payload => {Index  => 0,
+                                            Length => 16384,
+                                            Offset => shift(@request_offsets)
+                                },
+                                Peer => $peers{q[C]},
+                                Type => REQUEST
+                               }
+                              ],
+                              q[Correct args passed to 'outgoing request' event handler]
+                    );
+                    warn(sprintf q[Requesting [I:%4d O:%6d L:%6d] from %s],
+                         $payload->{q[Index]},  $payload->{q[Offset]},
+                         $payload->{q[Length]}, $peer->_as_string
+                    );
                 }
-                return 1;
+                elsif ($type == CANCEL) {
+                    is_deeply(\@_,
+                              [$client,
+                               {Payload => {Index  => 0,
+                                            Length => 16384,
+                                            Offset => shift(@cancel_offsets)
+                                },
+                                Peer => $peers{q[C]}
+                               }
+                              ],
+                              q[Correct args passed to 'outgoing cancel' event handler]
+                    );
+                    warn(sprintf(
+                               q[I have canceled [I:%4d O:%6d L:%6d] from %s],
+                               $args->{q[Index]},  $args->{q[Offset]},
+                               $args->{q[Length]}, $peer->_as_string
+                         )
+                    );
+                }
+                elsif ($type == PIECE) {
+                    warn sprintf
+                        q[Sending [I:%4d O:%6d L:%6d] to %s. I have now uploaded %d bytes],
+                        $payload->{q[Index]},
+                        $payload->{q[Offset]},
+                        $payload->{q[Length]},
+                        $peer->_as_string,
+                        $peer->_torrent->uploaded;
+                }
+                elsif ($type == INTERESTED) {
+                    my ($self, $args) = @_;
+                    is($self, $client,
+                        q[Correct args passed to 'outgoing interested' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Type => INTERESTED, Payload => {}},
+                              q[  ... No other keys in $_[1]]);
+                    warn(
+                        sprintf(q[I am interested in %s], $peer->_as_string));
+                }
+                elsif ($type == CHOKE) {
+                    warn sprintf q[ ===> Choking %s], $peer->_as_string;
+                }
+                elsif ($type == BITFIELD) {
+                    is($self, $client,
+                        q[Correct args passed to 'outgoing bitfield' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Type => BITFIELD},
+                              q[  ... No other keys in $_[1]]);
+                    warn(sprintf(q[Sent bitfield to %s], $peer->_as_string));
+                }
+                else { die q[Unhandled packet: ] . $type }
             }
         ),
-        q[Installed 'packet_incoming_handshake' event handler]
+        q[Installed 'outgoing_packet' event handler]
     );
     ok( $client->on_event(
             q[ip_filter],
@@ -512,7 +522,7 @@ SKIP: {
         ),
         q[Installed 'ip_filter' event handler]
     );
-    warn sprintf q[%d|%d], 21, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 7, $test_builder->{q[Curr_Test]};
     warn(q[Net::BitTorrent::Peer->new() requires params...]);
     is(Net::BitTorrent::Peer->new(),   undef, q[No params]);
     is(Net::BitTorrent::Peer->new({}), undef, q[Empty hashref]);
@@ -533,7 +543,7 @@ SKIP: {
         undef,
         q[Client => bless \{}, 'junk']
     );
-    warn sprintf q[%d|%d], 28, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 14, $test_builder->{q[Curr_Test]};
     warn(q[For this next bit, we're testing outgoing peers...]);
     is( Net::BitTorrent::Peer->new({Client  => $client,
                                     Torrent => $torrent,
@@ -590,7 +600,7 @@ SKIP: {
         undef,
         q[Torrent => bless(\{}, 'junk')]
     );
-    warn sprintf q[%d|%d], 35, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 21, $test_builder->{q[Curr_Test]};
     warn(q[Test incoming peers]);
     $peers{q[A]} =
         Net::BitTorrent::Peer->new({Client  => $client,
@@ -610,7 +620,7 @@ SKIP: {
     is($peers{q[A]}->_peer_interested, 0, q[Default peer_interested status]);
     is($peers{q[A]}->_am_interested,   0, q[Default am_interested status]);
     is($peers{q[A]}->_incoming,        0, q[Direction status is correct.]);
-    warn sprintf q[%d|%d], 49, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 39, $test_builder->{q[Curr_Test]};
     my $newsock_A = newsock($client);
     $client->do_one_loop;
     my $newsock_B = newsock($client);
@@ -619,7 +629,7 @@ SKIP: {
     $client->do_one_loop;
     my $newsock_D = newsock($client);
     $client->do_one_loop;
-    warn sprintf q[%d|%d], 65, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 62, $test_builder->{q[Curr_Test]};
     is( syswrite($newsock_A, build_handshake(chr(0) x 8, q[A] x 20, q[B] x 20)
         ),
         68,
@@ -631,7 +641,7 @@ SKIP: {
     $client->do_one_loop;
     ok(($with_peer > scalar keys %{$client->_connections}),
         q[Peer removed from list of connections]);
-    warn sprintf q[%d|%d], 88, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 82, $test_builder->{q[Curr_Test]};
     is( syswrite($newsock_B,
                  build_handshake(chr(0) x 8,
                                  pack(q[H40], $torrent->infohash),
@@ -645,7 +655,7 @@ SKIP: {
     $client->do_one_loop;
     ok(($with_peer > scalar keys %{$client->_connections}),
         q[Peer removed from list of connections]);
-    warn sprintf q[%d|%d], 110, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 104, $test_builder->{q[Curr_Test]};
     is( syswrite($newsock_C,
                  build_handshake(chr(0) x 8,
                                  pack(q[H40], $torrent->infohash),
@@ -661,7 +671,7 @@ SKIP: {
     $client->do_one_loop;
     ok(($with_peer > scalar keys %{$client->_connections}),
         q[Peer removed from list of connections]);
-    warn sprintf q[%d|%d], 140, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 139, $test_builder->{q[Curr_Test]};
     is( syswrite($newsock_D,
                  build_handshake(chr(0) x 8,
                                  pack(q[H40], $torrent->infohash),
@@ -685,39 +695,39 @@ SKIP: {
     } values %{$client->_connections};
     weaken $peers{q[C]};
     ok(isweak($peers{q[C]}), q[  ...make $peers{q[C]} a weak ref]);
-    warn sprintf q[%d|%d], 167, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 171, $test_builder->{q[Curr_Test]};
     like(${$peers{q[C]}}, qr[127.0.0.1:\d+], q[Address properly resolved]);
     is($peers{q[C]}->_host, q[127.0.0.1], q[_host]);
     like($peers{q[C]}->_port, qr[^\d+$], q[_port]);
     is($peers{q[C]}->peerid, q[C] x 20, q[PeerID check]);
     isa_ok($peers{q[C]}->_socket, q[GLOB], q[Socket stored properly]);
-    warn sprintf q[%d|%d], 170, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 176, $test_builder->{q[Curr_Test]};
     is($peers{q[C]}->_am_choking,    1, q[Initial outgoing choke status]);
     is($peers{q[C]}->_peer_choking,  1, q[Initial incoming choke status]);
     is($peers{q[C]}->_am_interested, 0, q[Initial outgoing interest status]);
     is($peers{q[C]}->_peer_interested, 0,
         q[Initial incoming interest status]);
-    warn sprintf q[%d|%d], 174, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 180, $test_builder->{q[Curr_Test]};
     is(syswrite($newsock_D, build_keepalive()),
         4, q[Sent keepalive to client]);
     $client->do_one_loop;
     is(syswrite($newsock_D, build_unchoke()), 5, q[Sent unchoke to client]);
     $client->do_one_loop;
-    warn sprintf q[%d|%d], 188, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 194, $test_builder->{q[Curr_Test]};
     is($peers{q[C]}->_am_choking,   1, q[Post-unchoke outgoing choke status]);
     is($peers{q[C]}->_peer_choking, 0, q[Post-unchoke incoming choke status]);
     is($peers{q[C]}->_am_interested,
         0, q[Post-unchoke outgoing interest status]);
     is($peers{q[C]}->_peer_interested,
         0, q[Post-unchoke incoming interest status]);
-    warn sprintf q[%d|%d], 192, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 198, $test_builder->{q[Curr_Test]};
     is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
     $client->do_one_loop;
     is($peers{q[C]}->_am_choking,   1, q[Post-choke outgoing choke status]);
     is($peers{q[C]}->_peer_choking, 1, q[Post-choke incoming choke status]);
     is($peers{q[C]}->_am_interested,
         0, q[Post-choke outgoing interest status]);
-    warn sprintf q[%d|%d], 204, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 210, $test_builder->{q[Curr_Test]};
     is($peers{q[C]}->_peer_interested,
         0, q[Post-choke incoming interest status]);
     is(syswrite($newsock_D, build_interested()),
@@ -725,35 +735,35 @@ SKIP: {
     $client->do_one_loop;
     is($peers{q[C]}->_am_choking, 0,
         q[Post-interested outgoing choke status]);
-    warn sprintf q[%d|%d], 217, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 223, $test_builder->{q[Curr_Test]};
     is($peers{q[C]}->_peer_choking,
         1, q[Post-interested incoming choke status]);
     is($peers{q[C]}->_am_interested,
         0, q[Post-interested outgoing interest status]);
     is($peers{q[C]}->_peer_interested,
         1, q[Post-interested incoming interest status]);
-    warn sprintf q[%d|%d], 220, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 226, $test_builder->{q[Curr_Test]};
     is(syswrite($newsock_D, build_not_interested()),
         5, q[Sent not interested to client]);
     $client->do_one_loop;
     is(syswrite($newsock_D, build_have(0)), 9, q[Sent have to client]);
     $client->do_one_loop;
     ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-    warn sprintf q[%d|%d], 240, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 249, $test_builder->{q[Curr_Test]};
     is(syswrite($newsock_D, build_unchoke()), 5, q[Sent unchoke to client]);
     $client->do_one_loop;
     ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
     my $fake_piece = q[A] x 16384;
     is(syswrite($newsock_D, build_piece(0, 0, \$fake_piece)),
         16397, q[Sent piece i:0 o:0 l:16384 to client]);
-    warn sprintf q[%d|%d], 257, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 266, $test_builder->{q[Curr_Test]};
     $client->do_one_loop;
     is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
     $client->do_one_loop;
     is(syswrite($newsock_D, build_unchoke()),
         5, q[Sent choke to client to read second unchoke]);
     $client->do_one_loop;
-    warn sprintf q[%d|%d], 290, $test_builder->{q[Curr_Test]};
+    warn sprintf q[%d|%d], 295, $test_builder->{q[Curr_Test]};
     $flux_capacitor = 1.5;
     $client->do_one_loop;
     warn sprintf q[%d|%d], 292, $test_builder->{q[Curr_Test]};
@@ -782,31 +792,18 @@ sub newsock {
         : fail(q[Failed to create new socket]);
     return $outgoing;
 }
+__END__
+Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
 
-=head1 Author
-
-Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
-
-CPAN ID: SANKO
-
-=head1 License and Legal
-
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of The Artistic License 2.0.  See the F<LICENSE>
-file included with this distribution or
+This program is free software; you can redistribute it and/or modify it
+under the terms of The Artistic License 2.0.  See the LICENSE file
+included with this distribution or
 http://www.perlfoundation.org/artistic_license_2_0.  For
 clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
 
-When separated from the distribution, all POD documentation is covered
-by the Creative Commons Attribution-Share Alike 3.0 License.  See
+When separated from the distribution, all POD documentation is covered by
+the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-Neither this module nor the L<Author|/Author> is affiliated with
-BitTorrent, Inc.
-
-=for svn $Id$
-
-=cut
+$Id$

@@ -8,7 +8,7 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
-=item * ...none?
+=item * ut_pex ...despite it being undocumented
 
 =back
 
@@ -16,9 +16,13 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
+=item * Get speed limits working properly
+
 =item * Trim down the docs
 
 =item * DHT callbacks
+
+=item * Fast Ext (Fast set)
 
 =item * Everything marked inline as XXX (possible bugs) or TODO
 
@@ -69,8 +73,6 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 =back
 
 =item * scripts/wx-gui-client.pl (perhaps)
-
-=item * Full Fast Extension support
 
 =item * PoCo::BitTorrent
 

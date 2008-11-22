@@ -7,17 +7,18 @@ Version 0.030 | Distant Future
   - See the Notes section
   - UDP trackers are now supported
   - DHT actually works
-  -
+  - Fast Ext. is back
 
  Compatibility Information:
   - See the Notes section
   - Net::BitTorrent::Session::* is now Net::BitTorrent::Torrent::* thanks to
-    one very squeeky wheel.
+      one very squeaky wheel.
 
  Notes:
   - Since the previous stable release, Net::BitTorrent has been rewritten from
-    scratch, so yeah, 90% of everything internal has changed, a good portion
-    of the API was re.
+      scratch, so yeah, 90% of everything internal has changed, a good portion
+      (read: all) of the API was redesigned as well.  I've been pushing dev
+      builds for more than three months so... yeah.
 
 Version 0.027_001 | Fall 2008
 

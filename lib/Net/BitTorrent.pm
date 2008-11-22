@@ -4,6 +4,7 @@ package Net::BitTorrent;
     use strict;
     use warnings;
     use Scalar::Util qw[blessed weaken refaddr];
+    use List::Util qw[max];
     use Time::HiRes;
     use Socket qw[/inet_/ SOCK_STREAM SOCK_DGRAM SOL_SOCKET PF_INET SOMAXCONN
         /pack_sockaddr_in/];
@@ -20,12 +21,15 @@ package Net::BitTorrent;
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
-        = \my (%_tcp,         %_udp,               %_peerid,
-               %_schedule,    %_peers_per_torrent, %_event,
-               %_dht,         %_torrents,          %_connections,
-               %_max_ul_rate, %_k_ul,              %_max_dl_rate,
-               %_k_dl,        %_tid,               %_use_dht,
-               %__UDP_OBJECT_CACHE
+        = \my (%_tcp,               %_udp,
+               %_peerid,            %_schedule,
+               %_event,             %_torrents,
+               %_connections,       %_max_ul_rate,
+               %_k_ul,              %_max_dl_rate,
+               %_k_dl,              %_dht,
+               %_tid,               %_use_dht,
+               %__UDP_OBJECT_CACHE, %_peers_per_torrent,
+               %_connections_per_host
         );
     my %REGISTRY;
 
@@ -49,14 +53,15 @@ package Net::BitTorrent;
                 )
                 : @ports;
         }
-        $_peers_per_torrent{refaddr $self} = 50;
-        $_max_dl_rate{refaddr $self}       = 0;
-        $_k_dl{refaddr $self}              = 0;
-        $_max_ul_rate{refaddr $self}       = 0;
-        $_k_ul{refaddr $self}              = 0;
-        $_torrents{refaddr $self}          = {};
-        $_tid{refaddr $self}               = qq[\0] x 5;
-        $_use_dht{refaddr $self}           = 1;
+        $_peers_per_torrent{refaddr $self}    = 50;
+        $_connections_per_host{refaddr $self} = 3;
+        $_max_dl_rate{refaddr $self}          = 0;
+        $_k_dl{refaddr $self}                 = 0;
+        $_max_ul_rate{refaddr $self}          = 0;
+        $_k_ul{refaddr $self}                 = 0;
+        $_torrents{refaddr $self}             = {};
+        $_tid{refaddr $self}                  = qq[\0] x 5;
+        $_use_dht{refaddr $self}              = 1;
         $_dht{refaddr $self} = Net::BitTorrent::DHT->new({Client => $self});
         $_peerid{refaddr $self}      = Net::BitTorrent::Version::gen_peerid();
         $_connections{refaddr $self} = {};
@@ -106,7 +111,11 @@ package Net::BitTorrent;
             = unpack_sockaddr_in(getsockname($_udp{refaddr $self}));
         return inet_ntoa($packed_ip);
     }
-    sub _peers_per_torrent { return $_peers_per_torrent{refaddr +shift}; }
+    sub _peers_per_torrent { return $_peers_per_torrent{refaddr +shift} }
+
+    sub _connections_per_host {
+        return $_connections_per_host{refaddr +shift};
+    }
 
     # Setters | Private
     sub _set_max_ul_rate {    # BYTES per second
@@ -175,7 +184,7 @@ package Net::BitTorrent;
                          }
         );
 
-        #warn sprintf q[Speed report: Up: %dB/s | Down: %dB/s],
+        #warn sprintf q[Speed report: Up: %5dB/s | Down: %5dB/s],
         #    $_k_ul{refaddr $_[0]},
         #    $_k_dl{refaddr $_[0]};
         return $_k_dl{refaddr $_[0]} = $_k_ul{refaddr $_[0]} = 0;
@@ -258,7 +267,7 @@ package Net::BitTorrent;
                 or return;
             bind($_tcp, pack_sockaddr_in($port, $_packed_host))
                 or return;
-            listen($_tcp, SOMAXCONN) or return;
+            listen($_tcp, 1) or return;
             $_connections{refaddr $self}{fileno $_tcp} = {Object => $self,
                                                           Mode   => q[ro]
                 }
@@ -302,25 +311,34 @@ package Net::BitTorrent;
             )
             )
         {   carp
-                q[Malformed parameters passed to Net::BitTorrent::_process_connections(RIN, WIN, EIN)];
+                q[Malformed parameters to Net::BitTorrent::_process_connections(RIN, WIN, EIN)];
             return;
         }
     POPSOCK: foreach my $fileno (keys %{$_connections{refaddr $self}}) {
             next POPSOCK unless defined $_connections{refaddr $self}{$fileno};
-            if ($fileno == fileno $_tcp{refaddr $self}) {
-                if (vec($$rin, $fileno, 1) == 1) {
+            if (   $_tcp{refaddr $self}
+                && $fileno == fileno $_tcp{refaddr $self})
+            {   if (vec($$rin, $fileno, 1) == 1) {
                     vec($$rin, $fileno, 1) = 0;
-                    accept(my ($new_socket), $_tcp{refaddr $self})
-                        or next POPSOCK;
-                    my $new_peer =
+                    if (scalar(
+                            grep {
+                                $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
+                                    && !$_->{q[Object]}->_torrent
+                                } values %{$_connections{refaddr $self}}
+                        ) < 8
+                        )
+                    {   accept(my ($new_socket), $_tcp{refaddr $self})
+                            or next POPSOCK;
                         Net::BitTorrent::Peer->new({Socket => $new_socket,
                                                     Client => $self
                                                    }
                         );
+                    }
                 }
             }
-            elsif ($fileno == fileno $_udp{refaddr $self}) {
-                if (vec($$rin, $fileno, 1) == 1) {
+            elsif (   $_udp{refaddr $self}
+                   && $fileno == fileno $_udp{refaddr $self})
+            {   if (vec($$rin, $fileno, 1) == 1) {
                     vec($$rin, $fileno, 1) = 0;
                     my $paddr
                         = recv($_udp{refaddr $self}, my ($data), 1024, 0)
@@ -364,17 +382,23 @@ package Net::BitTorrent;
                 }
             }
             else {
-                my $read = (
-                     ($_max_dl_rate{refaddr $self}
-                      ? ($_max_dl_rate{refaddr $self} - $_k_dl{refaddr $self})
-                      : (2**15)
-                     ) * vec($$rin, $fileno, 1)
+                my $read = (($_max_dl_rate{refaddr $self}
+                             ? max(0,
+                                   (      $_max_dl_rate{refaddr $self}
+                                        - $_k_dl{refaddr $self}
+                                   )
+                                 )
+                             : (2**15)
+                            ) * vec($$rin, $fileno, 1)
                 );
-                my $write = (
-                     ($_max_ul_rate{refaddr $self}
-                      ? ($_max_ul_rate{refaddr $self} - $_k_ul{refaddr $self})
-                      : (2**15)
-                     ) * vec($$win, $fileno, 1)
+                my $write = (($_max_ul_rate{refaddr $self}
+                              ? max(0,
+                                    (      $_max_ul_rate{refaddr $self}
+                                         - $_k_ul{refaddr $self}
+                                    )
+                                  )
+                              : (2**15)
+                             ) * vec($$win, $fileno, 1)
                 );
                 my $error = vec($$ein, $fileno, 1)
                     && (   $^E
@@ -400,10 +424,9 @@ package Net::BitTorrent;
         my ($self, $infohash) = @_;
         carp q[Bad infohash for Net::BitTorrent->_locate_torrent(INFOHASH)]
             && return
-            if $infohash !~ m[^[\d|a-f]{40}$];
-        return
-            defined $_torrents{refaddr $self}{$infohash}
-            ? $_torrents{refaddr $self}{$infohash}
+            if $infohash !~ m[^[\d|a-f]{40}$]i;
+        return $_torrents{refaddr $self}{lc $infohash}
+            ? $_torrents{refaddr $self}{lc $infohash}
             : undef;
     }
 
@@ -443,17 +466,42 @@ package Net::BitTorrent;
     # Methods | Public | Callback system
     sub on_event {
         my ($self, $type, $method) = @_;
+        carp sprintf q[Unknown callback: %s], $type
+            unless ___check_event($type);
         $_event{refaddr $self}{$type} = $method;
     }
 
     # Methods | Private | Callback system
     sub _event {
         my ($self, $type, $args) = @_;
+        carp sprintf
+            q[Unknown event: %s. This is a bug in Net::BitTorrent; Report it.],
+            $type
+            unless ___check_event($type);
         return $_event{refaddr $self}{$type}
             ? $_event{refaddr $self}{$type}($self, $args)
             : ();
     }
 
+    # Functions | Private | Callback system
+    sub ___check_event {
+        my $type = shift;
+        return scalar grep { $_ eq $type } qw[
+            ip_filter
+            incoming_packet outgoing_packet
+            peer_connect    peer_disconnect
+            peer_read       peer_write
+            tracker_connect tracker_disconnect
+            tracker_read    tracker_write
+            tracker_success tracker_failure
+            piece_hash_pass piece_hash_fail
+            file_open       file_close
+            file_read       file_write
+            file_error
+        ];
+    }
+
+    # Methods | Private | Internal event scheduler
     sub _schedule {
         my ($self, $args) = @_;
         if ((!$args) || (ref $args ne q[HASH])) {
@@ -744,9 +792,7 @@ callbacks.
 Note: This list is subject to change.  Unless mentioned specifically,
 return values from callbacks do not affect behavior.
 
-=over
-
-=item Net::BitTorrent::Peer
+=head2 Net::BitTorrent::Peer
 
 =over
 
@@ -818,7 +864,6 @@ The amount of data, in bytes, sent to the remote peer.
 
 =back
 
-
 =item C<peer_write>
 
 This is triggered whenever we send data to a remote peer via TCP.  The
@@ -836,476 +881,53 @@ The amount of data, in bytes, sent to the remote peer.
 
 =back
 
-=item C<packet_incoming_handshake>
+=item C<outgoing_packet>
 
-Triggered whenever a remote peer has attempted to establish communication
-and has sent a valid handshake according to the current BitTorrent spec.
-The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this data.
-
-=item C<Payload>
-
-A list, as returned by
-L<Net::BitTorrent::Protocol|Net::BitTorrent::Protocol/"parse_packet( DATA )">,
-with these values: C<[ReservedBytes, Infohash, PeerID]>.
-
-=back
-
-=item C<packet_outgoing_handshake>
-
-Triggered whenever we attempt to establish a communication with a remote
-peer and have sent a valid handshake according to the current BitTorrent
-spec. The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this data.
-
-=item C<Payload>
-
-A list, as returned by
-L<Net::BitTorrent::Protocol|Net::BitTorrent::Protocol/"parse_packet( DATA )">,
-with these values: C<[ReservedBytes, Infohash, PeerID]>.
-
-=back
-
-=item C<packet_incoming_keepalive>
-
-Triggered when a remote peer has sent us a keepalive packet.  The
-argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this data.
-
-=back
-
-=item C<packet_outgoing_keepalive>
-
-Triggered when we send a keepalive packet to a remote peer.  The
-argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this data.
-
-=back
-
-=item C<packet_incoming_choke>
-
-Triggered when a remote peer has sent us a choke packet.  The
-argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this data.
-
-=back
-
-=item C<packet_outgoing_choke>
-
-Triggered when we send a remote peer a choke packet.  The argument hash
-contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this data.
-
-=back
-
-=item C<packet_incoming_unchoke>
-
-Triggered when a remote peer has sent us an unchoke packet.  The
-argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this data.
-
-=back
-
-=item C<packet_outgoing_unchoke>
-
-Triggered when we send a remote peer an unchoke packet.  The argument
-hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this data.
-
-=back
-
-=item C<packet_incoming_interested>
-
-Triggered when a remote peer has sent us a packet indicating an interest
-in some data we have.  The argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this data.
-
-=back
-
-=item C<packet_outgoing_interested>
-
-Triggered when we send a remote peer a packet indicating an interest
-in some data they have.  The argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this data.
-
-=back
-
-=item C<packet_incoming_not_interested>
-
-Triggered when a remote peer has sent us a packet indicating they are no
-longer interested.  The argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this data.
-
-=back
-
-=item C<packet_outgoing_not_interested>
-
-Triggered when we send a remote peer a packet indicating they are no
-longer interested.  The argument hash contains the following key:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this data.
-
-=back
-
-=item C<packet_incoming_have>
-
-Triggered when a remote peer has sent us a packet to let us know they
-have a certain piece available for transmission.  The argument hash
+Triggered when we send a packet to a remote peer.  The argument hash
 contains the following keys:
 
 =over
 
-=item C<Peer>
+=item C<Payload>
 
-The remote L<peer|Net::BitTorrent::Peer> sending this data.
-
-=item C<Index>
-
-The zero based index of the piece the remote peer is advertising.
-
-=back
-
-=item C<packet_outgoing_have>
-
-Triggered when we send a remote peer a packet indicating we have a
-particular piece available for transmission.  The argument hash
-contains the following keys:
-
-=over
+The data sent in the packet (when applicable).
 
 =item C<Peer>
 
 The remote L<peer|Net::BitTorrent::Peer> receiving this data.
 
-=item C<Index>
+=item C<Type>
 
-The zero based index of the piece we advertising.
+The type of packet sent.  These values match the packet types exported
+from L<Net::BitTorrent::Protocol|Net::BitTorrent::Protocol/":types">.
 
 =back
 
-=item C<packet_incoming_bitfield>
+=item C<incoming_packet>
 
-Triggered when a remote peer has sent us a bitfield packet.  The
-argument hash contains the following keys:
+Triggered when we receive a packet to a remote peer.  The argument hash
+contains the following keys:
 
 =over
+
+=item C<Payload>
+
+The data sent in the packet (when applicable).
 
 =item C<Peer>
 
 The remote L<peer|Net::BitTorrent::Peer> sending this data.
 
-=back
+=item C<Type>
 
-=item C<packet_outgoing_bitfield>
-
-Triggered when we send a remote peer a bitfield packet representing the
-pieces we have available for transmission.  The argument hash contains
-the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this data.
+The type of packet sent.  These values match the packet types exported
+from L<Net::BitTorrent::Protocol|Net::BitTorrent::Protocol/":types">.
 
 =back
 
-=item C<packet_incoming_request>
-
-Triggered when a remote peer has sent us a packet requesting a sub-piece
-(or block) of data.  The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this request.
-
-=item C<Index>
-
-The zero-based index of the piece in which this particular block is
-located.
-
-=item C<Offset>
-
-The offset, in bytes, from the beginning of the aforementioned piece
-where the requested data is located.
-
-=item C<Length>
-
-The amount of data requested in bytes.
-
 =back
 
-=item C<packet_outgoing_request>
-
-Triggered when we request a sub-piece (or block) of data from a remote
-peer.  The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this request.
-
-=item C<Index>
-
-The zero-based index of the piece in which this particular block is
-located.
-
-=item C<Offset>
-
-The offset, in bytes, from the beginning of the aforementioned piece
-where the requested data is located.
-
-=item C<Length>
-
-The amount of data requested in bytes.
-
-=back
-
-=item C<packet_incoming_block>
-
-Triggered when a remote peer has sent us a packet containing a sub-piece
-(or block) of data we previously requested from them.  The argument hash
-contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this request.
-
-=item C<Index>
-
-The zero-based index of the piece in which this particular block is
-located.
-
-=item C<Offset>
-
-The offset, in bytes, from the beginning of the aforementioned piece
-where the requested data is located.
-
-=item C<Length>
-
-The amount of data requested in bytes.
-
-=back
-
-=item C<packet_outgoing_block>
-
-Triggered when we send a remote peer a packet containing a sub-piece
-(or block) of data they previously requested.  The argument hash
-contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this request.
-
-=item C<Index>
-
-The zero-based index of the piece in which this particular block is
-located.
-
-=item C<Offset>
-
-The offset, in bytes, from the beginning of the aforementioned piece
-where the requested data is located.
-
-=item C<Length>
-
-The amount of data requested in bytes.
-
-=back
-
-=item C<packet_incoming_cancel>
-
-Triggered when a remote peer has sent us a packet canceling a request
-they made.  The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this packet.
-
-=item C<Index>
-
-The zero-based index of the piece in which this particular block is
-located.
-
-=item C<Offset>
-
-The offset, in bytes, from the beginning of the aforementioned piece
-where the requested data is located.
-
-=item C<Length>
-
-The amount of data originally requested in bytes.
-
-=back
-
-=item C<packet_outgoing_cancel>
-
-Triggered when we cancel a request made for a certain sub-piece (or
-block) of data.  The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> on the receiving end of this
-packet.
-
-=item C<Index>
-
-The zero-based index of the piece in which this particular block is
-located.
-
-=item C<Offset>
-
-The offset, in bytes, from the beginning of the aforementioned piece
-where the requested data is located.
-
-=item C<Length>
-
-The amount of data originally requested in bytes.
-
-=back
-
-=item C<packet_incoming_have_all>
-
-[TODO] Same as bitfield
-
-
-=item C<packet_incoming_have_none>
-
-[TODO] Same as have all
-
-=item C<packet_incoming_reject>
-
-
-[TODO] Same as cancel
-
-
-=item C<packet_incoming_allowed_fast>
-
-
-[TODO] Index, Peer
-
-
-=item C<packet_incoming_extended>
-
-Triggered when a remote peer has sends us a packet containing extended
-protocol data.  The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> sending this packet.
-
-=item C<ID>
-
-The numeric ID for this packet.
-
-=item C<Payload>
-
-The data sent as the body of this message.
-
-=back
-
-Please see the official documentation for more:
-http://bittorrent.org/beps/bep_0010.html
-
-=item C<packet_outgoing_extended>
-
-Triggered when we send an extended protocol packet to a remote peer.
-The argument hash contains the following keys:
-
-=over
-
-=item C<Peer>
-
-The remote L<peer|Net::BitTorrent::Peer> receiving this packet.
-
-=item C<ID>
-
-The numeric ID for this packet.
-
-=item C<Payload>
-
-The data sent as the body of this message.
-
-=back
-
-Please see the official documentation for more:
-http://bittorrent.org/beps/bep_0010.html
-
-=back
-
-=item Net::BitTorrent::Torrent::File
+=head2 Net::BitTorrent::Torrent::File
 
 =over
 
@@ -1393,7 +1015,7 @@ The actual amount of data written to the file.
 
 =back
 
-=item Net::BitTorrent::Torrent::Tracker::HTTP/Net::BitTorrent::Torrent::Tracker::UDP
+=head2 Net::BitTorrent::Torrent::Tracker::HTTP/Net::BitTorrent::Torrent::Tracker::UDP
 
 Note: The tracker objects passed to these callbacks will either be a
 L<Net::BitTorrent::Torrent::Tracker::HTTP|Net::BitTorrent::Torrent::Tracker::HTTP>
@@ -1533,7 +1155,7 @@ The amount of data received from the remote tracker.
 
 =back
 
-=item Net::BitTorrent::Torrent
+=head2 Net::BitTorrent::Torrent
 
 =over
 
@@ -1570,8 +1192,6 @@ The L<Net::BitTorrent::Torrent> object related to this event.
 
 The zero-based index of the piece that was verified against the .torrent
 metadata.
-
-=back
 
 =back
 

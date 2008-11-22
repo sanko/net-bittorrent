@@ -137,14 +137,14 @@ sub ACTION_wastetime {
         $self->SUPER::ACTION_distdir();
         $dist_dir = $self->dist_dir;
         $self->do_system(qq[tar -cf $dist_dir.tar $dist_dir]);
-        $self->do_system(qq[gzip -v -9 -f -n $dist_dir.tar]);
-
+        $self->do_system(qq[gzip -9 -f -n $dist_dir.tar]);
        #File::Copy::copy($dist_dir . q[.tar.gz],
        #     q[X:/archive/] . $dist_dir . q[.tar.gz] . sprintf(q[.%03d], $i));
         rename $dist_dir . q[.tar.gz], q[./archive/] . $dist_dir . q[.tar.gz]
             if !-f q[./archive/] . $dist_dir . q[.tar.gz]
                 or -s $dist_dir . q[.tar.gz]
                 < -s q[./archive/] . $dist_dir . q[.tar.gz];
+        printf qq[dist #%03d ... %d bytes\n], $i, -s $dist_dir . q[.tar.gz];
         unlink $dist_dir . q[.tar.gz];
         $self->delete_filetree($dist_dir);
     }
@@ -162,8 +162,6 @@ sub ACTION_spellcheck {
         [values(%{shift->_find_file_by_type(q[pod], q[.])})]
         )
     {   $files = [sort map { File::Spec->rel2abs(q[./] . $_) } @{$files}];
-
-        # One at a time...
         for my $file (@$files) {
             $file = File::Spec->abs2rel($file);
             system(

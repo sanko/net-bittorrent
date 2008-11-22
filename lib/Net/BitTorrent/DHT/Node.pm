@@ -303,9 +303,10 @@ package Net::BitTorrent::DHT::Node;
                 }
             }
             else {
-                warn sprintf
-                    q[...torrent '%s' not found!?!?!?!?!?!?!?!?],
-                    unpack q[H*], $packet->{q[r]}{q[token]};
+
+                #warn sprintf
+                #    q[...torrent '%s' not found!?!?!?!?!?!?!?!?],
+                #    unpack q[H*], $packet->{q[r]}{q[token]};
             }
             return 1;
         }
