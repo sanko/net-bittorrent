@@ -4,26 +4,35 @@ Name
 Synopsis
         use Net::BitTorrent;
 
-        sub hash_pass {
-            my ($self, $piece) = @_;
-            printf(qq[hash_pass: piece number %04d of %s\n],
-                   $piece->get_index, $piece->get_session);
-        }
 
         my $client = Net::BitTorrent->new();
-        $client->set_callback(q[piece_hash_pass], \&hash_pass);
 
         # ...
-        # set various callbacks if you so desire
+        # Set various callbacks if you so desire
         # ...
+        $client->on_event(
+            q[piece_hash_pass],
+            sub {
+                my ($self, $args) = @_;
+                printf(qq[pass: piece number %04d of %s\n],
+                       $args->{q[Index]}, $args->{q[Session]}->infohash);
+            }
+        );
+        $client->on_event(
+            q[piece_hash_fail],
+            sub {
+                my ($self, $args) = @_;
+                printf(qq[fail: piece number %04d of %s\n],
+                       $args->{q[Index]}, $args->{q[Session]}->infohash);
+            }
+        );
 
-        my $torrent = $client->add_session({path => q[a.legal.torrent]})
+        my $torrent = $client->add_session({Path => q[a.legal.torrent]})
             or die q[Cannot load .torrent];
 
-        while (1) {
-            $client->do_one_loop();
-            # Etc.
-        }
+        $torrent->hashcheck;    # Verify any existing data
+
+        while (1) { $client->do_one_loop(); }
 
 Description
     "Net::BitTorrent" is a class based implementation of the current
@@ -50,16 +59,18 @@ Author
     CPAN ID: SANKO
 
 License and Legal
-    Copyright 2008 by Sanko Robinson <sanko@cpan.org>
+    Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
 
     This program is free software; you can redistribute it and/or modify it
-    under the same terms as Perl 5.10 (or higher). See
-    http://www.perl.com/perl/misc/Artistic.html or the LICENSE file included
-    with this distribution.
+    under the terms of The Artistic License 2.0. See the LICENSE file
+    included with this distribution or
+    http://www.perlfoundation.org/artistic_license_2_0. For clarification,
+    see http://www.perlfoundation.org/artistic_2_0_notes.
 
-    All POD documentation is covered by the Creative Commons Attribution-
-    Noncommercial-Share Alike 3.0 License
-    (http://creativecommons.org/licenses/by-nc-sa/3.0/us/).
+    When separated from the distribution, all POD documentation is covered
+    by the Creative Commons Attribution-Share Alike 3.0 License. See
+    http://creativecommons.org/licenses/by-sa/3.0/us/legalcode. For
+    clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
     Neither this module nor the Author is affiliated with BitTorrent, Inc.
 

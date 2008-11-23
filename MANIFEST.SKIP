@@ -1,60 +1,80 @@
+# Avoid version control files.
+\bRCS\b
+\bCVS\b
+,v$
 \B\.svn\b
-\.html
-\.out
+\B\.cvsignore$
 
-\.bat$
-^Build$
-Makefile$
-Makefile.old
-^Build$
-^Makefile$
-^_build/
+# Avoid Makemaker generated and utility files.
+\bMakefile$
+\bblib
+\bMakeMaker-\d
+\bpm_to_blib$
+\bblibdirs$
+^MANIFEST\.SKIP$
 
-\.gz
-\.bak
-\.LOG
-\.tmp
-\.TEE
-MANIFEST\.
+# Avoid Module::Build generated and utility files.
+\bBuild$
+\bBuild.bat$
+\b_build
 
-^blib/
-^pm_to_blib
-^blibdirs
+# Avoid Devel::Cover generated files
+\bcover_db
 
-temp/
+# Avoid profiler stuff
+\.out$
 
-pod2text
+# Avoid NYTProf stuff
+\bnytprof\b
 
-Net-.*
-scripts/console.pl
-scripts/gui.pl
-scripts/ext_chars_tests.pl
-scripts/blah.pl
-scripts/use.pl
-scripts/callbacks.txt
+# Avoid temp and backup files.
+~$
+\.tmp$
+\.old$
+\.bak$
+\#$
+\.#
+\.rej$
 
-t/etc/generate_miniswarm_dot_torrent.pl
+# Avoid OS-specific files/dirs
+#   Mac OSX metadata
+\B\.DS_Store
+#   Mac OSX SMB mount metadata files
+\B\._
 
-docs/multitracker-spec.pod
-docs/UDP tracker protocol.pod
+# Avoid archives of this distribution
+\bNet-BitTorrent-[\d\.\_]+
 
-commit.changes.txt
-^commit\..*
+# Don't package incomplete/private stuff
+scripts/gui\.pl
+scripts/gui\.xrc
+scripts/bittorrent_full.pl
+scripts/POE\.pl
+scripts/web.*gui\.pl
+scripts/x\.pl
+scripts/.*\.zip
+scripts/.*\.js
+scripts/.*\.bencode
+scripts/.*\.torrent
+scripts/.+/.+
 
-t/data/etc/http_tracker.pl
-
-NOTES
-scripts/poe.pl
-scripts/test.pl
-scripts/web-gui-poe.pl
-scripts/webui.zip
-scripts/test-udp.pl
-STYLE
-STYLE.pod
-
-\.wiki
-
+# Don't package downloaded/perif files
 \.avi
 \.mpe?g
+\.wmv
 \.mp3
 \.wiki
+\.ico
+\.png
+\.gif
+\.html?
+\.css
+
+# Skip between-commit-changelog
+commitlog.txt
+
+# Skip perltidy backups
+\.ti?dy
+
+# Skip .torrents I don't want bundled but are helpful for dev
+\b/[^\d\.\_]+.+\.torrent

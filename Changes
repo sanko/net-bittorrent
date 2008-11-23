@@ -1,13 +1,45 @@
-Version 0.025 |
+Version 0.030 | Distant Future
+
+ API changes:
+  - See the Notes section
+
+ Internal changes:
+  - See the Notes section
+  - UDP trackers are now supported
+  - DHT actually works
+  - Fast Ext. is back
+
+ Compatibility Information:
+  - See the Notes section
+  - Net::BitTorrent::Session::* is now Net::BitTorrent::Torrent::* thanks to
+      one very squeaky wheel.
+
+ Notes:
+  - Since the previous stable release, Net::BitTorrent has been rewritten from
+      scratch, so yeah, 90% of everything internal has changed, a good portion
+      (read: all) of the API was redesigned as well.  I've been pushing dev
+      builds for more than three months so... yeah.
+
+Version 0.027_001 | Fall 2008
+
+ Internal changes:
+  - Net::BitTorrent is going through a rewrite.  Idle hands...
+
+ Notes:
+  - Don't use this.  I'm serious.  I'm only uploading it to get some CPAN
+      testers data.
+
+Version 0.025 | 2008-07-01 23:07:52 -0400 (Tue, 01 Jul 2008)
 
  Internal changes:
   - Fix crash bug by re-enabling N::B::S::Peer::_parse_packet_allowed_fast and
-      N::B::S::Peer::_parse_packet_reject
+      N::B::S::Peer::_parse_packet_reject in the packet dispatch table
   - Fixed crash bug in Data::Dumper usage in N::B::S::Peer and N::B::DHT
   - Fixed non-critical bug in N::B::S::Peer when a connected peer goes
       ((poof)) in the middle of something.
 
  Notes:
+  - Please see the Compatibility Information section from the previous version
   - Gah, what a waste of a great version number (0.025)... That's what I get
       for not eating my own dog food before shipping it.
   - I knew I was forgetting something.
@@ -192,4 +224,4 @@ For more information, see the commit log:
 
 $Rev$ from public svn
 $Date$
-$URL$
+$URL: https://net-bittorrent.googlecode.com/svn/trunk/Changes $
