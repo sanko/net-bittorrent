@@ -98,16 +98,14 @@ package Net::BitTorrent::Torrent::File;
         $self->_mkpath;
         my $mode_Fcntl = $mode eq q[r] ? O_RDONLY : O_WRONLY;
         if (not $self->_sysopen(($mode eq q[r] ? (O_RDONLY) : (O_WRONLY)))) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                  q[file_error],
                  {File    => $self,
                   Message => sprintf(q[Cannot open file for %s: %s],
                                      ($mode eq q[r] ? q[read] : q[write]), $^E
                   )
                  }
-                )
-                if defined $torrent{refaddr $self}->_client
-                    and $mode eq q[w];
+            ) if $mode eq q[w];
             return;
         }
         $mode{refaddr $self} = $mode;
@@ -115,7 +113,7 @@ package Net::BitTorrent::Torrent::File;
                       (($mode{refaddr $self} eq q[r]) ? LOCK_SH : LOCK_EX)
             )
             )
-        {   $torrent{refaddr $self}->_client->_event(
+        {   $torrent{refaddr $self}->_event(
                  q[file_error],
                  {File    => $self,
                   Message => sprintf(q[Cannot lock file for %s: %s],
@@ -131,9 +129,8 @@ package Net::BitTorrent::Torrent::File;
             );
             return;
         }
-        $torrent{refaddr $self}->_client->_event(q[file_open],
-                                {File => $self, Mode => $mode{refaddr $self}})
-            if defined $torrent{refaddr $self}->_client();
+        $torrent{refaddr $self}->_event(q[file_open],
+                               {File => $self, Mode => $mode{refaddr $self}});
         return defined $handle{refaddr $self};
     }
 
@@ -141,7 +138,7 @@ package Net::BitTorrent::Torrent::File;
         my ($self, $data) = @_;
         if (not defined $data) {return}
         if (not $handle{refaddr $self}) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                             q[file_error],
                             {File    => $self,
                              Message => q[Cannot write to file: File not open]
@@ -154,7 +151,7 @@ package Net::BitTorrent::Torrent::File;
             return;
         }
         elsif ($mode{refaddr $self} ne q[w]) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                   q[file_error],
                   {File    => $self,
                    Message => q[Cannot write to file: File not open for write]
@@ -167,7 +164,7 @@ package Net::BitTorrent::Torrent::File;
             return;
         }
         elsif (($self->_systell + length($data)) > $size{refaddr $self}) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                 q[file_error],
                 {File    => $self,
                  Message => sprintf(
@@ -204,7 +201,7 @@ END
             = syswrite($handle{refaddr $self}, $data, $expected_length);
         if (defined $actual_length) {
             if ($actual_length != $expected_length) {
-                $torrent{refaddr $self}->_client->_event(
+                $torrent{refaddr $self}->_event(
                     q[file_error],
                     {File    => $self,
                      Message => sprintf(
@@ -224,7 +221,7 @@ END
             }
         }
         else {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                    q[file_error],
                    {File    => $self,
                     Message => sprintf(
@@ -240,7 +237,7 @@ END
             );
             return;
         }
-        $torrent{refaddr $self}->_client->_event(q[file_write],
+        $torrent{refaddr $self}->_event(q[file_write],
                                    {File => $self, Length => $actual_length});
         return $actual_length;
     }
@@ -254,7 +251,7 @@ END
         }
         my $data = q[];
         if (not $handle{refaddr $self}) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                            q[file_error],
                            {File    => $self,
                             Message => q[Cannot read from file: File not open]
@@ -267,7 +264,7 @@ END
             return;
         }
         elsif ($mode{refaddr $self} ne q[r]) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                   q[file_error],
                   {File    => $self,
                    Message => q[Cannot read from file: File not open for read]
@@ -280,7 +277,7 @@ END
             return;
         }
         elsif ($self->_systell + $length > $size{refaddr $self}) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                                  q[file_error],
                                  {File    => $self,
                                   Message => q[Cannot read beyond end of file]
@@ -298,7 +295,7 @@ END
                 if -s $handle{refaddr $self} != $size{refaddr $self};
             my $real_length = sysread($handle{refaddr $self}, $data, $length);
             if ($real_length != $length) {
-                $torrent{refaddr $self}->_client->_event(
+                $torrent{refaddr $self}->_event(
                      q[file_error],
                      {File    => $self,
                       Message => sprintf(q[Failed to read %d bytes from file],
@@ -313,18 +310,18 @@ END
                 return;
             }
         }
-        $torrent{refaddr $self}->_client->_event(q[file_read],
-                                                 {File   => $self,
-                                                  Length => length($data)
-                                                 }
-        ) if defined $torrent{refaddr $self}->_client;
+        $torrent{refaddr $self}->_event(q[file_read],
+                                        {File   => $self,
+                                         Length => length($data)
+                                        }
+        );
         return $data;
     }
 
     sub _systell {
         my ($self) = @_;
         if (not $handle{refaddr $self}) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                  q[file_error],
                  {File    => $self,
                   Message => q[Cannot get filehandle position: File not open],
@@ -344,7 +341,7 @@ END
         my ($self, $position, $wence) = @_;
         $wence = defined $wence ? $wence : SEEK_SET;
         if (not defined $handle{refaddr $self}) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                   q[file_error],
                   {File    => $self,
                    Message => q[Cannot set filehandle position: File not open]
@@ -358,7 +355,7 @@ END
             return;
         }
         elsif (not defined $position) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                                 q[file_error],
                                 {File    => $self,
                                  Message => q[Cannot seek: Undefined position]
@@ -378,7 +375,7 @@ END
              )
              or (($position > 0) and ($wence == SEEK_END))
             )
-        {   $torrent{refaddr $self}->_client->_event(
+        {   $torrent{refaddr $self}->_event(
                 q[file_error],
                 {File => $self,
                  Message =>
@@ -395,7 +392,7 @@ END
             return;
         }
         elsif ((abs($position) > $size{refaddr $self})) {
-            $torrent{refaddr $self}->_client->_event(
+            $torrent{refaddr $self}->_event(
                    q[file_error],
                    {File    => $self,
                     Message => sprintf(
@@ -482,17 +479,15 @@ END
         if ($return) {
             delete $mode{refaddr $self};
             delete $handle{refaddr $self};
-            $torrent{refaddr $self}
-                ->_client->_event(q[file_close], {File => $self})
-                if defined $torrent{refaddr $self}->_client();
+            $torrent{refaddr $self}->_event(q[file_close], {File => $self});
             return $return;
         }
-        $torrent{refaddr $self}->_client->_event(
+        $torrent{refaddr $self}->_event(
                             q[file_error],
                             {File    => $self,
                              Message => sprintf(q[Cannot close file: %s], $^E)
                             }
-        ) if defined $torrent{refaddr $self}->_client();
+        );
         return;
     }
 

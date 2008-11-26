@@ -10,9 +10,17 @@ package Net::BitTorrent::Torrent;
     use Scalar::Util qw[blessed weaken refaddr];
     use List::Util qw[sum shuffle max min];
     use Fcntl qw[/O_/ /SEEK/ :flock];
+    use vars qw[@EXPORT_OK %EXPORT_TAGS];
+    use Exporter qw[];
+    *import = *import = *Exporter::import;
+    @EXPORT_OK = qw[
+        STARTED CHECKING START_AFTER_CHECK CHECKED
+        ERROR   PAUSED   LOADED            QUEUED
+    ];
+    %EXPORT_TAGS = (status => [@EXPORT_OK], all => [@EXPORT_OK]);
     use lib q[../../../lib];
     use Net::BitTorrent::Util qw[:bencode :compact];
-    use Net::BitTorrent::Peer;
+    use Net::BitTorrent::Peer qw[];
     use Net::BitTorrent::Torrent::File;
     use Net::BitTorrent::Torrent::Tracker;
     use version qw[qv];
@@ -24,8 +32,16 @@ package Net::BitTorrent::Torrent;
                         %infohash,       %pieces,        %uploaded,
                         %downloaded,     %nodes,         %bitfield,
                         %working_pieces, %_block_length, %raw_data,
-                        %status,         %error
+                        %status,         %error,         %_event
     );
+    sub STARTED           {1}
+    sub CHECKING          {2}
+    sub START_AFTER_CHECK {4}
+    sub CHECKED           {8}
+    sub ERROR             {16}
+    sub PAUSED            {32}
+    sub LOADED            {64}
+    sub QUEUED            {128}
 
     sub new {
         my ($class, $args) = @_;
@@ -116,19 +132,19 @@ package Net::BitTorrent::Torrent;
         );
         $nodes{refaddr $self} = q[];
         ${$bitfield{refaddr $self}}
-            = pack(q[b*], qq[\0] x $self->_piece_count);
+            = pack(q[b*], qq[\0] x $self->piece_count);
 
         if (defined $args->{q[Status]}) {
-            $args->{q[Status]} ^= 64  if $args->{q[Status]} & 64;
-            $args->{q[Status]} ^= 128 if $args->{q[Status]} & 128;
+            $args->{q[Status]} ^= LOADED if $args->{q[Status]} & LOADED;
+            $args->{q[Status]} ^= QUEUED if $args->{q[Status]} & QUEUED;
         }
         ${$status{refaddr $self}} |= (
                                defined $args->{q[Status]} ? $args->{q[Status]}
                                : defined $_client{refaddr $self} ? 1
                                : 0
         );
-        ${$status{refaddr $self}} |= 64;
-        ${$status{refaddr $self}} |= 128
+        ${$status{refaddr $self}} |= LOADED;
+        ${$status{refaddr $self}} |= QUEUED
             if defined $_client{refaddr $self};
         ${$error{refaddr $self}} = undef;
         my @_files;
@@ -199,7 +215,7 @@ package Net::BitTorrent::Torrent;
             threads::shared::share($error{refaddr $self});
         }
         $$self = $infohash{refaddr $self};
-        $self->start if ${$status{refaddr $self}} & 1;
+        $self->start if ${$status{refaddr $self}} & STARTED;
         return $self;
     }
 
@@ -229,19 +245,24 @@ package Net::BitTorrent::Torrent;
 
     sub is_complete {
         my ($self) = @_;
-        return if ${$status{refaddr $self}} & 2;
-        return ((substr(unpack(q[b*], $self->_wanted), 0, $self->_piece_count)
-                     !~ 1
-                )
-                ? 1
-                : 0
-        );
+        return if ${$status{refaddr $self}} & CHECKING;
+        return unpack(q[b*], $self->_wanted) !~ m[1] ? 1 : 0;
+    }
+
+    sub piece_count {    # XXX - cache?
+        my ($self) = @_;
+        return
+            int(
+               length(
+                   unpack(q[H*], $raw_data{refaddr $self}{q[info]}{q[pieces]})
+                   ) / 40
+            );
     }
 
     # Mutators | Private
     sub _set_bitfield {
         my ($self, $new_value) = @_;
-        return if ${$status{refaddr $self}} & 2;
+        return if ${$status{refaddr $self}} & CHECKING;
         return if length ${$bitfield{refaddr $self}} != length $new_value;
 
         # XXX - make sure bitfield conforms to what we expect it to be
@@ -250,7 +271,7 @@ package Net::BitTorrent::Torrent;
 
     sub _set_status {
         my ($self, $new_value) = @_;
-        return if ${$status{refaddr $self}} & 2;
+        return if ${$status{refaddr $self}} & CHECKING;
 
         # XXX - make sure status conforms to what we expect it to be
         return ${$status{refaddr $self}} = $new_value;
@@ -260,29 +281,19 @@ package Net::BitTorrent::Torrent;
         my ($self, $msg) = @_;
         ${$error{refaddr $self}} = $msg;
         $self->stop();
-        ${$status{refaddr $self}} &= 16;
+        ${$status{refaddr $self}} |= ERROR;
         return 1;
     }
 
     # Accessors | Private
-    sub _client       { return $_client{refaddr +shift}; }
-    sub _block_length { return $_block_length{refaddr +shift} }
-
-    sub _piece_count {    # XXX - cache?
-        my ($self) = @_;
-        return
-            int(
-               length(
-                   unpack(q[H*], $raw_data{refaddr $self}{q[info]}{q[pieces]})
-                   ) / 40
-            );
-    }
+    sub _client        { return $_client{refaddr +shift}; }
+    sub _block_length  { return $_block_length{refaddr +shift} }
     sub _compact_nodes { return $nodes{refaddr +shift}; }
 
     sub _wanted {
         my ($self) = @_;
-        return if ${$status{refaddr $self}} & 2;
-        my $wanted = q[0] x $self->_piece_count;
+        return if ${$status{refaddr $self}} & CHECKING;
+        my $wanted = q[0] x $self->piece_count;
         my $p_size = $raw_data{refaddr $self}{q[info]}{q[piece length]};
         my $offset = 0;
         for my $file (@{$files{refaddr $self}}) {
@@ -300,56 +311,77 @@ package Net::BitTorrent::Torrent;
                  | ${$bitfield{refaddr $self}} ^ ${$bitfield{refaddr $self}});
     }
 
+    sub _weights {
+        my ($self) = @_;
+        return if ${$status{refaddr $self}} & CHECKING;
+        my %_weights;
+        my $p_size = $raw_data{refaddr $self}{q[info]}{q[piece length]};
+        my $offset = 0;
+        for my $file (@{$files{refaddr $self}}) {
+            my $priority = $file->priority;
+            my $start    = ($offset / $p_size);
+            my $end      = (($offset + $file->size) / $p_size);
+            $offset += $file->size;
+            next if !$priority;
+            grep {
+                $_weights{$_} = $priority
+                    if !vec(${$bitfield{refaddr $self}}, $_, 1)
+            } $start .. $end;
+        }
+        return %_weights;
+    }
+
     # Methods | Public
     sub hashcheck {
         my ($self) = @_;
-        return if ${$status{refaddr $self}} & 32;
-        my $start_after_check = (((${$status{refaddr $self}} & 128)
-                                      && ${$status{refaddr $self}} & 4
-                                 )
-                                     || ${$status{refaddr $self}} & 1
+        return if ${$status{refaddr $self}} & PAUSED;
+        my $start_after_check = (
+                         ((${$status{refaddr $self}} & QUEUED)
+                              && ${$status{refaddr $self}} & START_AFTER_CHECK
+                         )
+                             || ${$status{refaddr $self}} & STARTED
         );
-        ${$status{refaddr $self}} |= 2
-            if !${$status{refaddr $self}} & 2;
+        ${$status{refaddr $self}} |= CHECKING
+            if !${$status{refaddr $self}} & CHECKING;
         $self->stop();
-        for my $index (0 .. ($self->_piece_count - 1)) {
+        for my $index (0 .. ($self->piece_count - 1)) {
             $self->_check_piece_by_index($index);
         }
-        ${$status{refaddr $self}} ^= 4
-            if ${$status{refaddr $self}} & 4;
-        ${$status{refaddr $self}} ^= 8
-            if !(${$status{refaddr $self}} & 8);
-        ${$status{refaddr $self}} ^= 2
-            if ${$status{refaddr $self}} & 2;
+        ${$status{refaddr $self}} ^= START_AFTER_CHECK
+            if ${$status{refaddr $self}} & START_AFTER_CHECK;
+        ${$status{refaddr $self}} ^= CHECKED
+            if !(${$status{refaddr $self}} & CHECKED);
+        ${$status{refaddr $self}} ^= CHECKING
+            if ${$status{refaddr $self}} & CHECKING;
         if ($start_after_check) { $self->start(); }
         return 1;
     }
 
     sub pause {
         my ($self) = @_;
-        if (!${$status{refaddr $self}} & 128) {
+        if (!${$status{refaddr $self}} & QUEUED) {
             carp q[Cannot pause an orphan torrent];
             return;
         }
-        if (!${$status{refaddr $self}} & 1) {
+        if (!${$status{refaddr $self}} & STARTED) {
             carp q[Cannot pause a stopped torrent];
             return;
         }
-        return ${$status{refaddr $self}} |= 32;
+        return ${$status{refaddr $self}} |= PAUSED;
     }
 
     sub start {
         my ($self) = @_;
-        if (!${$status{refaddr $self}} & 128) {
+        if (!${$status{refaddr $self}} & QUEUED) {
             carp q[Cannot start an orphan torrent];
             return;
         }
-        ${$status{refaddr $self}} ^= 16
-            if ${$status{refaddr $self}} & 16;
-        ${$status{refaddr $self}} ^= 32
-            if ${$status{refaddr $self}} & 32;
-        ${$status{refaddr $self}} |= 1
-            if !(${$status{refaddr $self}} & 1);
+        ${$status{refaddr $self}} ^= ERROR
+            if ${$status{refaddr $self}} & ERROR;
+        ${$status{refaddr $self}} ^= PAUSED
+            if ${$status{refaddr $self}} & PAUSED;
+        ${$status{refaddr $self}} |= STARTED
+            if !(${$status{refaddr $self}} & STARTED);
         $_client{refaddr $self}->_schedule(
                                   {Time   => time + 5,
                                    Code   => sub { shift->_new_peer if @_; },
@@ -361,7 +393,7 @@ package Net::BitTorrent::Torrent;
 
     sub stop {
         my ($self) = @_;
-        if (!${$status{refaddr $self}} & 128) {
+        if (!${$status{refaddr $self}} & QUEUED) {
             carp q[Cannot stop an orphan torrent];
             return;
         }
@@ -369,9 +401,9 @@ package Net::BitTorrent::Torrent;
             $_peer->_disconnect(q[Torrent has been stopped]);
         }
         for my $_file (@{$files{refaddr $self}}) { $_file->_close(); }
-        ${$status{refaddr $self}} ^= 1
-            if (${$status{refaddr $self}} & 1);
-        return !!${$status{refaddr $self}} & 1;
+        ${$status{refaddr $self}} ^= STARTED
+            if (${$status{refaddr $self}} & STARTED);
+        return !!${$status{refaddr $self}} & STARTED;
     }
 
     sub queue {
@@ -383,37 +415,37 @@ package Net::BitTorrent::Torrent;
                 . q[blessed Net::BitTorrent object];
             return;
         }
-        if ($_client{refaddr $self} or ${$status{refaddr $self}} & 128) {
+        if ($_client{refaddr $self} or ${$status{refaddr $self}} & QUEUED) {
             carp q[Cannot serve the same .torrent more than once];
             return;
         }
         $_client{refaddr $self} = $client;
         weaken $_client{refaddr $self};
-        ${$status{refaddr $self}} ^= 128;
+        ${$status{refaddr $self}} ^= QUEUED;
         return $_client{refaddr $self};
     }
 
     # Methods | Private
     sub _add_uploaded {
         my ($self, $amount) = @_;
-        if (!${$status{refaddr $self}} & 128) { return; }
+        if (!${$status{refaddr $self}} & QUEUED) { return; }
         return if not defined $_client{refaddr $self};
-        return if ${$status{refaddr $self}} & 2;
+        return if ${$status{refaddr $self}} & CHECKING;
         return if not $amount;
         $uploaded{refaddr $self} += (($amount =~ m[^\d+$]) ? $amount : 0);
     }
 
     sub _add_downloaded {
         my ($self, $amount) = @_;
-        if (!${$status{refaddr $self}} & 128) { return; }
+        if (!${$status{refaddr $self}} & QUEUED) { return; }
         return if not defined $_client{refaddr $self};
-        return if ${$status{refaddr $self}} & 2;
+        return if ${$status{refaddr $self}} & CHECKING;
         $downloaded{refaddr $self} += (($amount =~ m[^\d+$]) ? $amount : 0);
     }
 
     sub _append_compact_nodes {
         my ($self, $nodes) = @_;
-        if (!${$status{refaddr $self}} & 128) { return; }
+        if (!${$status{refaddr $self}} & QUEUED) { return; }
         return if not defined $_client{refaddr $self};
         if (not $nodes) { return; }
         $nodes{refaddr $self} ||= q[];
@@ -424,8 +456,8 @@ package Net::BitTorrent::Torrent;
     sub _new_peer {
         my ($self) = @_;
         return if not defined $_client{refaddr $self};
-        return if ${$status{refaddr $self}} & 2;
-        return if !${$status{refaddr $self}} & 1;
+        return if ${$status{refaddr $self}} & CHECKING;
+        return if !${$status{refaddr $self}} & STARTED;
         $_client{refaddr $self}->_schedule(
                                          {Time   => time + 5,
                                           Code   => sub { shift->_new_peer },
@@ -444,8 +476,11 @@ package Net::BitTorrent::Torrent;
         if ($self->is_complete)        { return; }
         if (not $nodes{refaddr $self}) { return; }
         my @nodes = uncompact($nodes{refaddr $self});
-        for (1 .. (30 - scalar $self->_peers)) {
-            last if not @nodes;
+        for (1 .. ($_client{refaddr $self}->_peers_per_torrent
+                       - scalar $self->_peers
+             )
+            )
+        {   last if not @nodes;
             my $node = shift @nodes;
             my $ok   = $_client{refaddr $self}
                 ->_event(q[ip_filter], {Address => $node});
@@ -461,7 +496,7 @@ package Net::BitTorrent::Torrent;
                     $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
                         and not defined $_->{q[Object]}->peerid
                     } values %{$_client{refaddr $self}->_connections}
-                ) >= 8;
+                ) >= $_client{refaddr $self}->_half_open;
         }
         return 1;
     }
@@ -469,7 +504,7 @@ package Net::BitTorrent::Torrent;
     sub _peers {
         my ($self) = @_;
         return if not defined $_client{refaddr $self};
-        return if !${$status{refaddr $self}} & 128;
+        return if !${$status{refaddr $self}} & QUEUED;
         my $_connections = $_client{refaddr $self}->_connections;
         return map {
             (    ($_->{q[Object]}->isa(q[Net::BitTorrent::Peer]))
@@ -483,7 +518,7 @@ package Net::BitTorrent::Torrent;
     sub _add_tracker {
         my ($self, $tier) = @_;
         return if not defined $_client{refaddr $self};
-        return if !${$status{refaddr $self}} & 128;
+        return if !${$status{refaddr $self}} & QUEUED;
         carp q[Please, pass new tier in an array ref...]
             unless ref $tier eq q[ARRAY];
         return
@@ -496,7 +531,7 @@ package Net::BitTorrent::Torrent;
 
     sub _piece_by_index {
         my ($self, $index) = @_;
-        return if !${$status{refaddr $self}} & 1;
+        return if !${$status{refaddr $self}} & STARTED;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
                 q[Net::BitTorrent::Torrent->_piece_by_index() requires an index];
@@ -509,13 +544,14 @@ package Net::BitTorrent::Torrent;
 
     sub _pick_piece {
         my ($self, $peer) = @_;
+        return if $self->is_complete;
         if (!$_client{refaddr $self}) {
             carp
                 q[Net::BitTorrent::Torrent->_pick_piece(PEER) will not on an orphan torrent];
             return;
         }
-        if (   (!${$status{refaddr $self}} & 1)
-            || (${$status{refaddr $self}} & 2))
+        if (   (!${$status{refaddr $self}} & STARTED)
+            || (${$status{refaddr $self}} & CHECKING))
         {   carp
                 q[Net::BitTorrent::Torrent->_pick_piece(PEER) will not work while hashchecking];
             return;
@@ -538,34 +574,23 @@ package Net::BitTorrent::Torrent;
             ? 1
             : 0
         );
-        my $slots = int(
-              ((2**24) / $raw_data{refaddr $self}{q[info]}{q[piece length]}));
         my $unchoked_peers
             = scalar(grep { $_->_peer_choking == 0 } $self->_peers) + 1;
-        my $blocks_per_piece = int(
-              $raw_data{refaddr $self}{q[info]}{q[piece length]} / (
-                  ($raw_data{refaddr $self}{q[info]}{q[piece length]} < 2**14)
-                  ? $raw_data{refaddr $self}{q[info]}{q[piece length]}
-                  : ($raw_data{refaddr $self}{q[info]}{q[piece length]}
-                     >= 2**22) ? 2**15
-                  : 2**14
-              )
+        my $slots = $unchoked_peers * 20;
+        my $blocks_per_piece
+            = $raw_data{refaddr $self}{q[info]}{q[piece length]}
+            / $_block_length{refaddr $self};
+        my $max_working_pieces = min(24,
+                                     int(($slots * $unchoked_peers)
+                                         / $blocks_per_piece
+                                         ) + 1
         );
-        my $max_working_pieces =
-
-            #min(24,
-            #    min(($unchoked_peers * 2),
-            (int(($slots * $unchoked_peers) / $blocks_per_piece) + 1)
-
-            #    )
-            #)
-            ;
-        if (scalar(grep { $_->{q[Slow]} == 0 }
-                       values %{$working_pieces{refaddr $self}}
+        if (scalar(    #grep { $_->{q[Slow]} == 0 }
+                    values %{$working_pieces{refaddr $self}}
             ) >= $max_working_pieces
             )
         {   my @indexes
-                = grep { $working_pieces{refaddr $self}{$_}{q[Slow]} == 0 }
+                =   #grep { $working_pieces{refaddr $self}{$_}{q[Slow]} == 0 }
                 keys %{$working_pieces{refaddr $self}};
             for my $index (@indexes) {
                 if (vec($relevence, $index, 1) == 1) {
@@ -588,22 +613,18 @@ package Net::BitTorrent::Torrent;
             }
         }
         else {
-            my %weights;
-            for my $i (0 .. ($self->_piece_count - 1))
-            {    # XXX - Far from efficient...
-                if (vec($relevence, $i, 1)) {
-                    $weights{$i} = 1;
-                }
-            }
+            my %weights = $self->_weights;
             return if not keys %weights;
-
-            # [id://230661]
-            my $total    = sum values %weights;
+            my $total    = sum values %weights;    # [id://230661]
             my $rand_val = $total * rand;
             my $index;
             for my $i (reverse sort keys %weights) {
                 $rand_val -= $weights{$i};
-                if ($rand_val <= 0) { $index = $i; last; }
+                if ($rand_val <= 0
+                    && vec($relevence, $i, 1) == 1)
+                {   $index = $i;
+                    last;
+                }
             }
             return if not defined $index;
             my $_piece_length = (    # XXX - save some time and cache this?
@@ -656,8 +677,8 @@ package Net::BitTorrent::Torrent;
     sub _write_data {
         my ($self, $index, $offset, $data) = @_;
         return if not defined $_client{refaddr $self};
-        return if ${$status{refaddr $self}} & 2;
-        return if !${$status{refaddr $self}} & 1;
+        return if ${$status{refaddr $self}} & CHECKING;
+        return if !${$status{refaddr $self}} & STARTED;
         if ((length($$data) + (
                  ($raw_data{refaddr $self}{q[info]}{q[piece length]} * $index)
                  + $offset
@@ -700,9 +721,9 @@ package Net::BitTorrent::Torrent;
 
     sub _read_data {
         my ($self, $index, $offset, $length) = @_;
-        return if not defined $index  || $index !~ m[^\d+$];
-        return if not defined $offset || $offset !~ m[^\d+$];
-        return if not defined $length || $length !~ m[^\d+$];
+        return if !defined $index  || $index !~ m[^\d+$];
+        return if !defined $offset || $offset !~ m[^\d+$];
+        return if !defined $length || $length !~ m[^\d+$];
         my $data = q[];
         if (($length + (
                  ($raw_data{refaddr $self}{q[info]}{q[piece length]} * $index)
@@ -755,13 +776,13 @@ package Net::BitTorrent::Torrent;
         my $data =
             $self->_read_data(
                   $index, 0,
-                  ($index == ($self->_piece_count - 1)
+                  ($index == ($self->piece_count - 1)
                    ? ($size{refaddr $self} % $raw_data{refaddr $self}{q[info]}
                       {q[piece length]})
                    : $raw_data{refaddr $self}{q[info]}{q[piece length]}
                   )
             );
-        if ((not $data)
+        if ((!$data)
             or (sha1_hex($$data) ne substr(
                               unpack(
                                   q[H*],
@@ -773,20 +794,55 @@ package Net::BitTorrent::Torrent;
             )
             )
         {   vec(${$bitfield{refaddr $self}}, $index, 1) = 0;
-            $_client{refaddr $self}->_event(q[piece_hash_fail],
-                                          {Torrent => $self, Index => $index})
-                if defined $_client{refaddr $self};
+            $self->_event(q[piece_hash_fail],
+                          {Torrent => $self, Index => $index});
             return 0;
         }
         if (vec(${$bitfield{refaddr $self}}, $index, 1) == 0) {
             vec(${$bitfield{refaddr $self}}, $index, 1) = 1;
-            $_client{refaddr $self}->_event(q[piece_hash_pass],
-                                          {Torrent => $self, Index => $index})
-                if defined $_client{refaddr $self};
+            $self->_event(q[piece_hash_pass],
+                          {Torrent => $self, Index => $index});
         }
         return 1;
     }
 
+    # Methods | Public | Callback system
+    sub on_event {
+        my ($self, $type, $method) = @_;
+        carp sprintf q[Unknown callback: %s], $type
+            unless ___check_event($type);
+        $_event{refaddr $self}{$type} = $method;
+    }
+
+    # Methods | Private | Callback system
+    sub _event {
+        my ($self, $type, $args) = @_;
+        carp sprintf
+            q[Unknown event: %s. This is a bug in Net::BitTorrent::Torrent; Report it.],
+            $type
+            unless ___check_event($type);
+        $_client{refaddr $self}->_event($type, $args)
+            if ${$status{refaddr $self}} & QUEUED;
+        return $_event{refaddr $self}{$type}
+            ? $_event{refaddr $self}{$type}($self, $args)
+            : ();
+    }
+
+    # Functions | Private | Callback system
+    sub ___check_event {
+        my $type = shift;
+        return scalar grep { $_ eq $type } qw[
+            tracker_connect tracker_disconnect
+            tracker_read    tracker_write
+            tracker_success tracker_failure
+            piece_hash_pass piece_hash_fail
+            file_open       file_close
+            file_read       file_write
+            file_error
+        ];
+    }
+
+    # Private | Utility
     sub _as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $self->infohash : sprintf <<'END',
@@ -795,7 +851,7 @@ Path: %s
 Name: %s
 Storage: %s
 Infohash: %s
-Size: %d bytes
+Size: %d bytes (%3.2f%% complete)
 Status: %d
 ----------
 Num Pieces: %d
@@ -810,10 +866,16 @@ DHT Status: %s
 END
             $self->path(),
             $raw_data{refaddr $self}{q[info]}{q[name]},
-            $basedir{refaddr $self},
-            $self->infohash(),
-            $self->size(), $self->status(),    # TODO: plain English
-            $self->_piece_count(),
+            $basedir{refaddr $self}, $self->infohash(), $self->size(),
+            ((((scalar grep {$_} split q[],
+                unpack q[b*],
+                ${$bitfield{refaddr $self}}
+               ) / ($self->piece_count)
+              )
+             ) * 100
+            ),
+            $self->status(),    # TODO: plain English
+            $self->piece_count(),
             $raw_data{refaddr $self}{q[info]}{q[piece length]},
             join(q[, ], (keys %{$working_pieces{refaddr $self}}) || q[N/A]),
             (join qq[\r\n],
@@ -856,6 +918,24 @@ END
 =head1 NAME
 
 Net::BitTorrent::Torrent - Class Representing a Single .torrent File
+
+=head1 Synopsis
+
+  use Net::BitTorrent::Torrent;
+
+  my $torrent = Net::BitTorrent::Torrent->new({Path => q[a.legal.torrent]})
+      or die q[Cannot load .torrent];
+
+  $torrent->on_event(
+      q[piece_hash_pass],
+      sub {
+          printf qq[%s is % 3.2f%% complete\r], $torrent->name,
+              (scalar grep {$_} split q[], unpack q[b*], $torrent->bitfield)
+              / $torrent->piece_count * 100;
+      }
+  );
+
+  $torrent->hashcheck;    # Verify any existing data
 
 =head1 Description
 
@@ -1004,9 +1084,22 @@ In a single file torrent, this is used as the filename by default.  In a
 multiple file torrent, this is used as the containing directory for
 related files.
 
+=item C<on_event ( TYPE, CODEREF )>
+
+Net::BitTorrent::Torrent provides per-torrent callbacks.  For example,
+to catch all attempts to read from a file, use
+C<$torrent-E<gt>on_event( 'file_read', \&on_read )>.  These per-
+torrent callbacks are especially useful for standalone torrents.
+
+See the L<Events|/Events> section for more.
+
 =item C<path ( )>
 
 Returns the L<filename|/"Path"> of the torrent this object represents.
+
+=item C<piece_count ( )>
+
+The number of pieces this torrent's data is broken into.
 
 =item C<private ( )>
 
@@ -1057,11 +1150,10 @@ States are bitwise C<AND> values of...
             1
           </td>
           <td>
-            Started
+            STARTED
           </td>
           <td>
-            New peers are accepted and pieces are activly being
-            transfered
+            Client is (making an attempt to be) active in the swarm
           </td>
         </tr>
         <tr>
@@ -1069,7 +1161,7 @@ States are bitwise C<AND> values of...
             2
           </td>
           <td>
-            Checking
+            CHECKING
           </td>
           <td>
             Currently hashchecking (possibly in another thread)
@@ -1080,10 +1172,10 @@ States are bitwise C<AND> values of...
             4
           </td>
           <td>
-            Start after check
+            START_AFTER_CHECK
           </td>
           <td>
-            Unused in this version
+            (Unused in this version)
           </td>
         </tr>
         <tr>
@@ -1091,7 +1183,7 @@ States are bitwise C<AND> values of...
             8
           </td>
           <td>
-            Checked
+            CHECKED
           </td>
           <td>
             Files of this torrent have been checked
@@ -1102,7 +1194,7 @@ States are bitwise C<AND> values of...
             16
           </td>
           <td>
-            Error
+            ERROR
           </td>
           <td>
             Activity is halted and may require user intervention
@@ -1114,11 +1206,10 @@ States are bitwise C<AND> values of...
             32
           </td>
           <td>
-            Paused
+            PAUSED
           </td>
           <td>
-            New peers are accepted but no piece date is transfered or
-            asked for
+            Sockets are kept open but no piece data is sent or requested
           </td>
         </tr>
         <tr>
@@ -1126,7 +1217,7 @@ States are bitwise C<AND> values of...
             64
           </td>
           <td>
-            Loaded
+            LOADED
           </td>
           <td>
             Torrent has been parsed without error
@@ -1137,7 +1228,7 @@ States are bitwise C<AND> values of...
             128
           </td>
           <td>
-            Queued
+            QUEUED
           </td>
           <td>
             Has an associated Net::BitTorrent parent
@@ -1150,28 +1241,54 @@ States are bitwise C<AND> values of...
 
 =begin :text,wiki
 
-   1 = Started  (New peers are accepted, etc.)
-   2 = Checking (Currently hashchecking)
-   4 = Start after Check*
-   8 = Checked
-  16 = Error*   (Activity is halted and may require user intervention)
-  32 = Paused
-  64 = Loaded
- 128 = Queued   (Has an associated Net::BitTorrent parent)
+   1 = STARTED  (Client is (making an attempt to be) active in the swarm)
+   2 = CHECKING (Currently hashchecking (possibly in another thread))
+   4 = START_AFTER_CHECK*
+   8 = CHECKED  (Files of this torrent have been checked)
+  16 = ERROR*   (Activity is halted and may require user intervention)
+  32 = PAUSED   (Sockets are kept open but no piece data is sent or requested)
+  64 = LOADED   (Torrent has been parsed without error)
+ 128 = QUEUED   (Has an associated Net::BitTorrent parent)
 
  * Currently unused
 
 =end :text,wiki
 
-For example, a status of C<201> implies the torrent is queued (C<128>),
-loaded (C<64>), hash checked (C<8>), and is currently active (C<1>).
-This scheme is inspired by µTorrent.
+For example, a status of C<201> implies the torrent is
+C<QUEUED | LOADED | CHECKED | STARTED>.
 
 When torrents have the a status that indicates an error, they must be
 L<restarted|/start ( )> (if possible).  The reason for the error I<may>
 be returned by L<error ( )|/"error ( )">.
 
-Note: States are alpha and may not work as advertised.  Yet.
+Import the C<:status> tag and you'll get the various status keywords in
+your namespace.
+
+=begin :podcoverage
+
+=over
+
+=item STARTED
+
+=item CHECKING
+
+=item START_AFTER_CHECK
+
+=item CHECKED
+
+=item ERROR
+
+=item PAUSED
+
+=item LOADED
+
+=item QUEUED
+
+=back
+
+=end :podcoverage
+
+Note: This is alpha and may not work as advertised.  Yet.
 
 =item C<start ( )>
 
@@ -1209,6 +1326,17 @@ started transferring data related to this .torrent.
 See also: L<downloaded ( )|/"downloaded ( )">
 
 =back
+
+=head1 Events
+
+When triggered, per-torrent callbacks receive two arguments: the
+C<Net::BitTorrent::Torrent> object and a hashref containing pertinent
+information.  Per-torrent callbacks also trigger client-wide callbacks
+when the current torrent is queued.
+
+Currently, per-torrent callbacks are limited to tracker-, piece-, and
+file-related events.  See L<Net::BitTorrent|Net::BitTorrent/"Events">
+for client-wide callbacks.
 
 =head1 Author
 

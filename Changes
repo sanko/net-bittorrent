@@ -1,18 +1,30 @@
-Version 0.030 | Distant Future
+Version 0.40 |
 
  API changes:
   - See the Notes section
+  - Torrents can now be paused, stopped, and started (alpha code)
+  - Torrent objects can now be created without a parent client for
+      informational use (See perldoc Net::BitTorrent::Torrent)
+
+ Compatibility Information:
+  - See the Notes section
+  - Net::BitTorrent::Session::* is now Net::BitTorrent::Torrent::* thanks to
+      one very squeaky wheel.
+  - PeerID spec has changed (stability marker is now 'U'nstable/'S'table
+      instead of the less obvious and misleading 'S'VN/'C'PAN)
+  - Torrents aren't automatically checked when loaded.
 
  Internal changes:
   - See the Notes section
   - UDP trackers are now supported
   - DHT actually works
   - Fast Ext. is back
+  - PeerID, DHT node ID, ExtProtocol name, and dist version are all generated
+      in Net::BitTorrent::Version
 
- Compatibility Information:
-  - See the Notes section
-  - Net::BitTorrent::Session::* is now Net::BitTorrent::Torrent::* thanks to
-      one very squeaky wheel.
+ Issues resolved:
+  - No longer floods the system with CLOSE_WAIT sockets which eventually block
+      the allocation of new sockets
 
  Notes:
   - Since the previous stable release, Net::BitTorrent has been rewritten from

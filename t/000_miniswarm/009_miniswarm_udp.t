@@ -92,31 +92,6 @@ SKIP: {
                  - $test_builder->{q[Curr_Test]}
         ) if not $client{$chr};
         $client{$chr}->_set_use_dht($okay_udp);
-        $client{$chr}->on_event(
-            q[piece_hash_pass],
-            sub {
-                my ($self, $args) = @_;
-                my $piece
-                    = $args->{q[Torrent]}->_piece_by_index($args->{q[Index]});
-                my $sum = 0;
-                for my $offset (0 .. $args->{q[Torrent]}->_piece_count - 1) {
-                    $sum += vec($args->{q[Torrent]}->bitfield, $offset, 1);
-                }
-                ok($args->{q[Torrent]}->is_complete,
-                    sprintf(q[peer_%s is seeding], $chr))
-                    if $args->{q[Torrent]}->is_complete;
-                return;
-            }
-        );
-        $client{$chr}->on_event(
-            q[tracker_success],
-            sub {
-                my ($s, $a) = @_;
-                my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
-                ok(1, sprintf(q[peer_%s announce okay], $chr));
-                return $t->_tier->_torrent->_new_peer();
-            }
-        );
         my $torrent =
             $client{$chr}->add_torrent(
                                      {Path => $miniswarm_dot_torrent,
@@ -133,32 +108,30 @@ SKIP: {
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
         ) if not $torrent;
+        $torrent->hashcheck;
+        $torrent->on_event(
+            q[piece_hash_pass],
+            sub {
+                my ($self, $args) = @_;
+                my $piece
+                    = $args->{q[Torrent]}->_piece_by_index($args->{q[Index]});
+                ok($args->{q[Torrent]}->is_complete,
+                    sprintf(q[peer_%s is seeding], $chr))
+                    if $args->{q[Torrent]}->is_complete;
+                return;
+            }
+        );
+        $torrent->on_event(
+            q[tracker_success],
+            sub {
+                my ($s, $a) = @_;
+                my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
+                ok(1, sprintf(q[peer_%s announce okay], $chr));
+                return $t->_tier->_torrent->_new_peer();
+            }
+        );
         my $tracker = qq[udp://127.0.0.1:$_tracker_port/announce];
         $torrent->_add_tracker([$tracker]);
-    }
-    for my $bt (values %client) {
-        for my $event (qw[ip_filter
-                       incoming_packet outgoing_packet
-                       peer_connect    peer_disconnect
-                       peer_read       peer_write
-                       tracker_connect tracker_disconnect
-                       tracker_read    tracker_write
-                       tracker_failure
-                       piece_hash_fail
-                       file_open       file_close
-                       file_read       file_write
-                       file_error
-                       ]
-            )
-        {   use Data::Dumper;
-            $bt->on_event(
-                $event,
-                sub {
-                    warn sprintf q[EVENT - %s - %s : %s],
-                        scalar(localtime), $event, Dumper $_[1];
-                }
-            );
-        }
     }
     while ($test_builder->{q[Curr_Test]} < $test_builder->{q[Expected_Tests]})
     {   grep { $_->do_one_loop(0.1); check_tracker(); } values %client;

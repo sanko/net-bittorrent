@@ -8,6 +8,8 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
+=item * BEP 9: Extension for Peers to Send Metadata Files
+
 =item * ut_pex ...despite it being undocumented
 
 =back
@@ -75,6 +77,8 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 =item * scripts/wx-gui-client.pl (perhaps)
 
 =item * PoCo::BitTorrent
+
+=item * Proxy support
 
 =back
 

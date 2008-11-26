@@ -21,15 +21,15 @@ package Net::BitTorrent;
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
-        = \my (%_tcp,               %_udp,
-               %_peerid,            %_schedule,
-               %_event,             %_torrents,
-               %_connections,       %_max_ul_rate,
-               %_k_ul,              %_max_dl_rate,
-               %_k_dl,              %_dht,
-               %_tid,               %_use_dht,
-               %__UDP_OBJECT_CACHE, %_peers_per_torrent,
-               %_connections_per_host
+        = \my (%_tcp,                  %_udp,
+               %_schedule,             %_tid,
+               %_event,                %_torrents,
+               %_connections,          %_peerid,
+               %_max_ul_rate,          %_k_ul,
+               %_max_dl_rate,          %_k_dl,
+               %_dht,                  %_use_dht,
+               %__UDP_OBJECT_CACHE,    %_peers_per_torrent,
+               %_connections_per_host, %_half_open
         );
     my %REGISTRY;
 
@@ -53,8 +53,9 @@ package Net::BitTorrent;
                 )
                 : @ports;
         }
-        $_peers_per_torrent{refaddr $self}    = 50;
-        $_connections_per_host{refaddr $self} = 3;
+        $_peers_per_torrent{refaddr $self}    = 100;
+        $_connections_per_host{refaddr $self} = 2;
+        $_half_open{refaddr $self}            = 8;
         $_max_dl_rate{refaddr $self}          = 0;
         $_k_dl{refaddr $self}                 = 0;
         $_max_ul_rate{refaddr $self}          = 0;
@@ -112,6 +113,7 @@ package Net::BitTorrent;
         return inet_ntoa($packed_ip);
     }
     sub _peers_per_torrent { return $_peers_per_torrent{refaddr +shift} }
+    sub _half_open         { return $_half_open{refaddr +shift} }
 
     sub _connections_per_host {
         return $_connections_per_host{refaddr +shift};
@@ -155,12 +157,13 @@ package Net::BitTorrent;
     # Methods | Public
     sub do_one_loop {
         my ($self, $timeout) = @_;
-        $timeout = -1 if scalar @_ != 2;
-        return if defined $timeout and $timeout !~ m[^\-?\d+\.?\d*$];
         $self->_process_schedule;
-        $timeout = ($timeout ? $timeout : 1);
-        $timeout = undef if $timeout == -1;
-        return if defined $timeout and $timeout < 0;
+        $timeout
+            = defined $timeout && $timeout =~ m[^(\-1|\d+)\.?\d*$]
+            ? $timeout < 0
+                ? undef
+                : $timeout
+            : 1;
         my ($rin, $win, $ein) = (q[], q[], q[]);
     PUSHSOCK: for my $fileno (keys %{$_connections{refaddr $self}}) {
             vec($rin, $fileno, 1) = 1
@@ -172,7 +175,7 @@ package Net::BitTorrent;
         my ($nfound, $timeleft) = select($rin, $win, $ein, $timeout);
         $self->_process_connections(\$rin, \$win, \$ein)
             if $nfound and $nfound != -1;
-        return $timeleft;
+        return 1;
     }
 
     # Methods | Private
@@ -325,7 +328,7 @@ package Net::BitTorrent;
                                 $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
                                     && !$_->{q[Object]}->_torrent
                                 } values %{$_connections{refaddr $self}}
-                        ) < 8
+                        ) < $_half_open{refaddr $self}
                         )
                     {   accept(my ($new_socket), $_tcp{refaddr $self})
                             or next POPSOCK;
@@ -783,8 +786,10 @@ related classes.
 
 =head1 Events
 
-When triggered, callbacks receive two arguments: the C<Net::BitTorrent>
-object and a hashref containing pertinent information.
+When triggered, client-wide callbacks receive two arguments: the
+C<Net::BitTorrent> object and a hashref containing pertinent information.
+For per-torrent callbacks, please see
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent/"Events">
 
 This is the current list of events and the information passed to
 callbacks.
@@ -811,9 +816,9 @@ IPv4:port address of the potential peer.
 =back
 
 Note: The return value from your C<ip_filter> callback determines how we
-proceed.  An explicitly C<false> return value means this peer should not
-contacted and (in the case of an incoming peer) the connection will be
-dropped.
+proceed.  An I<explicitly false> return value (ie C<0>) means this peer
+should not be contacted and (in the case of an incoming peer) the
+connection is dropped.
 
 =item C<peer_connect>
 
@@ -843,24 +848,24 @@ a connection.
 
 =item C<Reason>
 
-When possible, this is a 'user friendly' reason for the disconnection.
+When possible, this is a 'user friendly' string.
 
 =back
 
 =item C<peer_read>
 
-This is triggered whenever we send data to a remote peer via TCP.  The
-argument hash contains the following keys:
+This is triggered whenever we receive data from a remote peer via TCP.
+The argument hash contains the following keys:
 
 =over
 
 =item C<Peer>
 
-The L<peer|Net::BitTorrent::Peer> on the receiving end of this data.
+The L<peer|Net::BitTorrent::Peer> who sent the packet.
 
 =item C<Length>
 
-The amount of data, in bytes, sent to the remote peer.
+The amount of data, in bytes, sent by the peer.
 
 =back
 
@@ -890,7 +895,7 @@ contains the following keys:
 
 =item C<Payload>
 
-The data sent in the packet (when applicable).
+The parsed data sent in the packet (when applicable) in a hashref.
 
 =item C<Peer>
 
@@ -912,7 +917,7 @@ contains the following keys:
 
 =item C<Payload>
 
-The data sent in the packet (when applicable).
+The parsed data sent in the packet (when applicable) in a hashref.
 
 =item C<Peer>
 
@@ -969,9 +974,8 @@ uses 'r' for read access and 'w' for write.
 
 =item C<file_close>
 
-Triggered every time we close a file represented in a
-L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object. The argument
-hash contains the following keys:
+Triggered every time we close a file.  The argument hash contains the
+following key:
 
 =over
 
@@ -983,7 +987,8 @@ The L<file|Net::BitTorrent::Torrent::File> object.
 
 =item C<file_write>
 
-Triggered every time we write data to a file.
+Triggered every time we write data to a file.  The argument hash contains
+the following keys:
 
 =over
 
@@ -999,7 +1004,8 @@ The actual amount of data written to the file.
 
 =item C<file_read>
 
-Triggered every time we read data from a file.
+Triggered every time we read data from a file.  The argument hash
+contains the following keys:
 
 =over
 
@@ -1077,7 +1083,8 @@ The tracker object related to this event.
 =item C<Payload>
 
 The data returned by the tracker in a hashref.  The content of this
-payload may vary, but these are the typical keys found therein:
+payload based on what we receive from the tracker but these are the
+typical keys found therein:
 
 =over
 
@@ -1203,7 +1210,7 @@ Numerous, I'm sure.
 
 Please see the section entitled
 "L<Bug Reporting|Net::BitTorrent::Notes/"Bug Reporting">" in
-L<Net::BitTorrent::Notes|Net::BitTorrent::Notes>.
+L<Net::BitTorrent::Notes|Net::BitTorrent::Notes> if you've found one.
 
 =head1 Notes
 

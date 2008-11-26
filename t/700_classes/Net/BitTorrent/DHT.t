@@ -36,6 +36,13 @@ SKIP: {
              )
         );
     }
+    if (!$client->_dht) {
+        skip(q[Failed to create DHT object],
+             (      $test_builder->{q[Expected_Tests]}
+                  - $test_builder->{q[Curr_Test]}
+             )
+        );
+    }
     my $torrent = $client->add_torrent({Path    => $simple_dot_torrent,
                                         BaseDir => $tempdir
                                        }

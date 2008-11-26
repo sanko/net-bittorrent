@@ -19,7 +19,7 @@ my $okay_udp        = $build->notes(q[okay_udp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-plan tests => 72;
+plan tests => 73;
 my ($tempdir) = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
 warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
 my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
@@ -102,11 +102,11 @@ SKIP: {
               },
               q[_sockets() returns the dht object and the client itself]
     );
-    ok($bt_top->do_one_loop(1),
-        q[   do_one_loop() accepts an optional timeout parameter...]);
-    ok($bt_top->do_one_loop(1.25), q[   ...or a float...]);
-    is($bt_top->do_one_loop(q[test]), undef, q[   ...but not random junk.]);
-    is($bt_top->do_one_loop(-3),      undef, q[   ...or negative numbers.]);
+    ok($bt_top->do_one_loop(1),       q[do_one_loop(1)]);
+    ok($bt_top->do_one_loop(1.25),    q[do_one_loop(1.25)]);
+    ok($bt_top->do_one_loop(0.25),    q[do_one_loop(0.25)]);
+    ok($bt_top->do_one_loop(q[test]), q[do_one_loop('test')]);
+    ok($bt_top->do_one_loop(-3),      q[do_one_loop(-3)]);
     warn(  q[This next bit (tries) to create a server, client, and ]
          . q[the accepted loopback...]);
     warn(q[Think happy thoughts.]);

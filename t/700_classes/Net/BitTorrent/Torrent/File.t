@@ -20,56 +20,99 @@ my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-plan tests => 134;
+plan tests => 173;
 SKIP: {
     my $client = Net::BitTorrent->new();
-    my $torrent =
-        Net::BitTorrent::Torrent->new({Client => $client,
-                                       Path   => $single_dot_torrent
-                                      }
-        );
+    my $torrent = $client->add_torrent({Path => $single_dot_torrent});
     ok( $client->on_event(
             q[file_error],
             sub {
                 my ($self, $args) = @_;
-                pass(sprintf q[File error: %s], $args->{q[Message]});
+                pass(sprintf q[[Client-wide] File error: %s],
+                     $args->{q[Message]});
                 return 1;
             }
         ),
-        q[Installed 'file_error' event handler]
+        q[Installed client-wide 'file_error' event handler]
     );
     ok( $client->on_event(
             q[file_close],
             sub {
                 my ($self, $args) = @_;
-                pass(q[Closed file]);
+                pass(q[[Client-wide] Closed file]);
                 return 1;
             }
         ),
-        q[Installed 'file_close' event handler]
+        q[Installed client-wide 'file_close' event handler]
     );
     ok( $client->on_event(
             q[file_open],
             sub {
                 my ($self, $args) = @_;
                 pass(
-                    sprintf(q[Opened file for %s],
+                    sprintf(q[[Client-wide] Opened file for %s],
                             (($args->{q[Mode]} eq q[r]) ? q[read] : q[write]))
                 );
                 return 1;
             }
         ),
-        q[Installed 'file_open' event handler]
+        q[Installed client-wide 'file_open' event handler]
     );
     ok( $client->on_event(
             q[file_read],
             sub {
                 my ($self, $args) = @_;
-                pass(sprintf q[Read %d bytes from file], $args->{q[Length]});
+                pass(sprintf q[[Client-wide] Read %d bytes from file],
+                     $args->{q[Length]});
                 return 1;
             }
         ),
-        q[Installed 'file_read' event handler]
+        q[Installed client-wide 'file_read' event handler]
+    );
+    ok( $torrent->on_event(
+            q[file_error],
+            sub {
+                my ($self, $args) = @_;
+                pass(sprintf q[[Per-torrent] File error: %s],
+                     $args->{q[Message]});
+                return 1;
+            }
+        ),
+        q[Installed per-torrent 'file_error' event handler]
+    );
+    ok( $torrent->on_event(
+            q[file_close],
+            sub {
+                my ($self, $args) = @_;
+                pass(q[[Per-torrent] Closed file]);
+                return 1;
+            }
+        ),
+        q[Installed per-torrent 'file_close' event handler]
+    );
+    ok( $torrent->on_event(
+            q[file_open],
+            sub {
+                my ($self, $args) = @_;
+                pass(
+                    sprintf(q[[Per-torrent] Opened file for %s],
+                            (($args->{q[Mode]} eq q[r]) ? q[read] : q[write]))
+                );
+                return 1;
+            }
+        ),
+        q[Installed per-torrent 'file_open' event handler]
+    );
+    ok( $torrent->on_event(
+            q[file_read],
+            sub {
+                my ($self, $args) = @_;
+                pass(sprintf q[[Per-torrent] Read %d bytes from file],
+                     $args->{q[Length]});
+                return 1;
+            }
+        ),
+        q[Installed per-torrent 'file_read' event handler]
     );
     my ($tempdir)
         = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);

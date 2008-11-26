@@ -13,10 +13,8 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
-    my @CONTENTS
-        = \
-        my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
-            %_packed_host, %_event);
+    my @CONTENTS = \my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
+                        %_packed_host, %_event);
 
     sub new {
         my ($class, $args) = @_;
@@ -61,6 +59,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     sub _packed_host { return $_packed_host{refaddr +shift} }
     sub _tier        { return $_tier{refaddr +shift}; }
     sub _url         { return $_url{refaddr +shift}; }
+    sub _client      { return $_tier{refaddr +shift}->_client }
 
     # Methods | Private
     sub _announce {
@@ -90,7 +89,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                 . q[a20 a20 a8 a8 a8 N N N N n],
                 $_cid{refaddr $self}, 1, $tid,
                 pack(q[H*], $_tier{refaddr $self}->_torrent->infohash),
-                $_tier{refaddr $self}->_client->peerid(),
+                $self->_client->peerid(),
                 ___pack64($_tier{refaddr $self}->_torrent->downloaded()),
                 ___pack64(
                    $_tier{refaddr $self}
@@ -111,12 +110,11 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                  : $_event{refaddr $self} eq q[stopped]   ? 3
                  : 0
                 ),
-                0, $^T, 200, $_tier{refaddr $self}->_client->_tcp_port;
-
-            #
+                0, $^T, 200, $self->_client->_tcp_port;
             $_outstanding_requests{refaddr $self}{$tid} = {Timestamp => time,
                                                            Attempt   => 1,
-                                                           Packet => $packet
+                                                           Packet => $packet,
+                                                           Retry_ID => q[]
             };
         }
         $self->_send($tid);
@@ -125,9 +123,13 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     sub _send {
         my ($self, $tid) = @_;
         if (!$_tier{refaddr $self}->_client->_udp) {
-            $_tier{refaddr $self}->_client->_socket_open();
+            $self->_client->_socket_open();
         }
-        return if not $_tier{refaddr $self}->_client->_udp;
+        return if not $self->_client->_udp;
+        if ($_outstanding_requests{refaddr $self}{$tid}{q[Attempt]} > 8) {
+            delete $_outstanding_requests{refaddr $self}{$tid};
+            return;
+        }
         if (not send($_tier{refaddr $self}->_client->_udp,
                      $_outstanding_requests{refaddr $self}{$tid}{q[Packet]},
                      0,
@@ -143,7 +145,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
             );
             return;
         }
-        $_tier{refaddr $self}->_client->_event(
+        $_tier{refaddr $self}->_torrent->_event(
                                          q[tracker_connect],
                                          {Tracker => $self,
                                           ($_event{refaddr $self}
@@ -152,7 +154,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                                           )
                                          }
         );
-        $_tier{refaddr $self}->_client->_event(
+        $_tier{refaddr $self}->_torrent->_event(
                    q[tracker_write],
                    {Tracker => $self,
                     Length  => length(
@@ -160,18 +162,35 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                     )
                    }
         );
+        $_outstanding_requests{refaddr $self}{$tid}{q[Retry_ID]}
+            = $self->_client->_schedule(
+            {Time =>
+                 time + (15 * (2**$_outstanding_requests{refaddr $self}{$tid}
+                                   {q[Attempt]}
+                         )
+                 ),
+             Code => sub {
+                 $_outstanding_requests{refaddr $self}{$tid}{q[Attempt]}++;
+                 shift->_send($tid);
+             },
+             Object => $self
+            }
+            );
         return 1;
     }
 
     sub _on_data {
         my ($self, $paddr, $data) = @_;
         my ($action, $tid, $packet) = unpack q[NNa*], $data;
-        $_tier{refaddr $self}->_client->_event(q[tracker_read],
+        $_tier{refaddr $self}->_torrent->_event(q[tracker_read],
                                  {Tracker => $self, Length => length($data)});
         return if not $_outstanding_requests{refaddr $self}{$tid};
         my $_request = $_outstanding_requests{refaddr $self}{$tid};
+        $self->_client->_cancel(
+                    $_outstanding_requests{refaddr $self}{$tid}{q[Retry_ID]});
         delete $_outstanding_requests{refaddr $self}{$tid};
         if ($action == 0) {
+
             if (length($data) == 16) {
                 my ($cid) = unpack(q[a8], $packet);
                 $_cid{refaddr $self} = $cid;
@@ -188,7 +207,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                     ->_torrent->_append_compact_nodes($peers);
                 $_tier{refaddr $self}->_set_complete($seeds);
                 $_tier{refaddr $self}->_set_incomplete($leeches);
-                $_tier{refaddr $self}->_client->_event(
+                $_tier{refaddr $self}->_torrent->_event(
                                             q[tracker_success],
                                             {Tracker => $self,
                                              Payload => {
@@ -199,7 +218,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                                              }
                                             }
                 );
-                $_tier{refaddr $self}->_client->_schedule(
+                $self->_client->_schedule(
                     {   Time => (time + (  $min_interval
                                          ? $min_interval
                                          : 1800
@@ -218,12 +237,21 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
         elsif ($action == 2) {
         }
         elsif ($action == 3) {
-            $_tier{refaddr $self}->_client->_event(q[tracker_failure],
-                                                   {Tracker => $self,
-                                                    Reason  => $packet
-                                                   }
+            $_tier{refaddr $self}->_torrent->_event(q[tracker_failure],
+                                                    {Tracker => $self,
+                                                     Reason  => $packet
+                                                    }
             );
-            $_tier{refaddr $self}->_shuffle();
+            $self->_client->_schedule(
+                {Time => time + 30,
+                 Code => sub {
+                     my ($s) = @_;
+                     $s->_tier->_shuffle;
+                     return $s->_tier->_announce();
+                 },
+                 Object => $self
+                }
+            );
             return;
         }
         else { }
@@ -320,11 +348,7 @@ This is ALPHA code and as such may not work as expected.
 
 =item *
 
-Does not retry as suggested in the spec.
-
-=item *
-
-Should we pretend UDP uses connections and trigger the 'tracker_connect'
+Should I pretend UDP uses connections and trigger the 'tracker_connect'
 callback whenever we send() data just to keep things even?
 
 =back

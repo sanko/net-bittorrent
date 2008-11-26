@@ -104,7 +104,7 @@ END
                 $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
                     && !$_->{q[Object]}->_torrent
             } values %{$args->{q[Torrent]}->_client->_connections};
-            if ($half_open >= 8) {
+            if ($half_open >= $args->{q[Torrent]}->_client->_half_open) {
 
                 #warn sprintf q[%d half open sockets!], $half_open;
                 return;
@@ -144,8 +144,8 @@ END
             weaken $_client{refaddr $self};
             $_torrent{refaddr $self} = $args->{q[Torrent]};
             weaken $_torrent{refaddr $self};
-            ${$_bitfield{refaddr $self}} = pack(q[b*],
-                             qq[\0] x $_torrent{refaddr $self}->_piece_count);
+            ${$_bitfield{refaddr $self}}
+                = pack(q[b*], qq[\0] x $_torrent{refaddr $self}->piece_count);
             my %_payload = (
                  Reserved => $_client{refaddr $self}->_build_reserved,
                  Infohash => pack(q[H40], $_torrent{refaddr $self}->infohash),
@@ -394,8 +394,8 @@ END
                 return;
             }
             weaken $_torrent{refaddr $self};
-            ${$_bitfield{refaddr $self}} = pack(q[b*],
-                             qq[\0] x $_torrent{refaddr $self}->_piece_count);
+            ${$_bitfield{refaddr $self}}
+                = pack(q[b*], qq[\0] x $_torrent{refaddr $self}->piece_count);
             if ($threads::shared::threads_shared) {
                 threads::shared::share($_bitfield{refaddr $self});
             }
@@ -650,11 +650,9 @@ END
                                         }
         );
         my $piece = $_torrent{refaddr $self}->_piece_by_index($index);
-        if (not defined $piece) {
-            weaken $self;
-            $self->_disconnect(q[sent a block to a non-existant piece]);
-            return;
-        }
+
+        #use Data::Dump qw[pp];
+        #warn pp $piece;
         if (not $_torrent{refaddr $self}->_write_data($index, $offset, \$data)
             )
         {   $_client{refaddr $self}->_del_socket($_socket{refaddr $self});
@@ -750,7 +748,7 @@ END
             return;
         }
         ${$_bitfield{refaddr $self}}
-            = pack(q[b*], qq[\1] x $_torrent{refaddr $self}->_piece_count);
+            = pack(q[b*], qq[\1] x $_torrent{refaddr $self}->piece_count);
         $_client{refaddr $self}->_event(q[incoming_packet],
                                         {Peer    => $self,
                                          Payload => {},
@@ -781,7 +779,7 @@ END
             return;
         }
         ${$_bitfield{refaddr $self}}
-            = pack(q[b*], qq[\0] x $_torrent{refaddr $self}->_piece_count);
+            = pack(q[b*], qq[\0] x $_torrent{refaddr $self}->piece_count);
         $_client{refaddr $self}->_event(q[incoming_packet],
                                         {Peer    => $self,
                                          Payload => {},
@@ -915,7 +913,7 @@ END
     sub _disconnect_useless_peer {
         my ($self) = @_;
         return if not defined $self;
-        if ($_last_contact{refaddr $self} < (time - (2 * 60))) {
+        if ($_last_contact{refaddr $self} < (time - 180)) {
             weaken $self;
             $self->_disconnect(q[Peer is idle]);
             return;
@@ -934,10 +932,10 @@ END
             return;
         }
         $_client{refaddr $self}->_schedule(
-                                       {Time   => time + 30,
-                                        Code   => \&_disconnect_useless_peer,
-                                        Object => $self
-                                       }
+                            {Time   => (180 + $_last_contact{refaddr $self}),
+                             Code   => \&_disconnect_useless_peer,
+                             Object => $self
+                            }
         );
         return 1;
     }
@@ -946,7 +944,7 @@ END
         my ($self) = @_;
         return if not defined $self;
         return if not defined $_socket{refaddr $self};
-        $_client{refaddr $self}->_schedule({Time   => time + 60,
+        $_client{refaddr $self}->_schedule({Time   => time + 15,
                                             Code   => \&_cancel_old_requests,
                                             Object => $self
                                            }
@@ -957,7 +955,7 @@ END
         }
         for my $i (reverse(0 .. $#{$requests_out{refaddr $self}})) {
             my $request = $requests_out{refaddr $self}->[$i];
-            if (time <= ($request->{q[Timestamp]} + 35)) {
+            if (time <= ($request->{q[Timestamp]} + 30)) {
                 next;
             }
             my $piece = $_torrent{refaddr $self}
@@ -984,7 +982,8 @@ END
             splice(@{$requests_out{refaddr $self}}, $i, 1);
             $canceled++;
         }
-        $_client{refaddr $self}->_add_connection($self, q[rw]) if $canceled;
+        $_client{refaddr $self}->_add_connection($self, q[rw])
+            if $canceled;
         return $canceled;
     }
 
@@ -1130,7 +1129,7 @@ END
             $_client{refaddr $self}->_event(q[outgoing_packet],
                            {Peer => $self, Payload => {}, Type => HAVE_NONE});
         }
-        elsif (   (scalar(@have) == $self->_torrent->_piece_count)
+        elsif (   (scalar(@have) == $self->_torrent->piece_count)
                && (ord(substr($_reserved_bytes{refaddr $self}, 7, 1)) & 0x04))
         {   $_data_out{refaddr $self} .= build_have_all();
             $_client{refaddr $self}->_event(q[outgoing_packet],
@@ -1323,7 +1322,8 @@ END
             $_data_out{refaddr $self} .= build_unchoke();
             $_client{refaddr $self}->_event(q[outgoing_packet],
                              {Peer => $self, Payload => {}, Type => UNCHOKE});
-            $_client{refaddr $self}->_add_connection($self, q[rw]) or return;
+            $_client{refaddr $self}->_add_connection($self, q[rw])
+                or return;
         }
         else {
             $_client{refaddr $self}->_schedule({Time   => time + 30,

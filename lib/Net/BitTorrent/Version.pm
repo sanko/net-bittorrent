@@ -5,7 +5,7 @@ package Net::BitTorrent::Version;
     use warnings;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $VERSION_BASE = 27; our $UNSTABLE_RELEASE = 15; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 39; our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     our $PRODUCT_TOKEN = qq[Net::BitTorrent $VERSION];
 
     sub gen_peerid {
@@ -134,7 +134,7 @@ See the PAUSE FAQ section entitled "Developer Releases"
 This would be the stable CPAN release C<v0.393>/SVN r393.  The C<--SVN>
 signature does not imply an unstable build.
 
-=item C<NB003X-9E-ayR6-I<lt>3BT>
+=item C<NB003X-9E-ayR6-IE<lt>3BT>
 
 Improper Peer ID; the sixth char is neither 'C<S>' nor 'C<U>'.
 

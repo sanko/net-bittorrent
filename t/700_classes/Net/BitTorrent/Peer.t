@@ -1,7 +1,7 @@
 #!C:\perl\bin\perl.exe -w
 use strict;
 use warnings;
-use Test::More;
+use Test::More qw[no_plan];
 use Module::Build;
 use Socket qw[AF_INET SOCK_STREAM INADDR_LOOPBACK SOL_SOCKET
     sockaddr_in unpack_sockaddr_in inet_ntoa];
@@ -23,7 +23,6 @@ my $verbose         = $build->notes(q[verbose]);
 my $threads         = $build->notes(q[threads]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 my ($flux_capacitor, %peers) = (0, ());
-plan tests => 297;
 
 BEGIN {
     *CORE::GLOBAL::time
@@ -150,9 +149,10 @@ SKIP: {
         ),
         q[Installed 'peer_connect' event handler]
     );
-    my @request_offsets = qw[0 16384 16384 16384];
+    my @request_offsets = qw[0     16384 0     16384 16344 16354];
+    my @request_lengths = qw[16384 16384 16384 16384 16384 46384];
     my @cancel_offsets  = reverse @request_offsets;
-    my @indexes         = (0 .. 10);                  # have
+    my @indexes         = (0 .. 10);                                 # have
     ok( $client->on_event(
             q[incoming_packet],
             sub {
@@ -187,7 +187,8 @@ SKIP: {
                               q[  ... No other keys in $_[1]]);
 
                     if (   ($peer->peerid eq q[B] x 20)
-                        or ($peer->peerid eq q[C] x 20))
+                        or ($peer->peerid eq q[C] x 20)
+                        or ($peer->peerid eq q[UNKNOWN-------------]))
                     {   pass(sprintf q[PeerID is okay (%s)], $peer->peerid);
                     }
                     elsif ($peer->peerid eq $self->peerid) {
@@ -259,10 +260,10 @@ SKIP: {
                     );
                 }
                 elsif ($type == HAVE) {
+                    delete $_[1]->{q[Peer]};
                     is_deeply(\@_,
                               [$client,
                                {Payload => {Index => shift(@indexes)},
-                                Peer    => $peers{q[C]},
                                 Type    => HAVE
                                }
                               ],
@@ -321,13 +322,13 @@ SKIP: {
                         $payload->{q[Length]};
                 }
                 elsif ($type == PIECE) {
+                    delete $_[1]->{q[Peer]};
                     is_deeply(\@_,
                               [$client,
                                {Payload => {Index  => 0,
                                             Length => 16384,
                                             Offset => 0
                                 },
-                                Peer => $peers{q[C]},
                                 Type => PIECE
                                }
                               ],
@@ -344,11 +345,21 @@ SKIP: {
                     );
                 }
                 elsif ($type == CANCEL) {
-                    warn sprintf q[%s has canceled [I:%4d O:%6d L:%6d]],
+                    ok( 1,
+                        sprintf q[%s has canceled [I:%4d O:%6d L:%6d]],
                         $peer->_as_string,
                         $args->{q[Index]},
                         $args->{q[Offset]},
-                        $args->{q[Length]};
+                        $args->{q[Length]}
+                    );
+                }
+                elsif ($type == HAVE_ALL) {
+                    ok(1, sprintf q[%s says they have everything],
+                        $peer->_as_string);
+                }
+                elsif ($type == HAVE_NONE) {
+                    ok(1, sprintf q[%s says they have nothing],
+                        $peer->_as_string);
                 }
                 else { die q[Unhandled packet: ] . $type }
             }
@@ -388,7 +399,8 @@ SKIP: {
 
                     if ($peer->_incoming) {
                         if (   ($peer->peerid eq q[B] x 20)
-                            or ($peer->peerid eq q[C] x 20))
+                            or ($peer->peerid eq q[C] x 20)
+                            or ($peer->peerid eq q[UNKNOWN-------------]))
                         {   pass(sprintf q[PeerID is okay (%s)],
                                  $peer->peerid);
                         }
@@ -417,40 +429,55 @@ SKIP: {
                     warn(sprintf(q[Unchoking %s], $peer->_as_string));
                 }
                 elsif ($type == REQUEST) {
-                    is_deeply(\@_,
-                              [$client,
-                               {Payload => {Index  => 0,
-                                            Length => 16384,
-                                            Offset => shift(@request_offsets)
-                                },
-                                Peer => $peers{q[C]},
-                                Type => REQUEST
-                               }
-                              ],
-                              q[Correct args passed to 'outgoing request' event handler]
-                    );
                     warn(sprintf q[Requesting [I:%4d O:%6d L:%6d] from %s],
                          $payload->{q[Index]},  $payload->{q[Offset]},
                          $payload->{q[Length]}, $peer->_as_string
                     );
+                    is($self, $client,
+                        q[Correct args passed to 'outgoing request' [$_[0]]]);
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    like($args->{q[Payload]}{q[Index]},
+                         qr[^\d+$], q[  ... [$_[1]->{'Payload'}{'Index'}]]);
+                    delete $args->{q[Payload]}{q[Index]};
+                    like($args->{q[Payload]}{q[Offset]},
+                         qr[^\d+$], q[  ... [$_[1]->{'Payload'}{'Offset'}]]);
+                    delete $args->{q[Payload]}{q[Offset]};
+                    like($args->{q[Payload]}{q[Length]},
+                         qr[^\d+$], q[  ... [$_[1]->{'Payload'}{'Length'}]]);
+                    delete $args->{q[Payload]}{q[Length]};
+                    is_deeply($args,
+                              {Payload => {}, Type => REQUEST},
+                              q[Correct args passed to 'outgoing request' event handler]
+                    );
                 }
                 elsif ($type == CANCEL) {
-                    is_deeply(\@_,
-                              [$client,
-                               {Payload => {Index  => 0,
-                                            Length => 16384,
-                                            Offset => shift(@cancel_offsets)
-                                },
-                                Peer => $peers{q[C]}
-                               }
-                              ],
+                    is($self, $client,
+                        q[Correct args passed to 'outgoing cancel' [$_[0]]]);
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    like($args->{q[Payload]}{q[Index]},
+                         qr[^\d+$], q[  ... [$_[1]->{'Payload'}{'Index'}]]);
+                    delete $args->{q[Payload]}{q[Index]};
+                    like($args->{q[Payload]}{q[Offset]},
+                         qr[^\d+$], q[  ... [$_[1]->{'Payload'}{'Offset'}]]);
+                    delete $args->{q[Payload]}{q[Offset]};
+                    like($args->{q[Payload]}{q[Length]},
+                         qr[^\d+$], q[  ... [$_[1]->{'Payload'}{'Length'}]]);
+                    delete $args->{q[Payload]}{q[Length]};
+                    is_deeply($args,
+                              {Payload => {}, Type => CANCEL},
                               q[Correct args passed to 'outgoing cancel' event handler]
                     );
-                    warn(sprintf(
-                               q[I have canceled [I:%4d O:%6d L:%6d] from %s],
-                               $args->{q[Index]},  $args->{q[Offset]},
-                               $args->{q[Length]}, $peer->_as_string
-                         )
+                    warn(sprintf q[Canceling [I:%4d O:%6d L:%6d] from %s],
+                         $payload->{q[Index]},  $payload->{q[Offset]},
+                         $payload->{q[Length]}, $peer->_as_string
                     );
                 }
                 elsif ($type == PIECE) {
@@ -495,7 +522,35 @@ SKIP: {
                               q[  ... No other keys in $_[1]]);
                     warn(sprintf(q[Sent bitfield to %s], $peer->_as_string));
                 }
-                else { die q[Unhandled packet: ] . $type }
+                elsif ($type == HAVE_NONE) {
+                    is($self, $client,
+                        q[Correct args passed to 'outgoing have none' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    is_deeply($args,
+                              {Type => HAVE_NONE, Payload => {}},
+                              q[  ... No other keys in $_[1]]);
+                }
+                elsif ($type == EXTPROTOCOL) {
+                    is($self, $client,
+                        q[Correct args passed to 'outgoing extended protocol' [$_[0]]]
+                    );
+                    isa_ok($args->{q[Peer]},
+                           q[Net::BitTorrent::Peer],
+                           q[  ... [$_[1]->{'Peer'}]]
+                    );
+                    delete $args->{q[Peer]};
+                    delete $args->{q[Payload]};
+                    delete $args->{q[ID]};
+                    is_deeply($args,
+                              {Type => EXTPROTOCOL},
+                              q[  ... No other keys in $_[1]]);
+                }
+                else { warn q[****************** Unhandled packet: ] . $type }
             }
         ),
         q[Installed 'outgoing_packet' event handler]
@@ -602,180 +657,241 @@ SKIP: {
     );
     warn sprintf q[%d|%d], 21, $test_builder->{q[Curr_Test]};
     warn(q[Test incoming peers]);
-    $peers{q[A]} =
-        Net::BitTorrent::Peer->new({Client  => $client,
-                                    Torrent => $torrent,
-                                    Address => q[127.0.0.1:0]
-                                   }
+    {
+        $peers{q[A]} =
+            Net::BitTorrent::Peer->new({Client  => $client,
+                                        Torrent => $torrent,
+                                        Address => q[127.0.0.1:0]
+                                       }
+            );
+        isa_ok($peers{q[A]}, q[Net::BitTorrent::Peer], q[new()]);
+        weaken $peers{q[A]};
+        ok(isweak($peers{q[A]}),     q[  ...make $peers{q[A]} a weak ref]);
+        ok($peers{q[A]}->_as_string, q[_as_string]);
+        isa_ok($peers{q[A]}->_socket, q[GLOB], q[_socket]);
+        isa_ok($peers{q[A]}->_torrent,
+               q[Net::BitTorrent::Torrent], q[_torrent]);
+        is($peers{q[A]}->_bitfield,     "\0", q[_bitfield]);
+        is($peers{q[A]}->_peer_choking, 1,    q[Default peer_choking status]);
+        is($peers{q[A]}->_am_choking,   1,    q[Default am_choking status]);
+        is($peers{q[A]}->_peer_interested,
+            0, q[Default peer_interested status]);
+        is($peers{q[A]}->_am_interested, 0, q[Default am_interested status]);
+        is($peers{q[A]}->_incoming,      0, q[Direction status is correct.]);
+        warn sprintf q[%d|%d], 39, $test_builder->{q[Curr_Test]};
+    }
+    {
+        my $newsock_A = newsock($client);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        warn sprintf q[%d|%d], 44, $test_builder->{q[Curr_Test]};
+        is( syswrite($newsock_A,
+                     build_handshake(chr(0) x 8, q[A] x 20, q[B] x 20)
+            ),
+            68,
+            q[Sent handshake to client]
         );
-    isa_ok($peers{q[A]}, q[Net::BitTorrent::Peer], q[new()]);
-    weaken $peers{q[A]};
-    ok(isweak($peers{q[A]}),     q[  ...make $peers{q[A]} a weak ref]);
-    ok($peers{q[A]}->_as_string, q[_as_string]);
-    isa_ok($peers{q[A]}->_socket, q[GLOB], q[_socket]);
-    isa_ok($peers{q[A]}->_torrent, q[Net::BitTorrent::Torrent], q[_torrent]);
-    is($peers{q[A]}->_bitfield,     "\0", q[_bitfield]);
-    is($peers{q[A]}->_peer_choking, 1,    q[Default peer_choking status]);
-    is($peers{q[A]}->_am_choking,   1,    q[Default am_choking status]);
-    is($peers{q[A]}->_peer_interested, 0, q[Default peer_interested status]);
-    is($peers{q[A]}->_am_interested,   0, q[Default am_interested status]);
-    is($peers{q[A]}->_incoming,        0, q[Direction status is correct.]);
-    warn sprintf q[%d|%d], 39, $test_builder->{q[Curr_Test]};
-    my $newsock_A = newsock($client);
-    $client->do_one_loop;
-    my $newsock_B = newsock($client);
-    $client->do_one_loop;
-    my $newsock_C = newsock($client);
-    $client->do_one_loop;
-    my $newsock_D = newsock($client);
-    $client->do_one_loop;
-    warn sprintf q[%d|%d], 62, $test_builder->{q[Curr_Test]};
-    is( syswrite($newsock_A, build_handshake(chr(0) x 8, q[A] x 20, q[B] x 20)
-        ),
-        68,
-        q[Sent handshake to client]
-    );
-    is(syswrite($newsock_A, build_bitfield(chr(1))),
-        6, q[Sent bitfield to client]);
-    my $with_peer = scalar keys %{$client->_connections};
-    $client->do_one_loop;
-    ok(($with_peer > scalar keys %{$client->_connections}),
-        q[Peer removed from list of connections]);
-    warn sprintf q[%d|%d], 82, $test_builder->{q[Curr_Test]};
-    is( syswrite($newsock_B,
-                 build_handshake(chr(0) x 8,
-                                 pack(q[H40], $torrent->infohash),
-                                 $client->peerid
-                 )
-        ),
-        68,
-        q[Sent handshake to client]
-    );
-    $with_peer = scalar keys %{$client->_connections};
-    $client->do_one_loop;
-    ok(($with_peer > scalar keys %{$client->_connections}),
-        q[Peer removed from list of connections]);
-    warn sprintf q[%d|%d], 104, $test_builder->{q[Curr_Test]};
-    is( syswrite($newsock_C,
-                 build_handshake(chr(0) x 8,
-                                 pack(q[H40], $torrent->infohash),
-                                 q[C] x 20
-                 )
-        ),
-        68,
-        q[Sent handshake to client]
-    );
-    $client->do_one_loop;
-    ok(close($newsock_C), q[Peer closes socket. Leaving us hanging.]);
-    $with_peer = scalar keys %{$client->_connections};
-    $client->do_one_loop;
-    ok(($with_peer > scalar keys %{$client->_connections}),
-        q[Peer removed from list of connections]);
-    warn sprintf q[%d|%d], 139, $test_builder->{q[Curr_Test]};
-    is( syswrite($newsock_D,
-                 build_handshake(chr(0) x 8,
-                                 pack(q[H40], $torrent->infohash),
-                                 q[C] x 20
-                 )
-        ),
-        68,
-        q[Sent handshake to client]
-    );
-    is(syswrite($newsock_A, build_bitfield(chr(0))),
-        6, q[Sent bitfield to client]);
-    $client->do_one_loop;
-    $client->do_one_loop;
-    ok(sysread($newsock_D, my ($data), 1024), q[Read handshake reply]);
-    ($peers{q[C]}) = map {
-        (    $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
-         and defined $_->{q[Object]}->peerid
-         and ($_->{q[Object]}->peerid eq q[C] x 20))
-            ? $_->{q[Object]}
-            : ()
-    } values %{$client->_connections};
-    weaken $peers{q[C]};
-    ok(isweak($peers{q[C]}), q[  ...make $peers{q[C]} a weak ref]);
-    warn sprintf q[%d|%d], 171, $test_builder->{q[Curr_Test]};
-    like(${$peers{q[C]}}, qr[127.0.0.1:\d+], q[Address properly resolved]);
-    is($peers{q[C]}->_host, q[127.0.0.1], q[_host]);
-    like($peers{q[C]}->_port, qr[^\d+$], q[_port]);
-    is($peers{q[C]}->peerid, q[C] x 20, q[PeerID check]);
-    isa_ok($peers{q[C]}->_socket, q[GLOB], q[Socket stored properly]);
-    warn sprintf q[%d|%d], 176, $test_builder->{q[Curr_Test]};
-    is($peers{q[C]}->_am_choking,    1, q[Initial outgoing choke status]);
-    is($peers{q[C]}->_peer_choking,  1, q[Initial incoming choke status]);
-    is($peers{q[C]}->_am_interested, 0, q[Initial outgoing interest status]);
-    is($peers{q[C]}->_peer_interested, 0,
-        q[Initial incoming interest status]);
-    warn sprintf q[%d|%d], 180, $test_builder->{q[Curr_Test]};
-    is(syswrite($newsock_D, build_keepalive()),
-        4, q[Sent keepalive to client]);
-    $client->do_one_loop;
-    is(syswrite($newsock_D, build_unchoke()), 5, q[Sent unchoke to client]);
-    $client->do_one_loop;
-    warn sprintf q[%d|%d], 194, $test_builder->{q[Curr_Test]};
-    is($peers{q[C]}->_am_choking,   1, q[Post-unchoke outgoing choke status]);
-    is($peers{q[C]}->_peer_choking, 0, q[Post-unchoke incoming choke status]);
-    is($peers{q[C]}->_am_interested,
-        0, q[Post-unchoke outgoing interest status]);
-    is($peers{q[C]}->_peer_interested,
-        0, q[Post-unchoke incoming interest status]);
-    warn sprintf q[%d|%d], 198, $test_builder->{q[Curr_Test]};
-    is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
-    $client->do_one_loop;
-    is($peers{q[C]}->_am_choking,   1, q[Post-choke outgoing choke status]);
-    is($peers{q[C]}->_peer_choking, 1, q[Post-choke incoming choke status]);
-    is($peers{q[C]}->_am_interested,
-        0, q[Post-choke outgoing interest status]);
-    warn sprintf q[%d|%d], 210, $test_builder->{q[Curr_Test]};
-    is($peers{q[C]}->_peer_interested,
-        0, q[Post-choke incoming interest status]);
-    is(syswrite($newsock_D, build_interested()),
-        5, q[Sent interested to client]);
-    $client->do_one_loop;
-    is($peers{q[C]}->_am_choking, 0,
-        q[Post-interested outgoing choke status]);
-    warn sprintf q[%d|%d], 223, $test_builder->{q[Curr_Test]};
-    is($peers{q[C]}->_peer_choking,
-        1, q[Post-interested incoming choke status]);
-    is($peers{q[C]}->_am_interested,
-        0, q[Post-interested outgoing interest status]);
-    is($peers{q[C]}->_peer_interested,
-        1, q[Post-interested incoming interest status]);
-    warn sprintf q[%d|%d], 226, $test_builder->{q[Curr_Test]};
-    is(syswrite($newsock_D, build_not_interested()),
-        5, q[Sent not interested to client]);
-    $client->do_one_loop;
-    is(syswrite($newsock_D, build_have(0)), 9, q[Sent have to client]);
-    $client->do_one_loop;
-    ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-    warn sprintf q[%d|%d], 249, $test_builder->{q[Curr_Test]};
-    is(syswrite($newsock_D, build_unchoke()), 5, q[Sent unchoke to client]);
-    $client->do_one_loop;
-    ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-    my $fake_piece = q[A] x 16384;
-    is(syswrite($newsock_D, build_piece(0, 0, \$fake_piece)),
-        16397, q[Sent piece i:0 o:0 l:16384 to client]);
-    warn sprintf q[%d|%d], 266, $test_builder->{q[Curr_Test]};
-    $client->do_one_loop;
-    is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
-    $client->do_one_loop;
-    is(syswrite($newsock_D, build_unchoke()),
-        5, q[Sent choke to client to read second unchoke]);
-    $client->do_one_loop;
-    warn sprintf q[%d|%d], 295, $test_builder->{q[Curr_Test]};
-    $flux_capacitor = 1.5;
-    $client->do_one_loop;
-    warn sprintf q[%d|%d], 292, $test_builder->{q[Curr_Test]};
-    $flux_capacitor = 2.5;
-    $client->do_one_loop(3);
-    ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-    warn sprintf q[%d|%d], 295, $test_builder->{q[Curr_Test]};
-    is(sysread($newsock_C, my ($in), 1024),
-        undef, q[Fail to read data because socket was closed.]);
-    $flux_capacitor = 5;
-    $client->do_one_loop(1);
-    warn q[TODO: Test multithreaded stuff...];
+        my $with_peer = scalar keys %{$client->_connections};
+        is(syswrite($newsock_A, build_bitfield(chr(1))),
+            6, q[Sent bitfield to client]);
+        is(syswrite($newsock_A, build_bitfield(chr(0))),
+            6, q[Sent bitfield to client]);
+        is(syswrite($newsock_A, build_bitfield(chr(0))),
+            6, q[Sent bitfield to client]);
+        is(syswrite($newsock_A, build_bitfield(chr(0))),
+            6, q[Sent bitfield to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        ok(($with_peer > scalar keys %{$client->_connections}),
+            q[Peer removed from list of connections]);
+        warn sprintf q[%d|%d], 71, $test_builder->{q[Curr_Test]};
+    }
+    {
+        my $newsock_B = newsock($client);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is( syswrite($newsock_B,
+                     build_handshake(chr(0) x 8,
+                                     pack(q[H40], $torrent->infohash),
+                                     $client->peerid
+                     )
+            ),
+            68,
+            q[Sent handshake to client]
+        );
+        my $with_peer = scalar keys %{$client->_connections};
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        ok(($with_peer > scalar keys %{$client->_connections}),
+            q[Peer removed from list of connections]);
+        warn sprintf q[%d|%d], 99, $test_builder->{q[Curr_Test]};
+    }
+    {
+        my $newsock_C = newsock($client);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is( syswrite($newsock_C,
+                     build_handshake(chr(0) x 8,
+                                     pack(q[H40], $torrent->infohash),
+                                     q[C] x 20
+                     )
+            ),
+            68,
+            q[Sent handshake to client]
+        );
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        ($peers{q[C]}) = map {
+            (    $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
+             and defined $_->{q[Object]}->peerid
+             and ($_->{q[Object]}->peerid eq q[C] x 20))
+                ? $_->{q[Object]}
+                : ()
+        } values %{$client->_connections};
+        weaken $peers{q[C]};
+        ok(isweak($peers{q[C]}), q[  ...make $peers{q[C]} a weak ref]);
+        warn sprintf q[%d|%d], 131, $test_builder->{q[Curr_Test]};
+        like(${$peers{q[C]}}, qr[127.0.0.1:\d+],
+             q[Address properly resolved]);
+        is($peers{q[C]}->_host, q[127.0.0.1], q[_host]);
+        like($peers{q[C]}->_port, qr[^\d+$], q[_port]);
+        is($peers{q[C]}->peerid, q[C] x 20, q[PeerID check]);
+        isa_ok($peers{q[C]}->_socket, q[GLOB], q[Socket stored properly]);
+        warn sprintf q[%d|%d], 136, $test_builder->{q[Curr_Test]};
+        is($peers{q[C]}->_am_choking,      1, q[Initial outgoing choke]);
+        is($peers{q[C]}->_peer_choking,    1, q[Initial incoming choke]);
+        is($peers{q[C]}->_am_interested,   0, q[Initial outgoing interest]);
+        is($peers{q[C]}->_peer_interested, 0, q[Initial incoming interest]);
+        ok(syswrite($newsock_C, build_interested), q[Incoming interested]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is($peers{q[C]}->_peer_interested, 1, q[Peer is interested]);
+        ok(syswrite($newsock_C, build_unchoke), q[Incoming unchoke]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is($peers{q[C]}->_peer_choking, 0, q[Peer has unchoked us]);
+        warn sprintf q[%d|%d], 172, $test_builder->{q[Curr_Test]};
+        ok(syswrite($newsock_C, build_choke), q[Incoming choke]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is($peers{q[C]}->_peer_choking,
+            1, q[Post-choke incoming choke status]);
+        is($peers{q[C]}->_am_interested,
+            0, q[Post-choke outgoing interest status]);
+        warn sprintf q[%d|%d], 184, $test_builder->{q[Curr_Test]};
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is($peers{q[C]}->_am_choking,
+            0, q[Post-interested outgoing choke status]);
+        warn sprintf q[%d|%d], 186, $test_builder->{q[Curr_Test]};
+        is($peers{q[C]}->_peer_choking,
+            1, q[Post-interested incoming choke status]);
+        is($peers{q[C]}->_am_interested,
+            0, q[Post-interested outgoing interest status]);
+        $client->do_one_loop(0);
+        is($peers{q[C]}->_peer_interested,
+            1, q[Post-interested incoming interest status]);
+        warn sprintf q[%d|%d], 189, $test_builder->{q[Curr_Test]};
+        ok(shutdown($newsock_C, 2),
+            q[Peer closes socket. Leaving us hanging.]);
+        my $with_peer = scalar keys %{$client->_connections};
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        ok(($with_peer > scalar keys %{$client->_connections}),
+            q[Peer removed from list of connections]);
+        warn sprintf q[%d|%d], 197, $test_builder->{q[Curr_Test]};
+    }
+    {
+        my $newsock_D = newsock($client);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is( syswrite($newsock_D,
+                     build_handshake(qq[\0\0\0\0\0\20\0\4],
+                                     pack(q[H40], $torrent->infohash),
+                                     q[C] x 20
+                     )
+            ),
+            68,
+            q[Sent handshake to client]
+        );
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        my $data = q[];
+
+        #ok(sysread($newsock_D, $data, 68), q[Read handshake reply]);
+        warn sprintf q[%d|%d], 234, $test_builder->{q[Curr_Test]};
+        is(syswrite($newsock_D, build_keepalive()),
+            4, q[Sent keepalive to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is(syswrite($newsock_D, build_unchoke()),
+            5, q[Sent unchoke to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        warn sprintf q[%d|%d], 254, $test_builder->{q[Curr_Test]};
+        is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
+        is(syswrite($newsock_D, build_not_interested()),
+            5, q[Sent not interested to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is(syswrite($newsock_D, build_have(0)), 9, q[Sent have to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
+        warn sprintf q[%d|%d], 280, $test_builder->{q[Curr_Test]};
+        is(syswrite($newsock_D, build_unchoke()),
+            5, q[Sent unchoke to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
+        my $fake_piece = q[A] x 16384;
+        is(syswrite($newsock_D, build_piece(0, 0, \$fake_piece)),
+            16397, q[Sent piece i:0 o:0 l:16384 to client]);
+        warn sprintf q[%d|%d], 308, $test_builder->{q[Curr_Test]};
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is(syswrite($newsock_D, build_unchoke()),
+            5, q[Sent choke to client to read second unchoke]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        warn sprintf q[%d|%d], 345, $test_builder->{q[Curr_Test]};
+        $flux_capacitor = 0.5;
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        warn sprintf q[%d|%d], 350, $test_builder->{q[Curr_Test]};
+        $flux_capacitor = 1;
+        ok($client->do_one_loop(3), q[    do_one_loop(3)]);
+        ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
+        warn sprintf q[%d|%d], 352, $test_builder->{q[Curr_Test]};
+        ok(syswrite($newsock_D, build_keepalive()), q[Write keepalive]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is(syswrite($newsock_D, build_interested()),
+            5, q[Sent interested to client]);
+        $flux_capacitor = 2.5;
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+
+        #is(sysread($newsock_D, my ($in), 1024),
+        #    undef, q[Fail to read data because socket was closed.]);
+        #ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        warn q[TODO: Test multithreaded stuff...];
+    }
+    {
+        my $newsock_E = newsock($client);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is( syswrite($newsock_E,
+                     build_handshake(qq[\0\0\0\0\0\0\0\4],
+                                     pack(q[H40], $torrent->infohash),
+                                     q[UNKNOWN-------------]
+                     )
+            ),
+            68,
+            q[Sent handshake to client]
+        );
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is(syswrite($newsock_E, build_have_all()),
+            5, q[Sent HAVEALL to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        warn sprintf q[%d|%d], 426, $test_builder->{q[Curr_Test]};
+    }
+    {
+        my $newsock_F = newsock($client);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is( syswrite($newsock_F,
+                     build_handshake(qq[\0\0\0\0\0\0\0\4],
+                                     pack(q[H40], $torrent->infohash),
+                                     q[UNKNOWN-------------]
+                     )
+            ),
+            68,
+            q[Sent handshake to client]
+        );
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        is(syswrite($newsock_F, build_have_none()),
+            5, q[Sent HAVEALL to client]);
+        ok($client->do_one_loop(1), q[    do_one_loop(1)]);
+        warn sprintf q[%d|%d], 475, $test_builder->{q[Curr_Test]};
+    }
 }
 
 sub newsock {

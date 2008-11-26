@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use Getopt::Long;
 use Pod::Usage;
-use List::Util qw[sum];
 use Carp qw[croak carp];
 use Time::HiRes qw[sleep];
 use lib q[../lib];
@@ -74,12 +73,12 @@ $bt->do_one_loop(0.25) && sleep(0.50) while 1;
 sub piece_status {
     my ($msg, $args) = @_;
     my $torrent = $args->{q[Torrent]};
-    return printf qq[hash%s: %04d|%s|%4d/%4d|%3.2f%%\r],
+    return printf qq[hash%s: %04d|%s|%4d/%4d|% 3.2f%%\r],
         $msg, $args->{q[Index]}, $torrent->_as_string(),
-        sum(split q[], unpack(q[b*], $torrent->bitfield)),
-        $torrent->_piece_count,
-        (((  (sum split q[], unpack q[b*], $torrent->bitfield)
-           / ($torrent->_piece_count)
+        (scalar grep {$_} split q[], unpack(q[b*], $torrent->bitfield)),
+        $torrent->piece_count,
+        (((  (scalar grep {$_} split q[], unpack q[b*], $torrent->bitfield)
+           / ($torrent->piece_count)
           )
          ) * 100
         );

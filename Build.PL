@@ -166,7 +166,7 @@ sub ACTION_spellcheck {
             $file = File::Spec->abs2rel($file);
             system(
                  sprintf(q[title aspell - '%s'], File::Spec->abs2rel($file)));
-            $self->do_system(sprintf q[podspell %s > %s.spell], $file, $file);
+            $self->do_system(sprintf q[perldoc %s > %s.spell], $file, $file);
             $self->add_to_cleanup($file . q[.spell]);
             system(q[aspell check ] . $file . q[.spell]);
             $self->add_to_cleanup($file . q[.bak]);
@@ -267,19 +267,17 @@ sub find_cb {
     return push @tests, $File::Find::name;
 }
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.orgE>
+Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of The Artistic License 2.0.  See the F<LICENSE>
-file included with this distribution or
+This program is free software; you can redistribute it and/or modify it
+under the terms of The Artistic License 2.0.  See the LICENSE file
+included with this distribution or
 http://www.perlfoundation.org/artistic_license_2_0.  For
 clarification, see http://www.perlfoundation.org/artistic_2_0_notes.
 
-When separated from the distribution, all POD documentation is covered
-by the Creative Commons Attribution-Share Alike 3.0 License.  See
+When separated from the distribution, all POD documentation is covered by
+the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
-
-Neither this module nor the Author is affiliated with BitTorrent, Inc.
 
 $Id$

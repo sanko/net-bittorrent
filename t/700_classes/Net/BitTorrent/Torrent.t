@@ -304,16 +304,16 @@ SKIP: {
         is($torrent->_piece_by_index(0),
             undef, sprintf q[_piece_by_index(%d) doesn't exist yet (%s)],
             0, $_key);
-        is( $torrent->_piece_by_index($torrent->_piece_count),
+        is( $torrent->_piece_by_index($torrent->piece_count),
             undef,
             sprintf q[_piece_by_index(%d) doesn't exist yet (%s)],
-            $torrent->_piece_count,
+            $torrent->piece_count,
             $_key
         );
-        is( $torrent->_piece_by_index($torrent->_piece_count + 1),
+        is( $torrent->_piece_by_index($torrent->piece_count + 1),
             undef,
             sprintf q[_piece_by_index(%d) will never exist (%s)],
-            ($torrent->_piece_count + 1),
+            ($torrent->piece_count + 1),
             $_key
         );
         is($torrent->_piece_by_index(-1),
@@ -384,6 +384,7 @@ SKIP: {
                 sprintf q[Parent reads status is now 0 (%s)], $_key);
         }
     }
+    warn q[TODO: Per-torrent callbacks];
 }
 
 sub _locate_torrents {
