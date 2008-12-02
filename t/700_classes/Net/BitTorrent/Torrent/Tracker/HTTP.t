@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe -w
+#!/usr/bin/perl -w
 use strict;
 use warnings;
 use Module::Build;
@@ -25,14 +25,9 @@ SKIP: {
         = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
     warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
     my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
-    if (!$client) {
-        diag(sprintf q[Socket error: [%d] %s], $!, $!);
-        skip(q[Failed to create client],
-             (      $test_builder->{q[Expected_Tests]}
-                  - $test_builder->{q[Curr_Test]}
-             )
-        );
-    }
+    skip(q[Failed to create client],
+         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) if !$client;
     my $torrent = $client->add_torrent({Path    => $simple_dot_torrent,
                                         BaseDir => $tempdir
                                        }

@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::Torrent::Tracker;
 {
     use strict;
@@ -9,13 +9,9 @@ package Net::BitTorrent::Torrent::Tracker;
     use lib q[./../../../];
     use Net::BitTorrent::Torrent::Tracker::HTTP;
     use Net::BitTorrent::Torrent::Tracker::UDP;
-
-    #
     use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
-
-    #
     my (@CONTENTS) = \my (%torrent, %_urls, %complete, %incomplete);
     my %REGISTRY;
 
@@ -54,11 +50,12 @@ package Net::BitTorrent::Torrent::Tracker;
                  : q[Net::BitTorrent::Torrent::Tracker::UDP]
                 )->new({URL => $_url, Tier => $self});
         }
-        $torrent{refaddr $self}->_client->_schedule({Time   => time,
-                                                     Code   => \&_announce,
-                                                     Object => $self
-                                                    }
-        ) if defined $torrent{refaddr $self}->_client;
+        $torrent{refaddr $self}->_client->_schedule(
+                             {Time   => time,
+                              Code   => sub { shift->_announce(q[started]) },
+                              Object => $self
+                             }
+        ) if $torrent{refaddr $self}->status & 128;
         weaken($REGISTRY{refaddr $self} = $self);
         @{$_urls{refaddr $self}} = shuffle(@{$_urls{refaddr $self}});
         return $self;
@@ -91,11 +88,11 @@ package Net::BitTorrent::Torrent::Tracker;
     }
 
     sub _announce {
-        my ($self) = @_;
+        my ($self, $event) = @_;
         return if not defined $self;
         return if not defined $_urls{refaddr $self};
         return if not scalar @{$_urls{refaddr $self}};
-        return $_urls{refaddr $self}->[0]->_announce(q[started]);
+        return $_urls{refaddr $self}->[0]->_announce($event ? $event : ());
     }
 
     sub _as_string {

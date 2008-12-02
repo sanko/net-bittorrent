@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::DHT;
 {
     use strict;
@@ -13,7 +13,7 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my @CONTENTS =
         \my (%_client, %tid, %outstanding_queries, %node_id, %routing_table,
              %nodes, %extra);
@@ -385,7 +385,7 @@ DHT swarm.
 
 =item *
 
-Currently, the routing table is flat.
+The routing table is flat.
 
 =back
 

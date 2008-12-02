@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::Peer;
 {
     use strict;
@@ -10,7 +10,7 @@ package Net::BitTorrent::Peer;
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 5; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];
@@ -344,6 +344,7 @@ END
     sub __handle_handshake {
         my ($self, $payload) = @_;
         return if !defined $_socket{refaddr $self};
+        return if !defined $payload;
         $_last_contact{refaddr $self} = time;
         ($_reserved_bytes{refaddr $self}, undef, $peerid{refaddr $self})
             = @{$payload};
@@ -551,6 +552,7 @@ END
         my ($self, $payload) = @_;
         return if !defined $_torrent{refaddr $self};
         return if !defined $_socket{refaddr $self};
+        return if !defined $payload;
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
@@ -558,15 +560,11 @@ END
             return;
         }
         ${$_bitfield{refaddr $self}} = $payload;
-        $_client{refaddr $self}->_event(
-            q[incoming_packet],
-            {Peer    => $self,
-             Payload => {
-
-                 # Bitfield=> $paylod # XXX - too heavy?
-             },
-             Type => BITFIELD
-            }
+        $_client{refaddr $self}->_event(q[incoming_packet],
+                                        {Peer    => $self,
+                                         Payload => {Bitfield => $payload},
+                                         Type    => BITFIELD
+                                        }
         );
         if ((unpack(q[b*], ${$_bitfield{refaddr $self}}) !~ m[1])
             && $_torrent{refaddr $self}->is_complete)
@@ -581,6 +579,7 @@ END
         my ($self, $payload) = @_;
         return if !defined $_torrent{refaddr $self};
         return if !defined $_socket{refaddr $self};
+        return if !defined $payload;
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
@@ -612,6 +611,7 @@ END
 
     sub __handle_piece {
         my ($self, $payload) = @_;
+        return if !defined $payload;
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
@@ -709,6 +709,7 @@ END
         my ($self, $payload) = @_;
         return if !defined $_torrent{refaddr $self};
         return if !defined $_socket{refaddr $self};
+        return if !defined $payload;
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
@@ -793,6 +794,7 @@ END
         my ($self, $payload) = @_;
         return if !defined $_torrent{refaddr $self};
         return if !defined $_socket{refaddr $self};
+        return if !defined $payload;
         $_client{refaddr $self}->_event(q[incoming_packet],
                                         {Payload => {Index => $payload},
                                          Peer    => $self,
@@ -848,6 +850,7 @@ END
         my ($self, $payload) = @_;
         return if !defined $_torrent{refaddr $self};
         return if !defined $_socket{refaddr $self};
+        return if !defined $payload;
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
@@ -955,14 +958,14 @@ END
         }
         for my $i (reverse(0 .. $#{$requests_out{refaddr $self}})) {
             my $request = $requests_out{refaddr $self}->[$i];
-            if (time <= ($request->{q[Timestamp]} + 30)) {
+            if (time <= ($request->{q[Timestamp]} + 60)) {
                 next;
             }
             my $piece = $_torrent{refaddr $self}
                 ->_piece_by_index($request->{q[Index]});
             delete $piece->{q[Blocks_Requested]}->[$request->{q[_vec_offset]}]
                 ->{refaddr $self};
-            if ($piece->{q[Touch]} <= time - 60) {
+            if ($piece->{q[Touch]} <= time - 180) {
                 $piece->{q[Slow]} = 1;
             }
             $_data_out{refaddr $self} .=
@@ -1249,6 +1252,7 @@ END
             next
                 unless $_torrent{refaddr $self}
                     ->_check_piece_by_index($request->{q[Index]});
+            next unless $request->{q[Length]};
             $_torrent{refaddr $self}->_add_uploaded($request->{q[Length]});
             $_client{refaddr $self}->_event(
                                          q[outgoing_packet],

@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::Torrent::File;
 {
     use strict;

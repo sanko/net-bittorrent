@@ -18,21 +18,14 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
-=item * Get speed limits working properly
-
-=item * Trim down the docs
-
-=item * DHT callbacks
+=item * DHT callbacks (?)
 
 =item * Fast Ext (Fast set)
-
-=item * Everything marked inline as XXX (possible bugs) or TODO
 
 =item * Public quick resume interface
 
 =item * Make trackers keep track of their own complete/incomplete tally
-
-...rather than stuffing their value in the parent tier.
+rather than stuffing their value in the parent tier.
 
 =back
 
@@ -79,6 +72,8 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 =item * PoCo::BitTorrent
 
 =item * Proxy support
+
+=item * uTP depending on how well it works out if/when it hits IETF
 
 =back
 

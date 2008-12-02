@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe -w
+#!/usr/bin/perl -w
 use strict;
 use warnings;
 use Test::More;
@@ -22,7 +22,6 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 plan tests => 73;
 my ($tempdir) = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
 warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
-my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
 my $torrent;
 
 END {
@@ -30,14 +29,10 @@ END {
     for my $file (@{$torrent->files}) { $file->_close() }
 }
 SKIP: {
-    if (!$client) {
-        warn(sprintf q[Socket error: [%d] %s], $!, $!);
-        skip((      $test_builder->{q[Expected_Tests]}
-                  - $test_builder->{q[Curr_Test]}
-             ),
-             q[Failed to create client]
-        );
-    }
+    my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
+    skip(q[Failed to create client],
+         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) if !$client;
     skip(
         q[Due to system configuration, socket-based tests have been disabled.  ...which makes N::B pretty useless],
         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})

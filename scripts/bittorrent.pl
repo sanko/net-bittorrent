@@ -9,39 +9,35 @@ use lib q[../lib];
 use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent;
 $|++;
-my ($VERSION, $dir, $check, $int, $man, $help, $port, $ver, @torrents)
+my ($VERSION, $dir, $chk, $int, $help, $port, $ver, @tor, %opts)
     = (sprintf(q[%.3f], (qw$Rev$)[1] / 1000), q[./], 1, 1, 0);
 GetOptions(q[help|?]       => \$help,
-           q[man]          => \$man,
-           q[torrent|t=s@] => \@torrents,
+           q[torrent|t=s@] => \@tor,
            q[port:i]       => \$port,
            q[directory:s]  => \$dir,
-           q[check!]       => \$check,
-           q[version]      => \$ver
+           q[check!]       => \$chk,
+           q[version]      => \$ver,
+           q[options=s%]   => sub { $opts{$_[1]} = $_[2]; }    # private
 ) or pod2usage(2);
-@torrents = grep {-f} @torrents, @ARGV;
+@tor = grep {-f} @tor, @ARGV;
 $ver && exit printf <<VER, $0, $VERSION, $Net::BitTorrent::VERSION, $^V, $^O;
 %s version %.3f
 Net::BitTorrent version %s
 Perl version %vd on %s
 VER
-pod2usage({-verbose    => 99,
-           -sections   => q[NAME|Options|Author|License and Legal],
-           -exitstatus => 0
-          }
-) if $man;
-pod2usage({-verbose    => 99,
-           -sections   => q[NAME|Synopsis|Author],
-           -exitstatus => 1
+pod2usage({-verbose => 99,
+           -sections =>
+               q[NAME|Description|Synopsis|Options|Author|License and Legal],
           }
     )
     if $help
-        or !@torrents;
+        or !@tor;
 my $bt = new Net::BitTorrent({LocalPort => $port})
     or croak sprintf q[Failed to create Net::BitTorrent object (%s)], $^E;
 $bt->on_event(
     q[incoming_packet],
     sub {
+        trans_status(q[REJECTED], $_[1]) if $_[1]->{q[Type]} eq REJECT;
         trans_status(q[RECEIVED], $_[1]) if $_[1]->{q[Type]} eq PIECE;
     }
 );
@@ -49,31 +45,35 @@ $bt->on_event(
     q[outgoing_packet],
     sub {
         trans_status(q[REQUESTING], $_[1]) if $_[1]->{q[Type]} eq REQUEST;
+        trans_status(q[CANCELING ], $_[1]) if $_[1]->{q[Type]} eq CANCEL;
+        trans_status(q[SENDING   ], $_[1]) if $_[1]->{q[Type]} eq PIECE;
     }
 );
 $bt->on_event(q[piece_hash_pass], sub { piece_status(q[pass], $_[1]); });
 $bt->on_event(q[piece_hash_fail], sub { piece_status(q[fail], $_[1]); });
-for my $path (@torrents) {
+for my $path (@tor) {
     stat print qq[Loading '$path'...];
     my $obj = $bt->add_torrent({Path => $path, BaseDir => $dir})
         || carp(qq[Cannot load '$path': $^E]) && next;
-    print qq[Hash checking...\n] and $obj->hashcheck if $check;
+    print qq[Hash checking...\n] and $obj->hashcheck if $chk;
     printf qq[Loaded '$path' [%s...%s%s]\n],
         ($obj->infohash =~ (m[^(.{4}).+(.{4})$])),
         ($obj->private ? q[|No DHT] : q[]);
+    for (keys %opts) { $obj->$_($opts{$_}) if $obj->can($_); }
 }
 $SIG{q[INT]} = sub {
-    $int = ($int + 10 > time) ? exit : time;
-    print qq[\n--> Press Ctrl-C again within 10 seconds to exit <--\n]
+    $int = ($int + 1 > time) ? exit : time;
+    print qq[\n--> Press Ctrl-C again within 3 seconds to exit <--\n]
         . $bt->_as_string(1)
         . (join q[\n], map { $_->_as_string(1) } values %{$bt->torrents});
 };
+for (keys %opts) { $bt->$_($opts{$_}) if $bt->can($_); }
 $bt->do_one_loop(0.25) && sleep(0.50) while 1;
 
 sub piece_status {
     my ($msg, $args) = @_;
     my $torrent = $args->{q[Torrent]};
-    return printf qq[hash%s: %04d|%s|%4d/%4d|% 3.2f%%\r],
+    return printf qq[%s: %04d|%s|%4d/%4d|% 3.2f%%\r],
         $msg, $args->{q[Index]}, $torrent->_as_string(),
         (scalar grep {$_} split q[], unpack(q[b*], $torrent->bitfield)),
         $torrent->piece_count,
@@ -85,7 +85,7 @@ sub piece_status {
 }
 
 sub trans_status {
-    printf(qq[%-10s p:%15s:%-5d i:%4d o:%7d l:%5d\r],
+    printf(qq[%-10s p:%15s:%-5d i:%4d o:%7d l:%5d  \r],
            shift,
            $_[0]->{q[Peer]}->_host,
            $_[0]->{q[Peer]}->_port,
@@ -101,6 +101,11 @@ sub trans_status {
 
 bittorrent - Very basic example BitTorrent client
 
+=head1 Description
+
+This is a B<very> basic demonstration of a full C<Net::BitTorrent>-based
+client.
+
 =head1 Synopsis
 
  bittorrent file.torrent
@@ -112,8 +117,8 @@ bittorrent - Very basic example BitTorrent client
    -p     --port        TCP/UDP port opened for incoming connections
    -d     --directory   Base directory to store downloaded files
    --no-check           Skip integrity check at start
-   -?     --help        Display brief help message
-   --man                Display full documentation
+   --options            Advanced settings
+   -?     --help        Display full documentation
    --version            Display version information
 
 =head1 Options
@@ -146,11 +151,16 @@ related information.
 If found, the files will not be checked for integrity and we assume that
 we have none of the data of this torrent.
 
+=item B<--options>
+
+Allows otherwise private settings to be changed.  For example, to set the
+upload bandwidth limit...
+
+  bittorrent --options _set_max_ul_rate=8192 [...]
+
+You may pass several C<--options> parameters.
+
 =item B<--help>
-
-Print a brief help message and exit.
-
-=item B<--man>
 
 Print the manual page and exit.
 
@@ -159,11 +169,6 @@ Print the manual page and exit.
 Guess.
 
 =back
-
-=head1 Description
-
-This is a B<very> basic demonstration of a full C<Net::BitTorrent>-based
-client.
 
 =head1 Author
 

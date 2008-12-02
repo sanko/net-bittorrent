@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::DHT::Node;
 {
     use strict;

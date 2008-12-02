@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::Torrent::Tracker::UDP;
 {
     use strict;
@@ -11,10 +11,12 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     use Net::BitTorrent::Util qw[uncompact];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
-    my @CONTENTS = \my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
-                        %_packed_host, %_event);
+    my @CONTENTS
+        = \
+        my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
+            %_packed_host, %_event);
 
     sub new {
         my ($class, $args) = @_;

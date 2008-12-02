@@ -28,9 +28,9 @@ Version 0.40 |
 
  Notes:
   - Since the previous stable release, Net::BitTorrent has been rewritten from
-      scratch, so yeah, 90% of everything internal has changed, a good portion
-      (read: all) of the API was redesigned as well.  I've been pushing dev
-      builds for more than three months so... yeah.
+      scratch, so yeah, 90% of everything internal has changed, the API was
+      redesigned as well.  I've been pushing dev builds for more than three
+      months so... yeah.
 
 Version 0.027_001 | Fall 2008
 

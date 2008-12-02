@@ -13,6 +13,7 @@ lib/Net/BitTorrent/Torrent/Tracker/UDP.pm
 lib/Net/BitTorrent/Util.pm
 lib/Net/BitTorrent/Version.pm
 LICENSE
+Makefile.PL
 MANIFEST			This list of files
 META.yml
 Notes.pod

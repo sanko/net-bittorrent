@@ -32,6 +32,9 @@ FTW
    loopback has failed.  We'll work around this by skipping most of the
    socket-related tests.
 
+     - TCP tests are %sabled.
+     - UDP tests are %sabled.
+
    NOTE: Skipping these tests greatly reduces the usefullness of the
    Net::BitTorrent test suite and makes life (in general) difficult.
  ****************************************************************************
@@ -133,7 +136,7 @@ sub ACTION_wastetime {
     require File::Copy;
     mkdir q[./archive] if !-d q[./archive];
     my $dist_dir = q[];
-    for my $i (1 .. 800) {
+    for my $i (1 .. 999) {
         $self->SUPER::ACTION_distdir();
         $dist_dir = $self->dist_dir;
         $self->do_system(qq[tar -cf $dist_dir.tar $dist_dir]);
@@ -176,12 +179,12 @@ sub ACTION_spellcheck {
 }
 SUBCLASS
 my $mb = $class->new(
-    module_name       => q[Net::BitTorrent],
-    license           => q[artistic_2],
-    dist_author       => q[Sanko Robinson <sanko@cpan.org>],
-    dist_abstract     => q[BitTorrent peer-to-peer protocol],
-    dist_version_from => q[lib/Net/BitTorrent/Version.pm],
-    requires          => {
+    module_name        => q[Net::BitTorrent],
+    license            => q[artistic_2],
+    dist_author        => q[Sanko Robinson <sanko@cpan.org>],
+    dist_abstract      => q[BitTorrent peer-to-peer protocol],
+    dist_version_from  => q[lib/Net/BitTorrent/Version.pm],
+    requires           => {
         q[Cwd]           => 0,
         q[Digest::SHA]   => 5.45,
         q[Errno]         => 0,

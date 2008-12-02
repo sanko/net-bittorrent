@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::Util;
 {
     use strict;
@@ -145,14 +145,13 @@ Everything is imported into your namespace.
 =item C<:bencode>
 
 You get the two Bencode-related functions: L<bencode|/"bencode ( ARGS )">
-and L<bedecode|/"bdecode ( STRING )">.  For more on Bencoding, see the
+and L<bdecode|/"bdecode ( STRING )">.  For more on Bencoding, see the
 BitTorrent Protocol documentation.
 
 =item C<:compact>
 
-L<compact|/"compact ( LIST )">, L<uncompact|/"uncompact ( STRING )">
-
-These are tracker response-related functions.
+Imports the tracker response-related functions
+L<compact|/"compact ( LIST )"> and L<uncompact|/"uncompact ( STRING )">.
 
 =back
 

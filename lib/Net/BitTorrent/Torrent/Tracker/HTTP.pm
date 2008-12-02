@@ -1,4 +1,4 @@
-#!C:\perl\bin\perl.exe
+#!/usr/bin/perl -w
 package Net::BitTorrent::Torrent::Tracker::HTTP;
 {
     use strict;
@@ -170,7 +170,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
             shutdown($_socket{refaddr $self}, 2);
             close $_socket{refaddr $self};
             $_tier{refaddr $self}->_client->_schedule(
-                {   Time => time + 30,
+                {   Time => time + 300,
                     Code => sub {
                         my ($s) = @_;
                         $_tier{refaddr $s}->_shuffle;
@@ -195,7 +195,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                 shutdown($_socket{refaddr $self}, 2);
                 close $_socket{refaddr $self};
                 $_tier{refaddr $self}->_client->_schedule(
-                    {   Time => time + 30,
+                    {   Time => time + 300,
                         Code => sub {
                             my ($s) = @_;
                             $s->_tier->_shuffle;
@@ -229,7 +229,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                 shutdown($_socket{refaddr $self}, 2);
                 close $_socket{refaddr $self};
                 $_tier{refaddr $self}->_client->_schedule(
-                    {   Time => time + 30,
+                    {   Time => time + 300,
                         Code => sub {
                             my ($s) = @_;
                             $_tier{refaddr $s}->_shuffle;
@@ -295,7 +295,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                                      }
             );
             $_tier{refaddr $self}->_client->_schedule(
-                  { Time => time + 30,
+                  { Time => time + 300,
                     Code =>
                         sub { return $_tier{refaddr +shift}->_announce(); },
                     Object => $self
