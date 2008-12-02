@@ -650,14 +650,16 @@ END
                                         }
         );
         my $piece = $_torrent{refaddr $self}->_piece_by_index($index);
+        my $okay  = 0;
+        for my $_retry (1 .. 3) {
 
-        #use Data::Dump qw[pp];
-        #warn pp $piece;
-        if (not $_torrent{refaddr $self}->_write_data($index, $offset, \$data)
-            )
-        {   $_client{refaddr $self}->_del_socket($_socket{refaddr $self});
-            return;
+            if ($_torrent{refaddr $self}->_write_data($index, $offset, \$data)
+                )
+            {   $okay++;
+                last;
+            }
         }
+        return if !$okay;
         $piece->{q[Blocks_Recieved]}->[$request->{q[_vec_offset]}] = 1;
         $piece->{q[Slow]}                                          = 0;
         $piece->{q[Touch]}                                         = time;

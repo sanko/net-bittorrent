@@ -1,4 +1,10 @@
-Version 0.40 |
+Version 0.041 | 2008-12-02 ??:??:?? -0500 (Tue, 02 Dec 2008)
+
+ Notes:
+  - PAUSE vs. The World (Writable Files)
+  - Dist same as 0.040
+
+Version 0.040 | 2008-12-01 23:25:26 -0500 (Mon, 01 Dec 2008)
 
  API changes:
   - See the Notes section

@@ -139,7 +139,7 @@ sub ACTION_wastetime {
     for my $i (1 .. 999) {
         $self->SUPER::ACTION_distdir();
         $dist_dir = $self->dist_dir;
-        $self->do_system(qq[tar -cf $dist_dir.tar $dist_dir]);
+        $self->do_system(qq[tar --mode=0755 -cf $dist_dir.tar $dist_dir]);
         $self->do_system(qq[gzip -9 -f -n $dist_dir.tar]);
        #File::Copy::copy($dist_dir . q[.tar.gz],
        #     q[X:/archive/] . $dist_dir . q[.tar.gz] . sprintf(q[.%03d], $i));

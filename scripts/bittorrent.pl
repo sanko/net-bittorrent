@@ -61,6 +61,7 @@ for my $path (@tor) {
         ($obj->private ? q[|No DHT] : q[]);
     for (keys %opts) { $obj->$_($opts{$_}) if $obj->can($_); }
 }
+$bt->on_event(q[file_error], sub { warn q[ERROR: ] . $_[1]->{q[Message]} });
 $SIG{q[INT]} = sub {
     $int = ($int + 1 > time) ? exit : time;
     print qq[\n--> Press Ctrl-C again within 3 seconds to exit <--\n]
