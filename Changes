@@ -1,9 +1,24 @@
-Version 0.041 | 2008-12-02 ??:??:?? -0500 (Tue, 02 Dec 2008)
+Version 0.042 |
+
+ API Changes/Compatibility Information:
+  - as_string() is now a public method in all classes
+
+ Issues Resolved:
+  - Fixed crash bug (call to legacy method) on failure to write data to disk
+
+ Protocol/Behavioral Changes:
+  - None
+
+ Documentation/Sample Code/Test Suite:
+  - as_string() is documented all around
+  - Affected tests updated to reflect as_string() change
+  - Synopsis in README now matches that of N::B proper
+  - More silly POD changes for scripts/bittorrent.pl ((sigh))
 
  Notes:
   - PAUSE vs. The World (Writable Files)
-  - Dist same as 0.040
 
+---
 Version 0.040 | 2008-12-01 23:25:26 -0500 (Mon, 01 Dec 2008)
 
  API changes:
@@ -38,6 +53,7 @@ Version 0.040 | 2008-12-01 23:25:26 -0500 (Mon, 01 Dec 2008)
       redesigned as well.  I've been pushing dev builds for more than three
       months so... yeah.
 
+---
 Version 0.027_001 | Fall 2008
 
  Internal changes:
@@ -47,6 +63,7 @@ Version 0.027_001 | Fall 2008
   - Don't use this.  I'm serious.  I'm only uploading it to get some CPAN
       testers data.
 
+---
 Version 0.025 | 2008-07-01 23:07:52 -0400 (Tue, 01 Jul 2008)
 
  Internal changes:
@@ -62,6 +79,7 @@ Version 0.025 | 2008-07-01 23:07:52 -0400 (Tue, 01 Jul 2008)
       for not eating my own dog food before shipping it.
   - I knew I was forgetting something.
 
+---
 Version 0.024 | 2008-07-01 19:52:15 -0400 (Tue, 01 Jul 2008)
 
  API changes:

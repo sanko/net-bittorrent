@@ -306,7 +306,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         return ($actual_read, $actual_write);
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $$self : sprintf <<'END',
 Net::BitTorrent::Torrent::Tracker::HTTP
@@ -353,6 +353,18 @@ Net::BitTorrent::Torrent::Tracker::HTTP - Single HTTP BitTorrent Tracker
 
 Creates a C<Net::BitTorrent::Torrent::Tracker::HTTP> object.  This
 constructor should not be used directly.
+
+=back
+
+=head1 Methods
+
+=over
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

@@ -163,8 +163,7 @@ package Net::BitTorrent::DHT;
         }
         if (   $args->{q[Node]}->node_id
             && $args->{q[Node]}->node_id eq $node_id{refaddr $self})
-        {   carp q[Cannot send packet to ourself!];
-            return;
+        {   return;
         }
         if (send($_client{refaddr $self}->_udp(),
                  $args->{q[Packet]},
@@ -314,7 +313,7 @@ END
         return;
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $node_id{refaddr $self} : sprintf <<'END',
 Net::BitTorrent::DHT
@@ -376,6 +375,12 @@ used directly.
 
 Get the Node ID used to identify this L<client|/Net::BitTorrent> in the
 DHT swarm.
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

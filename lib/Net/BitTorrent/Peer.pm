@@ -1363,7 +1363,7 @@ END
         return delete $_socket{refaddr $self};
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump = sprintf(
             (!$advanced ? q[%s:%s (%s)] : <<'ADVANCED'),
@@ -1459,6 +1459,12 @@ constructor should not be used directly.
 Returns the Peer ID used to identify this peer.
 
 See also: theory.org (http://tinyurl.com/4a9cuv)
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

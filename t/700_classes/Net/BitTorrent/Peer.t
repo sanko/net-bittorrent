@@ -65,7 +65,7 @@ SKIP: {
                 delete $args->{q[Length]};
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
                 warn(sprintf(q[Read %d bytes from '%s'],
-                             $_len, $peer->_as_string
+                             $_len, $peer->as_string
                      )
                 );
             }
@@ -88,7 +88,7 @@ SKIP: {
                 delete $args->{q[Length]};
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
                 warn(sprintf(q[Wrote %d bytes from '%s'],
-                             $_len, $peer->_as_string
+                             $_len, $peer->as_string
                      )
                 );
             }
@@ -110,7 +110,7 @@ SKIP: {
                 delete $args->{q[Reason]};
                 is_deeply($args, {}, q[  ... No other keys in $_[1]]);
                 warn(sprintf(q[Disconnected from '%s'%s],
-                             $peer->_as_string,
+                             $peer->as_string,
                              ($_why
                               ? (q[ (] . $_why . q[)])
                               : q[]
@@ -137,7 +137,7 @@ SKIP: {
                      sprintf q[%s connection %s '%s'],
                      ($peer->_incoming ? q[Incoming] : q[Outgoing]),
                      ($peer->_incoming ? q[from]     : q[to]),
-                     $peer->_as_string
+                     $peer->as_string
                 );
                 return 1;
             }
@@ -236,8 +236,8 @@ SKIP: {
                     is_deeply($args,
                               {Payload => {}, Type => INTERESTED},
                               q[  ... No other keys in $_[1]]);
-                    warn(sprintf(q[%s is interested in me], $peer->_as_string)
-                    );
+                    warn(
+                        sprintf(q[%s is interested in me], $peer->as_string));
                 }
                 elsif ($type == NOT_INTERESTED) {
                     is($self, $client,
@@ -251,8 +251,8 @@ SKIP: {
                     is_deeply($args,
                               {Payload => {}, Type => NOT_INTERESTED},
                               q[  ... No other keys in $_[1]]);
-                    warn(sprintf(q[%s is interested in me], $peer->_as_string)
-                    );
+                    warn(
+                        sprintf(q[%s is interested in me], $peer->as_string));
                 }
                 elsif ($type == HAVE) {
                     delete $_[1]->{q[Peer]};
@@ -307,11 +307,11 @@ SKIP: {
                     else {
                         fail(sprintf q[Unknown peerid: %s], $peer->peerid);
                     }
-                    warn(sprintf(q[Bitfield from %s], $peer->_as_string));
+                    warn(sprintf(q[Bitfield from %s], $peer->as_string));
                 }
                 elsif ($type == REQUEST) {
                     warn sprintf q[%s is requesting [I:%4d O:%6d L:%6d]],
-                        $peer->_as_string,
+                        $peer->as_string,
                         $payload->{q[Index]},
                         $payload->{q[Offset]},
                         $payload->{q[Length]};
@@ -334,7 +334,7 @@ SKIP: {
                     warn(
                         sprintf
                             q[%s sent us [I:%4d O:%6d L:%6d] I have now downloaded %d bytes],
-                        $peer->_as_string,     $payload->{q[Index]},
+                        $peer->as_string,      $payload->{q[Index]},
                         $payload->{q[Offset]}, $payload->{q[Length]},
                         $peer->_torrent->downloaded
                     );
@@ -342,7 +342,7 @@ SKIP: {
                 elsif ($type == CANCEL) {
                     ok( 1,
                         sprintf q[%s has canceled [I:%4d O:%6d L:%6d]],
-                        $peer->_as_string,
+                        $peer->as_string,
                         $args->{q[Index]},
                         $args->{q[Offset]},
                         $args->{q[Length]}
@@ -350,11 +350,11 @@ SKIP: {
                 }
                 elsif ($type == HAVE_ALL) {
                     ok(1, sprintf q[%s says they have everything],
-                        $peer->_as_string);
+                        $peer->as_string);
                 }
                 elsif ($type == HAVE_NONE) {
                     ok(1, sprintf q[%s says they have nothing],
-                        $peer->_as_string);
+                        $peer->as_string);
                 }
                 else { die q[Unhandled packet: ] . $type }
             }
@@ -421,12 +421,12 @@ SKIP: {
                     is_deeply($args,
                               {Payload => {}, Type => UNCHOKE},
                               q[  ... No other keys in $_[1]]);
-                    warn(sprintf(q[Unchoking %s], $peer->_as_string));
+                    warn(sprintf(q[Unchoking %s], $peer->as_string));
                 }
                 elsif ($type == REQUEST) {
                     warn(sprintf q[Requesting [I:%4d O:%6d L:%6d] from %s],
                          $payload->{q[Index]},  $payload->{q[Offset]},
-                         $payload->{q[Length]}, $peer->_as_string
+                         $payload->{q[Length]}, $peer->as_string
                     );
                     is($self, $client,
                         q[Correct args passed to 'outgoing request' [$_[0]]]);
@@ -472,7 +472,7 @@ SKIP: {
                     );
                     warn(sprintf q[Canceling [I:%4d O:%6d L:%6d] from %s],
                          $payload->{q[Index]},  $payload->{q[Offset]},
-                         $payload->{q[Length]}, $peer->_as_string
+                         $payload->{q[Length]}, $peer->as_string
                     );
                 }
                 elsif ($type == PIECE) {
@@ -481,7 +481,7 @@ SKIP: {
                         $payload->{q[Index]},
                         $payload->{q[Offset]},
                         $payload->{q[Length]},
-                        $peer->_as_string,
+                        $peer->as_string,
                         $peer->_torrent->uploaded;
                 }
                 elsif ($type == INTERESTED) {
@@ -497,11 +497,10 @@ SKIP: {
                     is_deeply($args,
                               {Type => INTERESTED, Payload => {}},
                               q[  ... No other keys in $_[1]]);
-                    warn(
-                        sprintf(q[I am interested in %s], $peer->_as_string));
+                    warn(sprintf(q[I am interested in %s], $peer->as_string));
                 }
                 elsif ($type == CHOKE) {
-                    warn sprintf q[ ===> Choking %s], $peer->_as_string;
+                    warn sprintf q[ ===> Choking %s], $peer->as_string;
                 }
                 elsif ($type == BITFIELD) {
                     is($self, $client,
@@ -515,7 +514,7 @@ SKIP: {
                     is_deeply($args,
                               {Type => BITFIELD},
                               q[  ... No other keys in $_[1]]);
-                    warn(sprintf(q[Sent bitfield to %s], $peer->_as_string));
+                    warn(sprintf(q[Sent bitfield to %s], $peer->as_string));
                 }
                 elsif ($type == HAVE_NONE) {
                     is($self, $client,
@@ -661,8 +660,8 @@ SKIP: {
             );
         isa_ok($peers{q[A]}, q[Net::BitTorrent::Peer], q[new()]);
         weaken $peers{q[A]};
-        ok(isweak($peers{q[A]}),     q[  ...make $peers{q[A]} a weak ref]);
-        ok($peers{q[A]}->_as_string, q[_as_string]);
+        ok(isweak($peers{q[A]}),    q[  ...make $peers{q[A]} a weak ref]);
+        ok($peers{q[A]}->as_string, q[as_string]);
         isa_ok($peers{q[A]}->_socket, q[GLOB], q[_socket]);
         isa_ok($peers{q[A]}->_torrent,
                q[Net::BitTorrent::Torrent], q[_torrent]);

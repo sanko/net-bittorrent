@@ -352,7 +352,7 @@ package Net::BitTorrent::DHT::Node;
         my @nodes;
 
         if (defined $torrent) {
-            @nodes = map {m[.{6}]g} $torrent->_compact_nodes;
+            @nodes = map {m[.{6}]g} $torrent->_compact_nodes || q[];
         }
         for my $_node (values %{$dht{refaddr $self}->_routing_table}) {
             push @nodes,
@@ -494,7 +494,7 @@ package Net::BitTorrent::DHT::Node;
         return 1;
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump
             = !$advanced
@@ -565,6 +565,12 @@ constructor should not be used directly.
 Get the Node ID used to identify this
 L<node|Net::BitTorrent::DHT::Node> in the DHT swarm and our routing
 table.
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

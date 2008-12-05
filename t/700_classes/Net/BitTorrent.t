@@ -204,8 +204,8 @@ SKIP: {
     );
     ok($client->_cancel($event), q[_cancel([...])]);
     ok($client->do_one_loop(1),  q[do_one_loop]);
-    ok($client->_as_string(),    q[_as_string()]);
-    ok($client->_as_string(1),   q[_as_string(1)]);
+    ok($client->as_string(),     q[as_string()]);
+    ok($client->as_string(1),    q[as_string(1)]);
 SKIP: {
         skip(q[UDP-based tests have been disabled.],
              (      $test_builder->{q[Expected_Tests]}

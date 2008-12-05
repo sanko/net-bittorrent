@@ -520,7 +520,7 @@ END
         return 1;
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $path{refaddr $self} : sprintf <<'END',
 Net::BitTorrent::Torrent::File
@@ -642,6 +642,12 @@ object related to this file.
 =item C<size ( )>
 
 Returns the size of the file represented by this object.
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

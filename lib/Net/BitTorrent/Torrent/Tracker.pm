@@ -95,7 +95,7 @@ package Net::BitTorrent::Torrent::Tracker;
         return $_urls{refaddr $self}->[0]->_announce($event ? $event : ());
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $$self : sprintf <<'END',
 Net::BitTorrent::Torrent::Tracker
@@ -161,6 +161,12 @@ swarm.
 
 Returns the number of incomplete peers the tracker says are present in
 the swarm.
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

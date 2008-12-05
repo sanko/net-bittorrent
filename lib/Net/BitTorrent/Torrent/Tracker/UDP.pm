@@ -269,7 +269,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
         return $_tid{refaddr $self};
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $$self : sprintf <<'END',
 Net::BitTorrent::Torrent::Tracker::UDP
@@ -337,6 +337,18 @@ Net::BitTorrent::Torrent::Tracker::UDP - Single UDP BitTorrent Tracker
 
 Creates a C<Net::BitTorrent::Torrent::Tracker::UDP> object.  This
 constructor should not be used directly.
+
+=back
+
+=head1 Methods
+
+=over
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

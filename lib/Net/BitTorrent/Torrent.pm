@@ -882,7 +882,7 @@ package Net::BitTorrent::Torrent;
     }
 
     # Private | Utility
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $wanted = $self->_wanted;
         my $dump = !$advanced ? $self->infohash : sprintf <<'END',
@@ -960,11 +960,11 @@ END
                 } sort { $a <=> $b } keys %{$working_pieces{refaddr $self}}
             ),
             (join qq[\r\n],
-             map { qq[\r\n] . $_->_as_string(0) } @{$files{refaddr $self}}
+             map { qq[\r\n] . $_->as_string(0) } @{$files{refaddr $self}}
             ),
             (scalar @{$trackers{refaddr $self}}
              ?
-                 map { qq[\r\n] . $_->_as_string($advanced) }
+                 map { qq[\r\n] . $_->as_string($advanced) }
                  @{$trackers{refaddr $self}}
              : q[]
             ),
@@ -1405,6 +1405,12 @@ Returns the total amount uploaded to remote peers since the client
 started transferring data related to this .torrent.
 
 See also: L<downloaded ( )|/"downloaded ( )">
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

@@ -590,7 +590,7 @@ package Net::BitTorrent;
         return join q[], map {chr} @reserved;
     }
 
-    sub _as_string {
+    sub as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $_peerid{refaddr $self} : sprintf <<'END',
 Net::BitTorrent
@@ -1201,6 +1201,12 @@ The zero-based index of the piece that was verified against the .torrent
 metadata.
 
 =back
+
+=item C<as_string ( [ VERBOSE ] )>
+
+Returns a 'ready to print' dump of the  object's data structure.  If
+called in void context, the structure is printed to C<STDERR>.
+C<VERBOSE> is a boolean value.
 
 =back
 

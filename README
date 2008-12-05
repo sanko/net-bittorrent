@@ -2,37 +2,25 @@ Name
     Net::BitTorrent - BitTorrent peer-to-peer protocol class
 
 Synopsis
-        use Net::BitTorrent;
+    use Net::BitTorrent;
 
+    my $client = Net::BitTorrent->new();
 
-        my $client = Net::BitTorrent->new();
+    $client->on_event(
+        q[piece_hash_pass],
+        sub {
+            my ($self, $args) = @_;
+            printf(qq[pass: piece number %04d of %s\n],
+                   $args->{q[Index]}, $args->{q[Torrent]}->infohash);
+        }
+    );
 
-        # ...
-        # Set various callbacks if you so desire
-        # ...
-        $client->on_event(
-            q[piece_hash_pass],
-            sub {
-                my ($self, $args) = @_;
-                printf(qq[pass: piece number %04d of %s\n],
-                       $args->{q[Index]}, $args->{q[Session]}->infohash);
-            }
-        );
-        $client->on_event(
-            q[piece_hash_fail],
-            sub {
-                my ($self, $args) = @_;
-                printf(qq[fail: piece number %04d of %s\n],
-                       $args->{q[Index]}, $args->{q[Session]}->infohash);
-            }
-        );
+    my $torrent = $client->add_torrent({Path => q[a.legal.torrent]})
+        or die q[Cannot load .torrent];
 
-        my $torrent = $client->add_session({Path => q[a.legal.torrent]})
-            or die q[Cannot load .torrent];
+    $torrent->hashcheck;  # Verify any existing data
 
-        $torrent->hashcheck;    # Verify any existing data
-
-        while (1) { $client->do_one_loop(); }
+    $client->do_one_loop() while 1;
 
 Description
     "Net::BitTorrent" is a class based implementation of the current

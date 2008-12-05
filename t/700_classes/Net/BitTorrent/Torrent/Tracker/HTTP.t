@@ -93,7 +93,7 @@ SKIP: {
     ok($_ip_address->_announce(q[stopped]), q[_announce('stopped') == okay]);
     ok($_ip_address->_announce(q[completed]),
         q[_announce('completed') == okay]);
-    ok($_ip_address->_as_string, q[_as_string]);
+    ok($_ip_address->as_string, q[as_string]);
     warn q[TODO: Install event handlers];
 }
 __END__

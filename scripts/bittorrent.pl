@@ -25,9 +25,8 @@ $ver && exit printf <<VER, $0, $VERSION, $Net::BitTorrent::VERSION, $^V, $^O;
 Net::BitTorrent version %s
 Perl version %vd on %s
 VER
-pod2usage({-verbose => 99,
-           -sections =>
-               q[NAME|Description|Synopsis|Options|Author|License and Legal],
+pod2usage({-verbose  => 99,
+           -sections => q[Synopsis|Author],
           }
     )
     if $help
@@ -65,8 +64,8 @@ $bt->on_event(q[file_error], sub { warn q[ERROR: ] . $_[1]->{q[Message]} });
 $SIG{q[INT]} = sub {
     $int = ($int + 1 > time) ? exit : time;
     print qq[\n--> Press Ctrl-C again within 3 seconds to exit <--\n]
-        . $bt->_as_string(1)
-        . (join q[\n], map { $_->_as_string(1) } values %{$bt->torrents});
+        . $bt->as_string(1)
+        . (join q[\n], map { $_->as_string(1) } values %{$bt->torrents});
 };
 for (keys %opts) { $bt->$_($opts{$_}) if $bt->can($_); }
 $bt->do_one_loop(0.25) && sleep(0.50) while 1;
@@ -75,7 +74,7 @@ sub piece_status {
     my ($msg, $args) = @_;
     my $torrent = $args->{q[Torrent]};
     return printf qq[%s: %04d|%s|%4d/%4d|% 3.2f%%\r],
-        $msg, $args->{q[Index]}, $torrent->_as_string(),
+        $msg, $args->{q[Index]}, $torrent->as_string(),
         (scalar grep {$_} split q[], unpack(q[b*], $torrent->bitfield)),
         $torrent->piece_count,
         (((  (scalar grep {$_} split q[], unpack q[b*], $torrent->bitfield)
@@ -121,6 +120,9 @@ client.
    --options            Advanced settings
    -?     --help        Display full documentation
    --version            Display version information
+
+To get client-wide progress updates, press C<Ctrl+C>.  For more, see
+perldoc.
 
 =head1 Options
 
