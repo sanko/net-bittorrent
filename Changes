@@ -1,4 +1,4 @@
-Version 0.042 |
+Version 0.042 | 2008-12-04 23:54:43 -0500 (Thu, 04 Dec 2008)
 
  API Changes/Compatibility Information:
   - as_string() is now a public method in all classes

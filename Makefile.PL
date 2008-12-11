@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
+BEGIN { exit 0 if $] < 5.008001 }
 require 5.8.1;
 $|++;
 unless (eval q[use Module::Build::Compat 0.02; 1;]) {

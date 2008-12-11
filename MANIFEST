@@ -2,7 +2,6 @@ Build.PL
 Changes
 lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/DHT.pm
-lib/Net/BitTorrent/DHT/Node.pm
 lib/Net/BitTorrent/Peer.pm
 lib/Net/BitTorrent/Protocol.pm
 lib/Net/BitTorrent/Torrent.pm
@@ -24,7 +23,6 @@ t/000_miniswarm/008_miniswarm_dht.t
 t/000_miniswarm/009_miniswarm_udp.t
 t/700_classes/Net/BitTorrent.t
 t/700_classes/Net/BitTorrent/DHT.t
-t/700_classes/Net/BitTorrent/DHT/Node.t
 t/700_classes/Net/BitTorrent/Peer.t
 t/700_classes/Net/BitTorrent/Protocol.t
 t/700_classes/Net/BitTorrent/Torrent.t

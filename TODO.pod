@@ -8,6 +8,8 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
+=item * documentation and safety checks for newly rewritten DHT code
+
 =item * BEP 9: Extension for Peers to Send Metadata Files
 
 =item * ut_pex ...despite it being undocumented

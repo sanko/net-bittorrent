@@ -6,17 +6,17 @@ package Net::BitTorrent::DHT;
     use Digest::SHA qw[sha1];
     use Scalar::Util qw[blessed weaken refaddr];
     use Carp qw[carp];
-    use Socket qw[inet_aton pack_sockaddr_in];
+    use Socket qw[/inet_/ /pack_sockaddr_in/];
     use lib q[../../../lib/];
     use Net::BitTorrent::Util qw[:bencode :compact];
-    use Net::BitTorrent::DHT::Node;
+    use Net::BitTorrent::Protocol qw[:dht];
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my @CONTENTS =
-        \my (%_client, %tid, %outstanding_queries, %node_id, %routing_table,
-             %nodes, %extra);
+        \my (%_client, %tid, %node_id, %outstanding_p, %_boot_nodes, %nodes,
+             %tracking);
     my %REGISTRY;
 
     sub new {
@@ -38,15 +38,30 @@ package Net::BitTorrent::DHT;
         $self = bless \$node_id, $class;
         $_client{refaddr $self} = $args->{q[Client]};
         weaken $_client{refaddr $self};
-        $node_id{refaddr $self}       = $node_id;
-        $routing_table{refaddr $self} = {};
-        $nodes{refaddr $self}         = q[];
-        $tid{refaddr $self}           = qq[\0] x 5;
+        $node_id{refaddr $self}     = $node_id;
+        $nodes{refaddr $self}       = {};
+        $_boot_nodes{refaddr $self} = [];
+        $tid{refaddr $self}         = q[aaaaa];
         $_client{refaddr $self}->_schedule(
-                                          {Code   => sub { shift->_pulse() },
-                                           Time   => time,
+                                          {Code => sub { shift->_pulse() },
+                                           Time   => time + 3,
                                            Object => $self
                                           }
+        );
+        $_client{refaddr $self}->_schedule(    # boot up
+            {Code => sub {
+                 my ($s) = @_;
+                 for my $node (@{$_boot_nodes{refaddr $s}}) {
+                     $self->_add_node($node);
+                 }
+                 for my $node (values %{$nodes{refaddr $s}}) {
+                     $self->_ping_out($node);
+                     $self->_find_node_out($node, $node_id{refaddr $s});
+                 }
+             },
+             Time   => time,
+             Object => $self
+            }
         );
         weaken($REGISTRY{refaddr $self} = $self);
         return $self;
@@ -58,19 +73,9 @@ package Net::BitTorrent::DHT;
         return $_client{refaddr + $_[0]};
     }
 
-    sub _routing_table {
-        return if defined $_[1];
-        return $routing_table{refaddr + $_[0]};
-    }
-
-    sub _queue_outgoing {
-        return if defined $_[1];
-        return;
-    }
-
-    sub _compact_nodes {
-        return if defined $_[1];
-        return $nodes{refaddr + $_[0]};
+    sub _boot_nodes {
+        my ($self) = @_;
+        return $_boot_nodes{refaddr $self};
     }
 
     # Accesors | Public
@@ -79,238 +84,497 @@ package Net::BitTorrent::DHT;
         return $node_id{refaddr + $_[0]};
     }
 
+=begin
     # Setters | Private
     sub _set_node_id {
         return if not defined $_[1];
         return $node_id{refaddr + $_[0]} = $_[1];
     }
+=cut
 
-    sub _append_compact_nodes {
+    sub _set_boot_nodes {
         my ($self, $nodes) = @_;
-        return if not defined $_client{refaddr $self};
-        if (not $nodes) { return; }
-        $nodes{refaddr $self} ||= q[];
-        return $nodes{refaddr $self}
-            = compact(uncompact($nodes{refaddr $self} . $nodes));
+        $_boot_nodes{refaddr $self} = $nodes;
+
+        #for my $node (@{$_boot_nodes{refaddr $self}}) {
+        #    $self->_add_node($node);
+        #}
+        #for my $node (values %{$nodes{refaddr $self}}) {
+        #    $self->_ping_out($node);
+        #    $self->_find_node_out($node, $node_id{refaddr $self});
+        #}
+        return 1;
     }
 
-    # Methods | Private
+    sub _add_node {
+        my ($self, $args) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        return if scalar keys %{$nodes{refaddr $self}} >= 300; # max 300 nodes
+        return if ref $args ne q[HASH];
+        return if !$args->{q[port]};
+        return if !$args->{q[ip]};
+        my $ok = $_client{refaddr $self}->_event(q[ip_filter],
+             {Address => sprintf q[%s:%d], $args->{q[ip]}, $args->{q[port]}});
+        if (defined $ok and $ok == 0) { return; }
+        my $paddr
+            = pack_sockaddr_in($args->{q[port]}, inet_aton($args->{q[ip]}));
+        $nodes{refaddr $self}{$paddr} = {birth     => time,
+                                         fail      => 0,
+                                         id        => undef,
+                                         ip        => $args->{q[ip]},
+                                         okay      => 0,
+                                         paddr     => $paddr,
+                                         port      => $args->{q[port]},
+                                         prev_find => 0,
+                                         prev_get  => 0,
+                                         seen      => 0,
+                                         token_i   => undef,
+                                         token_o   => undef
+            }
+            if !$nodes{refaddr $self}{$paddr};
+        return $nodes{refaddr $self}{$paddr};
+    }
+
     sub _pulse {
         my ($self) = @_;
-        {
-            my @expired_requests = grep {
-                $outstanding_queries{refaddr $self}{$_}->{timestamp}
-                    < (time - (60 * 5))
-            } keys %{$outstanding_queries{refaddr $self}};
-            while (my $packet = shift @expired_requests) {
-                delete $outstanding_queries{refaddr $self}{$packet};
-            }
+        return if !$_client{refaddr $self}->_use_dht;
+        for my $tid (keys %{$outstanding_p{refaddr $self}}) {    # old packets
+            delete $outstanding_p{refaddr $self}{$tid}
+                if $outstanding_p{refaddr $self}{$tid}{q[sent]} < time - 30;
         }
-        {
-            my @expired_nodes = grep {
-                my $timestamp = $routing_table{refaddr $self}{$_}->_last_seen;
-                ($timestamp < (time - (60 * 30)))
-                    or ($timestamp < (time - (60 * 5))
-                     and
-                     (not defined $routing_table{refaddr $self}{$_}->node_id))
-            } keys %{$routing_table{refaddr $self}};
-            for my $node (@expired_nodes) {
-                $nodes{refaddr $self} .=
-                    compact(
-                          sprintf(q[%s:%s],
-                                  $routing_table{refaddr $self}{$node}->_host,
-                                  $routing_table{refaddr $self}{$node}->_port)
-                    );
-                delete $routing_table{refaddr $self}{$node};
-            }
+        for my $tid (keys %{$nodes{refaddr $self}}) {    # old/bad nodes
+            delete $nodes{refaddr $self}{$tid}
+                if   # $nodes{refaddr $self}{$tid}{q[seen]} < time - (60 * 15)
+                     #or
+                $nodes{refaddr $self}{$tid}{q[fail]} > 10;
         }
-        my @hosts = sort keys %{$routing_table{refaddr $self}};
-    NODE: for my $packed_host (@hosts) {
-            my $node = $routing_table{refaddr $self}{$packed_host};
-            if (    (not defined $node->node_id)
-                and ($node->_last_seen < (time - (60 * 5))))
-            {   delete $routing_table{refaddr $self}{$packed_host};
-                next NODE;
-            }
+        for my $info_hash (keys %{$tracking{refaddr $self}})
+        {            # stale tracker data
+            delete $tracking{refaddr $self}{$info_hash}
+                if $tracking{refaddr $self}{$info_hash}{q[touch]}
+                    < time - (60 * 30);
         }
-        $_client{refaddr $self}->_schedule({Code => sub { shift->_pulse },
-                                            Time   => time + 30,
-                                            Object => $self
-                                           }
+
+        # TODO: remove bad nodes, etc.
+        $_client{refaddr $self}->_schedule(
+                                          {Code => sub { shift->_pulse() },
+                                           Time   => time + 25,
+                                           Object => $self
+                                          }
         );
-        return;
-    }
-
-    sub _locate_nodes_near_target {
-        my ($self, $target) = @_;
-        return if not defined $target;
-        return [sort { ($a->node_id ^ $target) cmp($b->node_id ^ $target) }
-                    grep { defined $_->node_id }
-                    values %{$routing_table{refaddr $self}}
-        ]->[0 .. 8];
-    }
-
-    sub _send {
-        my ($self, $args) = @_;
-        return if not $_client{refaddr $self}->_use_dht();
-        if (!$args) {
-            carp q[Net::BitTorrent::DHT->_send() requires parameters];
-            return;
-        }
-        if (!$args->{q[Node]}) {
-            carp q[Net::BitTorrent::DHT->_send() requires a 'node' parameter];
-            return;
-        }
-        if (   $args->{q[Node]}->node_id
-            && $args->{q[Node]}->node_id eq $node_id{refaddr $self})
-        {   return;
-        }
-        if (send($_client{refaddr $self}->_udp(),
-                 $args->{q[Packet]},
-                 0,
-                 $args->{q[Node]}->_packed_host
-            ) == length($args->{q[Packet]})
-            )
-        {   if (defined $args->{q[t]} and defined $args->{q[type]}) {
-                $outstanding_queries{refaddr $self}{$args->{q[t]}} = {
-                                           size => length($args->{q[Packet]}),
-                                           timestamp => time,
-                                           node      => $args->{q[Node]},
-                                           type      => $args->{q[type]},
-                                           args      => $args
-                };
-                weaken $outstanding_queries{refaddr $self}{$args->{q[t]}}
-                    {q[args]}{q[Node]};
-            }
-            return 1;
-        }
-        carp sprintf q[Cannot send %d bytes to %s: [%d] %s],
-            length($args->{q[Packet]}), $args->{q[Node]}->node_id,
-            $^E, $^E;
-        return;
     }
 
     sub _on_data {
         my ($self, $paddr, $data) = @_;
-        return if not $_client{refaddr $self}->_use_dht();
-        my $node;
+        return if !$_client{refaddr $self}->_use_dht;
         my ($packet, $leftover) = bdecode($data);
-        if ((defined $packet) and (ref $packet eq q[HASH])) {
-            $routing_table{refaddr $self}{$paddr} ||=
-                Net::BitTorrent::DHT::Node->new({DHT        => $self,
-                                                 PackedHost => $paddr,
-                                                 NodeID     => undef
-                                                }
-                );
-            $node = $routing_table{refaddr $self}{$paddr};
-            if (defined $packet->{q[y]}
-                and $packet->{q[y]} eq q[q])
-            {   my %dispatch = (
-                    announce_peer => sub {
-                        shift->_parse_query_announce_peer(shift);
-                    },
-                    get_peers => sub {
-                        shift->_parse_query_get_peers(shift);
-                    },
-                    find_node => sub {
-                        shift->_parse_query_find_node(shift);
-                    },
-                    ping => sub {
-                        shift->_parse_query_ping(shift);
+        my $node;
+        if (    (defined $packet)
+            and (ref $packet eq q[HASH])
+            and $packet->{q[y]})
+        {   if ($packet->{q[y]} eq q[q]) {    # query
+                if ($packet->{q[q]} eq q[ping]) {
+                    $self->_ping_reply($paddr, $packet->{q[t]});
+                    if (q[XXX - I don't want this in the final version. ...do I?]
+                        and !$nodes{refaddr $self}{$paddr})
+                    {   my ($_port, $_ip) = unpack_sockaddr_in($paddr);
+                        $_ip = inet_ntoa($_ip);
+                        my $ok = $_client{refaddr $self}->_event(q[ip_filter],
+                                 {Address => sprintf q[%s:%d], $_ip, $_port});
+                        if (defined $ok and $ok == 0) { return; }
+                        my $new_node
+                            = $self->_add_node({ip => $_ip, port => $_port});
+                        return if !$new_node;
                     }
-                );
-                if (    defined $packet->{q[q]}
-                    and defined $dispatch{$packet->{q[q]}})
-                {   $dispatch{$packet->{q[q]}}($node, $packet);
-                }
-                elsif (eval q[require Data::Dump]) {
-                    carp q[Unhandled DHT packet: ] . Data::Dump::pp($packet);
-                }
-            }
-            elsif (defined $packet->{q[y]}
-                   and $packet->{q[y]} eq q[r])
-            {   my %dispatch = (
-                    announce_peer => sub {
-                        shift->_parse_reply_announce_peer(shift);
-                    },
-                    get_peers => sub {
-                        shift->_parse_reply_get_peers(shift);
-                    },
-                    ping => sub {
-                        shift->_parse_reply_ping(shift);
-                    },
-                    find_node => sub {
-                        shift->_parse_reply_find_node(shift);
+                    if ($nodes{refaddr $self}{$paddr}) {
+                        $nodes{refaddr $self}{$paddr}{q[id]}
+                            ||= $packet->{q[a]}{q[id]};
+                        $self->_find_node_out($nodes{refaddr $self}{$paddr},
+                                              $node_id{refaddr $self});
                     }
-                );
-                if (defined $packet->{q[r]}) {
-                    if (defined $outstanding_queries{refaddr $self}
-                        {$packet->{q[t]}})
-                    {   my $type = $outstanding_queries{refaddr $self}
-                            {$packet->{q[t]}}{q[type]};
-                        if (defined $dispatch{$type}) {
-                            $dispatch{$type}($node, $packet);
-                        }
-                        elsif (eval q[require Data::Dump]) {
-                            carp sprintf
-                                <<'END',
-Unhandled DHT Reply:
-     $packet = %s;
-$outstanding = %s;
-END
-                                Data::Dump::pp($packet),
-                                Data::Dump::pp(
-                                           $outstanding_queries{refaddr $self}
-                                               {$packet->{q[t]}});
+                    return;
+                }
+                elsif ($packet->{q[q]} eq q[find_node]) {
+                    my ($_port, $_ip) = unpack_sockaddr_in($paddr);
+                    $_ip = inet_ntoa($_ip);
+                    my $ok = $_client{refaddr $self}->_event(q[ip_filter],
+                                 {Address => sprintf q[%s:%d], $_ip, $_port});
+                    if (defined $ok and $ok == 0) { return; }
+
+         # if (!$nodes{refaddr $self}{$paddr}) {
+         #    my ($port, $host) = unpack_sockaddr_in($paddr);
+         #    $self->_add_node({ip=>inet_ntoa($host), port=>$port}) || return;
+         #}
+         #$node = $nodes{refaddr $self}{$paddr};
+         #$nodes{refaddr $self}{$paddr}{q[id]}||=
+         #        $packet->{q[a]}{q[id]};
+                    my $nodes = compact(
+                          map { sprintf q[%s:%d], $_->{q[ip]}, $_->{q[port]} }
+                              grep { $_->{q[ip]} =~ m[^[\d\.]+$] }
+                              $self->_locate_nodes_near_target(
+                                                    $packet->{q[a]}{q[target]}
+                              )
+                    );
+                    $self->_find_node_reply($paddr, $packet->{q[t]},
+                                            $packet->{q[a]}{q[id]}, $nodes)
+                        if $nodes;
+                }
+                elsif ($packet->{q[q]} eq q[get_peers]) {
+                    if (!$nodes{refaddr $self}{$paddr}) {
+                        my ($port, $host) = unpack_sockaddr_in($paddr);
+                        $self->_add_node(
+                                      {ip => inet_ntoa($host), port => $port})
+                            || return;
+                    }
+                    $node = $nodes{refaddr $self}{$paddr};
+                    $nodes{refaddr $self}{$paddr}{q[id]}
+                        ||= $packet->{q[a]}{q[id]};
+                    $node->{q[token_o]} = q[NB_] . $self->_generate_token;
+                    if ($tracking{refaddr $self}
+                        {$packet->{q[a]}{q[info_hash]}})
+                    {   my @values = uncompact($tracking{refaddr $self}
+                                   {$packet->{q[a]}{q[info_hash]}}{q[peers]});
+                        @values = map { compact($_) }
+                            grep {$_} @values[0 .. 7];    # max 8
+                        my $outgoing_packet
+                            = _build_dht_reply_values(
+                                      $packet->{q[t]}, $packet->{q[a]}{q[id]},
+                                      \@values,        $node->{q[token_o]});
+                        send($_client{refaddr $self}->_udp(),
+                             $outgoing_packet, 0, $paddr);
+                        $tracking{refaddr $self}
+                            {$packet->{q[a]}{q[info_hash]}}{q[touch]} = time;
+                    }
+                    else {
+                        my $nodes = compact(
+                            map {
+                                sprintf q[%s:%d], $_->{q[ip]}, $_->{q[port]}
+                                } grep { $_->{q[ip]} =~ m[^[\d\.]+$] }
+                                $self->_locate_nodes_near_target(
+                                                 $packet->{q[a]}{q[info_hash]}
+                                )
+                        );
+                        send($_client{refaddr $self}->_udp(),
+                             _build_dht_reply_get_peers(
+                                      $packet->{q[t]}, $packet->{q[a]}{q[id]},
+                                      $nodes,          $node->{q[token_o]}
+                             ),
+                             0, $paddr
+                        );
+                    }
+                }
+                elsif ($packet->{q[q]} eq q[announce_peer]) {
+                    if (!$nodes{refaddr $self}{$paddr}) {
+
+                        # XXX - reply with an error msg
+                        #die q[...we don't know this node];
+                        return;
+                    }
+                    $node = $nodes{refaddr $self}{$paddr};
+                    $nodes{refaddr $self}{$paddr}{q[id]}
+                        ||= $packet->{q[a]}{q[id]};
+                    if (   (!$node->{q[token_o]})
+                        || ($packet->{q[a]}{q[token]} ne $node->{q[token_o]}))
+                    {    # XXX - reply with token error msg
+                            #die pp $node;
+                        return;
+                    }
+                    elsif ((!$tracking{refaddr $self}
+                            {$packet->{q[a]}{q[info_hash]}}
+                           )
+                           and (scalar(keys %{$tracking{refaddr $self}}) > 64)
+                        )
+                    {       # enough torrents
+                            # XXX - reply with error msg?
+                            #
+                        return;
+                    }
+                    else {
+                        my @current_peers = uncompact($tracking{refaddr $self}
+                                   {$packet->{q[a]}{q[info_hash]}}{q[peers]});
+                        if (scalar(@current_peers) > 128)
+                        {    # enough peers for this torrent
+                                # XXX - reply with error msg?
+                                #
                             return;
                         }
-                        else { return; }
-                        delete $outstanding_queries{refaddr $self}
-                            {$packet->{q[t]}};
+                        $tracking{refaddr $self}
+                            {$packet->{q[a]}{q[info_hash]}}{q[peers]}
+                            = compact(@current_peers,
+                                      sprintf(q[%s:%d],
+                                              $node->{q[ip]},
+                                              $packet->{q[a]}{q[port]})
+                            );
+                        $self->_ping_reply($paddr, $packet->{q[t]});
+                        $tracking{refaddr $self}
+                            {$packet->{q[a]}{q[info_hash]}}{q[touch]} = time;
+
+                        #warn q[Now on hand: ]
+                        #    . pp uncompact($tracking{refaddr $self}
+                        #                   {$packet->{q[a]}{q[info_hash]}});
                     }
                 }
-                elsif (eval q[require Data::Dump]) {
-                    warn q[Unhandled DHT Reply: ] . Data::Dump::pp($packet);
+                else {
+
+                    #die pp $packet;
                 }
             }
+            elsif ($packet->{q[y]} eq q[r]) {    # reply
+                my $original_packet
+                    = $outstanding_p{refaddr $self}{$packet->{q[t]}};
+                if (!$original_packet) {
+
+                    #warn q[...unexpected reply: ] . pp $packet;
+                    #warn pp $outstanding_p{refaddr $self}{$packet->{q[t]}};
+                    #
+                    return;
+                }
+                my $node = $nodes{refaddr $self}{$paddr};
+                $nodes{refaddr $self}{$paddr}{q[id]}
+                    ||= $packet->{q[a]}{q[id]};
+                if ($original_packet->{q[paddr]} ne $paddr) {
+                    my ($fake_port, $fake_host) = unpack_sockaddr_in($paddr);
+                    $fake_host = inet_ntoa($fake_host);
+                    my ($real_port, $real_host)
+                        = unpack_sockaddr_in($original_packet->{q[paddr]});
+                    $real_host = inet_ntoa($real_host);
+
+#warn sprintf
+#    qq[...wrong remote node sent this reply %s to %s |\n %s:%d|%s\n  vs\n %s:%d|%s],
+#    pp($packet),
+#    pp($original_packet),
+#    $fake_host, $fake_port, pp($paddr),
+#    $real_host, $real_port,
+#    pp($original_packet->{q[paddr]});
+                    return;
+                }
+                delete $outstanding_p{refaddr $self}{$packet->{q[t]}};
+                $node->{q[seen]} = time;
+                $node->{q[id]} ||= $packet->{q[r]}{q[id]};
+
+                #warn sprintf q[%s:%d sent us %s in reply to %s],
+                #    $node->{q[ip]}, $node->{q[port]},
+                #    pp(bdecode($data)), pp($original_packet);
+                if ($packet->{q[r]}{q[token]}) {
+                    $node->{q[token_i]} = $packet->{q[r]}{q[token]};
+                }
+                if ($packet->{q[r]}{q[nodes]}) {
+                    for my $_node (uncompact($packet->{q[r]}{q[nodes]})) {
+                        my ($ip, $port) = split q[:], $_node, 2;
+                        my $new_node
+                            = $self->_add_node({ip => $ip, port => $port});
+                        next if !$new_node;
+                        $self->_ping_out($new_node);
+
+                        #
+                        #warn pp $original_packet;
+                        my $_data = bdecode($original_packet->{q[packet]});
+
+                        #warn pp $_data;
+                        my $info_hash
+                            = $_data->{q[a]}{q[target]}
+                            ? $_data->{q[a]}{q[target]}
+                            : $_data->{q[a]}{q[info_hash]};
+
+                        #    warn pp $info_hash;
+                        $self->_get_peers_out($new_node, $info_hash);
+                    }
+                }
+                if ($packet->{q[r]}{q[values]}) {
+
+                    #warn pp $original_packet;
+                    my $torrent =
+                        $_client{refaddr $self}->_locate_torrent(
+                                        unpack q[H40],
+                                        bdecode($original_packet->{q[packet]})
+                                            ->{q[a]}{q[info_hash]}
+                        );
+                    if ($torrent) {
+                        for my $value (@{$packet->{q[r]}{q[values]}}) {
+
+                            #warn q[********** add to torrent: ]
+                            #    . uncompact($value);
+                            $torrent->_append_compact_nodes($value);
+                        }
+                    }
+                    else {
+
+                        #
+                        # xxx - ...what to do? What... to... do...
+                    }
+                    $self->_find_node_out($node, $node_id{refaddr $self});
+                }
+            }
+            elsif ($packet->{q[y]} eq q[e]) {    # error
+                warn q[Error: ] . $packet->{q[e]};
+            }
+            else {    #warn q[...what just happend? ] . pp bdecode($data)
+            }
         }
-        else {    # May be AZ. May be garbage. ...same thing.
-        }
-        return !!$node;
+        else {die}
     }
 
-    sub _generate_token_id {
-        return if defined $_[1];
-        my ($self) = @_;
-        my ($len) = ($tid{refaddr $self} =~ m[^([a-z]+)]);
-        $tid{refaddr $self} = (
-                    ($tid{refaddr $self} =~ m[^z*(\0*)$])
-                    ? ($tid{refaddr $self} =~ m[\0]
-                       ? pack(q[a] . (length $tid{refaddr $self}),
-                              (q[a] x (length($len || q[]) + 1))
-                           )
-                       : (q[a] . (qq[\0] x (length($tid{refaddr $self}) - 1)))
-                        )
-                    : ++$tid{refaddr $self}
-        );
-        return $tid{refaddr $self};
-    }
-
-    sub _add_node {
+    sub _ping_out {
         my ($self, $node) = @_;
-        $self->_append_compact_nodes(compact($node));
-        if (scalar(keys %{$routing_table{refaddr $self}}) < 300) {
-            my ($host, $port) = split q[:], $node, 2;
-            my $packed_host = pack_sockaddr_in($port, inet_aton($host));
-            return $routing_table{refaddr $self}{$packed_host} ||=
-                Net::BitTorrent::DHT::Node->new(
-                                               {DHT        => $self,
-                                                PackedHost => $packed_host,
-                                                NodeID     => undef
-                                               }
-                );
+        return if !$_client{refaddr $self}->_use_dht;
+        return if $node->{q[seen]} > time - 120;
+        my $tid = $self->_generate_token;
+        my $packet = _build_dht_query_ping($tid, $node_id{refaddr $self});
+        $outstanding_p{refaddr $self}{$tid} = {attempts => 1,
+                                               sent     => time,
+                                               packet   => $packet,
+                                               paddr    => $node->{q[paddr]}
+        };
+        return
+            send($_client{refaddr $self}->_udp(),
+                 $packet, 0, $node->{q[paddr]});
+    }
+
+    sub _ping_reply {
+        my ($self, $paddr, $tid) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        return
+            send($_client{refaddr $self}->_udp(),
+                 _build_dht_reply_ping($tid, $node_id{refaddr $self}),
+                 0, $paddr);
+    }
+
+    sub _announce_peer_out {
+        my ($self, $node, $infohash) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        my $tid = $self->_generate_token;
+        return if !$node->{q[token_i]};
+        my $packet =
+            _build_dht_query_announce($tid,
+                                      $node_id{refaddr $self},
+                                      $infohash,
+                                      $node->{q[token_i]},
+                                      $_client{refaddr $self}->_udp_port
+            );
+        $outstanding_p{refaddr $self}{$tid} = {attempts => 1,
+                                               sent     => time,
+                                               packet   => $packet,
+                                               paddr    => $node->{q[paddr]}
+        };
+        $node->{q[prev_find]} = 0;
+        return
+            send($_client{refaddr $self}->_udp(),
+                 $packet, 0, $node->{q[paddr]});
+    }
+
+    sub _find_node_out {
+        my ($self, $node, $target) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        return if $node->{q[prev_find]} > time - 300;
+        my $tid = $self->_generate_token;
+        my $packet = _build_dht_query_find_node($tid, $node_id{refaddr $self},
+                                                $target);
+        $outstanding_p{refaddr $self}{$tid} = {attempts => 1,
+                                               sent     => time,
+                                               packet   => $packet,
+                                               paddr    => $node->{q[paddr]}
+        };
+        $node->{q[prev_find]} = time;
+        return
+            send($_client{refaddr $self}->_udp(),
+                 $packet, 0, $node->{q[paddr]});
+    }
+
+    # Send find_node result to peer
+    sub _find_node_reply {
+        my ($self, $paddr, $tid, $id, $nodes) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        return
+            send($_client{refaddr $self}->_udp(),
+                 _build_dht_reply_find_node($tid, $id, $nodes),
+                 0, $paddr);
+    }
+
+    sub _get_peers_out {
+        my ($self, $node, $info_hash) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        return if $node->{q[prev_get]} > time - 30;
+        my $tid    = $self->_generate_token;
+        my $packet = _build_dht_query_get_peers($tid, $node_id{refaddr $self},
+                                                $info_hash);
+        $outstanding_p{refaddr $self}{$tid} = {attempts => 1,
+                                               sent     => time,
+                                               packet   => $packet,
+                                               paddr    => $node->{q[paddr]}
+        };
+        $node->{q[prev_get]} = time;
+        return
+            send($_client{refaddr $self}->_udp(),
+                 $packet, 0, $node->{q[paddr]});
+    }
+
+    # Methods | Private | Fake routing table
+    sub _locate_nodes_near_target {
+        my ($self, $target) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        my $_target = hex unpack q[H4], $target;
+        my @nodes;
+        for my $node (
+            sort {
+                hex(unpack q[H4], $a->{q[id]}) ^ $_target cmp
+                    hex(unpack q[H4], $b->{q[id]}) ^ $_target
+            }
+            grep { $_->{q[id]} } values %{$nodes{refaddr $self}}
+            )
+        {   push @nodes, $node;
+            last if scalar @nodes == 8;
         }
-        return;
+        return @nodes;
+    }
+
+    # Methods | Private | Peer search
+    sub _scrape {
+        my ($self, $torrent) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        if (   (!$torrent)
+            || (!blessed $torrent)
+            || (!$torrent->isa(q[Net::BitTorrent::Torrent])))
+        {   carp
+                q[Net::BitTorrent::DHT::Node->_scrape() requires a Net::BitTorrent::Torrent];
+            return;
+        }
+        if ($torrent->private) {
+            carp q[Private torrents disallow DHT];
+            return;
+        }
+        my $info_hash = pack q[H40], $torrent->infohash;
+        for my $node ($self->_locate_nodes_near_target($info_hash)) {
+            $self->_get_peers_out($node, $info_hash);
+        }
+        return 1;
+    }
+
+    sub _announce {
+        my ($self, $torrent) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        if (   (!$torrent)
+            || (!blessed $torrent)
+            || (!$torrent->isa(q[Net::BitTorrent::Torrent])))
+        {   carp
+                q[Net::BitTorrent::DHT::Node->_scrape() requires a Net::BitTorrent::Torrent];
+            return;
+        }
+        if ($torrent->private) {
+            carp q[Private torrents disallow DHT];
+            return;
+        }
+        my $info_hash = pack q[H40], $torrent->infohash;
+        for my $node ($self->_locate_nodes_near_target($info_hash)) {
+            next if !$node->{q[token_i]};
+            $self->_announce_peer_out($node, $info_hash);
+        }
+        return 1;
+    }
+
+    sub _generate_token {
+        my ($self) = @_;
+        return if !$_client{refaddr $self}->_use_dht;
+        return ++$tid{refaddr $self};
     }
 
     sub as_string {
@@ -319,11 +583,8 @@ END
 Net::BitTorrent::DHT
 
 Node ID: %s
-Routing table: %d active nodes / %d nodes in cache
 END
-            $node_id{refaddr $self},
-            scalar(keys %{$routing_table{refaddr + $_[0]}}),
-            (length($routing_table{refaddr + $_[0]}) / 6);
+            $node_id{refaddr $self};
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
@@ -336,7 +597,7 @@ END
                 delete $_->{$_oID};
             }
             weaken $_client{$_nID};
-            delete $outstanding_queries{$_nID};
+            delete $outstanding_p{$_nID};
             weaken($REGISTRY{$_nID} = $_obj);
             delete $REGISTRY{$_oID};
         }
@@ -386,27 +647,59 @@ C<VERBOSE> is a boolean value.
 
 =head1 Bugs
 
+In this alpha, there are a number of places where I break away from the
+specification.  These will all be fixed in a future version.
+
 =over
+
+=item *
+
+Eats memory like whoa.
 
 =item *
 
 The routing table is flat.
 
+=item *
+
+Boots from router.bittorrent.com.
+
 =back
 
 =head1 Notes
 
-While bandwidth to/from DHT nodes is not limited like other traffic,
-it is taken into account and "drained" from the rate limiter.  If
-there's a burst of DHT traffic, the peer traffic will be limited to
-avoid the total to exceed the global limit.
+While bandwidth to/from DHT nodes will probably never be limited like
+other traffic, in the future, it will be taken into account and "drained"
+from the rate limiter.  If there's a burst of DHT traffic, the peer
+traffic may be limited to avoid the total to exceed the global limit.
+
+=head1 See Also
+
+I have used a number of references for implementation second opinions:
+
+=over
+
+=item The Kademlia Paper
+
+http://pdos.csail.mit.edu/~petar/papers/maymounkov-kademlia-lncs.pdf
+
+=item BEP 5: DHT
+
+http://www.bittorrent.org/beps/bep_0005.html
+
+=item Notes about the BitTorrent DHT Protocol from GetRight
+
+http://getright.com/torrentdev.html
+
+=back
+
+
 
 =head1 Author
 
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
-
 
 =head1 License and Legal
 

@@ -8,7 +8,7 @@ package Net::BitTorrent::Protocol;
     use Net::BitTorrent::Util qw[:bencode];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     use vars qw[@EXPORT_OK %EXPORT_TAGS];
     use Exporter qw[];
     *import = *import = *Exporter::import;
@@ -22,7 +22,11 @@ package Net::BitTorrent::Protocol;
         _parse_port _parse_suggest _parse_have_all _parse_have_none
         _parse_reject _parse_allowed_fast _parse_extended HANDSHAKE KEEPALIVE
         CHOKE UNCHOKE INTERESTED NOT_INTERESTED HAVE BITFIELD REQUEST PIECE
-        CANCEL PORT SUGGEST HAVE_ALL HAVE_NONE REJECT ALLOWED_FAST EXTPROTOCOL];
+        CANCEL PORT SUGGEST HAVE_ALL HAVE_NONE REJECT ALLOWED_FAST EXTPROTOCOL
+        _build_dht_reply_get_peers _build_dht_query_get_peers
+        _build_dht_reply_values    _build_dht_query_announce
+        _build_dht_reply_ping      _build_dht_query_ping
+        _build_dht_reply_find_node _build_dht_query_find_node];
     %EXPORT_TAGS = (
         all   => [@EXPORT_OK],
         build => [
@@ -44,7 +48,13 @@ package Net::BitTorrent::Protocol;
             qw[HANDSHAKE KEEPALIVE CHOKE UNCHOKE INTERESTED NOT_INTERESTED
                 HAVE BITFIELD REQUEST PIECE CANCEL PORT SUGGEST HAVE_ALL
                 HAVE_NONE REJECT ALLOWED_FAST EXTPROTOCOL]
-        ]
+        ],
+        dht => [
+            qw[_build_dht_reply_get_peers _build_dht_query_get_peers
+                _build_dht_reply_values    _build_dht_query_announce
+                _build_dht_reply_ping      _build_dht_query_ping
+                _build_dht_reply_find_node _build_dht_query_find_node]
+        ],
     );
     sub HANDSHAKE      {-1}
     sub KEEPALIVE      {q[]}
@@ -431,6 +441,166 @@ END
         if ((!$packet) || (!length($packet))) { return; }
         my ($id, $payload) = unpack(q[ca*], $packet);
         return ([$id, scalar bdecode($payload)]);
+    }
+
+    sub _build_dht_query_ping {
+        my ($tid, $id) = @_;
+        if (!defined $tid) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_ping() requires a 'token id' parameter];
+            return;
+        }
+        if (!defined $id) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_ping() requires an 'client id' parameter];
+            return;
+        }
+        return
+            bencode({t => $tid,
+                     y => q[q],
+                     q => q[ping],
+                     a => {id => $id},
+                     v => q[NB]
+                    }
+            );
+    }
+
+    sub _build_dht_query_announce {
+        my ($tid, $id, $infohash, $token, $port) = @_;
+        if (!defined $tid) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_announce() requires a 'token id' parameter];
+            return;
+        }
+        if (!defined $id) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_announce() requires an 'client id' parameter];
+            return;
+        }
+        if (!defined $token) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_announce() requires an 'token' parameter];
+            return;
+        }
+        if ((!defined $infohash) || (length($infohash) != 20)) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_announce() requires an 'infohash' parameter];
+            return;
+        }
+        if ((!defined $tid) || ($port !~ m[^\d+$])) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_ping() requires a 'port' parameter];
+            return;
+        }
+        return
+            bencode({t => $tid,
+                     y => q[q],
+                     q => q[announce_peer],
+                     a => {id        => $id,
+                           port      => $port,
+                           info_hash => $infohash,
+                           token     => $token
+                     },
+                     v => q[NB]
+                    }
+            );
+    }
+
+    sub _build_dht_query_find_node {
+        my ($tid, $id, $target) = @_;
+        if (!defined $tid) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_find_node() requires a 'token id' parameter];
+            return;
+        }
+        if (!defined $id) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_find_node() requires an 'client id' parameter];
+            return;
+        }
+        if ((!defined $target) || (length($target) != 20)) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_find_node() requires an 'target' parameter];
+            return;
+        }
+        return
+            bencode({t => $tid,
+                     y => q[q],
+                     q => q[find_node],
+                     a => {id     => $id,
+                           target => $target
+                     },
+                     v => q[NB]
+                    }
+            );
+    }
+
+    sub _build_dht_query_get_peers {
+        my ($tid, $id, $info_hash) = @_;
+        if (!defined $tid) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_get_peers() requires a 'token id' parameter];
+            return;
+        }
+        if (!defined $id) {
+            carp
+                q[Net::BitTorrent::Protocol::_build_dht_query_get_peers() requires an 'client id' parameter];
+            return;
+        }
+        if ((!defined $info_hash) || (length($info_hash) != 20)) {
+            Carp::confess
+                q[Net::BitTorrent::Protocol::_build_dht_query_get_peers() requires an 'info_hash' parameter];
+            return;
+        }
+        return
+            bencode({t => $tid,
+                     y => q[q],
+                     q => q[get_peers],
+                     a => {id => $id, info_hash => $info_hash},
+                     v => q[NB]
+                    }
+            );
+    }
+
+    sub _build_dht_reply_ping {
+        my ($tid, $id) = @_;
+        return bencode({t => $tid, y => q[r], r => {id => $id}, v => q[NB]});
+    }
+
+    sub _build_dht_reply_find_node {
+        my ($tid, $id, $nodes) = @_;
+        return
+            bencode({t => $tid,
+                     y => q[r],
+                     r => {id => $id, nodes => $nodes},
+                     v => q[NB]
+                    }
+            );
+    }
+
+    sub _build_dht_reply_get_peers {
+        my ($tid, $id, $nodes, $token) = @_;
+        return
+            bencode({t => $tid,
+                     y => q[r],
+                     r => {id => $id, token => $token, nodes => $nodes},
+                     v => q[NB]
+                    }
+            );
+    }
+
+    sub _build_dht_reply_values {
+        my ($tid, $id, $values, $token) = @_;
+        return
+            bencode({t => $tid,
+                     y => q[r],
+                     r => {id     => $id,
+                           token  => $token,
+                           values => $values
+                     },
+                     v => q[NB]
+                    }
+            );
     }
     1;
 }

@@ -208,6 +208,20 @@ package Net::BitTorrent::Torrent;
                  )
             );
         }
+        if ($_client{refaddr $self}) {
+            $_client{refaddr $self}->_schedule(
+                                     {Time   => time + 25,
+                                      Code   => sub { shift->_dht_announce },
+                                      Object => $self
+                                     }
+            );
+            $_client{refaddr $self}->_schedule(
+                                       {Time   => time + 15,
+                                        Code   => sub { shift->_dht_scrape },
+                                        Object => $self
+                                       }
+            );
+        }
         weaken($REGISTRY{refaddr $self} = $self);
         if ($threads::shared::threads_shared) {
             threads::shared::share($bitfield{refaddr $self});
@@ -445,7 +459,7 @@ package Net::BitTorrent::Torrent;
         my ($self, $nodes) = @_;
         if (!${$status{refaddr $self}} & QUEUED) { return; }
         return if not defined $_client{refaddr $self};
-        if (not $nodes) { return; }
+        return if !$nodes;
         $nodes{refaddr $self} ||= q[];
         return $nodes{refaddr $self}
             = compact(uncompact($nodes{refaddr $self} . $nodes));
@@ -843,6 +857,44 @@ package Net::BitTorrent::Torrent;
                           {Torrent => $self, Index => $index});
         }
         return 1;
+    }
+
+    # Methods | Private | DHT
+    sub _dht_announce {
+        my ($self) = @_;
+        return if !${$status{refaddr $self}} & STARTED;
+        return if $self->private;
+        $_client{refaddr $self}->_schedule(
+                                     {Time => time + (15 * 60),
+                                      Code   => sub { shift->_dht_announce },
+                                      Object => $self
+                                     }
+        );
+        $_client{refaddr $self}->_schedule(
+            {   Time => time + 15,
+                Code => sub {
+                    my ($s) = @_;
+                    $_client{refaddr $s}->_dht->_scrape($s)
+                        if $_client{refaddr $s}->_use_dht;
+                },
+                Object => $self
+            }
+        );
+        $_client{refaddr $self}->_dht->_announce($self)
+            if $_client{refaddr $self}->_use_dht;
+    }
+
+    sub _dht_scrape {
+        my ($self) = @_;
+        return if $self->private;
+        $_client{refaddr $self}->_schedule(
+                                       {Time => time + (5 * 60),
+                                        Code   => sub { shift->_dht_scrape },
+                                        Object => $self
+                                       }
+        );
+        $_client{refaddr $self}->_dht->_scrape($self)
+            if $_client{refaddr $self}->_use_dht;
     }
 
     # Methods | Public | Callback system

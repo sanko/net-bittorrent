@@ -593,6 +593,7 @@ SKIP: {
     shift @original_data;
     is($data, join(q[], @original_data), q[   ...was shifted from data.]);
     is_deeply(\@original_data, [], q[Looks like we're done.]);
+    warn q[TODO: DHT packets!];
 }
 __END__
 Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>

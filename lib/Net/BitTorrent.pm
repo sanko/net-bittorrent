@@ -19,7 +19,7 @@ package Net::BitTorrent;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \my (%_tcp,                  %_udp,
                %_schedule,             %_tid,
@@ -596,15 +596,17 @@ package Net::BitTorrent;
 Net::BitTorrent
 
 Peer ID: %s
-DHT is %sabled
+DHT is %sabled (Node ID: %s)
 TCP Address: %s:%d
 UDP Address: %s:%d
 ----------
 Torrents in queue: %d
 %s
+----------
 END
             $_peerid{refaddr $self},
-            ($_use_dht{refaddr $self} ? q[En] : q[Dis]),
+            $_use_dht{refaddr $self} ? q[En] : q[Dis],
+            unpack(q[H*], $_dht{refaddr $self}->node_id),
             $self->_tcp_host, $self->_tcp_port, $self->_udp_host,
             $self->_udp_port, (scalar keys %{$_torrents{refaddr $self}}),
             join(qq[\r\n], keys %{$_torrents{refaddr $self}});
@@ -811,7 +813,7 @@ the following key:
 
 =item C<Address>
 
-IPv4:port address of the potential peer.
+IPv4:port (or, on rare occasions, hostname:port) address of the potential peer.
 
 =back
 

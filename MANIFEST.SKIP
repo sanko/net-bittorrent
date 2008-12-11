@@ -69,6 +69,7 @@ scripts/.+/.+
 \.gif
 \.html?
 \.css
+\.dat
 
 # Skip between-commit-changelog
 commitlog.txt
