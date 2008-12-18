@@ -9,17 +9,19 @@ package Net::BitTorrent;
     use Socket qw[/inet_/ SOCK_STREAM SOCK_DGRAM SOL_SOCKET PF_INET SOMAXCONN
         /pack_sockaddr_in/];
     use Carp qw[carp];
+    use Digest::SHA qw[sha1_hex];
     use POSIX qw[];
     sub _EWOULDBLOCK { $^O eq q[MSWin32] ? 10035 : POSIX::EWOULDBLOCK() }
     sub _EINPROGRESS { $^O eq q[MSWin32] ? 10036 : POSIX::EINPROGRESS() }
     use lib q[../../lib];
+    use Net::BitTorrent::Util qw[:bencode :compact];
     use Net::BitTorrent::Torrent;
     use Net::BitTorrent::Peer;
     use Net::BitTorrent::DHT;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \my (%_tcp,                  %_udp,
                %_schedule,             %_tid,
@@ -43,6 +45,29 @@ package Net::BitTorrent;
                     . q[parameters to be passed as a hashref];
                 return;
             }
+
+            # Defaults
+            $_peers_per_torrent{refaddr $self}    = 100;
+            $_connections_per_host{refaddr $self} = 2;
+            $_half_open{refaddr $self}            = 8;
+            $_max_dl_rate{refaddr $self}          = 0;
+            $_k_dl{refaddr $self}                 = 0;
+            $_max_ul_rate{refaddr $self}          = 0;
+            $_k_ul{refaddr $self}                 = 0;
+            $_torrents{refaddr $self}             = {};
+            $_tid{refaddr $self}                  = qq[\0] x 5;
+            $_use_dht{refaddr $self}              = 1;
+            $_dht{refaddr $self}
+                = Net::BitTorrent::DHT->new({Client => $self});
+            $_peerid{refaddr $self} = Net::BitTorrent::Version::gen_peerid();
+            $_connections{refaddr $self} = {};
+
+            # resume backend
+            $self->_restore($args->{q[Resume]}) if $args->{q[Resume]};
+
+            # LocalHost and LocalPort can override Resume data
+            # XXX - ...but what happends when the resume data has
+            #       different host:port combinations for TCP and UDP?
             $host = $args->{q[LocalHost]}
                 if defined $args->{q[LocalHost]};
             @ports
@@ -53,22 +78,18 @@ package Net::BitTorrent;
                 )
                 : @ports;
         }
-        $_peers_per_torrent{refaddr $self}    = 100;
-        $_connections_per_host{refaddr $self} = 2;
-        $_half_open{refaddr $self}            = 8;
-        $_max_dl_rate{refaddr $self}          = 0;
-        $_k_dl{refaddr $self}                 = 0;
-        $_max_ul_rate{refaddr $self}          = 0;
-        $_k_ul{refaddr $self}                 = 0;
-        $_torrents{refaddr $self}             = {};
-        $_tid{refaddr $self}                  = qq[\0] x 5;
-        $_use_dht{refaddr $self}              = 1;
-        $_dht{refaddr $self} = Net::BitTorrent::DHT->new({Client => $self});
-        $_peerid{refaddr $self}      = Net::BitTorrent::Version::gen_peerid();
-        $_connections{refaddr $self} = {};
+
+        # Try opening a matching set of ports
+        for my $port (@ports) {
+            last
+                if $self->_socket_open_tcp($host, $port)
+                    && $self->_socket_open_udp($host, $port);
+        }
+
+        # Clear everything just in case
         $self->_reset_bandwidth;
-        for my $port (@ports) { last if $self->_socket_open($host, $port) }
         weaken($REGISTRY{refaddr $self} = $self);
+        $$self = $_peerid{refaddr $self};
         return $self;
     }
 
@@ -78,8 +99,12 @@ package Net::BitTorrent;
     sub _connections { return $_connections{refaddr +shift} }
     sub _max_ul_rate { return $_max_ul_rate{refaddr +shift} }
     sub _max_dl_rate { return $_max_dl_rate{refaddr +shift} }
-    sub _dht { my ($s) = @_; return $_udp{refaddr $s} && $_dht{refaddr $s} }
-    sub _use_dht { return $_use_dht{refaddr +shift}; }
+    sub _dht         { return $_dht{refaddr +shift} }
+
+    sub _use_dht {
+        my ($s) = @_;
+        return $_udp{refaddr $s} && $_use_dht{refaddr $s};
+    }
 
     sub _tcp_port {
         my ($self) = @_;
@@ -233,29 +258,30 @@ package Net::BitTorrent;
         return delete $_connections{refaddr $self}{fileno $socket};
     }
 
-    sub _socket_open {
+    sub _socket_open_tcp {
         my ($self, $host, $port) = @_;
         if (   not $self
             || not blessed $self
             || not $self->isa(q[Net::BitTorrent]))
         {   carp
-                q[Net::BitTorrent->_socket_open(HOST, PORT) requires a blessed object];
+                q[Net::BitTorrent->_socket_open_tcp(HOST, PORT) requires a blessed object];
             return;
         }
         if ((!$_tcp{refaddr $self}) && (!$host)) {
-            carp q[Net::BitTorrent::__socket_open( ) ]
+            carp q[Net::BitTorrent::_socket_open_tcp( ) ]
                 . q[requires a hostname];
             return;
         }
-        if (   (!$_tcp{refaddr $self}) && (!defined $port)
-            || (defined $port and $port !~ m[^\d+$]))
-        {   carp q[Net::BitTorrent::__socket_open( ) ]
+        if (defined $port and $port !~ m[^\d+$]) {
+            carp q[Net::BitTorrent::_socket_open_tcp( ) ]
                 . q[requires an integer port number];
             return;
         }
         my $_packed_host = undef;
         $host ||= q[0.0.0.0];
         $port ||= 0;
+        $port =~ m[^(\d+)$];
+        $port = $1;
         if (    $host
             and $host
             !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4})$])
@@ -265,45 +291,76 @@ package Net::BitTorrent;
             $_packed_host = $addrs[0];
         }
         else { $_packed_host = inet_aton($host) }
-        if (!$_tcp{refaddr $self}) {
-            socket(my ($_tcp), PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
-                or return;
-            bind($_tcp, pack_sockaddr_in($port, $_packed_host))
-                or return;
-            listen($_tcp, 1) or return;
-            $_connections{refaddr $self}{fileno $_tcp} = {Object => $self,
-                                                          Mode   => q[ro]
-                }
-                or return;
-            $_tcp{refaddr $self} = $_tcp;
+        socket(my ($_tcp), PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
+            or return;
+        bind($_tcp, pack_sockaddr_in($port, $_packed_host))
+            or return;
+        listen($_tcp, 1) or return;
+        $_connections{refaddr $self}{fileno $_tcp} = {Object => $self,
+                                                      Mode   => q[ro],
+            }
+            or return;
+        if (   defined $_tcp{refaddr $self}
+            && fileno $_tcp{refaddr $self}
+            && defined $_connections{refaddr $self}
+            {fileno $_tcp{refaddr $self}})
+        {   delete $_connections{refaddr $self}{fileno $_tcp{refaddr $self}};
+            close $_tcp{refaddr $self};
         }
-        if ($_tcp{refaddr $self}
-            and !$_udp{refaddr $self})
-        {   ($port, undef)
-                = unpack_sockaddr_in(getsockname($_tcp{refaddr $self}));
-            socket(my ($_udp), PF_INET, SOCK_DGRAM, getprotobyname(q[udp]))
-                or return;
-            bind($_udp, pack_sockaddr_in($port, $_packed_host))
-                or return;
-            $_connections{refaddr $self}{fileno $_udp} = {Object => $self,
-                                                          Mode   => q[ro]
-                }
-                or return;
-            $_udp{refaddr $self} = $_udp;
+        return $_tcp{refaddr $self} = $_tcp;
+    }
+
+    sub _socket_open_udp {
+        my ($self, $host, $port) = @_;
+        if (   not $self
+            || not blessed $self
+            || not $self->isa(q[Net::BitTorrent]))
+        {   carp
+                q[Net::BitTorrent->_socket_open_udp(HOST, PORT) requires a blessed object];
+            return;
         }
-        if (    defined $_tcp{refaddr $self}
-            and defined $_udp{refaddr $self})
-        {   my ($tcp_port, $tcp_packed_ip)
-                = unpack_sockaddr_in(getsockname($_tcp{refaddr $self}));
-            my $tcp_address
-                = sprintf(q[%s:%d], inet_ntoa($tcp_packed_ip), $tcp_port);
-            my ($udp_port, $udp_packed_ip)
-                = unpack_sockaddr_in(getsockname($_udp{refaddr $self}));
-            my $udp_address
-                = sprintf(q[%s:%d], inet_ntoa($udp_packed_ip), $udp_port);
-            $$self = $tcp_address . q[ | ] . $udp_address;
+        if ((!$_tcp{refaddr $self}) && (!$host)) {
+            carp q[Net::BitTorrent::_socket_open_udp( ) ]
+                . q[requires a hostname];
+            return;
         }
-        return ($_tcp{refaddr $self} && $_udp{refaddr $self});
+        if (defined $port and $port !~ m[^\d+$]) {
+            carp q[Net::BitTorrent::_socket_open_udp( ) ]
+                . q[requires an integer port number];
+            return;
+        }
+        my $_packed_host = undef;
+        $host ||= q[0.0.0.0];
+
+        #$port = $port ? $port : $_udp{refaddr $self} ? $self->_udp_port : 0;
+        $port ||= 0;
+        $port =~ m[^(\d+)$];
+        $port = $1;
+        if (    $host
+            and $host
+            !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4})$])
+        {   my ($name, $aliases, $addrtype, $length, @addrs)
+                = gethostbyname($host)
+                or return;
+            $_packed_host = $addrs[0];
+        }
+        else { $_packed_host = inet_aton($host) }
+        socket(my ($_udp), PF_INET, SOCK_DGRAM, getprotobyname(q[udp]))
+            or return;
+        bind($_udp, pack_sockaddr_in($port, $_packed_host))
+            or return;
+        $_connections{refaddr $self}{fileno $_udp} = {Object => $self,
+                                                      Mode   => q[ro],
+            }
+            or return;
+        if (   $_udp{refaddr $self}
+            && fileno $_udp{refaddr $self}
+            && defined $_connections{refaddr $self}
+            {fileno $_udp{refaddr $self}})
+        {   delete $_connections{refaddr $self}{fileno $_udp{refaddr $self}};
+            close $_udp{refaddr $self};
+        }
+        return $_udp{refaddr $self} = $_udp;
     }
 
     sub _process_connections {
@@ -590,9 +647,111 @@ package Net::BitTorrent;
         return join q[], map {chr} @reserved;
     }
 
+    # Methods | Public | Resume
+    sub resume_data {
+        my ($self, $raw) = @_;
+
+        #die ref \$self->_dht->_boot_nodes;
+        #die ref $self->_dht->_boot_nodes;
+        my %resume = (
+            q[.t] => time,
+            ($raw ? (q[.r] => 1) : ()),
+            dht      => $self->_dht->resume_data(1),
+            settings => {
+                _connections_per_host =>
+                    $_connections_per_host{refaddr $self},
+                _half_open   => $_half_open{refaddr $self},
+                _max_dl_rate => $_max_dl_rate{refaddr $self},
+                _max_ul_rate => $_max_ul_rate{refaddr $self},
+                _part_touch  => 0,                              # TODO
+                _peers_per_torrent => $_peers_per_torrent{refaddr $self},
+                _tcp_host => $self->_tcp_host,                  # TODO
+                _tcp_port => $self->_tcp_port,                  # TODO
+                _udp_host => $self->_udp_host,                  # TODO
+                _udp_port => $self->_udp_port,                  # TODO
+                _use_dht  => $_use_dht{refaddr $self},
+                peerid    => $_peerid{refaddr $self}
+            },
+            torrents => {}
+        );
+        for my $torrent (values %{$self->torrents}) {
+            $resume{q[torrents]}{pack q[H40], $torrent->infohash}
+                = $torrent->resume_data(1);
+        }
+        $resume{q[.sanko]}   = sha1_hex(bencode(\%resume));
+        $resume{q[.version]} = $VERSION;
+        return $raw ? (\%resume) : bencode(\%resume);
+    }
+
+    sub _restore {
+        my ($self, $resume) = @_;
+        return if !$resume;
+        my %resume = ref $resume ? %{$resume} : %{bdecode($resume)};
+        return    # brain dead validation
+            if !(   %resume
+                 && $resume{q[.sanko]}
+                 && $resume{q[.version]}
+                 && $resume{q[.t]}
+                 && $resume{q[dht]}
+                 && $resume{q[settings]}
+                 && $resume{q[torrents]}
+                 && ref $resume{q[dht]}      eq q[HASH]
+                 && ref $resume{q[settings]} eq q[HASH]
+                 && ref $resume{q[torrents]} eq q[HASH]
+                 && version->new(delete $resume{q[.version]})
+                 <= version->new($Net::BitTorrent::VERSION)
+                 && delete $resume{q[.sanko]} eq sha1_hex(bencode(\%resume))
+            );
+        $_peers_per_torrent{refaddr $self}
+            = $resume{q[settings]}{q[_peers_per_torrent]};
+        $_connections_per_host{refaddr $self}
+            = $resume{q[settings]}{q[_connections_per_host]};
+        $_half_open{refaddr $self}   = $resume{q[settings]}{q[_half_open]};
+        $_max_dl_rate{refaddr $self} = $resume{q[settings]}{q[_max_dl_rate]};
+        $_max_ul_rate{refaddr $self} = $resume{q[settings]}{q[_max_ul_rate]};
+        $_use_dht{refaddr $self}     = $resume{q[settings]}{q[_use_dht]};
+        $_dht{refaddr $self} = Net::BitTorrent::DHT->new(
+                                {Client => $self, Resume => $resume{q[dht]}});
+        $_peerid{refaddr $self} = $resume{q[settings]}{q[peerid]};
+        $self->_socket_open_tcp($resume{q[settings]}{q[_tcp_host]},
+                                $resume{q[settings]}{q[_tcp_port]});
+        $self->_socket_open_udp($resume{q[settings]}{q[_udp_host]},
+                                $resume{q[settings]}{q[_udp_port]});
+
+=pod
+
+=begin todo
+
+{   _part_touch => 0,
+}
+
+=end todo
+
+=cut
+
+        #$self->_dht->_restore($resume{q[dht]});
+        for my $_quest (values %{$resume{q[torrents]}}) {
+            my $torrent = $self->_locate_torrent($_quest->{q[infohash]});
+            if (    !$torrent
+                and -f $_quest->{q[path]}
+                and $self->add_torrent({Path    => $_quest->{q[path]},
+                                        BaseDir => $_quest->{q[basedir]},
+                                        Resume  => $_quest
+                                       }
+                )
+                )
+            {   $torrent = $self->_locate_torrent($_quest->{q[infohash]});
+            }
+
+            #$torrent->_restore($_quest);
+        }
+        return 1;
+    }
+
     sub as_string {
         my ($self, $advanced) = @_;
-        my $dump = !$advanced ? $_peerid{refaddr $self} : sprintf <<'END',
+        my $dump
+            = !$advanced ? $_peerid{refaddr $self} : sprintf <<'END',
 Net::BitTorrent
 
 Peer ID: %s
@@ -608,7 +767,8 @@ END
             $_use_dht{refaddr $self} ? q[En] : q[Dis],
             unpack(q[H*], $_dht{refaddr $self}->node_id),
             $self->_tcp_host, $self->_tcp_port, $self->_udp_host,
-            $self->_udp_port, (scalar keys %{$_torrents{refaddr $self}}),
+            $self->_udp_port,
+            (scalar keys %{$_torrents{refaddr $self}}),
             join(qq[\r\n], keys %{$_torrents{refaddr $self}});
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
@@ -696,6 +856,11 @@ open on each of the ports until we succeed or run out of ports.
 
 Default: C<0> (any available, chosen by the OS)
 
+=item C<Resume>
+
+Resume data obtained through L<resume_data( )|/"resume_data ( [ RAW ] )">
+and used to restore the state of a previous C<Net::BitTorrent> session.
+
 =back
 
 =back
@@ -708,23 +873,6 @@ states that it returns some other specific value, failure will result in
 C<undef> or an empty list.
 
 =over 4
-
-=item C<peerid ( )>
-
-Returns the L<Peer ID|Net::BitTorrent::Version/"gen_peerid ( )">
-generated to identify this L<Net::BitTorrent|Net::BitTorrent> object
-internally, with remote L<peers|Net::BitTorrent::Peer>, and
-L<trackers|Net::BitTorrent::Torrent::Tracker>.
-
-See also: wiki.theory.org (http://tinyurl.com/4a9cuv),
-L<Peer ID Specification|Net::BitTorrent::Version/"Peer ID Specification">
-
-=item C<torrents ( )>
-
-Returns the list of queued L<torrents|Net::BitTorrent::Torrent>.
-
-See also: L<add_torrent ( )|/"add_torrent ( { ... } )">,
-L<remove_torrent ( )|/"remove_torrent ( TORRENT )">
 
 =item C<add_torrent ( { ... } )>
 
@@ -743,23 +891,6 @@ L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object on success.
 
 See also: L<torrents ( )|/"torrents ( )">,
 L<remove_torrent ( )|/"remove_torrent ( TORRENT )">,
-L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>
-
-=item C<remove_torrent ( TORRENT )>
-
-Removes a L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object
-from the client's queue.
-
-=begin future
-
-Before the torrent torrent is closed, we announce to the tracker that we
-have 'stopped' downloading and a callback to store the current state is
-called.
-
-=end future
-
-See also: L<torrents ( )|/"torrents ( )">,
-L<add_torrent ( )|/"add_torrent ( { ... } )">,
 L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>
 
 =item C<do_one_loop ( [TIMEOUT] )>
@@ -783,6 +914,54 @@ from a file, use C<$client-E<gt>on_event( 'file_read', \&on_read )>.
 
 See the L<Events|/Events> section for a list of events sorted by their
 related classes.
+
+=item C<peerid ( )>
+
+Returns the L<Peer ID|Net::BitTorrent::Version/"gen_peerid ( )">
+generated to identify this L<Net::BitTorrent|Net::BitTorrent> object
+internally, with remote L<peers|Net::BitTorrent::Peer>, and
+L<trackers|Net::BitTorrent::Torrent::Tracker>.
+
+See also: wiki.theory.org (http://tinyurl.com/4a9cuv),
+L<Peer ID Specification|Net::BitTorrent::Version/"Peer ID Specification">
+
+=item C<remove_torrent ( TORRENT )>
+
+Removes a L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object
+from the client's queue.
+
+=begin future
+
+Before the torrent torrent is closed, we announce to the tracker that we
+have 'stopped' downloading and a callback to store the current state is
+called.
+
+=end future
+
+See also: L<torrents ( )|/"torrents ( )">,
+L<add_torrent ( )|/"add_torrent ( { ... } )">,
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>
+
+=item C<resume_data ( [ RAW ] )>
+
+One end of Net::BitTorrent's resume system.  This method returns the
+data as specified in
+L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"Resume API"> in either
+bencoded form or as a raw hash (if you have other plans for the data)
+depending on the boolean value of C<RAW>.
+
+See also:
+L<Resume API|Net::BitTorrent::Notes/"Resume API">
+and
+L<How do I quick Resume a .torrent Session Between Client Sessions?|Net::BitTorrent::Notes/"Quick Resume a .torrent Session Between Client Sessions">
+in L<Net::BitTorrent::Notes|Net::BitTorrent::Notes>
+
+=item C<torrents ( )>
+
+Returns the list of queued L<torrents|Net::BitTorrent::Torrent>.
+
+See also: L<add_torrent ( )|/"add_torrent ( { ... } )">,
+L<remove_torrent ( )|/"remove_torrent ( TORRENT )">
 
 =back
 

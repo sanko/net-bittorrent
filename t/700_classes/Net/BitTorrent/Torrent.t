@@ -99,8 +99,8 @@ SKIP: {
         );
         is($torrent->_client, $client, sprintf q[Client is correct (%s)],
             $_key);
-        is($torrent->_compact_nodes, q[],
-            sprintf q[Empty list of compact nodes (%s)], $_key);
+        is($torrent->_nodes, q[], sprintf q[Empty list of compact nodes (%s)],
+            $_key);
         is($torrent->comment,
             _raw_data($_key)->{q[comment]},
             sprintf q[comment is correct (%s)], $_key);

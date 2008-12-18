@@ -8,6 +8,7 @@ use Module::Build;
 use Test::More;
 use File::Temp qw[];
 use lib q[../../lib];
+use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent::Util qw[:compact :bencode];
 use Net::BitTorrent;
 $|++;
@@ -44,7 +45,6 @@ SKIP: {
         q[DHT (bystander gateway)]);
     ok($client{q[DHT_gateway]}->_use_dht,
         q[DHT (bystander gateway) has enabled dht]);
-    $client{q[DHT_gateway]}->_dht->_set_boot_nodes([]);
     $client{q[DHT_seeds]} = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
     skip(sprintf(q[Failed to open UDP port]),
          $test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
@@ -53,8 +53,8 @@ SKIP: {
         q[DHT (bystander seeds)]);
     ok($client{q[DHT_seeds]}->_use_dht,
         q[DHT (bystander seeds) has enabled dht]);
-    $client{q[DHT_seeds]}->_dht->_set_boot_nodes(
-          [{ip => q[127.0.0.1], port => $client{q[DHT_gateway]}->_udp_port}]);
+    $client{q[DHT_seeds]}->_dht->add_node(
+            {ip => q[127.0.0.1], port => $client{q[DHT_gateway]}->_udp_port});
     $client{q[DHT_peers]} = new Net::BitTorrent({LocalAddr => q[127.0.0.1]});
     skip(sprintf(q[Failed to open UDP port]),
          $test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
@@ -63,8 +63,8 @@ SKIP: {
         q[DHT (bystander peers)]);
     ok($client{q[DHT_peers]}->_use_dht,
         q[DHT (bystander peers) has enabled dht]);
-    $client{q[DHT_peers]}->_dht->_set_boot_nodes(
-          [{ip => q[127.0.0.1], port => $client{q[DHT_gateway]}->_udp_port}]);
+    $client{q[DHT_peers]}->_dht->add_node(
+            {ip => q[127.0.0.1], port => $client{q[DHT_gateway]}->_udp_port});
 
     for my $chr (1 .. $Seeds) {
         $chr = sprintf $sprintf, $chr;
@@ -102,8 +102,8 @@ SKIP: {
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
         ) if not $torrent->is_complete;
-        $client{q[seed_] . $chr}->_dht->_set_boot_nodes(
-            [{ip => q[127.0.0.1], port => $client{q[DHT_seeds]}->_udp_port}]);
+        $client{q[seed_] . $chr}->_dht->add_node(
+              {ip => q[127.0.0.1], port => $client{q[DHT_seeds]}->_udp_port});
         $client{q[seed_] . $chr}->do_one_loop(0.1);
     }
     for my $chr (1 .. $Peers) {
@@ -148,8 +148,8 @@ SKIP: {
                 return;
             }
         );
-        $client{q[peer_] . $chr}->_dht->_set_boot_nodes(
-            [{ip => q[127.0.0.1], port => $client{q[DHT_peers]}->_udp_port}]);
+        $client{q[peer_] . $chr}->_dht->add_node(
+              {ip => q[127.0.0.1], port => $client{q[DHT_peers]}->_udp_port});
     }
     while ($test_builder->{q[Curr_Test]} < $test_builder->{q[Expected_Tests]})
     {   grep { $_->do_one_loop(0.1); } values %client;

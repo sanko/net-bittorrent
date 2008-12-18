@@ -3,7 +3,7 @@ package Net::BitTorrent::DHT;
 {
     use strict;
     use warnings;
-    use Digest::SHA qw[sha1];
+    use Digest::SHA qw[sha1_hex];
     use Scalar::Util qw[blessed weaken refaddr];
     use Carp qw[carp];
     use Socket qw[/inet_/ /pack_sockaddr_in/];
@@ -13,10 +13,9 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
-    my @CONTENTS =
-        \my (%_client, %tid, %node_id, %outstanding_p, %_boot_nodes, %nodes,
-             %tracking);
+    our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    my @CONTENTS
+        = \my (%_client, %tid, %node_id, %outstanding_p, %nodes, %tracking);
     my %REGISTRY;
 
     sub new {
@@ -36,12 +35,18 @@ package Net::BitTorrent::DHT;
         }
         my $node_id = Net::BitTorrent::Version->gen_node_id();
         $self = bless \$node_id, $class;
+
+        # Defaults
         $_client{refaddr $self} = $args->{q[Client]};
         weaken $_client{refaddr $self};
-        $node_id{refaddr $self}     = $node_id;
-        $nodes{refaddr $self}       = {};
-        $_boot_nodes{refaddr $self} = [];
-        $tid{refaddr $self}         = q[aaaaa];
+        $node_id{refaddr $self} = $node_id;
+        $nodes{refaddr $self}   = {};
+        $tid{refaddr $self}     = q[aaaaa];
+
+        # resume backend
+        $self->_restore($args->{q[Resume]}) if $args->{q[Resume]};
+
+        # Boot
         $_client{refaddr $self}->_schedule(
                                           {Code => sub { shift->_pulse() },
                                            Time   => time + 3,
@@ -51,15 +56,12 @@ package Net::BitTorrent::DHT;
         $_client{refaddr $self}->_schedule(    # boot up
             {Code => sub {
                  my ($s) = @_;
-                 for my $node (@{$_boot_nodes{refaddr $s}}) {
-                     $self->_add_node($node);
-                 }
                  for my $node (values %{$nodes{refaddr $s}}) {
                      $self->_ping_out($node);
                      $self->_find_node_out($node, $node_id{refaddr $s});
                  }
              },
-             Time   => time,
+             Time   => time + 2,
              Object => $self
             }
         );
@@ -73,40 +75,18 @@ package Net::BitTorrent::DHT;
         return $_client{refaddr + $_[0]};
     }
 
-    sub _boot_nodes {
-        my ($self) = @_;
-        return $_boot_nodes{refaddr $self};
-    }
-
     # Accesors | Public
     sub node_id {
         return if defined $_[1];
         return $node_id{refaddr + $_[0]};
     }
 
-=begin
     # Setters | Private
-    sub _set_node_id {
-        return if not defined $_[1];
-        return $node_id{refaddr + $_[0]} = $_[1];
-    }
-=cut
-
-    sub _set_boot_nodes {
-        my ($self, $nodes) = @_;
-        $_boot_nodes{refaddr $self} = $nodes;
-
-        #for my $node (@{$_boot_nodes{refaddr $self}}) {
-        #    $self->_add_node($node);
-        #}
-        #for my $node (values %{$nodes{refaddr $self}}) {
-        #    $self->_ping_out($node);
-        #    $self->_find_node_out($node, $node_id{refaddr $self});
-        #}
-        return 1;
-    }
-
-    sub _add_node {
+    #sub _set_node_id {
+    #    return if not defined $_[1];
+    #    return $node_id{refaddr + $_[0]} = $_[1];
+    #}
+    sub add_node {
         my ($self, $args) = @_;
         return if !$_client{refaddr $self}->_use_dht;
         return if scalar keys %{$nodes{refaddr $self}} >= 300; # max 300 nodes
@@ -116,20 +96,24 @@ package Net::BitTorrent::DHT;
         my $ok = $_client{refaddr $self}->_event(q[ip_filter],
              {Address => sprintf q[%s:%d], $args->{q[ip]}, $args->{q[port]}});
         if (defined $ok and $ok == 0) { return; }
-        my $paddr
-            = pack_sockaddr_in($args->{q[port]}, inet_aton($args->{q[ip]}));
-        $nodes{refaddr $self}{$paddr} = {birth     => time,
-                                         fail      => 0,
-                                         id        => undef,
-                                         ip        => $args->{q[ip]},
-                                         okay      => 0,
-                                         paddr     => $paddr,
-                                         port      => $args->{q[port]},
-                                         prev_find => 0,
-                                         prev_get  => 0,
-                                         seen      => 0,
-                                         token_i   => undef,
-                                         token_o   => undef
+        my $_resolved = inet_aton($args->{q[ip]});
+        return if !$_resolved;
+        my $paddr = pack_sockaddr_in($args->{q[port]}, $_resolved);
+        $nodes{refaddr $self}{$paddr} = {
+                                       birth     => time,
+                                       fail      => 0,
+                                       id        => undef,
+                                       ip        => $args->{q[ip]},
+                                       okay      => 0,
+                                       paddr     => $paddr,
+                                       ping      => time - 61,          # lies
+                                       port      => $args->{q[port]},
+                                       prev_find => 0,
+                                       prev_get  => 0,
+                                       prev_ann  => 0,
+                                       seen      => time - 60,          # lies
+                                       token_i   => undef,
+                                       token_o   => undef
             }
             if !$nodes{refaddr $self}{$paddr};
         return $nodes{refaddr $self}{$paddr};
@@ -138,18 +122,44 @@ package Net::BitTorrent::DHT;
     sub _pulse {
         my ($self) = @_;
         return if !$_client{refaddr $self}->_use_dht;
-        for my $tid (keys %{$outstanding_p{refaddr $self}}) {    # old packets
-            delete $outstanding_p{refaddr $self}{$tid}
-                if $outstanding_p{refaddr $self}{$tid}{q[sent]} < time - 30;
+        for my $tid (
+            grep {
+                $outstanding_p{refaddr $self}{$_}{q[sent]} < time - 20
+            }
+            keys %{$outstanding_p{refaddr $self}}
+            )
+        {    # old packets
+            $nodes{refaddr $self}
+                {$outstanding_p{refaddr $self}{$tid}{q[paddr]}}{q[fail]}++;
+            delete $outstanding_p{refaddr $self}{$tid};
         }
-        for my $tid (keys %{$nodes{refaddr $self}}) {    # old/bad nodes
-            delete $nodes{refaddr $self}{$tid}
-                if   # $nodes{refaddr $self}{$tid}{q[seen]} < time - (60 * 15)
-                     #or
-                $nodes{refaddr $self}{$tid}{q[fail]} > 10;
+        for my $paddr (
+            grep {
+                (!defined $nodes{refaddr $self}{$_}
+                 {q[seen]})    # XXX - mystery bug
+                    or
+                    (($nodes{refaddr $self}{$_}{q[seen]} < time - (60 * 15)))
+                    or ($nodes{refaddr $self}{$_}{q[fail]} > 10)
+            } keys %{$nodes{refaddr $self}}
+            )
+        {                      # old/bad nodes
+            delete $nodes{refaddr $self}{$paddr};
+        }
+        for my $paddr (
+            grep {
+                (($nodes{refaddr $self}{$_}{q[ping]}
+                      > $nodes{refaddr $self}{$_}{q[seen]}
+                 )
+                     and
+                     ($nodes{refaddr $self}{$_}{q[ping]} < time - (60 * 8))
+                    )
+            } keys %{$nodes{refaddr $self}}
+            )
+        {    # old/bad nodes
+            $self->_ping_out($nodes{refaddr $self}{$paddr});
         }
         for my $info_hash (keys %{$tracking{refaddr $self}})
-        {            # stale tracker data
+        {    # stale tracker data
             delete $tracking{refaddr $self}{$info_hash}
                 if $tracking{refaddr $self}{$info_hash}{q[touch]}
                     < time - (60 * 30);
@@ -158,7 +168,7 @@ package Net::BitTorrent::DHT;
         # TODO: remove bad nodes, etc.
         $_client{refaddr $self}->_schedule(
                                           {Code => sub { shift->_pulse() },
-                                           Time   => time + 25,
+                                           Time   => time + 45,
                                            Object => $self
                                           }
         );
@@ -183,12 +193,14 @@ package Net::BitTorrent::DHT;
                                  {Address => sprintf q[%s:%d], $_ip, $_port});
                         if (defined $ok and $ok == 0) { return; }
                         my $new_node
-                            = $self->_add_node({ip => $_ip, port => $_port});
+                            = $self->add_node({ip => $_ip, port => $_port});
                         return if !$new_node;
                     }
-                    if ($nodes{refaddr $self}{$paddr}) {
+                    if (defined $nodes{refaddr $self}{$paddr}) {
                         $nodes{refaddr $self}{$paddr}{q[id]}
                             ||= $packet->{q[a]}{q[id]};
+                        $nodes{refaddr $self}{$paddr}{q[ping]} = time;
+                        $nodes{refaddr $self}{$paddr}{q[seen]} = time;
                         $self->_find_node_out($nodes{refaddr $self}{$paddr},
                                               $node_id{refaddr $self});
                     }
@@ -201,13 +213,13 @@ package Net::BitTorrent::DHT;
                                  {Address => sprintf q[%s:%d], $_ip, $_port});
                     if (defined $ok and $ok == 0) { return; }
 
-         # if (!$nodes{refaddr $self}{$paddr}) {
-         #    my ($port, $host) = unpack_sockaddr_in($paddr);
-         #    $self->_add_node({ip=>inet_ntoa($host), port=>$port}) || return;
-         #}
-         #$node = $nodes{refaddr $self}{$paddr};
-         #$nodes{refaddr $self}{$paddr}{q[id]}||=
-         #        $packet->{q[a]}{q[id]};
+          # if (!$nodes{refaddr $self}{$paddr}) {
+          #    my ($port, $host) = unpack_sockaddr_in($paddr);
+          #    $self->add_node({ip=>inet_ntoa($host), port=>$port}) || return;
+          #}
+          #$node = $nodes{refaddr $self}{$paddr};
+          #$nodes{refaddr $self}{$paddr}{q[id]}||=
+          #        $packet->{q[a]}{q[id]};
                     my $nodes = compact(
                           map { sprintf q[%s:%d], $_->{q[ip]}, $_->{q[port]} }
                               grep { $_->{q[ip]} =~ m[^[\d\.]+$] }
@@ -217,18 +229,21 @@ package Net::BitTorrent::DHT;
                     );
                     $self->_find_node_reply($paddr, $packet->{q[t]},
                                             $packet->{q[a]}{q[id]}, $nodes)
-                        if $nodes;
+
+                        #if $nodes;
                 }
                 elsif ($packet->{q[q]} eq q[get_peers]) {
                     if (!$nodes{refaddr $self}{$paddr}) {
                         my ($port, $host) = unpack_sockaddr_in($paddr);
-                        $self->_add_node(
-                                      {ip => inet_ntoa($host), port => $port})
-                            || return;
+                        $self->add_node(
+                                     {ip => inet_ntoa($host), port => $port});
+                        return if !$nodes{refaddr $self}{$paddr};
                     }
                     $node = $nodes{refaddr $self}{$paddr};
-                    $nodes{refaddr $self}{$paddr}{q[id]}
-                        ||= $packet->{q[a]}{q[id]};
+                    $node->{q[id]} ||= $packet->{q[a]}{q[id]};
+                    $node->{q[seen]} = time;
+                    $node->{q[okay]}++;
+                    $node->{q[fail]}    = 0;
                     $node->{q[token_o]} = q[NB_] . $self->_generate_token;
                     if ($tracking{refaddr $self}
                         {$packet->{q[a]}{q[info_hash]}})
@@ -271,8 +286,10 @@ package Net::BitTorrent::DHT;
                         return;
                     }
                     $node = $nodes{refaddr $self}{$paddr};
-                    $nodes{refaddr $self}{$paddr}{q[id]}
-                        ||= $packet->{q[a]}{q[id]};
+                    $node->{q[id]} ||= $packet->{q[a]}{q[id]};
+                    $node->{q[seen]} = time;
+                    $node->{q[okay]}++;
+                    $node->{q[fail]} = 0;
                     if (   (!$node->{q[token_o]})
                         || ($packet->{q[a]}{q[token]} ne $node->{q[token_o]}))
                     {    # XXX - reply with token error msg
@@ -329,9 +346,8 @@ package Net::BitTorrent::DHT;
                     #
                     return;
                 }
-                my $node = $nodes{refaddr $self}{$paddr};
-                $nodes{refaddr $self}{$paddr}{q[id]}
-                    ||= $packet->{q[a]}{q[id]};
+                return if !$nodes{refaddr $self}{$paddr};
+                $node = $nodes{refaddr $self}{$paddr};
                 if ($original_packet->{q[paddr]} ne $paddr) {
                     my ($fake_port, $fake_host) = unpack_sockaddr_in($paddr);
                     $fake_host = inet_ntoa($fake_host);
@@ -350,22 +366,28 @@ package Net::BitTorrent::DHT;
                 }
                 delete $outstanding_p{refaddr $self}{$packet->{q[t]}};
                 $node->{q[seen]} = time;
-                $node->{q[id]} ||= $packet->{q[r]}{q[id]};
+                $node->{q[okay]}++;
+                $node->{q[fail]} = 0;
+                $node->{q[id]}
+                    = $node->{q[id]}
+                    ? $node->{q[id]}
+                    : $packet->{q[r]}{q[id]};
+                $node->{q[token_i]}
+                    = $packet->{q[r]}{q[token]}
+                    ? $packet->{q[r]}{q[token]}
+                    : $node->{q[token_i]};
 
                 #warn sprintf q[%s:%d sent us %s in reply to %s],
                 #    $node->{q[ip]}, $node->{q[port]},
                 #    pp(bdecode($data)), pp($original_packet);
-                if ($packet->{q[r]}{q[token]}) {
-                    $node->{q[token_i]} = $packet->{q[r]}{q[token]};
-                }
                 if ($packet->{q[r]}{q[nodes]}) {
                     for my $_node (uncompact($packet->{q[r]}{q[nodes]})) {
                         my ($ip, $port) = split q[:], $_node, 2;
                         my $new_node
-                            = $self->_add_node({ip => $ip, port => $port});
+                            = $self->add_node({ip => $ip, port => $port});
                         next if !$new_node;
-                        $self->_ping_out($new_node);
 
+                        #$self->_ping_out($new_node);
                         #
                         #warn pp $original_packet;
                         my $_data = bdecode($original_packet->{q[packet]});
@@ -394,7 +416,7 @@ package Net::BitTorrent::DHT;
 
                             #warn q[********** add to torrent: ]
                             #    . uncompact($value);
-                            $torrent->_append_compact_nodes($value);
+                            $torrent->_append_nodes($value);
                         }
                     }
                     else {
@@ -406,12 +428,27 @@ package Net::BitTorrent::DHT;
                 }
             }
             elsif ($packet->{q[y]} eq q[e]) {    # error
-                warn q[Error: ] . $packet->{q[e]};
+                    #if ( $packet->{q[e]}->[0] ==  ) {  }
+                    # XXX - Should DHT have events?
+                    #use Data::Dump qw[pp];
+                    #warn sprintf qq[Error: %s\from %s\nnoriginal packet: %s],
+                    #    pp($packet), pp($nodes{refaddr $self}{$paddr}),
+                    #    pp(scalar bdecode(
+                 #                $outstanding_p{refaddr $self}{$packet->{q[t]}}
+                 #                    {q[packet]}
+                 #       )
+                 #    );
+                delete $outstanding_p{refaddr $self}{$packet->{q[t]}};
             }
             else {    #warn q[...what just happend? ] . pp bdecode($data)
             }
         }
-        else {die}
+        else {
+
+            # AZ or garbage. ...as if the two were different.
+            #use Data::Dump qw[pp];
+            #warn q[Bad packet: ] . pp($data);
+        }
     }
 
     sub _ping_out {
@@ -442,6 +479,7 @@ package Net::BitTorrent::DHT;
     sub _announce_peer_out {
         my ($self, $node, $infohash) = @_;
         return if !$_client{refaddr $self}->_use_dht;
+        return if $node->{q[prev_ann]} > time - (60 * 15);
         my $tid = $self->_generate_token;
         return if !$node->{q[token_i]};
         my $packet =
@@ -449,7 +487,7 @@ package Net::BitTorrent::DHT;
                                       $node_id{refaddr $self},
                                       $infohash,
                                       $node->{q[token_i]},
-                                      $_client{refaddr $self}->_udp_port
+                                      $_client{refaddr $self}->_tcp_port
             );
         $outstanding_p{refaddr $self}{$tid} = {attempts => 1,
                                                sent     => time,
@@ -457,6 +495,7 @@ package Net::BitTorrent::DHT;
                                                paddr    => $node->{q[paddr]}
         };
         $node->{q[prev_find]} = 0;
+        $node->{q[prev_ann]}  = time;
         return
             send($_client{refaddr $self}->_udp(),
                  $packet, 0, $node->{q[paddr]});
@@ -465,7 +504,7 @@ package Net::BitTorrent::DHT;
     sub _find_node_out {
         my ($self, $node, $target) = @_;
         return if !$_client{refaddr $self}->_use_dht;
-        return if $node->{q[prev_find]} > time - 300;
+        return if $node->{q[prev_find]} > time - (60 * 5);
         my $tid = $self->_generate_token;
         my $packet = _build_dht_query_find_node($tid, $node_id{refaddr $self},
                                                 $target);
@@ -493,7 +532,7 @@ package Net::BitTorrent::DHT;
     sub _get_peers_out {
         my ($self, $node, $info_hash) = @_;
         return if !$_client{refaddr $self}->_use_dht;
-        return if $node->{q[prev_get]} > time - 30;
+        return if $node->{q[prev_get]} > time - (60 * 10);
         my $tid    = $self->_generate_token;
         my $packet = _build_dht_query_get_peers($tid, $node_id{refaddr $self},
                                                 $info_hash);
@@ -544,6 +583,7 @@ package Net::BitTorrent::DHT;
         }
         my $info_hash = pack q[H40], $torrent->infohash;
         for my $node ($self->_locate_nodes_near_target($info_hash)) {
+            $self->_find_node_out($node, $info_hash);
             $self->_get_peers_out($node, $info_hash);
         }
         return 1;
@@ -565,7 +605,9 @@ package Net::BitTorrent::DHT;
         }
         my $info_hash = pack q[H40], $torrent->infohash;
         for my $node ($self->_locate_nodes_near_target($info_hash)) {
-            next if !$node->{q[token_i]};
+
+            #if !$node->{q[token_i]};
+            $self->_find_node_out($node, $info_hash);
             $self->_announce_peer_out($node, $info_hash);
         }
         return 1;
@@ -575,6 +617,44 @@ package Net::BitTorrent::DHT;
         my ($self) = @_;
         return if !$_client{refaddr $self}->_use_dht;
         return ++$tid{refaddr $self};
+    }
+
+    # Methods | Public | Alpha
+    sub resume_data {
+        my ($self, $raw) = @_;
+        my $_nodes = q[];
+        my %resume = (
+            q[.t] => time,
+            ($raw ? (q[.r] => 1) : ()),
+            id    => $node_id{refaddr $self},
+            nodes => [
+                map {
+                    {ip => $_->{q[ip]}, port => $_->{q[port]}}
+                    } values %{$nodes{refaddr $self}}
+            ]
+        );
+        $resume{q[.sanko]}   = sha1_hex(bencode(\%resume));
+        $resume{q[.version]} = $VERSION;
+        return $raw ? (\%resume) : bencode(\%resume);
+    }
+
+    sub _restore {
+        my ($self, $resume) = @_;
+        return if !$resume;
+        my %resume = ref $resume ? %{$resume} : %{bdecode($resume)};
+        return    # brain dead validation
+            if !(   %resume
+                 && $resume{q[.sanko]}
+                 && $resume{q[.version]}
+                 && $resume{q[id]}
+                 && defined $resume{q[nodes]}    # may be empty
+                 && version->new(delete $resume{q[.version]})
+                 <= version->new($VERSION)
+                 && delete $resume{q[.sanko]} eq sha1_hex(bencode(\%resume))
+            );
+        $node_id{refaddr $self} = $resume{q[id]};
+        for my $_node (@{$resume{q[nodes]}}) { $self->add_node($_node); }
+        return 1;
     }
 
     sub as_string {
@@ -632,10 +712,41 @@ used directly.
 
 =over
 
+=item C<add_node ( { [...] } )>
+
+Adds a single node to the routing table.  Expects a hashref with the
+following keys:
+
+=over
+
+=item C<ip>
+
+The hostname/IP address of the remote node.
+
+=item C<port>
+
+The port the remote node has open for DHT.
+
+=back
+
+This is an advanced method and should not (normally) should not be used.
+
 =item C<node_id ( )>
 
 Get the Node ID used to identify this L<client|/Net::BitTorrent> in the
 DHT swarm.
+
+=item C<resume_data ( [ RAW ] )>
+
+One end of Net::BitTorrent's resume system.  This method returns the
+data as specified in
+L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"Resume API"> in either
+bencoded form or as a raw hash (if you have other plans for the data)
+depending on the boolean value of C<RAW>.
+
+See also:
+L<Resume API|Net::BitTorrent::Notes/"Resume API"> in
+L<Net::BitTorrent::Notes|Net::BitTorrent::Notes>
 
 =item C<as_string ( [ VERBOSE ] )>
 

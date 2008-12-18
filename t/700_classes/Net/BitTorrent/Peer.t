@@ -787,7 +787,7 @@ SKIP: {
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         ok(($with_peer > scalar keys %{$client->_connections}),
             q[Peer removed from list of connections]);
-        warn sprintf q[%d|%d], 197, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 196, $test_builder->{q[Curr_Test]};
     }
     {
         my $newsock_D = newsock($client);
@@ -805,14 +805,14 @@ SKIP: {
         my $data = q[];
 
         #ok(sysread($newsock_D, $data, 68), q[Read handshake reply]);
-        warn sprintf q[%d|%d], 234, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 233, $test_builder->{q[Curr_Test]};
         is(syswrite($newsock_D, build_keepalive()),
             4, q[Sent keepalive to client]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         is(syswrite($newsock_D, build_unchoke()),
             5, q[Sent unchoke to client]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
-        warn sprintf q[%d|%d], 254, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 253, $test_builder->{q[Curr_Test]};
         is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
         is(syswrite($newsock_D, build_not_interested()),
             5, q[Sent not interested to client]);
@@ -820,7 +820,7 @@ SKIP: {
         is(syswrite($newsock_D, build_have(0)), 9, q[Sent have to client]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-        warn sprintf q[%d|%d], 280, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 279, $test_builder->{q[Curr_Test]};
         is(syswrite($newsock_D, build_unchoke()),
             5, q[Sent unchoke to client]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
@@ -828,21 +828,21 @@ SKIP: {
         my $fake_piece = q[A] x 16384;
         is(syswrite($newsock_D, build_piece(0, 0, \$fake_piece)),
             16397, q[Sent piece i:0 o:0 l:16384 to client]);
-        warn sprintf q[%d|%d], 308, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 307, $test_builder->{q[Curr_Test]};
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         is(syswrite($newsock_D, build_choke()), 5, q[Sent choke to client]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         is(syswrite($newsock_D, build_unchoke()),
             5, q[Sent choke to client to read second unchoke]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
-        warn sprintf q[%d|%d], 345, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 344, $test_builder->{q[Curr_Test]};
         $flux_capacitor = 0.5;
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
-        warn sprintf q[%d|%d], 350, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 349, $test_builder->{q[Curr_Test]};
         $flux_capacitor = 1;
         ok($client->do_one_loop(3), q[    do_one_loop(3)]);
         ok(sysread($newsock_D, $data, 1024, length $data), q[Read]);
-        warn sprintf q[%d|%d], 352, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 351, $test_builder->{q[Curr_Test]};
         ok(syswrite($newsock_D, build_keepalive()), q[Write keepalive]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         is(syswrite($newsock_D, build_interested()),
@@ -871,7 +871,7 @@ SKIP: {
         is(syswrite($newsock_E, build_have_all()),
             5, q[Sent HAVEALL to client]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
-        warn sprintf q[%d|%d], 426, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 425, $test_builder->{q[Curr_Test]};
     }
     {
         my $newsock_F = newsock($client);
@@ -889,7 +889,7 @@ SKIP: {
         is(syswrite($newsock_F, build_have_none()),
             5, q[Sent HAVEALL to client]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
-        warn sprintf q[%d|%d], 475, $test_builder->{q[Curr_Test]};
+        warn sprintf q[%d|%d], 474, $test_builder->{q[Curr_Test]};
     }
 }
 

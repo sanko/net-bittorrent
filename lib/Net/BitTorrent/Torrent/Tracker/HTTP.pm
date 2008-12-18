@@ -256,8 +256,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                     }
                     else {
                         $_tier{refaddr $self}
-                            ->_torrent->_append_compact_nodes(
-                                                           $data->{q[peers]});
+                            ->_torrent->_append_nodes($data->{q[peers]});
                         $_tier{refaddr $self}
                             ->_set_complete($data->{q[complete]});
                         $_tier{refaddr $self}

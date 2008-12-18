@@ -10,28 +10,36 @@ use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent::Util qw[:bencode];
 use Net::BitTorrent;
 $|++;
-my ($dir, $chk, $int, $VERSION, $port, $ver, @tor, %opts)
+my ($dir, $chk, $int, $VERSION, $port, $ver, $res, @tor, %opts)
     = (q[./], 1, 1, sprintf q[%.3f], (qw$Rev$)[1] / 1000);
-GetOptions(q[torrent|t=s@] => \@tor,
-           q[port:i]       => \$port,
-           q[directory:s]  => \$dir,
-           q[check!]       => \$chk,
-           q[version]      => sub { exit printf qq[$0 v$VERSION] },
-           q[options=s%] => sub { $opts{$_[1]} = $_[2] if $_[1] =~ m[^_set] }
+GetOptions(
+    q[check!]      => \$chk,
+    q[directory:s] => \$dir,
+    q[help|?]      => sub {
+        pod2usage({-verbose  => 99,
+                   -sections => q[Synopsis|Options|Author]
+                  }
+        );
+    },
+    q[options=s%] => sub { $opts{$_[1]} = $_[2] if $_[1] =~ m[^_set] },
+    q[port:i] => \$port,
+    q[resume]     => \$res,                                  # undocumented
+    q[torrent=s@] => \@tor,
+    q[version]    => sub { exit printf qq[$0 v$VERSION] },
 ) || pod2usage(2);
 @tor = grep {-f} @tor, @ARGV;
 pod2usage({-verbose  => 99,
            -sections => q[Synopsis|Author],
           }
-) if !@tor;
-my $bt = new Net::BitTorrent({LocalPort => $port})
-    || croak q[Failed to create Net::BitTorrent object];
-
-if (open my ($DHT), q[<], q[dht.data]) {
-    sysread($DHT, $DHT, -s $DHT) if $DHT;
-    $bt->_dht->_set_boot_nodes(bdecode($DHT)
-                         || [{ip => q[router.bittorrent.com], port => 6881}]);
+) if !@tor && !$res;
+if ($res && -f q[resume.dat]) {
+    open my $D, q[<], q[resume.dat];
+    sysread($D, $res, -s $D);
 }
+my $bt = new Net::BitTorrent({LocalPort => $port,
+                              ($res ? (Resume => $res) : ())
+                             }
+) or croak q[Failed to create Net::BitTorrent object];
 $bt->on_event(
     q[incoming_packet],
     sub {
@@ -50,10 +58,9 @@ $bt->on_event(
 $bt->on_event(q[piece_hash_pass], sub { piece_status(q[pass], $_[1]); });
 $bt->on_event(q[piece_hash_fail], sub { piece_status(q[fail], $_[1]); });
 for my $path (@tor) {
-    stat print qq[Loading '$path'...];
     my $obj = $bt->add_torrent({Path => $path, BaseDir => $dir})
         || carp(qq[Cannot load '$path': $^E]) && next;
-    print qq[Hash checking...\n] and $obj->hashcheck if $chk;
+    $obj->hashcheck if $chk;
     printf qq[Loaded '$path' [%s...%s%s]\n],
         $obj->infohash =~ m[^(.{4}).+(.{4})$],
         $obj->private ? q[|No DHT] : q[];
@@ -61,10 +68,11 @@ for my $path (@tor) {
 }
 $bt->on_event(q[file_error], sub { carp $_[1]->{q[Message]} });
 $SIG{q[INT]} = sub {
-    $int = $int + 1 > time ? exit : time;
+    resume();
+    $int = $int + 3 > time ? exit : time;
     print $bt->as_string(1)
         . (join qq[\n], map { $_->as_string(1) } values %{$bt->torrents})
-        . qq[\n--> Press Ctrl-C again within 1 second to exit <--\n];
+        . qq[\n--> Press Ctrl-C again within 3 seconds to exit <--\n];
 };
 for (keys %opts) { $bt->$_($opts{$_}) if $bt->can($_); }
 $bt->do_one_loop(0.25) && sleep(0.50) while 1;
@@ -86,12 +94,11 @@ sub trans_status {
         $_[0]->{q[Payload]}{q[Length]};
 }
 
-END {
-    if ($bt) {
-        open my $D, q[>], q[dht.dat];
-        syswrite($D, bencode($bt->_dht->_boot_nodes));
-    }
+sub resume {
+    open my $D, q[>], q[resume.dat] or return;
+    syswrite $D, $bt->resume_data;
 }
+END { resume() if $bt; }
 
 =pod
 

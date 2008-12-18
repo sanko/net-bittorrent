@@ -70,6 +70,7 @@ scripts/.+/.+
 \.html?
 \.css
 \.dat
+\.session
 
 # Skip between-commit-changelog
 commitlog.txt

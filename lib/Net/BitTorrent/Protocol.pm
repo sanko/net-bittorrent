@@ -460,7 +460,7 @@ END
                      y => q[q],
                      q => q[ping],
                      a => {id => $id},
-                     v => q[NB]
+                     v => q[NB00]
                     }
             );
     }
@@ -501,7 +501,7 @@ END
                            info_hash => $infohash,
                            token     => $token
                      },
-                     v => q[NB]
+                     v => q[NB00]
                     }
             );
     }
@@ -530,7 +530,7 @@ END
                      a => {id     => $id,
                            target => $target
                      },
-                     v => q[NB]
+                     v => q[NB00]
                     }
             );
     }
@@ -557,14 +557,15 @@ END
                      y => q[q],
                      q => q[get_peers],
                      a => {id => $id, info_hash => $info_hash},
-                     v => q[NB]
+                     v => q[NB00]
                     }
             );
     }
 
     sub _build_dht_reply_ping {
         my ($tid, $id) = @_;
-        return bencode({t => $tid, y => q[r], r => {id => $id}, v => q[NB]});
+        return bencode(
+                      {t => $tid, y => q[r], r => {id => $id}, v => q[NB00]});
     }
 
     sub _build_dht_reply_find_node {
@@ -573,7 +574,7 @@ END
             bencode({t => $tid,
                      y => q[r],
                      r => {id => $id, nodes => $nodes},
-                     v => q[NB]
+                     v => q[NB00]
                     }
             );
     }
@@ -584,7 +585,7 @@ END
             bencode({t => $tid,
                      y => q[r],
                      r => {id => $id, token => $token, nodes => $nodes},
-                     v => q[NB]
+                     v => q[NB00]
                     }
             );
     }
@@ -598,7 +599,7 @@ END
                            token  => $token,
                            values => $values
                      },
-                     v => q[NB]
+                     v => q[NB00]
                     }
             );
     }

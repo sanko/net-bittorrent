@@ -19,7 +19,7 @@ my $okay_udp        = $build->notes(q[okay_udp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-plan tests => 73;
+plan tests => 84;
 my ($tempdir) = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
 warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
 my $torrent;
@@ -28,41 +28,65 @@ END {
     return if not defined $torrent;
     for my $file (@{$torrent->files}) { $file->_close() }
 }
+my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
+skip(q[Failed to create client],
+     ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]}))
+    if !$client;
+warn(q[TODO: Install event handlers]);
+is(length($client->_build_reserved()), 8, q[_build_reserved()]);
+is($client->_max_ul_rate, 0, q[_max_ul_rate is unlimited by default]);
+is($client->_max_dl_rate, 0, q[_max_dl_rate is unlimited by default]);
+ok($client->_set_max_ul_rate(16), q[_set_max_ul_rate(16)]);
+ok($client->_set_max_dl_rate(16), q[_set_max_dl_rate(16)]);
+is($client->_max_ul_rate,  16,    q[_max_ul_rate is now 16Bps]);
+is($client->_max_dl_rate,  16,    q[_max_dl_rate is now 16Bps]);
+is($client->_schedule(),   undef, q[_schedule() is undef]);
+is($client->_schedule({}), undef, q[_schedule({}) is undef]);
+my $tmp = q[Random::Package];
+ok( $client->_schedule(
+        {Object => bless(\$tmp, $tmp),
+         Time   => time,
+         Code   => sub {
+             ok(1, q[Random::Package's scheduled ping]);
+             }
+        }
+    ),
+    q[_schedule({Object => [...], Time => time, Code => sub{ [...] }})]
+);
+my $event = $client->_schedule(
+    {Object => bless(\{}, $tmp),
+     Time   => time,
+     Code   => sub {
+         fail(q[This event should have been canceled]);
+         }
+    }
+);
+ok($client->_cancel($event), q[_cancel([...])]);
+ok($client->do_one_loop(1),  q[do_one_loop]);
 SKIP: {
-    my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
-    skip(q[Failed to create client],
-         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
-    ) if !$client;
-    skip(
-        q[Due to system configuration, socket-based tests have been disabled.  ...which makes N::B pretty useless],
-        ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
-    ) unless $okay_tcp;
-    warn(q[TODO: Install event handlers]);
-    is(length($client->_build_reserved()), 8, q[_build_reserved()]);
-    ok($client->_socket_open(),  q[_socket_open()]);
-    ok($client->_socket_open(0), q[_socket_open(0)]);
-    ok($client->_socket_open(undef, 0),     q[_socket_open(undef, 0)]);
-    ok($client->_socket_open(undef, undef), q[_socket_open(undef, undef)]);
-    is($client->_socket_open(inet_aton(q[127.0.0.1]), q[test]),
+    skip(q[TCP-based tests have been disabled.], 14) if not $okay_tcp;
+    ok($client->_socket_open_tcp(),  q[_socket_open_tcp()]);
+    ok($client->_socket_open_tcp(0), q[_socket_open_tcp(0)]);
+    ok($client->_socket_open_tcp(undef, 0), q[_socket_open_tcp(undef, 0)]);
+    ok($client->_socket_open_tcp(undef, undef),
+        q[_socket_open_tcp(undef, undef)]);
+    is($client->_socket_open_tcp(inet_aton(q[127.0.0.1]), q[test]),
         undef,
-        q[_socket_open(inet_aton(q[127.0.0.1]), q[test]) returns undef]);
-    is($client->_socket_open({}), undef, q[_socket_open({}) returns undef]);
-    is($client->_socket_open(q[127.0.0.1:25012]),
-        undef, q[_socket_open(q[127.0.0.1:25012]) returns undef]);
-    ok($client->_socket_open(q[127.0.0.1], 0),
-        q[_socket_open('127.0.0.1', 0)]);
+        q[_socket_open_tcp(inet_aton(q[127.0.0.1]), q[test]) returns undef]);
+    is($client->_socket_open_tcp({}),
+        undef, q[_socket_open_tcp({}) returns undef]);
+    is($client->_socket_open_tcp(q[127.0.0.1:25012]),
+        undef, q[_socket_open_tcp(q[127.0.0.1:25012]) returns undef]);
+    ok($client->_socket_open_tcp(q[127.0.0.1], 0),
+        q[_socket_open_tcp('127.0.0.1', 0)]);
     isa_ok($client->_tcp, q[GLOB], q[TCP is good]);
-    isa_ok($client->_udp, q[GLOB], q[UDP is good]);
     ok($client->_tcp_host, q[_tcp_host]);
-    ok($client->_udp_host, q[_udp_host]);
-    ok($client->_tcp_host, q[_tcp_port]);
-    ok($client->_udp_port, q[_udp_port]);
-    is($client->_max_ul_rate, 0, q[_max_ul_rate is unlimited by default]);
-    is($client->_max_dl_rate, 0, q[_max_dl_rate is unlimited by default]);
-    ok($client->_set_max_ul_rate(16), q[_set_max_ul_rate(16)]);
-    ok($client->_set_max_dl_rate(16), q[_set_max_dl_rate(16)]);
-    is($client->_max_ul_rate, 16, q[_max_ul_rate is now 16 b/s]);
-    is($client->_max_dl_rate, 16, q[_max_dl_rate is now 16 b/s]);
+    ok($client->_tcp_port, q[_tcp_port]);
+    warn(q[ [Alpha] _socket_open_tcp() and new() accept textual]);
+    warn(q[         hostnames ('localhost', 'ganchan.somewhere.net', etc.)]);
+    warn(q[         which are automatically resolved.]);
+    ok($client->_socket_open_tcp(q[localhost], 0),
+        q[_socket_open_tcp('localhost', 0) [Undocumented]]);
     my ($port_one, $packed_ip_one)
         = unpack_sockaddr_in(getsockname($client->_tcp));
     like($port_one,
@@ -72,12 +96,50 @@ SKIP: {
     );
     is($packed_ip_one, inet_aton(q[127.0.0.1]),
         q[   ...if it were open to the outside world.]);
-    warn(q[ [Alpha] _socket_open() and new() accept textual]);
-    warn(q[         hostnames (localhost, ganchan.somewhere.net, etc.)]);
+}
+SKIP: {
+    skip(q[UDP-based tests have been disabled.], 14) if not $okay_udp;
+    ok($client->_socket_open_udp(),  q[_socket_open_udp()]);
+    ok($client->_socket_open_udp(0), q[_socket_open_udp(0)]);
+    ok($client->_socket_open_udp(undef, 0), q[_socket_open_udp(undef, 0)]);
+    ok($client->_socket_open_udp(undef, undef),
+        q[_socket_open_udp(undef, undef)]);
+    is($client->_socket_open_udp(inet_aton(q[127.0.0.1]), q[test]),
+        undef,
+        q[_socket_open_udp(inet_aton(q[127.0.0.1]), q[test]) returns undef]);
+    is($client->_socket_open_udp({}),
+        undef, q[_socket_open_udp({}) returns undef]);
+    is($client->_socket_open_udp(q[127.0.0.1:25012]),
+        undef, q[_socket_open_udp(q[127.0.0.1:25012]) returns undef]);
+    ok($client->_socket_open_udp(q[127.0.0.1], 0),
+        q[_socket_open_udp('127.0.0.1', 0)]);
+    isa_ok($client->_udp, q[GLOB], q[UDP is good]);
+    ok($client->_udp_host, q[_udp_host]);
+    ok($client->_udp_port, q[_udp_port]);
+    warn(q[ [Alpha] _socket_open_udp() and new() accept textual]);
+    warn(q[         hostnames ('localhost', 'ganchan.somewhere.net', etc.)]);
     warn(q[         which are automatically resolved.]);
-    ok($client->_socket_open(q[localhost], 0),
-        q[_socket_open('localhost', 0) [Undocumented]]);
-    warn(q[Testing Net::BitTorrent->_add_connection()]);
+    ok($client->_socket_open_udp(q[localhost], 0),
+        q[_socket_open_udp('localhost', 0) [Undocumented]]);
+    my ($port_one, $packed_ip_one)
+        = unpack_sockaddr_in(getsockname($client->_udp));
+    like($port_one,
+         qr[\d+],
+         sprintf(q[   ...which would accept connections on port %d...],
+                 $port_one)
+    );
+    is($packed_ip_one, inet_aton(q[127.0.0.1]),
+        q[   ...if it were open to the outside world.]);
+}
+ok($client->do_one_loop(1),       q[do_one_loop(1)]);
+ok($client->do_one_loop(1.25),    q[do_one_loop(1.25)]);
+ok($client->do_one_loop(0.25),    q[do_one_loop(0.25)]);
+ok($client->do_one_loop(q[test]), q[do_one_loop('test')]);
+ok($client->do_one_loop(-3),      q[do_one_loop(-3)]);
+SKIP: {
+    skip(q[UDP- and/or TCP-based tests have been disabled.], 19)
+        if not $okay_udp
+            or not $okay_tcp;
     my $bt_top = Net::BitTorrent->new();
     is($bt_top->_add_connection(),
         undef, q[_add_connection requires parameters]);
@@ -88,20 +150,19 @@ SKIP: {
     is(scalar(keys %{$client->_connections}),
         2, q[Check list of _connections() == 2]);
     is_deeply($client->_connections,
-              {fileno($client->_tcp) => {Mode   => q[ro],
-                                         Object => $client
-               },
-               fileno($client->_udp) => {Mode   => q[ro],
-                                         Object => $client
-               }
+              {($okay_tcp
+                ? (fileno($client->_tcp) => {Mode => q[ro], Object => $client}
+                    )
+                : ()
+               ),
+               ($okay_udp
+                ? (fileno($client->_udp) => {Mode => q[ro], Object => $client}
+                    )
+                : ()
+               )
               },
               q[_sockets() returns the dht object and the client itself]
     );
-    ok($bt_top->do_one_loop(1),       q[do_one_loop(1)]);
-    ok($bt_top->do_one_loop(1.25),    q[do_one_loop(1.25)]);
-    ok($bt_top->do_one_loop(0.25),    q[do_one_loop(0.25)]);
-    ok($bt_top->do_one_loop(q[test]), q[do_one_loop('test')]);
-    ok($bt_top->do_one_loop(-3),      q[do_one_loop(-3)]);
     warn(  q[This next bit (tries) to create a server, client, and ]
          . q[the accepted loopback...]);
     warn(q[Think happy thoughts.]);
@@ -153,74 +214,48 @@ SKIP: {
     my ($port, $packed_ip)
         = unpack_sockaddr_in(getsockname($client_list_port->_tcp));
     is($port, 20505, q[Correct port was opened (20505).]);
-    warn(q[Testing Net::BitTorrent->add_torrent()]);
-    is( $client->add_torrent(q[./t/900_data/950_torrents/952_multi.torrent]),
-        undef, q[Needs hash ref params]
-    );
-    $torrent = $client->add_torrent(
+}
+warn(q[Testing Net::BitTorrent->add_torrent()]);
+is($client->add_torrent(q[./t/900_data/950_torrents/952_multi.torrent]),
+    undef, q[Needs hash ref params]);
+$torrent = $client->add_torrent(
                       {Path => q[./t/900_data/950_torrents/952_multi.torrent],
                        BaseDir => $tempdir
                       }
-    );
-    isa_ok($torrent, q[Net::BitTorrent::Torrent], q[Added torrent]);
-    is_deeply($client->torrents,
-              {$$torrent => $torrent},
-              q[Net::BitTorrent correctly stores torrents]);
-    is( $client->add_torrent(
+);
+isa_ok($torrent, q[Net::BitTorrent::Torrent], q[Added torrent]);
+is_deeply($client->torrents,
+          {$$torrent => $torrent},
+          q[Net::BitTorrent correctly stores torrents]);
+is( $client->add_torrent(
                       {Path => q[./t/900_data/950_torrents/952_multi.torrent]}
-        ),
-        undef,
-        q[   ...but only once.]
-    );
-    is_deeply($client->torrents,
-              {$$torrent => $torrent},
-              q[   (Double check that to be sure)]);
-    ok($client->remove_torrent($torrent), q[Attempt to remove torrent]);
-    is($client->remove_torrent(q[Junk!]),
-        undef, q[Attempt to remove not-a-torrent]);
-    is_deeply($client->torrents, {}, q[   Check if torrent was removed]);
-    like($client->_peers_per_torrent, qr[^\d+$],
-         q[_peers_per_torrent() is a number]);
-    is($client->_schedule(),   undef, q[_schedule() is undef]);
-    is($client->_schedule({}), undef, q[_schedule({}) is undef]);
-    my $tmp = q[Random::Package];
-    ok( $client->_schedule(
-            {Object => bless(\$tmp, $tmp),
-             Time   => time,
-             Code   => sub {
-                 ok(1, q[Random::Package's scheduled ping]);
-                 }
-            }
-        ),
-        q[_schedule({Object => [...], Time => time, Code => sub{ [...] }})]
-    );
-    my $event = $client->_schedule(
-        {Object => bless(\$tmp, $tmp),
-         Time   => time,
-         Code   => sub {
-             fail(q[This event shouldh have been canceled]);
-             }
-        }
-    );
-    ok($client->_cancel($event), q[_cancel([...])]);
-    ok($client->do_one_loop(1),  q[do_one_loop]);
-    ok($client->as_string(),     q[as_string()]);
-    ok($client->as_string(1),    q[as_string(1)]);
+    ),
+    undef,
+    q[   ...but only once.]
+);
+is_deeply($client->torrents,
+          {$$torrent => $torrent},
+          q[   (Double check that to be sure)]);
+ok($client->remove_torrent($torrent), q[Attempt to remove torrent]);
+is($client->remove_torrent(q[Junk!]),
+    undef, q[Attempt to remove not-a-torrent]);
+is_deeply($client->torrents, {}, q[   Check if torrent was removed]);
+like($client->_peers_per_torrent, qr[^\d+$],
+     q[_peers_per_torrent() is a number]);
+ok($client->as_string(),  q[as_string()]);
+ok($client->as_string(1), q[as_string(1)]);
 SKIP: {
-        skip(q[UDP-based tests have been disabled.],
-             (      $test_builder->{q[Expected_Tests]}
-                  - $test_builder->{q[Curr_Test]}
-             )
-        ) if not $okay_udp;
-        isa_ok($client->_dht, q[Net::BitTorrent::DHT], q[DHT is active]);
-        ok($client->_use_dht, q[DHT is enabled by default]);
-        is($client->_set_use_dht(0), 0, q[DHT has been disabled]);
-        ok(!$client->_use_dht, q[DHT is disabled]);
-        is($client->_set_use_dht(0), 0, q[DHT has been disabled (round two)]);
-        ok(!$client->_use_dht,       q[DHT is disabled (round two)]);
-        ok($client->_set_use_dht(1), q[DHT has been enabled (round three?)]);
-        ok($client->_use_dht,        q[DHT is active (round house?)]);
-    }
+    skip(q[UDP-based tests have been disabled.],
+         ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+    ) if not $okay_udp;
+    isa_ok($client->_dht, q[Net::BitTorrent::DHT], q[DHT is active]);
+    ok($client->_use_dht, q[DHT is enabled by default]);
+    is($client->_set_use_dht(0), 0, q[DHT has been disabled]);
+    ok(!$client->_use_dht, q[DHT is disabled]);
+    is($client->_set_use_dht(0), 0, q[DHT has been disabled (round two)]);
+    ok(!$client->_use_dht,       q[DHT is disabled (round two)]);
+    ok($client->_set_use_dht(1), q[DHT has been enabled (round three?)]);
+    ok($client->_use_dht,        q[DHT is active (round house?)]);
 }
 __END__
 Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>

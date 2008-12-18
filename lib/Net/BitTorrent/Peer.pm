@@ -694,7 +694,7 @@ END
                 }
             }
         }
-        if (not grep { $_ == 0 } @{$piece->{q[Blocks_Recieved]}}) {
+        if (not grep { !$_ } @{$piece->{q[Blocks_Recieved]}}) {
             if ($_torrent{refaddr $self}->_check_piece_by_index($index)
                 and defined $_torrent{refaddr $self})
             {   for my $p ($_torrent{refaddr $self}->_peers) {
@@ -869,7 +869,7 @@ END
                 {   my (undef, $packed_ip)
                         = unpack_sockaddr_in(
                                         getpeername($_socket{refaddr $self}));
-                    $_client{refaddr $self}->_dht->_add_node(
+                    $_client{refaddr $self}->_dht->add_node(
                                               {ip   => inet_ntoa($packed_ip),
                                                port => $packet->{q[p]}
                                               }
