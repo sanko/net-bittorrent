@@ -43,9 +43,6 @@ package Net::BitTorrent::DHT;
         $nodes{refaddr $self}   = {};
         $tid{refaddr $self}     = q[aaaaa];
 
-        # resume backend
-        $self->_restore($args->{q[Resume]}) if $args->{q[Resume]};
-
         # Boot
         $_client{refaddr $self}->_schedule(
                                           {Code => sub { shift->_pulse() },
@@ -81,11 +78,19 @@ package Net::BitTorrent::DHT;
         return $node_id{refaddr + $_[0]};
     }
 
+    sub nodes {
+        return if defined $_[1];
+        return [map { {ip => $_->{q[ip]}, port => $_->{q[port]}} }
+                values %{$nodes{refaddr + $_[0]}}];
+    }
+
     # Setters | Private
-    #sub _set_node_id {
-    #    return if not defined $_[1];
-    #    return $node_id{refaddr + $_[0]} = $_[1];
-    #}
+    sub _set_node_id {
+        return if not defined $_[1];
+        return $node_id{refaddr + $_[0]} = $_[1];
+    }
+
+    # Methods | Public
     sub add_node {
         my ($self, $args) = @_;
         return if !$_client{refaddr $self}->_use_dht;
@@ -619,44 +624,6 @@ package Net::BitTorrent::DHT;
         return ++$tid{refaddr $self};
     }
 
-    # Methods | Public | Alpha
-    sub resume_data {
-        my ($self, $raw) = @_;
-        my $_nodes = q[];
-        my %resume = (
-            q[.t] => time,
-            ($raw ? (q[.r] => 1) : ()),
-            id    => $node_id{refaddr $self},
-            nodes => [
-                map {
-                    {ip => $_->{q[ip]}, port => $_->{q[port]}}
-                    } values %{$nodes{refaddr $self}}
-            ]
-        );
-        $resume{q[.sanko]}   = sha1_hex(bencode(\%resume));
-        $resume{q[.version]} = $VERSION;
-        return $raw ? (\%resume) : bencode(\%resume);
-    }
-
-    sub _restore {
-        my ($self, $resume) = @_;
-        return if !$resume;
-        my %resume = ref $resume ? %{$resume} : %{bdecode($resume)};
-        return    # brain dead validation
-            if !(   %resume
-                 && $resume{q[.sanko]}
-                 && $resume{q[.version]}
-                 && $resume{q[id]}
-                 && defined $resume{q[nodes]}    # may be empty
-                 && version->new(delete $resume{q[.version]})
-                 <= version->new($VERSION)
-                 && delete $resume{q[.sanko]} eq sha1_hex(bencode(\%resume))
-            );
-        $node_id{refaddr $self} = $resume{q[id]};
-        for my $_node (@{$resume{q[nodes]}}) { $self->add_node($_node); }
-        return 1;
-    }
-
     sub as_string {
         my ($self, $advanced) = @_;
         my $dump = !$advanced ? $node_id{refaddr $self} : sprintf <<'END',
@@ -736,17 +703,10 @@ This is an advanced method and should not (normally) should not be used.
 Get the Node ID used to identify this L<client|/Net::BitTorrent> in the
 DHT swarm.
 
-=item C<resume_data ( [ RAW ] )>
+=item C<nodes ( )>
 
-One end of Net::BitTorrent's resume system.  This method returns the
-data as specified in
-L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"Resume API"> in either
-bencoded form or as a raw hash (if you have other plans for the data)
-depending on the boolean value of C<RAW>.
-
-See also:
-L<Resume API|Net::BitTorrent::Notes/"Resume API"> in
-L<Net::BitTorrent::Notes|Net::BitTorrent::Notes>
+Returns a list of nodes from the routing table in a format suitable for
+handing off to L<add_node( )|/"add_node ( { [...] } )"> one by one.
 
 =item C<as_string ( [ VERBOSE ] )>
 

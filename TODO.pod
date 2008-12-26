@@ -8,13 +8,9 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
-=item * documentation and safety checks for newly rewritten DHT code
+=item * Flesh out the test suite
 
-=item * BEP 9: Extension for Peers to Send Metadata Files
-
-=item * ut_pex ...despite it being undocumented
-
-=item * resume API version numbers
+=item * Document DHT stuff in N::B::Protocol
 
 =back
 
@@ -24,12 +20,14 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =item * DHT callbacks (?)
 
-=item * Fast Ext (Fast set)
-
-=item * Public quick resume interface
+=item * Fast Ext (fast set use)
 
 =item * Make trackers keep track of their own complete/incomplete tally
 rather than stuffing their value in the parent tier.
+
+=item * BEP 9: Extension for Peers to Send Metadata Files
+
+=item * ut_pex ...despite it being undocumented
 
 =back
 

@@ -8,9 +8,10 @@ use Time::HiRes qw[sleep];
 use lib q[../lib];
 use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent::Util qw[:bencode];
+use Net::BitTorrent::Torrent qw[:status];
 use Net::BitTorrent;
 $|++;
-my ($dir, $chk, $int, $VERSION, $port, $ver, $res, @tor, %opts)
+my ($dir, $chk, $int, $VERSION, $port, $ver, @tor, %opts)
     = (q[./], 1, 1, sprintf q[%.3f], (qw$Rev$)[1] / 1000);
 GetOptions(
     q[check!]      => \$chk,
@@ -22,24 +23,48 @@ GetOptions(
         );
     },
     q[options=s%] => sub { $opts{$_[1]} = $_[2] if $_[1] =~ m[^_set] },
-    q[port:i] => \$port,
-    q[resume]     => \$res,                                  # undocumented
+    q[port:i]     => \$port,
     q[torrent=s@] => \@tor,
-    q[version]    => sub { exit printf qq[$0 v$VERSION] },
+    q[version] => sub { exit printf qq[$0 v$VERSION] },
 ) || pod2usage(2);
 @tor = grep {-f} @tor, @ARGV;
 pod2usage({-verbose  => 99,
            -sections => q[Synopsis|Author],
           }
-) if !@tor && !$res;
-if ($res && -f q[resume.dat]) {
-    open my $D, q[<], q[resume.dat];
-    sysread($D, $res, -s $D);
+) if !@tor;
+my $bt = new Net::BitTorrent({LocalPort => $port})
+    or croak q[Failed to create Net::BitTorrent object];
+
+sub piece_status {
+    my $args   = pop;
+    my $t      = $args->{q[Torrent]};
+    my $have   = grep {$_} split //, unpack q[b*], $t->bitfield;
+    my $wanted = grep {$_} split //, unpack q[b*], $t->_wanted;
+    return printf qq[%s: %04d|%s|%4d/%4d|% 3.2f%%\r],
+        pop, $args->{q[Index]}, $t->as_string(), $have, $t->piece_count,
+        100 - ($wanted / $t->piece_count * 100);
 }
-my $bt = new Net::BitTorrent({LocalPort => $port,
-                              ($res ? (Resume => $res) : ())
-                             }
-) or croak q[Failed to create Net::BitTorrent object];
+
+sub trans_status {
+    printf qq[%-10s p:%15s:%-5d i:%4d o:%7d l:%5d  \r],
+        shift, $_[0]->{q[Peer]}->_host, $_[0]->{q[Peer]}->_port,
+        $_[0]->{q[Payload]}{q[Index]},
+        $_[0]->{q[Payload]}{q[Offset]},
+        $_[0]->{q[Payload]}{q[Length]};
+}
+
+sub save {
+    for my $torrent (values %{$bt->torrents || {}}) {
+        open my $TORRENT, q[>], $torrent->path or next;
+        syswrite($TORRENT, $torrent->resume_data) or next;
+    }
+}
+$SIG{q[INT]} = sub {
+    save();
+    $int = $int + 3 > time ? exit : time;
+    print join qq[\n], map { $_->as_string(1) } $bt, values %{$bt->torrents};
+};
+END { save if $bt }
 $bt->on_event(
     q[incoming_packet],
     sub {
@@ -58,47 +83,20 @@ $bt->on_event(
 $bt->on_event(q[piece_hash_pass], sub { piece_status(q[pass], $_[1]); });
 $bt->on_event(q[piece_hash_fail], sub { piece_status(q[fail], $_[1]); });
 for my $path (@tor) {
-    my $obj = $bt->add_torrent({Path => $path, BaseDir => $dir})
-        || carp(qq[Cannot load '$path': $^E]) && next;
-    $obj->hashcheck if $chk;
+    my $obj = $bt->add_torrent({Path    => $path,
+                                BaseDir => $dir,
+                                Status  => ($chk ? START_AFTER_CHECK : ())
+                               }
+    ) || next;
+    $obj->status & CHECKED || $obj->hashcheck;
     printf qq[Loaded '$path' [%s...%s%s]\n],
-        $obj->infohash =~ m[^(.{4}).+(.{4})$],
-        $obj->private ? q[|No DHT] : q[];
-    for (keys %opts) { $obj->$_($opts{$_}) if $obj->can($_); }
+        $obj->infohash =~ m[^(.{4}).+(.{4})$], $obj->private ? q[] : q[|DHT];
 }
 $bt->on_event(q[file_error], sub { carp $_[1]->{q[Message]} });
-$SIG{q[INT]} = sub {
-    resume();
-    $int = $int + 3 > time ? exit : time;
-    print $bt->as_string(1)
-        . (join qq[\n], map { $_->as_string(1) } values %{$bt->torrents})
-        . qq[\n--> Press Ctrl-C again within 3 seconds to exit <--\n];
-};
-for (keys %opts) { $bt->$_($opts{$_}) if $bt->can($_); }
+for my $obj ($bt, values %{$bt->torrents}) {
+    for my $opt (keys %opts) { $obj->$opt($opts{$opt}) if $obj->can($opt); }
+}
 $bt->do_one_loop(0.25) && sleep(0.50) while 1;
-
-sub piece_status {
-    my $args = pop;
-    my $t    = $args->{q[Torrent]};
-    my $have = grep {$_} split //, unpack q[b*], $t->bitfield;
-    return printf qq[%s: %04d|%s|%4d/%4d|% 3.2f%%\r],
-        pop, $args->{q[Index]}, $t->as_string(), $have,
-        $t->piece_count, $have / $t->piece_count * 100;
-}
-
-sub trans_status {
-    printf qq[%-10s p:%15s:%-5d i:%4d o:%7d l:%5d  \r],
-        shift, $_[0]->{q[Peer]}->_host, $_[0]->{q[Peer]}->_port,
-        $_[0]->{q[Payload]}{q[Index]},
-        $_[0]->{q[Payload]}{q[Offset]},
-        $_[0]->{q[Payload]}{q[Length]};
-}
-
-sub resume {
-    open my $D, q[>], q[resume.dat] or return;
-    syswrite $D, $bt->resume_data;
-}
-END { resume() if $bt; }
 
 =pod
 

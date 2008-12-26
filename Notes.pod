@@ -85,24 +85,27 @@ L<Net::BitTorrent::Torrent::start( )|Net::BitTorrent::Torrent/"start( )">
 
 =head2 Quick Resume a .torrent Session Between Client Sessions
 
-Note: This section describes resume functionality as of C<v0.043_005>.
+Note: This section describes resume functionality as of C<v0.045>.
 
-Net::BitTorrent has a complete resume system which is capable of resuming
-single torrents, DHT data, or even client-wide data and settings.
+C<Net::BitTorrent> has a complete resume system which is capable of
+resuming single torrents, but manually restoring DHT data, or even
+client-wide data and settings is trivial.
 
-
-
-The resume data is meant to be tamper proof and will be ignored when the
-data seems off, so there are a few things to remember when handling it:
+The resume data is not checked for tampering, so there are a few things
+to remember when handling it:
 
 =over
 
-=item Resume data will contain binary data so if you're storing the data
+=item 1.
+
+Resume data will contain binary data so if you're storing the data
 to a file, you B<MUST> use C<binmode( )>, (preferably) C<syswrite( )> and
 C<sysread()>, or whatever your favorite way to write raw bytes happens to
 be.
 
-=item Resume data contains the last-modified times of all related files
+=item 2.
+
+Resume data contains the last-modified times of all related files
 so make sure gathering resume data is the last thing you do and be
 careful with any media players which modify metadata as these will cause
 you nothing but trouble.
@@ -112,57 +115,107 @@ you nothing but trouble.
 To resume a single torrent, use a variation of the following to save the
 data...
 
- [ ... ]
- my $data = $torrent->resume_data();
- open my $D, '>'  $torrent->path . '.dat';
- syswrite $D, $torrent->resume_data();
+ my $torrent = $bt->add_torrent( { Path=> 'some.torrent', [...] });
+
+ # later...
+
+ rename $torrent->path, $torrent->path . '.bak' # keep a backup just in case
+ open my $D, '>'  $torrent->path;
+ syswrite $D, $torrent->resume_data(); # save current state to disk
  close $D;
 
-...and use something like this to restore it...
+To resume, simply load the new .torrent file as usual:
 
- [ ... ]
+ my $torrent = $bt->add_torrent( { Path=> 'some.torrent', [...] });
 
- open( my($FH), '<' 'some.torrent.dat');
- sysread($FH, my ($RESTORE), -s $FH);
- close $FH;
+...and unless C<Net::BitTorrent> decides the resume data is bad, you'll
+start right were you left off. I would suggest storing resume data on a
+regular basis while the client runs and again on exit.
 
- my $torrent = $bt->add_torrent( { [...] });
- $torrent->_restore($RESTORE);
+=head2 Save and Restore Client-wide State and DHT Data
 
-You'll notice that C<Net::BitTorrent::Torrent->_restore()> is a private,
-undocumented method.  This is to discourage use in favor of client-wide
-resume.
+Unless you've hard coded everything, being able to restore client-wide
+state is a necessary feature.  Besides, DHT can be very slow to boot
+without a good set of initial nodes and the spec states that the local
+nodeID should not change very often, so resume is a useful thing.
 
-Note: The current version of
-L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> does not
-automatically load the .torrent file for you on resume unless you are
-restoring a full, client-wide dataset. Keep reading...
+I would use a hash with the following keys:
 
-For client wide data, things are a bit easier;
-L<Net::BitTorrent|Net::BitTorrent> automatically reloads any .torrent
-files listed in the resume data for you. So, for example, data stored
-like so...
+=over
 
-  use Net::BitTorrent;
+=item C<.hash>
 
-  # [ ... ]
+This would be a SHA-1 hash of the bencoded data in the C<.t>, C<dht>,
+C<nodes>, and C<torrents> keys. On restore, I would use this to validate
+the data in case it was tampered with.
 
-  open my $D, q[>], q[resume.dat] or return;
-  syswrite $D, $bt->resume_data;
+=item C<.t>
 
+Timestamp.
 
-...can be restored like this...
+=item C<.version>
 
-  use Net::BitTorrent;
+To avoid problems (API changes, etc.), I would use an API version
+number and ignore resume data created with a newer/incompatible version.
+This value would not be included in the SHA-1 digest used to prevent
+tampering.
 
-  open my $D, q[<], q[resume.dat];
-  sysread($D, my ($DATA), -s $D);
+=item C<dht>
 
-  my $bt = new Net::BitTorrent( { Resume => $DATA } );
+A hash with the following keys:
 
-  # [ ... ]
+=over
 
-...and all related .torrent files will be queued.
+=item C<id>
+
+The local node ID used in the DHT swarm.  To obtain this, see
+L<node_id( )|Net::BitTorrent::DHT/"node_id( )">.
+
+=item C<nodes>
+
+List of nodes in the DHT routing table.
+
+To make life easy, each node would be a hash with the following keys:
+
+=over
+
+=item C<ip>
+
+IP or hostname of the remote node.
+
+=item C<port>
+
+UDP port number the remote port has been contacted on.
+
+=back
+
+A list of nodes with this format is obtained from
+L<nodes ( )|Net::BitTorrent::DHT/"nodes ( )">.  To reload these later,
+use the L<add_node ( )|Net::BitTorrent::DHT/"add_node ( { [...] } )">
+method.
+
+=back
+
+=item C<settings>
+
+These would be any client-wide settings I allow users to change.
+
+=item C<torrents>
+
+This would be a list of filenames, their current status, and some sort of
+verification that the .torrent file hasn't been replaced; the infohash
+would do.
+
+=back
+
+I would save a bencoded version of this data in a file for later.  For
+now, putting all of this into practice is an exercise for the reader.
+
+Note: Reloading the data may require using otherwise private methods
+(specifically the private C<Net::BitTorrent::DHT-E<gt>_set_node_id( )>
+method). Changes to private methods are not listed in the changelog
+found in this distribution but they are noted in the public SVN
+repository's log.
 
 =head2 Set File Priorities
 
@@ -430,199 +483,54 @@ is a list of both stable and experimental workarounds by OS:
 
 =head2 Resume API
 
-C<Net::BitTorrent> goes out of its way to make sure the resume data is
-valid and hasn't been modified.
+C<Net::BitTorrent::Torrent>'s resume data is stored in the bencoded
+.torrent file under a key named 'net-bittorrent'.  To retrieve this data,
+use the L<resume_data( )|Net::BitTorrent::Torrent/"resume_data( [ RAW ] )">
+method of L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>.
+
+I<Note: The structure and data held in the resume data is subject to
+change in future versions.>
 
 =head3 Data Structure
 
 Parsed resume data is a simple hash containing the following keys:
 
-I<Note: The structure and data held in the resume data is subject to
-change in future API versions.>
-
 =over
-
-=item C<.r>
-
-Boolean value based on how the data was requested.  Raw data has this
-value set to true.  Bencoded data may not have this key at all.
-
-=item C<.sanko>
-
-This is a SHA-1 hash of the bencoded data in the C<settings>, C<dht>,
-C<torrents>, C<.t> C<.r> (when set) keys. On restore, this is used to
-validate the data in case it was tampered with.
 
 =item C<.t>
 
-Timestamp.
+Timestamp when data was gathered.
 
 =item C<.version>
 
-Version of L<Net::BitTorrent|Net::BitTorrent> used to gather this data.
-To avoid problems (API changes, etc.), L<Net::BitTorrent|Net::BitTorrent>
-will not load resume data created with a higher version. I<Note: In the
-future, this will depend on a resume API version number.>  This value is
-not included in the SHA-1 digest used to prevent tampering.
+API version used to gather data.  To avoid problems (API changes, etc.),
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>
+will not load resume data created with a higher version.
 
-=item C<dht>
+=item C<bitfield>
 
-DHT can be very slow to boot without a good set of initial nodes and the
-spec states that the local nodeID should not change very often, so resume
-is a useful thing...
+A bitvector representing the pieces we already have.
 
-C<dht> is a hash with the following keys:
+=item C<files>
 
-=over
-
-=item C<.r>
-
-Boolean value based on how the data was requested.  Raw data has this
-value set to true.  Bencoded data may not have this key at all.
-
-=item C<.sanko>
-
-This is a SHA-1 hash of the bencoded data in the C<.r> (when set), C<.t>,
-C<id>, and C<nodes> keys. On restore, this is used to validate the data
-in case it was tampered with.
-
-=item C<.t>
-
-Timestamp.
-
-=item C<.version>
-
-Version of L<Net::BitTorrent::DHT|Net::BitTorrent::DHT> used to gather
-this data.  To avoid problems (API changes, etc.),
-L<Net::BitTorrent::DHT|Net::BitTorrent::DHT> will not load resume data
-created with a higher version. I<Note: In the future, this will depend on
-a resume API version number.>  This value is not included in the SHA-1
-digest used to prevent tampering.
-
-=item C<id>
-
-The local node ID.
-
-=item C<nodes>
-
-List of nodes in the routing table.  Each node is a hash with the
-following keys:
+A list of hashes (one for each file in the .torrent) with the following
+keys:
 
 =over
 
-=item C<ip>
+=item C<mtime>
 
-IP or hostname of the remote node.
+The modified times for the files (or C<0> if the file does not exist).
 
-=item C<port>
+=item C<priority>
 
-UDP port number the remote port has been contacted on.
+The file's download priority.
 
 =back
 
-=back
-
-=item C<settings>
-
-These are the client-wide settings and are subject to change.  Currently,
-this hash contains the following keys:
-
-=over
-
-=item C<peerid>
-
-The L<peer id|Net::BitTorrent::Version/"Peer ID Specification"> generated
-by L<Net::BitTorrent::Version|Net::BitTorrent::Version> to identify us in
-the swarm.
-
-=back
-
-Currently, there is no verification of data in this section. ...but this
-too shall change.
-
-=item C<torrents>
-
-Contains a hash where keys are infohashes and values contain the
-following keys:
-
-=over
-
-=item C<.r>
-
-Boolean value based on how the data was requested.  Raw data has this
-value set to true.  Bencoded data may not have this key at all.
-
-=item C<.sanko>
-
-This is a SHA-1 hash of the bencoded data in the C<.r> (when set), C<.t>,
-C<id>, and C<nodes> keys. On restore, this is used to validate the data
-in case it was tampered with.
-
-=item C<.t>
-
-Timestamp.
-
-=item C<.version>
-
-Version of L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> used to
-gather this data.  To avoid problems (API changes, etc.),
-L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> will not load resume
-data created with a higher version. I<Note: In the future, this will
-depend on a resume API version number.>  This value is not included in
-the SHA-1 digest used to prevent tampering.
-
-=item C<basedir>
-
-Base directory used for storage.
-
-=item C<block_length>
-
-Default size of outgoing requests.
-
-=item C<dht>
-
-Boolean value weather or not DHT is enabled for this torrent.  Currently,
-this is based on the privacy flag in the original metadata.
-
-=item C<downloaded>
-
-How much piece data has been downloaded for this.
-
-=item C<have>
-
-The bitfield.
-
-=item C<infohash>
-
-The infohash. Duh.
-
-=item C<nodes>
+=item C<peers>
 
 Compact list of peers we've found either through DHT or from a tracker.
-
-=item C<path>
-
-Filename of the original .torrent.
-
-=item C<prio>
-
-List containing the current file priorities.
-
-=item C<status>
-
-The current status of the torrent.
-
-=item C<touch>
-
-List of modified times for the related files.
-
-=item C<trackers>
-
-List of trackers related to this torrent.
-
-=item C<uploaded>
-
-Amount of piece data we have sent to remote peers.
 
 =item C<working>
 
@@ -643,9 +551,9 @@ Size of blocks in piece.
 
 Size of final block in piece.
 
-=item C<Blocks_Recieved>
+=item C<Blocks_Received>
 
-Bitfield representing which blocks have been recieved and written to
+Bitfield representing which blocks have been received and written to
 disk.
 
 =item C<Endgame>
@@ -669,8 +577,6 @@ Priority based (partially) on the piece's containing file.
 
 Boolean value dependent on how long ago we received a block contained
 within this piece.
-
-=back
 
 =back
 
@@ -815,13 +721,8 @@ please visit http://sankorobinson.com/net-bittorrent/.
 =item Receive SVN Commit and Issue Tracker Updates
 
 The preferred way is to subscribe to one of the feeds of the announce
-group.  Both ATOM 1.0 and RSS 2.0 feeds are provided; see
-L<http://groups.google.com/group/net-bittorrent-announce/feeds> for a
-list.
-
-To have each message delivered to your mailbox, subscribe to the read
-only announce group by visiting
-L<http://groups.google.com/group/net-bittorrent-announce>.
+and discussion group.  Both ATOM 1.0 and RSS 2.0 feeds are provided;
+see http://groups.google.com/group/net-bittorrent/feeds for a list.
 
 =item Public Mailinglist
 
@@ -829,13 +730,13 @@ Rather than contacting me directly (which you're welcome to do, it's
 just nice having a searchable, public archive), general questions and
 comments should be posted to the C<Net::BitTorrent> mailing list.  To
 subscribe to the list or view the archive, visit
-L<http://groups.google.com/group/net-bittorrent-discuss>.
+http://groups.google.com/group/net-bittorrent.
 
 =item Issue Tracker
 
-Use L<http://code.google.com/p/net-bittorrent/issues/list> for bug
-tracking.  Please include as much information as possible and review the
-list L<above|/"Bug Reporting">.
+Use http://code.google.com/p/net-bittorrent/issues/list for bug
+tracking.  Please include as much information as possible and review
+the list L<above|/"Bug Reporting">.
 
 =item Stalk Me While I Tinker
 

@@ -18,7 +18,7 @@ my $test_builder = Test::More->builder;
 my $build        = Module::Build->current;
 my %torrents     = ();
 _locate_torrents();
-plan tests => int(6 + (80 * scalar keys %torrents));
+plan tests => int(6 + (81 * scalar keys %torrents));
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
@@ -62,8 +62,14 @@ SKIP: {
         }
         is($torrent->path, rel2abs($dot_torrent),
             q[Absolute paths returned from path()]);
-        is_deeply($torrent->raw_data, _raw_data($_key),
-                  sprintf q[Raw data for %s torrent looks good.], $_key);
+        is_deeply($torrent->raw_data(1), _raw_data($_key),
+                  sprintf q[Totally raw data for %s torrent looks good.],
+                  $_key);
+        is_deeply(scalar(bdecode($torrent->raw_data)),
+                  _raw_data($_key),
+                  sprintf q[bencoded raw data for %s torrent looks good.],
+                  $_key
+        );
         is( $torrent->infohash,
             _infohash($_key),
             sprintf q[Infohash checks out as %s (%s)],

@@ -13,10 +13,8 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
-    my @CONTENTS
-        = \
-        my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
-            %_packed_host, %_event);
+    my @CONTENTS = \my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
+                        %_packed_host, %_event);
 
     sub new {
         my ($class, $args) = @_;
@@ -94,17 +92,17 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                 $self->_client->peerid(),
                 ___pack64($_tier{refaddr $self}->_torrent->downloaded()),
                 ___pack64(
-                   $_tier{refaddr $self}
-                       ->_torrent->raw_data->{q[info]}{q[piece length]} * sum(
-                       split(q[],
-                             unpack(
+                     $_tier{refaddr $self}->_torrent->raw_data(1)
+                         ->{q[info]}{q[piece length]} * sum(
+                         split(q[],
+                               unpack(
                                    q[b*],
                                    ($_tier{refaddr $self}->_torrent->_wanted()
                                         || q[]
                                    )
-                             )
-                       )
-                       )
+                               )
+                         )
+                         )
                 ),
                 ___pack64($_tier{refaddr $self}->_torrent->uploaded()),
                 (  $_event{refaddr $self} eq q[completed] ? 1
@@ -112,7 +110,8 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
                  : $_event{refaddr $self} eq q[stopped]   ? 3
                  : 0
                 ),
-                0, $^T, 200, $self->_client->_tcp_port;
+                0, $^T, 200, $self->_client->_tcp_port
+                || 0;
             $_outstanding_requests{refaddr $self}{$tid} = {Timestamp => time,
                                                            Attempt   => 1,
                                                            Packet => $packet,

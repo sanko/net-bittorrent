@@ -7,7 +7,7 @@ package Net::BitTorrent;
     use List::Util qw[max];
     use Time::HiRes;
     use Socket qw[/inet_/ SOCK_STREAM SOCK_DGRAM SOL_SOCKET PF_INET SOMAXCONN
-        /pack_sockaddr_in/];
+        /pack_sockaddr_in/ SO_REUSEADDR];
     use Carp qw[carp];
     use Digest::SHA qw[sha1_hex];
     use POSIX qw[];
@@ -61,13 +61,6 @@ package Net::BitTorrent;
                 = Net::BitTorrent::DHT->new({Client => $self});
             $_peerid{refaddr $self} = Net::BitTorrent::Version::gen_peerid();
             $_connections{refaddr $self} = {};
-
-            # resume backend
-            $self->_restore($args->{q[Resume]}) if $args->{q[Resume]};
-
-            # LocalHost and LocalPort can override Resume data
-            # XXX - ...but what happends when the resume data has
-            #       different host:port combinations for TCP and UDP?
             $host = $args->{q[LocalHost]}
                 if defined $args->{q[LocalHost]};
             @ports
@@ -293,6 +286,18 @@ package Net::BitTorrent;
         else { $_packed_host = inet_aton($host) }
         socket(my ($_tcp), PF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
             or return;
+
+       # - What is the difference between SO_REUSEADDR and SO_REUSEPORT?
+       #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
+       # - setsockopt - what are the options for ActivePerl under Windows NT?
+       #    [http://perlmonks.org/?node_id=63280]
+       #      setsockopt($_tcp, SOL_SOCKET, SO_REUSEADDR, pack(q[l], 1))
+       #         or return;
+       # SO_REUSEPORT is undefined on Win32... Boo...
+       #if ($reuse_port and defined SO_REUSEPORT) {       # XXX - undocumented
+       #   setsockopt($_udp, SOL_SOCKET, SO_REUSEPORT, pack(q[l], 1))
+       #       or return;
+       #}
         bind($_tcp, pack_sockaddr_in($port, $_packed_host))
             or return;
         listen($_tcp, 1) or return;
@@ -347,6 +352,18 @@ package Net::BitTorrent;
         else { $_packed_host = inet_aton($host) }
         socket(my ($_udp), PF_INET, SOCK_DGRAM, getprotobyname(q[udp]))
             or return;
+
+       # - What is the difference between SO_REUSEADDR and SO_REUSEPORT?
+       #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
+       # - setsockopt - what are the options for ActivePerl under Windows NT?
+       #    [http://perlmonks.org/?node_id=63280]
+       #     setsockopt($_udp, SOL_SOCKET, SO_REUSEADDR, pack(q[l], 1))
+       #        or return;
+       # SO_REUSEPORT is undefined on Win32... Boo...
+       #if ($reuse_port and defined SO_REUSEPORT) {       # XXX - undocumented
+       #   setsockopt($_udp, SOL_SOCKET, SO_REUSEPORT, pack(q[l], 1))
+       #       or return;
+       #}
         bind($_udp, pack_sockaddr_in($port, $_packed_host))
             or return;
         $_connections{refaddr $self}{fileno $_udp} = {Object => $self,
@@ -647,107 +664,6 @@ package Net::BitTorrent;
         return join q[], map {chr} @reserved;
     }
 
-    # Methods | Public | Resume
-    sub resume_data {
-        my ($self, $raw) = @_;
-
-        #die ref \$self->_dht->_boot_nodes;
-        #die ref $self->_dht->_boot_nodes;
-        my %resume = (
-            q[.t] => time,
-            ($raw ? (q[.r] => 1) : ()),
-            dht      => $self->_dht->resume_data(1),
-            settings => {
-                _connections_per_host =>
-                    $_connections_per_host{refaddr $self},
-                _half_open   => $_half_open{refaddr $self},
-                _max_dl_rate => $_max_dl_rate{refaddr $self},
-                _max_ul_rate => $_max_ul_rate{refaddr $self},
-                _part_touch  => 0,                              # TODO
-                _peers_per_torrent => $_peers_per_torrent{refaddr $self},
-                _tcp_host => $self->_tcp_host,                  # TODO
-                _tcp_port => $self->_tcp_port,                  # TODO
-                _udp_host => $self->_udp_host,                  # TODO
-                _udp_port => $self->_udp_port,                  # TODO
-                _use_dht  => $_use_dht{refaddr $self},
-                peerid    => $_peerid{refaddr $self}
-            },
-            torrents => {}
-        );
-        for my $torrent (values %{$self->torrents}) {
-            $resume{q[torrents]}{pack q[H40], $torrent->infohash}
-                = $torrent->resume_data(1);
-        }
-        $resume{q[.sanko]}   = sha1_hex(bencode(\%resume));
-        $resume{q[.version]} = $VERSION;
-        return $raw ? (\%resume) : bencode(\%resume);
-    }
-
-    sub _restore {
-        my ($self, $resume) = @_;
-        return if !$resume;
-        my %resume = ref $resume ? %{$resume} : %{bdecode($resume)};
-        return    # brain dead validation
-            if !(   %resume
-                 && $resume{q[.sanko]}
-                 && $resume{q[.version]}
-                 && $resume{q[.t]}
-                 && $resume{q[dht]}
-                 && $resume{q[settings]}
-                 && $resume{q[torrents]}
-                 && ref $resume{q[dht]}      eq q[HASH]
-                 && ref $resume{q[settings]} eq q[HASH]
-                 && ref $resume{q[torrents]} eq q[HASH]
-                 && version->new(delete $resume{q[.version]})
-                 <= version->new($Net::BitTorrent::VERSION)
-                 && delete $resume{q[.sanko]} eq sha1_hex(bencode(\%resume))
-            );
-        $_peers_per_torrent{refaddr $self}
-            = $resume{q[settings]}{q[_peers_per_torrent]};
-        $_connections_per_host{refaddr $self}
-            = $resume{q[settings]}{q[_connections_per_host]};
-        $_half_open{refaddr $self}   = $resume{q[settings]}{q[_half_open]};
-        $_max_dl_rate{refaddr $self} = $resume{q[settings]}{q[_max_dl_rate]};
-        $_max_ul_rate{refaddr $self} = $resume{q[settings]}{q[_max_ul_rate]};
-        $_use_dht{refaddr $self}     = $resume{q[settings]}{q[_use_dht]};
-        $_dht{refaddr $self} = Net::BitTorrent::DHT->new(
-                                {Client => $self, Resume => $resume{q[dht]}});
-        $_peerid{refaddr $self} = $resume{q[settings]}{q[peerid]};
-        $self->_socket_open_tcp($resume{q[settings]}{q[_tcp_host]},
-                                $resume{q[settings]}{q[_tcp_port]});
-        $self->_socket_open_udp($resume{q[settings]}{q[_udp_host]},
-                                $resume{q[settings]}{q[_udp_port]});
-
-=pod
-
-=begin todo
-
-{   _part_touch => 0,
-}
-
-=end todo
-
-=cut
-
-        #$self->_dht->_restore($resume{q[dht]});
-        for my $_quest (values %{$resume{q[torrents]}}) {
-            my $torrent = $self->_locate_torrent($_quest->{q[infohash]});
-            if (    !$torrent
-                and -f $_quest->{q[path]}
-                and $self->add_torrent({Path    => $_quest->{q[path]},
-                                        BaseDir => $_quest->{q[basedir]},
-                                        Resume  => $_quest
-                                       }
-                )
-                )
-            {   $torrent = $self->_locate_torrent($_quest->{q[infohash]});
-            }
-
-            #$torrent->_restore($_quest);
-        }
-        return 1;
-    }
-
     sub as_string {
         my ($self, $advanced) = @_;
         my $dump
@@ -789,6 +705,11 @@ END
     }
     DESTROY {
         my ($self) = @_;
+        close($_tcp{refaddr $self}) if $_tcp{refaddr $self};
+        close($_udp{refaddr $self}) if $_udp{refaddr $self};
+        foreach my $conn (values %{$_connections{refaddr $self}}) {
+            close($conn->{q[Object]}->_socket) if $conn->{q[Object]};
+        }
         for (@CONTENTS) { delete $_->{refaddr $self}; }
         return delete $REGISTRY{refaddr $self};
     }
@@ -855,11 +776,6 @@ L<Net::BitTorrent|Net::BitTorrent> will traverse the list, attempting to
 open on each of the ports until we succeed or run out of ports.
 
 Default: C<0> (any available, chosen by the OS)
-
-=item C<Resume>
-
-Resume data obtained through L<resume_data( )|/"resume_data ( [ RAW ] )">
-and used to restore the state of a previous C<Net::BitTorrent> session.
 
 =back
 
@@ -941,20 +857,6 @@ called.
 See also: L<torrents ( )|/"torrents ( )">,
 L<add_torrent ( )|/"add_torrent ( { ... } )">,
 L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>
-
-=item C<resume_data ( [ RAW ] )>
-
-One end of Net::BitTorrent's resume system.  This method returns the
-data as specified in
-L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"Resume API"> in either
-bencoded form or as a raw hash (if you have other plans for the data)
-depending on the boolean value of C<RAW>.
-
-See also:
-L<Resume API|Net::BitTorrent::Notes/"Resume API">
-and
-L<How do I quick Resume a .torrent Session Between Client Sessions?|Net::BitTorrent::Notes/"Quick Resume a .torrent Session Between Client Sessions">
-in L<Net::BitTorrent::Notes|Net::BitTorrent::Notes>
 
 =item C<torrents ( )>
 

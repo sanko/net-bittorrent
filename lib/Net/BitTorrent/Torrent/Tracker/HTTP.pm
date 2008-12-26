@@ -113,32 +113,32 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         my $infohash = $_tier{refaddr $self}->_torrent->infohash;
         $infohash =~ s|(..)|\%$1|g;
         my %query_hash = (
-               q[info_hash]  => $infohash,
-               q[peer_id]    => $_tier{refaddr $self}->_client->peerid(),
-               q[port]       => $_tier{refaddr $self}->_client->_tcp_port(),
-               q[uploaded]   => $_tier{refaddr $self}->_torrent->uploaded(),
-               q[downloaded] => $_tier{refaddr $self}->_torrent->downloaded(),
-               q[left]       => (
-                   $_tier{refaddr $self}
-                       ->_torrent->raw_data->{q[info]}{q[piece length]} * sum(
-                       split(q[],
-                             unpack(
-                                   q[b*],
-                                   ($_tier{refaddr $self}->_torrent->_wanted()
-                                        || q[]
-                                   )
-                             )
-                       )
-                       )
-               ),
-               q[key]        => $^T,
-               q[numwant]    => 200,
-               q[compact]    => 1,
-               q[no_peer_id] => 1,
-               ($_event{refaddr $self}
-                ? (q[event] => $_event{refaddr $self})
-                : ()
-               )
+            q[info_hash]  => $infohash,
+            q[peer_id]    => $_tier{refaddr $self}->_client->peerid(),
+            q[port]       => $_tier{refaddr $self}->_client->_tcp_port() || 0,
+            q[uploaded]   => $_tier{refaddr $self}->_torrent->uploaded(),
+            q[downloaded] => $_tier{refaddr $self}->_torrent->downloaded(),
+            q[left]       => (
+                $_tier{refaddr $self}->_torrent->raw_data(1)
+                    ->{q[info]}{q[piece length]} * sum(
+                    split(
+                        q[],
+                        unpack(
+                            q[b*],
+                            ($_tier{refaddr $self}->_torrent->_wanted() || q[]
+                            )
+                        )
+                    )
+                    )
+            ),
+            q[key]        => $^T,
+            q[numwant]    => 200,
+            q[compact]    => 1,
+            q[no_peer_id] => 1,
+            ($_event{refaddr $self}
+             ? (q[event] => $_event{refaddr $self})
+             : ()
+            )
         );
         my $url 
             = $path 
