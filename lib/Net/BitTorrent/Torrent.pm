@@ -25,7 +25,7 @@ package Net::BitTorrent::Torrent;
     use Net::BitTorrent::Torrent::Tracker;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 10; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
     my @CONTENTS = \my (%_client,       %path,     %_basedir,
                         %size,          %files,    %trackers,
@@ -47,33 +47,40 @@ package Net::BitTorrent::Torrent;
         my ($class, $args) = @_;
         my $self = bless \$class, $class;
         if ((!$args) || (ref($args) ne q[HASH])) {
-            carp q[Net::BitTorrent::Torrent->new({}) requires ]
+            carp q[Net::BitTorrent::Torrent->new({ }) requires ]
                 . q[parameters to be passed as a hashref];
             return;
         }
-        if ((!$args->{q[Path]}) || (not -f $args->{q[Path]})) {
+        if (!$args->{q[Path]}) {
             carp
                 sprintf(
-                q[Net::BitTorrent::Torrent->new({}) requires a 'Path' parameter]
+                q[Net::BitTorrent::Torrent->new({ }) requires a 'Path' parameter]
                 );
+            return;
+        }
+        if (not -f $args->{q[Path]}) {
+            carp
+                sprintf(
+                       q[Net::BitTorrent::Torrent->new({ }) cannot find '%s'],
+                       $args->{q[Path]});
             return;
         }
         if (($args->{q[Client]})
             && (   (!blessed $args->{q[Client]})
                 || (!$args->{q[Client]}->isa(q[Net::BitTorrent])))
             )
-        {   carp q[Net::BitTorrent::Torrent->new({}) requires a ]
+        {   carp q[Net::BitTorrent::Torrent->new({ }) requires a ]
                 . q[blessed Net::BitTorrent object in the 'Client' parameter];
             return;
         }
         if (    $args->{q[BlockLength]}
             and $args->{q[BlockLength]} !~ m[^\d+$])
-        {   carp q[Net::BitTorrent::Torrent->new({}) requires an ]
+        {   carp q[Net::BitTorrent::Torrent->new({ }) requires an ]
                 . q[integer 'BlockLength' parameter];
             delete $args->{q[BlockLength]};
         }
         if ($args->{q[Status]} and $args->{q[Status]} !~ m[^\d+$]) {
-            carp q[Net::BitTorrent::Torrent->new({}) requires an ]
+            carp q[Net::BitTorrent::Torrent->new({ }) requires an ]
                 . q[integer 'Status' parameter];
             delete $args->{q[Status]};
         }
@@ -84,15 +91,15 @@ package Net::BitTorrent::Torrent;
         if (not sysopen($TORRENT_FH, $args->{q[Path]}, O_RDONLY)) {
             carp
                 sprintf(
-                 q[Net::BitTorrent::Torrent->new({}) could not open '%s': %s],
-                 $args->{q[Path]}, $!);
+                q[Net::BitTorrent::Torrent->new({ }) could not open '%s': %s],
+                $args->{q[Path]}, $!);
             return;
         }
         flock($TORRENT_FH, LOCK_SH);
         if (sysread($TORRENT_FH, $TORRENT_RAW, -s $args->{q[Path]})
             != -s $args->{q[Path]})
         {   carp sprintf(
-                q[Net::BitTorrent::Torrent->new({}) could not read all %d bytes of '%s' (Read %d instead)],
+                q[Net::BitTorrent::Torrent->new({ }) could not read all %d bytes of '%s' (Read %d instead)],
                 -s $args->{q[Path]},
                 $args->{q[Path]}, length($TORRENT_RAW)
             );
@@ -239,8 +246,8 @@ package Net::BitTorrent::Torrent;
                      && $raw_data{refaddr $self}{q[net-bittorrent]}{q[files]}
                      [$_index]{q[mtime]}
                     )
-                    || ((stat($files{refaddr $self}->[$_index]->path))[9]||0
-                        != $raw_data{refaddr $self}{q[net-bittorrent]}
+                    || ((stat($files{refaddr $self}->[$_index]->path))[9]
+                        || 0 != $raw_data{refaddr $self}{q[net-bittorrent]}
                         {q[files]}[$_index]{q[mtime]})
                     )
                 {   ${$status{refaddr $self}} |= START_AFTER_CHECK;
@@ -1070,32 +1077,46 @@ package Net::BitTorrent::Torrent;
     sub as_string {
         my ($self, $advanced) = @_;
         my $wanted = $self->_wanted;
-        my $dump = !$advanced ? $self->infohash : sprintf <<'END',
+        my $dump
+            = !$advanced ? $self->infohash : sprintf <<'END',
 Net::BitTorrent::Torrent
-Path: %s
-Name: %s
-Storage: %s
-Infohash: %s
-Size: %s bytes
-Status: %d
-Progress: %3.2f%% complete (%d bytes up / %d bytes down)
+Path:            %s
+Name:            %s
+Infohash:        %s
+Base Directory:  %s
+Size:            %s bytes
+Status:          %d (%s.)
+DHT Status:      %s
+Progress:        %3.2f%% complete (%d bytes up / %d bytes down)
 [%s]
 ----------
 Pieces: %d x %d bytes
 Working: %s
 %s
 ----------
-Files: %s
+ ...has %d file%s:
+  %s
 ----------
-Trackers: %s
+ ...has %d tracker tier%s:
+  %s
 ----------
-DHT Status: %s
 END
-            $self->path(),
-            $raw_data{refaddr $self}{q[info]}{q[name]},
-            $_basedir{refaddr $self}, $self->infohash(),
-            $size{refaddr $self},
-            ${$status{refaddr $self}},    # TODO: plain English
+            $self->path, $raw_data{refaddr $self}{q[info]}{q[name]},
+            $self->infohash(), $_basedir{refaddr $self}, $size{refaddr $self},
+            ${$status{refaddr $self}}, sub {
+            my ($s) = @_;
+            return ucfirst join q[, ],
+                grep {$_} ($s & LOADED) ? q[was loaded okay] : q[],
+                ($s & STARTED)           ? q[is started]                : q[],
+                ($s & CHECKING)          ? q[is currently hashchecking] : q[],
+                ($s & START_AFTER_CHECK) ? q[needs hashchecking]        : q[],
+                ($s & CHECKED)           ? q[has been checked]          : q[],
+                ($s & PAUSED)            ? q[has been paused]           : q[],
+                ($s & QUEUED) ? q[] : q[good for informational use only],
+                ($s & ERROR) ? q[but has an error] : q[];
+            }
+            ->(${$status{refaddr $self}}),
+            ($self->private ? q[Disabled [Private]] : q[Enabled.]),
             100 - (grep {$_} split //,
                    unpack(q[b*], $wanted) / $self->piece_count * 100
             ),
@@ -1103,11 +1124,10 @@ END
             sprintf q[%s],
             join q[],
             map {
-                vec(${$bitfield{refaddr $self}}, $_, 1)
-                    ? q[|]                # have
-                    : $_working_pieces{refaddr $self}{$_} ? q[*]    # working
-                    : vec($wanted, $_, 1) ? q[ ]                    # missing
-                    : q[x]    # don't want
+                vec(${$bitfield{refaddr $self}}, $_, 1) ? q[|]    # have
+                    : $_working_pieces{refaddr $self}{$_} ? q[*]  # working
+                    : vec($wanted, $_, 1) ? q[ ]                  # missing
+                    : q[x]                                        # don't want
                 } 0 .. $self->piece_count - 1
             ),
             $self->piece_count(),
@@ -1143,16 +1163,14 @@ END
                 } sort { $a <=> $b }
                 keys %{$_working_pieces{refaddr $self}}
             ),
-
-            #(map { qq[\n] . $_->as_string(0) } @{$files{refaddr $self}}),
-            scalar(@{$files{refaddr $self}}),
-            (scalar @{$trackers{refaddr $self}}
-             ?
-                 map { qq[\n] . $_->as_string($advanced) }
-                 @{$trackers{refaddr $self}}
-             : q[]
-            ),
-            ($self->private ? q[Disabled [Private]] : q[Enabled.]);
+            scalar @{$files{refaddr $self}},
+            @{$files{refaddr $self}} != 1 ? q[s] : q[],
+            join(qq[\n  ], map { $_->path } @{$files{refaddr $self}}),
+            scalar @{$trackers{refaddr $self}},
+            @{$trackers{refaddr $self}} != 1 ? q[s] : q[],
+            join(qq[\n  ],
+                 map { $_->urls->[0]->url } @{$trackers{refaddr $self}}
+            );
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
@@ -1393,7 +1411,7 @@ One end of Net::BitTorrent's resume system.  This method returns the
 data as specified in
 L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"Resume API"> in either
 bencoded form or as a raw hash (if you have other plans for the data)
-depending on the boolean value of the optinal C<RAW> parameter.
+depending on the boolean value of the optional C<RAW> parameter.
 
 See also:
 L<Resume API|Net::BitTorrent::Notes/"Resume API">

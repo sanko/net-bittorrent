@@ -12,7 +12,7 @@ package Net::BitTorrent::Torrent::Tracker;
     use version qw[qv];
     our $SVN = q[$Id$];
     our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
-    my (@CONTENTS) = \my (%torrent, %_urls, %complete, %incomplete);
+    my (@CONTENTS) = \my (%torrent, %urls, %complete, %incomplete);
     my %REGISTRY;
 
     sub new {
@@ -42,9 +42,9 @@ package Net::BitTorrent::Torrent::Tracker;
         weaken $torrent{refaddr $self};
         $complete{refaddr $self}   = 0;
         $incomplete{refaddr $self} = 0;
-        $_urls{refaddr $self}      = [];
+        $urls{refaddr $self}       = [];
         for my $_url (@{$args->{q[URLs]}}) {
-            push @{$_urls{refaddr $self}},
+            push @{$urls{refaddr $self}},
                 ($_url =~ m[^http://]i
                  ? q[Net::BitTorrent::Torrent::Tracker::HTTP]
                  : q[Net::BitTorrent::Torrent::Tracker::UDP]
@@ -57,18 +57,18 @@ package Net::BitTorrent::Torrent::Tracker;
                              }
         ) if $torrent{refaddr $self}->status & 128;
         weaken($REGISTRY{refaddr $self} = $self);
-        @{$_urls{refaddr $self}} = shuffle(@{$_urls{refaddr $self}});
+        @{$urls{refaddr $self}} = shuffle(@{$urls{refaddr $self}});
         return $self;
     }
 
     # Accessors | Public
     sub incomplete { return $incomplete{refaddr +shift} }
     sub complete   { return $complete{refaddr +shift} }
+    sub urls       { return $urls{refaddr +shift}; }
 
     # Accessors | Private
     sub _client  { return $torrent{refaddr +shift}->_client; }
     sub _torrent { return $torrent{refaddr +shift}; }
-    sub _urls    { return $_urls{refaddr +shift}; }
 
     # Methods | Private
     sub _set_complete {
@@ -84,15 +84,15 @@ package Net::BitTorrent::Torrent::Tracker;
     sub _shuffle {
         my ($self) = @_;
         return (
-             push(@{$_urls{refaddr $self}}, shift(@{$_urls{refaddr $self}})));
+               push(@{$urls{refaddr $self}}, shift(@{$urls{refaddr $self}})));
     }
 
     sub _announce {
         my ($self, $event) = @_;
         return if not defined $self;
-        return if not defined $_urls{refaddr $self};
-        return if not scalar @{$_urls{refaddr $self}};
-        return $_urls{refaddr $self}->[0]->_announce($event ? $event : ());
+        return if not defined $urls{refaddr $self};
+        return if not scalar @{$urls{refaddr $self}};
+        return $urls{refaddr $self}->[0]->_announce($event ? $event : ());
     }
 
     sub as_string {
@@ -107,8 +107,8 @@ Number of URLs: %d
 END
             $complete{refaddr $self},
             $incomplete{refaddr $self},
-            scalar(@{$_urls{refaddr $self}}),
-            join qq[\r\n    ], map { $_->_url() } @{$_urls{refaddr $self}};
+            scalar(@{$urls{refaddr $self}}),
+            join qq[\r\n    ], map { $_->url() } @{$urls{refaddr $self}};
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 
@@ -161,6 +161,13 @@ swarm.
 
 Returns the number of incomplete peers the tracker says are present in
 the swarm.
+
+=item C<urls()>
+
+Returns a list of related
+L<Net::BitTorrent::Torrent::Tracker::HTTP|Net::BitTorrent::Torrent::Tracker::HTTP>
+and L<Net::BitTorrent::Torrent::Tracker::UDP|Net::BitTorrent::Torrent::Tracker::UDP>
+objects.
 
 =item C<as_string ( [ VERBOSE ] )>
 

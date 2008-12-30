@@ -41,10 +41,12 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         return $self;
     }
 
+    # Accessors | Public
+    sub url { my ($self) = @_; return $_url{refaddr $self}; }
+
     # Accesors | Private
     sub _socket { return $_socket{refaddr +shift}; }
     sub _tier   { return $_tier{refaddr +shift}; }
-    sub _url    { return $_url{refaddr +shift}; }
 
     # Methods | Private
     sub _announce {
@@ -113,10 +115,10 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
         my $infohash = $_tier{refaddr $self}->_torrent->infohash;
         $infohash =~ s|(..)|\%$1|g;
         my %query_hash = (
-            q[info_hash]  => $infohash,
-            q[peer_id]    => $_tier{refaddr $self}->_client->peerid(),
-            q[port]       => $_tier{refaddr $self}->_client->_tcp_port() || 0,
-            q[uploaded]   => $_tier{refaddr $self}->_torrent->uploaded(),
+            q[info_hash] => $infohash,
+            q[peer_id]   => $_tier{refaddr $self}->_client->peerid(),
+            q[port]     => ($_tier{refaddr $self}->_client->_tcp_port() || 0),
+            q[uploaded] => $_tier{refaddr $self}->_torrent->uploaded(),
             q[downloaded] => $_tier{refaddr $self}->_torrent->downloaded(),
             q[left]       => (
                 $_tier{refaddr $self}->_torrent->raw_data(1)
@@ -358,6 +360,10 @@ constructor should not be used directly.
 =head1 Methods
 
 =over
+
+=item C<url ( )>
+
+Returns the related HTTP URL according to the original metadata.
 
 =item C<as_string ( [ VERBOSE ] )>
 

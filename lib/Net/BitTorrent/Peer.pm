@@ -10,7 +10,7 @@ package Net::BitTorrent::Peer;
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 6; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];

@@ -21,7 +21,7 @@ package Net::BitTorrent;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \my (%_tcp,                  %_udp,
                %_schedule,             %_tid,
@@ -39,28 +39,28 @@ package Net::BitTorrent;
         my ($class, $args) = @_;
         my $self = bless \$class, $class;
         my ($host, @ports) = (q[0.0.0.0], (0));
+
+        # Defaults
+        $_peers_per_torrent{refaddr $self}    = 100;
+        $_connections_per_host{refaddr $self} = 2;
+        $_half_open{refaddr $self}            = 8;
+        $_max_dl_rate{refaddr $self}          = 0;
+        $_k_dl{refaddr $self}                 = 0;
+        $_max_ul_rate{refaddr $self}          = 0;
+        $_k_ul{refaddr $self}                 = 0;
+        $_torrents{refaddr $self}             = {};
+        $_tid{refaddr $self}                  = qq[\0] x 5;
+        $_use_dht{refaddr $self}              = 1;
+        $_dht{refaddr $self} = Net::BitTorrent::DHT->new({Client => $self});
+        $_peerid{refaddr $self}      = Net::BitTorrent::Version::gen_peerid();
+        $_connections{refaddr $self} = {};
+
         if (defined $args) {
             if (ref($args) ne q[HASH]) {
                 carp q[Net::BitTorrent->new({}) requires ]
                     . q[parameters to be passed as a hashref];
                 return;
             }
-
-            # Defaults
-            $_peers_per_torrent{refaddr $self}    = 100;
-            $_connections_per_host{refaddr $self} = 2;
-            $_half_open{refaddr $self}            = 8;
-            $_max_dl_rate{refaddr $self}          = 0;
-            $_k_dl{refaddr $self}                 = 0;
-            $_max_ul_rate{refaddr $self}          = 0;
-            $_k_ul{refaddr $self}                 = 0;
-            $_torrents{refaddr $self}             = {};
-            $_tid{refaddr $self}                  = qq[\0] x 5;
-            $_use_dht{refaddr $self}              = 1;
-            $_dht{refaddr $self}
-                = Net::BitTorrent::DHT->new({Client => $self});
-            $_peerid{refaddr $self} = Net::BitTorrent::Version::gen_peerid();
-            $_connections{refaddr $self} = {};
             $host = $args->{q[LocalHost]}
                 if defined $args->{q[LocalHost]};
             @ports
@@ -169,8 +169,8 @@ package Net::BitTorrent;
     }
 
     # Accessors | Public
-    sub peerid   { return $_peerid{refaddr +shift} }
-    sub torrents { return $_torrents{refaddr +shift} }
+    sub peerid   { my ($self) = @_; return $_peerid{refaddr $self} }
+    sub torrents { my ($self) = @_; return $_torrents{refaddr $self} }
 
     # Methods | Public
     sub do_one_loop {
@@ -436,7 +436,7 @@ package Net::BitTorrent;
                                         q[Net::BitTorrent::Torrent::Tracker::UDP]
                                         )
                                         and $_->_packed_host eq $paddr
-                                } @{$_tier->_urls};
+                                } @{$_tier->urls};
                                 if (   $tracker
                                     && $tracker->_on_data($paddr, $data))
                                 {   $__UDP_OBJECT_CACHE{refaddr $self}{$paddr}
@@ -535,7 +535,7 @@ package Net::BitTorrent;
                               q[Removing .torrent torrent from local client]);
         }
         for my $_tracker (@{$torrent->trackers}) {
-            $_tracker->_urls->[0]->_announce(q[stopped]);
+            $_tracker->urls->[0]->_announce(q[stopped]);
         }
         return delete $_torrents{refaddr $self}{$torrent->infohash};
     }

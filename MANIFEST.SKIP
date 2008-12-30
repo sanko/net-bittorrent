@@ -50,13 +50,16 @@ scripts/gui\.pl
 scripts/gui\.xrc
 scripts/bittorrent_full.pl
 scripts/POE\.pl
-scripts/web.*gui\.pl
+scripts/webg?ui\.pl
 scripts/x\.pl
 scripts/.*\.zip
 scripts/.*\.js
 scripts/.*\.bencode
 scripts/.*\.torrent
 scripts/.+/.+
+
+# Don't package silly stuff
+tatoeba/.+/.+
 
 # Don't package downloaded/perif files
 \.avi

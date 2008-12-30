@@ -8,7 +8,24 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
-=item * Flesh out the test suite
+=item * Flesh out the test suite and example scripts
+
+Create a series of bad .torrent files to test N::B::Torrent with:
+
+=over
+
+=item * invalid pieces string
+
+=over
+
+=item * string length does not % 40 evenly
+
+=item * string is shorter than 40 chars
+
+=item * (piece_length * num_pieces) != total_size_of_torrent
+
+=back
+
 
 =item * Document DHT stuff in N::B::Protocol
 
@@ -37,33 +54,13 @@ rather than stuffing their value in the parent tier.
 
 =item * Net::BitTorrent::Notes
 
-=item * Complete test suite
-
-Create a series of bad .torrent files to test N::B::Torrent with:
-
-=over
-
-=item * invalid pieces string
-
-=over
-
-=item * string length does not % 40 evenly
-
-=item * string is shorter than 40 chars
-
-=item * (piece_length * num_pieces) != total_size_of_torrent
-
-=back
-
-=back
-
 =item * Per-torrent transfer limits.
 
 =item * improve file handling
 
 =over
 
-=item * large torrents (> 4G) typically require 64bit math
+=item * large files (> 4G) typically require 64bit math
 
 =item * intermediate .piece file to store incoming blocks
 

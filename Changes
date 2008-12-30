@@ -1,4 +1,26 @@
-Version 0.045 |
+Version 0.046 |
+
+ API Changes/Compatibility Information:
+  - Net::BitTorrent::Torrent::HTTP->url() is now public
+  - Net::BitTorrent::Torrent::UDP->url() is now public
+
+ Resolved Issues/Bugfixes:
+  - In 0.045, if no arguments were passed, Net::BitTorrent->new() failed to
+      set set defaults, generate a peerid, or create a DHT object.
+
+ Protocol/Behavioral Changes:
+  - None
+
+ Documentation/Sample Code/Test Suite:
+  - The first two in a series of demonstration scripts are in the /tatoeba/ directory
+  - Minor tweaking and clean up in Net::BitTorrent::Notes
+
+ Notes:
+  - This is a major bugfix release with which introduces no incompatabilities.
+    Upgrade is highly recommended.
+
+---
+Version 0.045 | 2008-12-26 17:17:16 -0500 (Fri, 26 Dec 2008)
 
  API Changes/Compatibility Information:
   - [Beta] Torrent resume system (see Net::BitTorrent::Notes).

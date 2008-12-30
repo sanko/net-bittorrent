@@ -1,11 +1,10 @@
-#!/usr/bin/perl
+#!perl -w -I../lib
 use strict;
 use warnings;
 use Getopt::Long;
 use Pod::Usage;
 use Carp qw[croak carp];
 use Time::HiRes qw[sleep];
-use lib q[../lib];
 use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent::Util qw[:bencode];
 use Net::BitTorrent::Torrent qw[:status];
@@ -171,6 +170,10 @@ You may pass several C<--options> parameters.
 Guess.
 
 =back
+
+=head1 See Also
+
+For more examples, see the files under the C</tatoeba/> directory.
 
 =head1 Author
 

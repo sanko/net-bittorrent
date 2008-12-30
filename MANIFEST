@@ -43,4 +43,6 @@ t/900_data/950_torrents/953_miniswarm.torrent
 t/900_data/950_torrents/954_perl-5.10.0.tar.gz.torrent
 t/900_data/950_torrents/955_unicode.torrent
 t/900_data/950_torrents/credits.txt
+tatoeba/000-basic.pl
+tatoeba/001-torrent-info.pl
 TODO.pod

@@ -114,12 +114,12 @@ SKIP: {
               q[Get related N::B::Torrent object]);
     is($tracker->_client->isa(q[Net::BitTorrent]),
         1, q[Get related Net::BitTorrent object]);
-    is_deeply($tracker->_urls,
+    is_deeply($tracker->urls,
               [bless(do { \(my $o = "http://example.com/announce") },
                      "Net::BitTorrent::Torrent::Tracker::HTTP"
                )
               ],
-              q[_urls]
+              q[urls]
     );
     warn(q[TODO: create a fake tracker and connect to it]);
 }

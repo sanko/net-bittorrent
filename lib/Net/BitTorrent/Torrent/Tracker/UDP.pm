@@ -55,10 +55,12 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
         return $self;
     }
 
+    # Accessors | Public
+    sub url { my ($self) = @_; return $_url{refaddr $self}; }
+
     # Accessors | Private
     sub _packed_host { return $_packed_host{refaddr +shift} }
     sub _tier        { return $_tier{refaddr +shift}; }
-    sub _url         { return $_url{refaddr +shift}; }
     sub _client      { return $_tier{refaddr +shift}->_client }
 
     # Methods | Private
@@ -341,6 +343,10 @@ constructor should not be used directly.
 =head1 Methods
 
 =over
+
+=item C<url ( )>
+
+Returns the related UDP 'URL' according to the original metadata.
 
 =item C<as_string ( [ VERBOSE ] )>
 

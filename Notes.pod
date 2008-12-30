@@ -21,8 +21,8 @@ client developers.  A few bits for users might slip in too.
             .---- Net::BitTorrent::Torrent
            /
           /   .--- Net::BitTorrent::DHT
-         /   /           \
-  Net::BitTorrent         `---- N::B::D::Node
+         /   /
+  Net::BitTorrent
          \
           `---- Net::BitTorrent::Peer
 
@@ -88,11 +88,8 @@ L<Net::BitTorrent::Torrent::start( )|Net::BitTorrent::Torrent/"start( )">
 Note: This section describes resume functionality as of C<v0.045>.
 
 C<Net::BitTorrent> has a complete resume system which is capable of
-resuming single torrents, but manually restoring DHT data, or even
-client-wide data and settings is trivial.
-
-The resume data is not checked for tampering, so there are a few things
-to remember when handling it:
+resuming single torrents.  The resume data is not checked for tampering,
+so there are a few things to remember when handling it:X<badresumedata>
 
 =over
 
@@ -115,7 +112,7 @@ you nothing but trouble.
 To resume a single torrent, use a variation of the following to save the
 data...
 
- my $torrent = $bt->add_torrent( { Path=> 'some.torrent', [...] });
+ my $torrent = $bt->add_torrent( { Path=> 'some.torrent' });
 
  # later...
 
@@ -126,11 +123,16 @@ data...
 
 To resume, simply load the new .torrent file as usual:
 
- my $torrent = $bt->add_torrent( { Path=> 'some.torrent', [...] });
+ my $torrent = $bt->add_torrent( { Path=> 'some.torrent' });
 
-...and unless C<Net::BitTorrent> decides the resume data is bad, you'll
-start right were you left off. I would suggest storing resume data on a
-regular basis while the client runs and again on exit.
+...and unless C<Net::BitTorrent> decides the resume data is
+L<bad|/badresumedata>, you'll start right were you left off. I would suggest
+storing resume data on a regular basis while the client runs and again on
+exit.
+
+For more on what exactly you're saving and the structure of the data, see
+L<Resume API|/"Resume API"> in the
+<Net::BitTorrent Internals/|"Net::BitTorrent Internals"> section.
 
 =head2 Save and Restore Client-wide State and DHT Data
 
@@ -217,7 +219,7 @@ method). Changes to private methods are not listed in the changelog
 found in this distribution but they are noted in the public SVN
 repository's log.
 
-=head2 Set File Priorities
+=head2 Set File Download Priorities
 
 See
 L<Net::BitTorrent::Torrent::File|Net::BitTorrent::Torrent::File/"priority( [NEWVAL] )">.
@@ -233,7 +235,8 @@ C<Net::BitTorrent> work.  Or not work.  It depends.
 
 =head2 Peer ID Specification
 
-Please see L<Net::BitTorrent::Version|Net::BitTorrent::Version>.
+Please see
+L<Net::BitTorrent::Version|Net::BitTorrent::Version/"Peer ID Specification">.
 
 =head2 Handling of Errors and Bad Data
 
@@ -405,7 +408,7 @@ standardization.
 =head3 Accepted BEPs
 
 These BEPs describe mechanisms that have been deployed in one or more
-BitTorrent implementations and have proven useful.  They may require
+BitTorrent implementations and have proved useful.  They may require
 minor revisions.  They await the blessing of the BDFL before they can be
 considered Final.
 
@@ -588,7 +591,18 @@ TODO
 
 =head3 Compatibility Notes
 
-TODO
+This section lists recent major changes in API or behavior between stable
+releases.  For older news see the F<Changes> file included with this
+distribution.  For detail see the SVN logs.
+
+=over
+
+=item v0.040
+
+Entire distribution was rewritten. Both the internal and the API have
+broken compatibility.
+
+=back
 
 =head1 Giving back
 
@@ -707,22 +721,20 @@ Ahhh.
 
 =head1 See Also
 
+=head2 Support and Information Links for C<Net::BitTorrent>
+
 =over
-
-=item Support and Information Links for C<Net::BitTorrent>
-
-=over 4
 
 =item The Project's Website
 
-For updates and links to the wiki and subversion repository access,
-please visit http://sankorobinson.com/net-bittorrent/.
+For updates and info on subversion repository access and the occasional
+long winded rant, please visit http://sankorobinson.com/net-bittorrent/.
 
 =item Receive SVN Commit and Issue Tracker Updates
 
-The preferred way is to subscribe to one of the feeds of the announce
-and discussion group.  Both ATOM 1.0 and RSS 2.0 feeds are provided;
-see http://groups.google.com/group/net-bittorrent/feeds for a list.
+The preferred way is to subscribe to one of the feeds provided by Google.
+ATOM feeds, Gadgets, and CSV files are provided for various data.  See
+http://code.google.com/p/net-bittorrent/feeds for a list.
 
 =item Public Mailinglist
 
@@ -730,7 +742,9 @@ Rather than contacting me directly (which you're welcome to do, it's
 just nice having a searchable, public archive), general questions and
 comments should be posted to the C<Net::BitTorrent> mailing list.  To
 subscribe to the list or view the archive, visit
-http://groups.google.com/group/net-bittorrent.
+http://groups.google.com/group/net-bittorrent.  Both ATOM 1.0 and RSS
+2.0 feeds are provided; see
+http://groups.google.com/group/net-bittorrent/feeds for a list.
 
 =item Issue Tracker
 
@@ -741,7 +755,7 @@ the list L<above|/"Bug Reporting">.
 =item Stalk Me While I Tinker
 
 Follow C<Net::BitTorrent>'s development on Twitter:
-http://twitter.com/Net_BitTorrent.
+http://twitter.com/net_bitTorrent.
 
 =item Ohloh
 
@@ -753,9 +767,9 @@ Wait, project cost: $65,430?  Yeah, okay!
 
 =back
 
-=item Other Recommend Open Source BitTorrent Clients
+=head2 Other Recommend Open Source BitTorrent Clients
 
-=over 4
+=over
 
 =item *
 
@@ -765,7 +779,7 @@ by the The BSD License.
 =item *
 
 Bitflu (L<http://bitflu.workaround.ch/>) is a full client written in
-(*nix oriented) Perl and available under the Perl/Artistic License.
+*nix oriented Perl.  It is available under the Perl/Artistic License.
 
 =item *
 
@@ -779,6 +793,10 @@ Arctic (L<http://dev.int64.org/arctic.html>) is a minimal client based on
 libtorrent, written in C++ and released under the MIT License.
 
 =back
+
+=head
+
+=over
 
 =item RFC 3986 (URI: Generic Syntax)
 

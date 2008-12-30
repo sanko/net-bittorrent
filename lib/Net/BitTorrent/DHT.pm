@@ -13,7 +13,7 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my @CONTENTS
         = \my (%_client, %tid, %node_id, %outstanding_p, %nodes, %tracking);
     my %REGISTRY;

@@ -59,7 +59,7 @@ sub ACTION_profile {
     if (-e 'nytprof.out') {
         my $pm_files =
             $self->rscan_dir(File::Spec->catdir($self->blib, 'lib'),
-                             file_qr('\.pm$'));
+                             qr[\.pm$]);
         my $cover_files
             = $self->rscan_dir('cover_db', sub { -f $_ and not /\.html$/ });
         $self->do_system(qw(cover -delete))
@@ -81,9 +81,12 @@ sub ACTION_tidy {
         return;
     }
     require Perl::Tidy;
+    my $demo_files =
+        $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
     for my $files ([keys(%{$self->script_files})],       # scripts first
                    [values(%{$self->find_pm_files})],    # modules
-                   [@{$self->find_test_files}]           # test suite last
+                   [@{$self->find_test_files}],          # test suite next
+                   [@{$demo_files}]                      # demos last
         )
     {   $files = [sort map { File::Spec->rel2abs(q[./] . $_) } @{$files}];
 
@@ -158,11 +161,14 @@ sub ACTION_wastetime {
 
 sub ACTION_spellcheck {
     my ($self) = @_;
+    my $demo_files =
+        $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
     for my $files (
         [keys(%{$self->script_files})],       # scripts first
         [values(%{$self->find_pm_files})],    # modules
-        [@{$self->find_test_files}],          # test suite and docs
-        [values(%{shift->_find_file_by_type(q[pod], q[.])})]
+        [@{$self->find_test_files}],          # test suite
+        [values(%{shift->_find_file_by_type(q[pod], q[.])})], # docs
+        [@{$demo_files}]                      # demos
         )
     {   $files = [sort map { File::Spec->rel2abs(q[./] . $_) } @{$files}];
         for my $file (@$files) {
@@ -179,12 +185,12 @@ sub ACTION_spellcheck {
 }
 SUBCLASS
 my $mb = $class->new(
-    module_name        => q[Net::BitTorrent],
-    license            => q[artistic_2],
-    dist_author        => q[Sanko Robinson <sanko@cpan.org>],
-    dist_abstract      => q[BitTorrent peer-to-peer protocol],
-    dist_version_from  => q[lib/Net/BitTorrent/Version.pm],
-    requires           => {
+    module_name       => q[Net::BitTorrent],
+    license           => q[artistic_2],
+    dist_author       => q[Sanko Robinson <sanko@cpan.org>],
+    dist_abstract     => q[BitTorrent peer-to-peer protocol],
+    dist_version_from => q[lib/Net/BitTorrent/Version.pm],
+    requires          => {
         q[Cwd]           => 0,
         q[Digest::SHA]   => 5.45,
         q[Errno]         => 0,
@@ -226,6 +232,7 @@ my $mb = $class->new(
     script_files => qw[scripts/bittorrent.pl],
     test_files   => \@tests,
     meta_merge   => {
+         no_index  => {directory => [q[tatoeba]]},
          resources => {
              bugtracker =>
                  q[http://code.google.com/p/net-bittorrent/issues/list],
@@ -237,7 +244,7 @@ my $mb = $class->new(
                  q[http://code.google.com/p/net-bittorrent/source/browse/]
          },
          keywords     => [qw[BitTorrent client peer p2p torrent socket dht]],
-         generated_by => q[Sanko Robinson <sanko@cpan.org>]
+         generated_by => q[Sanko Robinson version 1.0 (stable ...usually)]
     },
 );
 $mb->notes(okay_tcp          => $okay_tcp);
