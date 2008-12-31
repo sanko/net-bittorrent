@@ -25,7 +25,7 @@ package Net::BitTorrent::Torrent;
     use Net::BitTorrent::Torrent::Tracker;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
     my @CONTENTS = \my (%_client,       %path,     %_basedir,
                         %size,          %files,    %trackers,
@@ -589,7 +589,14 @@ package Net::BitTorrent::Torrent;
                        - scalar $self->_peers
              )
             )
-        {   last if not @nodes;
+        {    #last
+                #    if scalar(
+                #    grep {
+                #        $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
+                #            and not $_->{q[Object]}->peerid
+                #        } values %{$_client{refaddr $self}->_connections}
+                #    ) >= $_client{refaddr $self}->_half_open;
+            last if not @nodes;
             my $node = shift @nodes;
             my $ok   = $_client{refaddr $self}
                 ->_event(q[ip_filter], {Address => $node});
@@ -599,13 +606,6 @@ package Net::BitTorrent::Torrent;
                                             Torrent => $self
                                            }
                 );
-            last
-                if scalar(
-                grep {
-                    $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
-                        and not defined $_->{q[Object]}->peerid
-                    } values %{$_client{refaddr $self}->_connections}
-                ) >= $_client{refaddr $self}->_half_open;
         }
         return 1;
     }

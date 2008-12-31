@@ -60,6 +60,7 @@ scripts/.+/.+
 
 # Don't package silly stuff
 tatoeba/.+/.+
+tatoeba/.*.log$
 
 # Don't package downloaded/perif files
 \.avi

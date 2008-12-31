@@ -1,4 +1,21 @@
-Version 0.046 |
+Version 0.0XX |
+
+ API Changes/Compatibility Information:
+  - None
+
+ Resolved Issues/Bugfixes:
+  - None
+
+ Protocol/Behavioral Changes:
+  - None
+
+ Documentation/Sample Code/Test Suite:
+  - New debugging script in /tatoeba/002-debug.pl
+
+ Notes:
+  - None
+---
+Version 0.046 | 2008-12-30 18:25:17 -0500 (Tue, 30 Dec 2008)
 
  API Changes/Compatibility Information:
   - Net::BitTorrent::Torrent::HTTP->url() is now public

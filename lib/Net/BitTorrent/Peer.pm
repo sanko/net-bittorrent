@@ -10,7 +10,7 @@ package Net::BitTorrent::Peer;
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];
@@ -1370,29 +1370,40 @@ END
             (!$advanced ? q[%s:%s (%s)] : <<'ADVANCED'),
 Net::BitTorrent::Peer
 
-Address: %s:%s
-Peer ID: %s
-Torrent: %s
+Address:     %s:%s
+Peer ID:     %s
+Torrent:     %s
+Direction:   %s
 
-Current statuss:
- Interested: %s
- Interesting: %s
- Choked: %s
- Choking: %s
+Interested:  %s
+Interesting: %s
+Choked:      %s
+Choking:     %s
 
+Progress:
+[%s]
 ADVANCED
             ($self->_host || q[]),
             ($self->_port || q[]),
             ($peerid{refaddr $self} ? $peerid{refaddr $self} : q[Unknown]),
-            (defined $_torrent{refaddr $self}
+            (  $_torrent{refaddr $self}
              ? $_torrent{refaddr $self}->infohash
              : q[Unknown]
             ),
+            ($_incoming{refaddr $self} ? q[Incoming] : q[Outgoing]),
             (map { $_ ? q[Yes] : q[No] } ($_peer_interested{refaddr $self},
                                           $_am_interested{refaddr $self},
                                           $_am_choking{refaddr $self},
                                           $_peer_choking{refaddr $self}
              )
+            ),
+            ($_torrent{refaddr $self}
+             ? (sprintf q[%s],
+                join q[],
+                map { vec(${$_bitfield{refaddr $self}}, $_, 1) ? q[|] : q[ ] }
+                    0 .. $_torrent{refaddr $self}->piece_count - 1
+                 )
+             : q[NA]
             )
         );
         return defined wantarray ? $dump : print STDERR qq[$dump\n];

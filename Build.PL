@@ -238,8 +238,7 @@ my $mb = $class->new(
                  q[http://code.google.com/p/net-bittorrent/issues/list],
              homepage => q[http://sankorobinson.com/net-bittorrent/],
              license => q[http://www.perlfoundation.org/artistic_license_2_0],
-             MailingList =>
-                 q[http://groups.google.com/group/net-bittorrent-discuss],
+             MailingList => q[http://groups.google.com/group/net-bittorrent],
              repository =>
                  q[http://code.google.com/p/net-bittorrent/source/browse/]
          },
