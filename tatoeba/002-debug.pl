@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Net::BitTorrent;
 use Data::Dumper;
-use Time::HiRes qw[time];
+use Time::HiRes qw[time sleep];
 $|++;
 my $OLD_STDERR = \*STDERR;
 open *STDERR, q[>], q[net-bittorrent.log]

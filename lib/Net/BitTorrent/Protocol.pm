@@ -709,7 +709,7 @@ the BitTorrent spec:
 
 =over
 
-=item C<RESEREVED>
+=item C<RESERVED>
 
 ...is the 8 byte string used to represent a client's capabilities for
 extensions to the protocol.

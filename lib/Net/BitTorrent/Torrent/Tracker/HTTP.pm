@@ -12,7 +12,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
     use Net::BitTorrent::Util qw[:bencode uncompact];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \my (%_url, %_tier, %resolve, %_event, %_socket, %_data_out);
     my %REGISTRY;
@@ -51,6 +51,8 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
     # Methods | Private
     sub _announce {
         my ($self, $event) = @_;
+
+        #warn sprintf q[_announce(%s)], $event? qq['$event']:q[];
         if (defined $event) {
             if ($event !~ m[^(?:st(?:art|opp)|complet)ed$]) {
                 carp sprintf q[Invalid event for announce: %s], $event;
@@ -78,9 +80,15 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
                 : fcntl($_socket{refaddr $self}, F_SETFL, O_NONBLOCK)
             )
             )
-        {   carp
-                q[There was a problem making an outgoing socket non-blocking: ]
-                . $^E;
+        {   $_tier{refaddr $self}->_torrent->_event(
+                q[tracker_failure],
+                {Tracker => $self,
+                 Reason  => sprintf(
+                     q[There was a problem making an outgoing socket non-blocking: [%d] %s],
+                     $^E, $^E
+                 )
+                }
+            );
             return;
         }
         my $_inet_aton = inet_aton($host);
@@ -165,6 +173,8 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
 
     sub _rw {
         my ($self, $read, $write, $error) = @_;
+
+#Carp::cluck sprintf q[%s->_rw(%d, %d, %d)], __PACKAGE__, $read, $write, $error;
         my ($actual_read, $actual_write) = (0, 0);
         return if not defined $_tier{refaddr $self}->_client;
         if ($error) {
@@ -172,7 +182,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
             shutdown($_socket{refaddr $self}, 2);
             close $_socket{refaddr $self};
             $_tier{refaddr $self}->_client->_schedule(
-                {   Time => time + 300,
+                {   Time => time + 30,
                     Code => sub {
                         my ($s) = @_;
                         $_tier{refaddr $s}->_shuffle;

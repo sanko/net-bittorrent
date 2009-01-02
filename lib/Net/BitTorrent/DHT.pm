@@ -725,15 +725,7 @@ specification.  These will all be fixed in a future version.
 
 =item *
 
-Eats memory like whoa.
-
-=item *
-
 The routing table is flat.
-
-=item *
-
-Boots from router.bittorrent.com.
 
 =back
 

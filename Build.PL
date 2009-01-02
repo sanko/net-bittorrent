@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use File::Find;
-use Module::Build 0.30;
+use Module::Build;
 use Config;
 $|++;
 my $automated_testing = $ENV{q[AUTOMATED_TESTING]}
@@ -274,6 +274,21 @@ sub find_cb {
     return unless -T $_;
     return unless $_ =~ m[.+\.t$];
     return push @tests, $File::Find::name;
+}
+
+BEGIN {    # Tired of getting FAIL-mail from outdated build environments
+    if ($] < 5.008001) {    # 5+ years old-- anything less is just silly
+        warn sprintf
+            q[Perl v5.8.1 required--this is only v%vd, stopped],
+            $^V;
+        exit 0;
+    }
+    if ($Module::Build::VERSION < 0.3) {
+        warn sprintf
+            q[Module::Build version 0.3 required--this is only version %s],
+            $Module::Build::VERSION;
+        exit 0;
+    }
 }
 __END__
 Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>

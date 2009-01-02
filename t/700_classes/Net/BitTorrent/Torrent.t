@@ -233,8 +233,6 @@ SKIP: {
             warn $_torrent_Test->status;
             ok($_torrent_Test->status ^ $IS{q[Paused]},
                 sprintf q[ ...Status says we're started. (%s)], $_key);
-            warn
-                q[TODO: 'Bad' status like this one should fall back to default];
             my $_torrent_unchecked =
                 Net::BitTorrent::Torrent->new(
                                          {Path    => $dot_torrent,

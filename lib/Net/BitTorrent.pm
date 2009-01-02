@@ -21,7 +21,7 @@ package Net::BitTorrent;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \my (%_tcp,                  %_udp,
                %_schedule,             %_tid,
@@ -51,10 +51,12 @@ package Net::BitTorrent;
         $_torrents{refaddr $self}             = {};
         $_tid{refaddr $self}                  = qq[\0] x 5;
         $_use_dht{refaddr $self}              = 1;
-        $_dht{refaddr $self} = Net::BitTorrent::DHT->new({Client => $self});
-        $_peerid{refaddr $self}      = Net::BitTorrent::Version::gen_peerid();
-        $_connections{refaddr $self} = {};
 
+        # Internals
+        $_connections{refaddr $self} = {};
+        $_schedule{refaddr $self}    = {};
+        $_dht{refaddr $self} = Net::BitTorrent::DHT->new({Client => $self});
+        $_peerid{refaddr $self} = Net::BitTorrent::Version::gen_peerid();
         if (defined $args) {
             if (ref($args) ne q[HASH]) {
                 carp q[Net::BitTorrent->new({}) requires ]
@@ -530,13 +532,11 @@ package Net::BitTorrent;
                 q[Net::BitTorrent->remove_torrent(TORRENT) requires a blessed Net::BitTorrent::Torrent object];
             return;
         }
-        for my $_peer ($torrent->_peers) {
+        for my $_peer ($torrent->peers) {
             $_peer->_disconnect(
                               q[Removing .torrent torrent from local client]);
         }
-        for my $_tracker (@{$torrent->trackers}) {
-            $_tracker->urls->[0]->_announce(q[stopped]);
-        }
+        $torrent->stop;    # XXX - Should this be here?
         return delete $_torrents{refaddr $self}{$torrent->infohash};
     }
 
@@ -684,8 +684,13 @@ END
             unpack(q[H*], $_dht{refaddr $self}->node_id),
             $self->_tcp_host, $self->_tcp_port, $self->_udp_host,
             $self->_udp_port,
-            (scalar keys %{$_torrents{refaddr $self}}),
-            join(qq[\r\n], keys %{$_torrents{refaddr $self}});
+            (scalar keys %{$_torrents{refaddr $self}}), join(
+            qq[\r\n],
+            map {
+                sprintf q[%40s (%d: %s)], $_->infohash, $_->status,
+                    $_->_status_as_string()
+                } values %{$_torrents{refaddr $self}}
+            );
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
 

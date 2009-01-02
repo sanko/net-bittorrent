@@ -1,19 +1,25 @@
 Version 0.0XX |
 
- API Changes/Compatibility Information:
-  - None
+    API Changes/Compatibility Information:
+     * Net::BitTorrent::Torrent->peers() is now public
 
- Resolved Issues/Bugfixes:
-  - None
+    Resolved Issues/Bug Fixes:
+     * None
 
- Protocol/Behavioral Changes:
-  - None
+    Protocol/Behavioral Changes:
+     * N::B::T::Tracker::HTTP retry is now 30s on socket error (formerly 5m).
+     * N::B::Peer objects are disconnected if they don't complete handshake
+       within 30s.
 
- Documentation/Sample Code/Test Suite:
-  - New debugging script in /tatoeba/002-debug.pl
+    Documentation/Sample Code/Test Suite:
+     * New debugging demonstration in /tatoeba/002-debug.pl
+     * New threaded demonstration in /tatoeba/003-threads.pl
+     * New resume demonstration in /tatoeba/004-resume.pl
 
- Notes:
-  - None
+    Notes:
+     * No incompatible changes. Safe to upgrade from 0.046.
+     * Various N::B::Torrent status and internal schedule fixes were made none
+       of which really effect behavior.
 ---
 Version 0.046 | 2008-12-30 18:25:17 -0500 (Tue, 30 Dec 2008)
 
@@ -21,7 +27,7 @@ Version 0.046 | 2008-12-30 18:25:17 -0500 (Tue, 30 Dec 2008)
   - Net::BitTorrent::Torrent::HTTP->url() is now public
   - Net::BitTorrent::Torrent::UDP->url() is now public
 
- Resolved Issues/Bugfixes:
+ Resolved Issues/Bug fixes:
   - In 0.045, if no arguments were passed, Net::BitTorrent->new() failed to
       set set defaults, generate a peerid, or create a DHT object.
 
@@ -33,7 +39,7 @@ Version 0.046 | 2008-12-30 18:25:17 -0500 (Tue, 30 Dec 2008)
   - Minor tweaking and clean up in Net::BitTorrent::Notes
 
  Notes:
-  - This is a major bugfix release with which introduces no incompatabilities.
+  - This is a major bug fix release with which introduces no incompatibilities.
     Upgrade is highly recommended.
 
 ---
@@ -43,7 +49,7 @@ Version 0.045 | 2008-12-26 17:17:16 -0500 (Fri, 26 Dec 2008)
   - [Beta] Torrent resume system (see Net::BitTorrent::Notes).
   - Net::BitTorrent::Torrent->hashcheck() clears the bitfield when it begins.
 
- Resolved Issues/Bugfixes:
+ Resolved Issues/Bug Fixes:
   - Close related sockets on N::B::DESTROY (left behind FIN_WAIT1 on Win32).
 
  Protocol/Behavioral Changes:

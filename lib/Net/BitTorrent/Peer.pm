@@ -10,7 +10,7 @@ package Net::BitTorrent::Peer;
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];
@@ -109,7 +109,7 @@ END
                 #warn sprintf q[%d half open sockets!], $half_open;
                 return;
             }
-            if (scalar($args->{q[Torrent]}->_peers)
+            if (scalar($args->{q[Torrent]}->peers)
                 >= $args->{q[Torrent]}->_client->_peers_per_torrent)
             {   return;
             }
@@ -191,7 +191,20 @@ END
                                         Object => $self
                                        }
             );
-
+            $_client{refaddr $self}->_schedule(
+                {   Time => time + 30,
+                    Code => sub {
+                        my $s = shift;
+                        if (!$peerid{refaddr $s}) {
+                            weaken $s;
+                            $s->_disconnect(
+                                  q[Failed to complete handshake within 30s]);
+                        }
+                        return 1;
+                    },
+                    Object => $self
+                }
+            );
             if ($threads::shared::threads_shared) {
                 threads::shared::share($_bitfield{refaddr $self})
                     if defined $_bitfield{refaddr $self};
@@ -244,13 +257,17 @@ END
     # Methods | Private
     sub _rw {
         my ($self, $read, $write, $error) = @_;
+
+#Carp::cluck sprintf q[%s->_rw(%d, %d, %d)], __PACKAGE__, $read, $write, $error;
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
             $self->_disconnect(q[We aren't serving this torrent]);
             return;
         }
-        if ($error) {    #weaken $self; #$self->_disconnect($^E); return
+        if ($error) {
+            weaken $self;
+            $self->_disconnect($^E);
             return;
         }
         if (defined $_torrent{refaddr $self}
@@ -284,13 +301,13 @@ END
                                    $read,
                                    length($_data_in{refaddr $self})
             );
-            if (not $actual_read) {
+            if (!$actual_read) {
                 weaken $self;
                 $self->_disconnect(sprintf q[[%d] %s], $^E, $^E);
                 return;
             }
             else {
-                if (not defined $peerid{refaddr $self}) {
+                if (!$peerid{refaddr $self}) {
                     $_client{refaddr $self}
                         ->_event(q[peer_connect], {Peer => $self});
                 }
@@ -389,7 +406,7 @@ END
                 );
                 return;
             }
-            if (scalar($_torrent{refaddr $self}->_peers)
+            if (scalar($_torrent{refaddr $self}->peers)
                 >= $_client{refaddr $self}->_peers_per_torrent)
             {   $self->_disconnect(q[Enough peers already!]);
                 return;
@@ -663,7 +680,7 @@ END
         $piece->{q[Blocks_Received]}->[$request->{q[_vec_offset]}] = 1;
         $piece->{q[Slow]}                                          = 0;
         $piece->{q[Touch]}                                         = time;
-        for my $peer ($_torrent{refaddr $self}->_peers) {
+        for my $peer ($_torrent{refaddr $self}->peers) {
             for my $x (reverse 0 .. $#{$requests_out{refaddr $peer}}) {
                 if (    (defined $requests_out{refaddr $peer}->[$x])
                     and
@@ -697,7 +714,7 @@ END
         if (not grep { !$_ } @{$piece->{q[Blocks_Received]}}) {
             if ($_torrent{refaddr $self}->_check_piece_by_index($index)
                 and defined $_torrent{refaddr $self})
-            {   for my $p ($_torrent{refaddr $self}->_peers) {
+            {   for my $p ($_torrent{refaddr $self}->peers) {
                     $_data_out{$p} .= build_have($index);
                     $_client{refaddr $self}->_add_connection($p, q[rw]);
                 }
@@ -1322,7 +1339,7 @@ END
         return if $_torrent{refaddr $self}->status & 32;
         return if ${$_am_choking{refaddr $self}} == 0;
         if (scalar(
-                grep { $_->_am_choking == 0 } $_torrent{refaddr $self}->_peers
+                 grep { $_->_am_choking == 0 } $_torrent{refaddr $self}->peers
             ) <= 8
             )
         {   ${$_am_choking{refaddr $self}} = 0;

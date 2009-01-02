@@ -46,4 +46,6 @@ t/900_data/950_torrents/credits.txt
 tatoeba/000-basic.pl
 tatoeba/001-torrent-info.pl
 tatoeba/002-debug.pl
+tatoeba/003-threads.pl
+tatoeba/004-resume.pl
 TODO.pod
