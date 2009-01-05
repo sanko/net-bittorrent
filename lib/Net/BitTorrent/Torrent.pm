@@ -25,14 +25,14 @@ package Net::BitTorrent::Torrent;
     use Net::BitTorrent::Torrent::Tracker;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
-    my @CONTENTS = \my (%_client,       %path,     %_basedir,
-                        %size,          %files,    %trackers,
-                        %infohash,      %uploaded, %downloaded,
-                        %_nodes,        %bitfield, %_working_pieces,
-                        %_block_length, %raw_data, %status,
-                        %error,         %_event
+    my @CONTENTS = \my (%_client,  %path,            %_basedir,
+                        %size,     %files,           %trackers,
+                        %infohash, %uploaded,        %downloaded,
+                        %bitfield, %_working_pieces, %_block_length,
+                        %raw_data, %status,          %error,
+                        %_event,   %resume_path,     %_nodes
     );
     sub STARTED           {1}
     sub CHECKING          {2}
@@ -208,79 +208,94 @@ package Net::BitTorrent::Torrent;
         ${$status{refaddr $self}} = $args->{q[Status]};
         ${$status{refaddr $self}} |= LOADED;
         ${$error{refaddr $self}} = undef;
-        my $_start = 0;
 
-        # Resume system
-        if (   $raw_data{refaddr $self}{q[net-bittorrent]}
-            && $raw_data{refaddr $self}{q[net-bittorrent]}{q[.version]}
-            && $raw_data{refaddr $self}{q[net-bittorrent]}{q[.version]}
-            <= 1    # apiver
-            )
-        {   $_nodes{refaddr $self}
-                = $raw_data{refaddr $self}{q[net-bittorrent]}{q[nodes]};
-            my $_okay = 1;
-            for my $_index (0 .. $#{$files{refaddr $self}}) {
-                if ((!-f $files{refaddr $self}->[$_index]->path
-                     && $raw_data{refaddr $self}{q[net-bittorrent]}{q[files]}
-                     [$_index]{q[mtime]}
+        # Resume system v2
+        my $_start = 1;
+        $resume_path{refaddr $self} = undef;
+        if ($args->{q[Resume]}) {
+            $resume_path{refaddr $self} = $args->{q[Resume]};
+            my $_resume_data;
+            if (-f $args->{q[Resume]}) {
+                open(my ($_RD), q[<], $resume_path{refaddr $self});
+                sysread($_RD, $_resume_data, -s $_RD);
+                close $_RD;
+            }
+            if ($_resume_data) {
+                $_start       = 0;
+                $_resume_data = bdecode($_resume_data);
+
+                # Resume system
+                if (   $_resume_data->{q[.format]}
+                    && $_resume_data->{q[.format]} eq
+                    q[Net::BitTorrent resume]
+                    && $_resume_data->{q[.version]}
+                    && $_resume_data->{q[.version]} <= 2    # apiver
                     )
-                    || ((stat($files{refaddr $self}->[$_index]->path))[9]
-                        || 0 != $raw_data{refaddr $self}{q[net-bittorrent]}
-                        {q[files]}[$_index]{q[mtime]})
-                    )
-                {   ${$status{refaddr $self}} |= START_AFTER_CHECK;
-                    $_okay = 0;
+                {   $_nodes{refaddr $self}
+                        = $_resume_data->{q[peers]}
+                        ? $_resume_data->{q[peers]}
+                        : q[];
+                    my $_okay = 1;
+                    for my $_index (0 .. $#{$files{refaddr $self}}) {
+                        if ((!-f $files{refaddr $self}->[$_index]->path
+                             && $_resume_data->{q[files]}[$_index]{q[mtime]}
+                            )
+                            || ((stat($files{refaddr $self}->[$_index]->path))
+                                [9]
+                                || 0 != $_resume_data->{q[files]}[$_index]
+                                {q[mtime]})
+                            )
+                        {   ${$status{refaddr $self}} |= START_AFTER_CHECK;
+                            $_okay = 0;
+                        }
+                        $files{refaddr $self}->[$_index]->set_priority(
+                             $_resume_data->{q[files]}[$_index]{q[priority]});
+                    }
+                    if (!$_okay) {
+                        $self->_set_error(
+                                       q[Bad resume data. Please hashcheck.]);
+                    }
+                    else {
+                        ${$bitfield{refaddr $self}}
+                            = $_resume_data->{q[bitfield]};
+
+                        # Accept resume data is the same as hashchecking
+                        my $start_after_check
+                            = ${$status{refaddr $self}} & START_AFTER_CHECK;
+                        ${$status{refaddr $self}} ^= START_AFTER_CHECK
+                            if ${$status{refaddr $self}} & START_AFTER_CHECK;
+                        ${$status{refaddr $self}} ^= CHECKED
+                            if !(${$status{refaddr $self}} & CHECKED);
+                        if ($start_after_check) { $_start = 1; }
+
+                        # Reload Blocks
+                        for my $_piece (@{$_resume_data->{q[working]}}) {
+                            $_working_pieces{refaddr $self}
+                                {$_piece->{q[Index]}} = {
+                                Index            => $_piece->{q[Index]},
+                                Priority         => $_piece->{q[Priority]},
+                                Blocks_Requested => [
+                                     map { {} } 1 .. $_piece->{q[Block_Count]}
+                                ],
+                                Blocks_Received => [
+                                    map {
+                                        vec($_piece->{q[Blocks_Received]},
+                                            $_, 1)
+                                        } 1 .. $_piece->{q[Block_Count]}
+                                ],
+                                Block_Length => $_piece->{q[Block_Length]},
+                                Block_Length_Last =>
+                                    $_piece->{q[Block_Length_Last]},
+                                Block_Count => $_piece->{q[Block_Count]},
+                                Length      => $_piece->{q[Length]},
+                                Endgame     => $_piece->{q[Endgame]},
+                                Slow  => 1,     # $_piece->{q[Slow]},
+                                mtime => time
+                                };
+                        }
+                    }
                 }
-                $files{refaddr $self}->[$_index]->set_priority(
-                         $raw_data{refaddr $self}{q[net-bittorrent]}{q[files]}
-                             [$_index]{q[priority]});
             }
-            if (!$_okay) {
-                $self->_set_error(q[Bad resume data. Please hashcheck.]);
-            }
-            else {
-                ${$bitfield{refaddr $self}}
-                    = $raw_data{refaddr $self}{q[net-bittorrent]}
-                    {q[bitfield]};
-
-                # Accept resume data is the same as hashchecking
-                my $start_after_check
-                    = ${$status{refaddr $self}} & START_AFTER_CHECK;
-                ${$status{refaddr $self}} ^= START_AFTER_CHECK
-                    if ${$status{refaddr $self}} & START_AFTER_CHECK;
-                ${$status{refaddr $self}} ^= CHECKED
-                    if !(${$status{refaddr $self}} & CHECKED);
-                if ($start_after_check) { $_start = 1; }
-
-                # Reload Blocks
-                for my $_piece (
-                    @{$raw_data{refaddr $self}{q[net-bittorrent]}{q[working]}}
-                    )
-                {   $_working_pieces{refaddr $self}{$_piece->{q[Index]}} = {
-                        Index    => $_piece->{q[Index]},
-                        Priority => $_piece->{q[Priority]},
-                        Blocks_Requested =>
-                            [map { {} } 1 .. $_piece->{q[Block_Count]}],
-                        Blocks_Received => [
-                            map {
-                                vec($_piece->{q[Blocks_Received]}, $_, 1)
-                                } 1 .. $_piece->{q[Block_Count]}
-                        ],
-                        Block_Length      => $_piece->{q[Block_Length]},
-                        Block_Length_Last => $_piece->{q[Block_Length_Last]},
-                        Block_Count       => $_piece->{q[Block_Count]},
-                        Length            => $_piece->{q[Length]},
-                        Endgame           => $_piece->{q[Endgame]},
-                        Slow  => 1,     # $_piece->{q[Slow]},
-                        mtime => time
-                    };
-                }
-            }
-        }
-        else {
-
-            # No resume data was found so we'll just assume they want to start
-            $_start = 1;
         }
 
         # Threads stuff
@@ -312,18 +327,19 @@ package Net::BitTorrent::Torrent;
     }
 
     # Accessors | Public
-    sub infohash   { return $infohash{refaddr +shift}; }
-    sub trackers   { return $trackers{refaddr +shift}; }
-    sub bitfield   { return ${$bitfield{refaddr +shift}}; }
-    sub path       { return $path{refaddr +shift}; }
-    sub files      { return $files{refaddr +shift}; }
-    sub size       { return $size{refaddr +shift}; }
-    sub status     { return ${$status{refaddr +shift}}; }
-    sub downloaded { return $downloaded{refaddr +shift}; }
-    sub uploaded   { return $uploaded{refaddr +shift}; }
-    sub error      { return ${$error{refaddr +shift}}; }
-    sub comment    { return $raw_data{refaddr +shift}{q[comment]}; }
-    sub created_by { return $raw_data{refaddr +shift}{q[created by]}; }
+    sub infohash    { return $infohash{refaddr +shift}; }
+    sub trackers    { return $trackers{refaddr +shift}; }
+    sub bitfield    { return ${$bitfield{refaddr +shift}}; }
+    sub path        { return $path{refaddr +shift}; }
+    sub resume_path { return $resume_path{refaddr +shift}; }
+    sub files       { return $files{refaddr +shift}; }
+    sub size        { return $size{refaddr +shift}; }
+    sub status      { return ${$status{refaddr +shift}}; }
+    sub downloaded  { return $downloaded{refaddr +shift}; }
+    sub uploaded    { return $uploaded{refaddr +shift}; }
+    sub error       { return ${$error{refaddr +shift}}; }
+    sub comment     { return $raw_data{refaddr +shift}{q[comment]}; }
+    sub created_by  { return $raw_data{refaddr +shift}{q[created by]}; }
 
     sub creation_date {
         return $raw_data{refaddr +shift}{q[creation date]};
@@ -404,9 +420,10 @@ package Net::BitTorrent::Torrent;
     }
 
     # Accessors | Private
-    sub _client         { return $_client{refaddr +shift}; }
-    sub _block_length   { return $_block_length{refaddr +shift} }
-    sub _nodes          { return $_nodes{refaddr +shift}; }
+    sub _client       { return $_client{refaddr +shift}; }
+    sub _block_length { return $_block_length{refaddr +shift} }
+
+    #sub _nodes          { return $_nodes{refaddr +shift}; }
     sub _working_pieces { return $_working_pieces{refaddr +shift}; }
     sub _basedir        { return $_basedir{refaddr +shift}; }
 
@@ -554,14 +571,6 @@ package Net::BitTorrent::Torrent;
         $downloaded{refaddr $self} += (($amount =~ m[^\d+$]) ? $amount : 0);
     }
 
-    sub _append_nodes {
-        my ($self, $nodes) = @_;
-        return if !$nodes;
-        $_nodes{refaddr $self} ||= q[];
-        return $_nodes{refaddr $self}
-            = compact(uncompact($_nodes{refaddr $self} . $nodes));
-    }
-
     sub _new_peer {
         my ($self) = @_;
         return if not defined $_client{refaddr $self};
@@ -572,12 +581,15 @@ package Net::BitTorrent::Torrent;
                              }
         );
         return if (${$status{refaddr $self}} & CHECKING);
-        return if !${$status{refaddr $self}} & STARTED;
+        return if !(${$status{refaddr $self}} & STARTED);
         return if !(${$status{refaddr $self}} & QUEUED);
-        return if !$_nodes{refaddr $self};
+
+        # Don't bother if we're at the hard limit
         return
             if scalar $self->peers
                 >= $_client{refaddr $self}->_peers_per_torrent;
+
+        #
         my $half_open = scalar(
             grep {
                 $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
@@ -586,21 +598,49 @@ package Net::BitTorrent::Torrent;
         );
 
         #warn sprintf q[%d half open peers], $half_open;
+        # List of peers to make sure we're not already connected to this peer
+        my @peers = $self->peers;
+
+        # If we haven't any nodes in cache, gather them from various sources
+        if (!$_nodes{refaddr $self}) {
+            $_nodes{refaddr $self}
+                = $_client{refaddr $self}->_dht->_peers($self->infohash)
+                if !$self->private;
+            for my $tier (@{$trackers{refaddr $self}}) {
+                for my $url (@{$tier->urls}) {
+                    $_nodes{refaddr $self} .= $url->_peers;
+                }
+            }
+        }
+
+        # Don't bother if we haven't any nodes to try
+        return if !$_nodes{refaddr $self};
+
+        # Inflate the list and try them one-by-one
         my @nodes = uncompact($_nodes{refaddr $self});
         for ($half_open .. $_client{refaddr $self}->_half_open - 1) {
             last if !@nodes;
             my $node = shift @nodes;
-
-            #warn $node;
+            next
+                if scalar grep {
+                sprintf(q[%s:%d], ($_->_host || q[]), ($_->_port || 0)) eq
+                    $node    # already connected to this peer
+                } @peers;
             my $ok = $_client{refaddr $self}
                 ->_event(q[ip_filter], {Address => $node});
             if (defined $ok and $ok == 0) { next; }
             my $peer =
                 Net::BitTorrent::Peer->new({Address => $node,
-                                            Torrent => $self
+                                            Torrent => $self,
+                                            Source  => q[TODO]
                                            }
                 );
         }
+
+        # Store only nodes we haven't tried yet
+        $_nodes{refaddr $self} = compact(@nodes);
+
+        # Return
         return 1;
     }
 
@@ -1021,15 +1061,34 @@ package Net::BitTorrent::Torrent;
     }
 
     # Methods | Public | Alpha
-    sub resume_data {
-        my ($self, $raw) = @_;
+    sub save_resume_data {
+        my ($self, $file) = @_;
+        $file ||= $resume_path{refaddr $self};
+        return if !$file;    # Don't even bother without a file to write to
 
         # Make sure file handles are closed so we don't mess up 'mtime' times
         for my $_file (@{$files{refaddr $self}}) { $_file->_close }
-        my %resume = %{$raw_data{refaddr $self}};
-        $resume{q[net-bittorrent]} = {
+
+        # Gather nodes from various sources
+        #   Internal
+        my $_nodes = $_nodes{refaddr $self};
+
+        #   DHT
+        $_nodes .= (((${$status{refaddr $self}} & QUEUED) && !$self->private)
+                    ? $_client{refaddr $self}->_dht->_peers($self->infohash)
+                    : q[]
+        );
+
+        #   Trackers
+        for my $tier (@{$trackers{refaddr $self}}) {
+            for my $url (@{$tier->urls}) { $_nodes .= $url->_peers; }
+        }
+
+        # The resume data proper
+        my %resume_data = (
+            q[.format]  => q[Net::BitTorrent resume],
             q[.t]       => time,
-            q[.version] => 1,
+            q[.version] => 2,
             bitfield    => ${$bitfield{refaddr $self}},
             files       => [
                 map {
@@ -1038,7 +1097,7 @@ package Net::BitTorrent::Torrent;
                     }
                     } @{$files{refaddr $self}}
             ],
-            peers   => $_nodes{refaddr $self},
+            peers => ($_nodes ? $_nodes : q[]),
             working => [
                 map {
                     {Block_Count => $_->{q[Block_Count]},
@@ -1054,8 +1113,12 @@ package Net::BitTorrent::Torrent;
                     }
                     } values %{$_working_pieces{refaddr $self}}
             ]
-        };
-        return $raw ? \%resume : bencode \%resume;
+        );
+
+        # Write it to disk
+        open(my ($_RD), q[>], $file) || return;
+        syswrite($_RD, bencode(\%resume_data)) || return;
+        return close $_RD;
     }
 
     # Methods | Public | Utility
@@ -1142,7 +1205,8 @@ END
             scalar @{$trackers{refaddr $self}},
             @{$trackers{refaddr $self}} != 1 ? q[s] : q[],
             join(qq[\n  ],
-                 map { $_->urls->[0]->url } @{$trackers{refaddr $self}}
+                 map     { $_->url }
+                     map { @{$_->urls} } @{$trackers{refaddr $self}}
             );
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
     }
@@ -1230,7 +1294,7 @@ L<queue ( )|/"queue ( CLIENT )">.
 
 Creates a C<Net::BitTorrent::Torrent> object.  This constructor is
 called by
-L<Net::BitTorrent::add_torrent( )|Net::BitTorrent/add_torrent ( { ... } )>.
+L<Net::BitTorrent->add_torrent( )|Net::BitTorrent/add_torrent ( { ... } )>.
 
 C<new( )> accepts arguments as a hash, using key-value pairs:
 
@@ -1262,6 +1326,17 @@ and must be added to a client L<manually|/"queue ( CLIENT )">.
 Filename of the .torrent file to load.
 
 This is the only required parameter.
+
+=item C<Resume>
+
+The filename used to gather and store resume data.
+
+This is an optional parameter.
+
+No default.  Without a defined resume file, resume data will not be
+written on calls to
+L<save_resume_data ( )|/"save_resume_data ( [ PATH ] )"> without a
+C<PATH> parameter.
 
 =item C<Status>
 
@@ -1373,6 +1448,13 @@ See the L<Events|/Events> section for more.
 
 Returns the L<filename|/"Path"> of the torrent this object represents.
 
+=item C<pause ( )>
+
+Pauses an active torrent without closing related sockets.
+
+See also: L<status ( )|/"status ( )">, L<stop ( )|/"stop ( )">,
+L<start ( )|/"start ( )">
+
 =item C<peers ( )>
 
 Returns a list of remote L<peers|Net::BitTorrent::Peer> related to this
@@ -1403,13 +1485,17 @@ returns the original metadata in either bencoded form or as a raw hash
 (if you have other plans for the data) depending on the boolean value of
 the optional C<RAW> parameter.
 
-=item C<resume_data ( [ RAW ] )>
+=item C<resume_path ( )>
 
-One end of Net::BitTorrent's resume system.  This method returns the
-data as specified in
-L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"Resume API"> in either
-bencoded form or as a raw hash (if you have other plans for the data)
-depending on the boolean value of the optional C<RAW> parameter.
+Returns the default path used to
+L<store resume data|/"save_resume_data ( [ PATH ] )">.  This value is set
+in the C<Resume> parameter to L<new|/"new ( { [ARGS] } )">.
+
+=item C<save_resume_data ( [ PATH ] )>
+
+One end of Net::BitTorrent's resume system.  This method writes the
+data to the file specified in the call to L<new( )|/"new ( { [ARGS] } )">
+or (if defined) to the C<PATH> parameter.
 
 See also:
 L<Resume API|Net::BitTorrent::Notes/"Resume API">
@@ -1602,13 +1688,6 @@ disconnected and all files are closed.
 
 See also: L<status ( )|/"status ( )">, L<start ( )|/"start ( )">,
 L<pause ( )|/"pause ( )">
-
-=item C<pause ( )>
-
-Pauses an active torrent without closing related sockets.
-
-See also: L<status ( )|/"status ( )">, L<stop ( )|/"stop ( )">,
-L<start ( )|/"start ( )">
 
 =item C<trackers>
 

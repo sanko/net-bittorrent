@@ -4,7 +4,7 @@ use warnings;
 use Module::Build;
 use Test::More;
 use Digest::SHA qw[sha1_hex];
-use File::Temp qw[tempdir];
+use File::Temp qw[tempdir tempfile];
 use Scalar::Util qw[/weak/];
 use File::Spec::Functions qw[rel2abs];
 use lib q[../../../../lib];
@@ -18,7 +18,7 @@ my $test_builder = Test::More->builder;
 my $build        = Module::Build->current;
 my %torrents     = ();
 _locate_torrents();
-plan tests => int(6 + (81 * scalar keys %torrents));
+plan tests => int(6 + (90 * scalar keys %torrents));
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
@@ -104,8 +104,6 @@ SKIP: {
             $_key
         );
         is($torrent->_client, $client, sprintf q[Client is correct (%s)],
-            $_key);
-        is($torrent->_nodes, q[], sprintf q[Empty list of compact nodes (%s)],
             $_key);
         is($torrent->comment,
             _raw_data($_key)->{q[comment]},
@@ -347,11 +345,46 @@ SKIP: {
         );
         is($torrent->bitfield, $_new_bitfield,
             sprintf q[Bitfield has not changed. (%s)], $_key);
-        ok($torrent->as_string(), sprintf q[as_string( ) | simple (%s)],
-            $_key);
-        ok($torrent->as_string(1),
-            sprintf q[as_string(1) | advanced (%s)], $_key);
-        warn q[Test multithreaded stuff...];
+        is($torrent->as_string(), $torrent->infohash,
+            sprintf q[as_string( ) | simple (%s)], $_key);
+        is($torrent->as_string(0),
+            $torrent->infohash, sprintf q[as_string(0) | simple (%s)], $_key);
+        isn't($torrent->as_string(1),
+              $torrent->infohash, sprintf q[as_string(1) | advanced (%s)],
+              $_key);
+        sub TIEHANDLE { pass(q[Tied STDERR]); bless \{}, shift; }
+
+        sub PRINT {
+            is((caller(0))[0],
+                q[Net::BitTorrent::Torrent], q[String written to STDERR]);
+        }
+        sub UNTIE { pass(q[Untied STDERR]); }
+        tie(*STDERR, __PACKAGE__);
+        $torrent->as_string();
+        $torrent->as_string(1);
+        untie *STDERR;
+        ok(!$torrent->save_resume_data,
+            sprintf q[save_resume_data() (%s)], $_key);
+        my ($_fh, $_filename)
+            = tempfile(q[NB_XXXX],
+                       SUFFIX => q[.resume],
+                       TMPDIR => 1,
+                       UNLINK => 1
+            );
+        is( $torrent->resume_path(),
+            undef,
+            sprintf
+                q[resume_path( ) (empty if not set in call to new()) (%s)],
+            $_key
+        );
+        ok($torrent->save_resume_data($_filename),
+            sprintf q[save_resume_data('%s') (%s)],
+            $_filename, $_key);
+        ok(-f $_filename,
+            sprintf q[Resume data file was created... (%s)], $_key);
+        ok(-s $_filename,
+            sprintf q[               ...and has data. (%s)], $_key);
+        warn q[TODO: Restore data];
     SKIP: {
             skip q[Multi-threaded tests have been skipped], 5 if !$threads;
             skip

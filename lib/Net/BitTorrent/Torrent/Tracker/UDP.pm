@@ -8,15 +8,17 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     use List::Util qw[sum];
     use Socket qw[inet_aton pack_sockaddr_in];
     use lib q[../../../../../lib];
-    use Net::BitTorrent::Util qw[uncompact];
+    use Net::BitTorrent::Util qw[:compact];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
-    my @CONTENTS
-        = \
-        my (%_url, %_tier, %_tid, %_cid, %_outstanding_requests,
-            %_packed_host, %_event);
+    my @CONTENTS = \my (%_url,                  %_tier,
+                        %_tid,                  %_cid,
+                        %_outstanding_requests, %_packed_host,
+                        %_event,                %_peers,
+                        %_complete,             %_incomplete
+    );
 
     sub new {
         my ($class, $args) = @_;
@@ -48,10 +50,13 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
         else { $packed_host = inet_aton($host) }
         $_packed_host{refaddr $self}
             = pack_sockaddr_in($port, inet_aton($host));
-        $_url{refaddr $self}   = $args->{q[URL]};
-        $_event{refaddr $self} = q[];
-        $_tier{refaddr $self}  = $args->{q[Tier]};
-        $_tid{refaddr $self}   = int(rand() * 26**5);
+        $_url{refaddr $self}        = $args->{q[URL]};
+        $_event{refaddr $self}      = q[];
+        $_tier{refaddr $self}       = $args->{q[Tier]};
+        $_peers{refaddr $self}      = q[];
+        $_complete{refaddr $self}   = 0;
+        $_incomplete{refaddr $self} = 0;
+        $_tid{refaddr $self}        = int(rand() * 26**5);
         weaken $_tier{refaddr $self};
         weaken($REGISTRY{refaddr $self} = $self);
         return $self;
@@ -63,6 +68,7 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
     # Accessors | Private
     sub _packed_host { return $_packed_host{refaddr +shift} }
     sub _tier        { return $_tier{refaddr +shift}; }
+    sub _peers       { return $_peers{refaddr +shift}; }
     sub _client      { return $_tier{refaddr +shift}->_client }
 
     # Methods | Private
@@ -208,9 +214,9 @@ package Net::BitTorrent::Torrent::Tracker::UDP;
             if (length($data) >= 20) {
                 my ($min_interval, $leeches, $seeds, $peers)
                     = unpack(q[N N N a*], $packet);
-                $_tier{refaddr $self}->_torrent->_append_nodes($peers);
-                $_tier{refaddr $self}->_set_complete($seeds);
-                $_tier{refaddr $self}->_set_incomplete($leeches);
+                $_peers{refaddr $self}      = $peers;
+                $_complete{refaddr $self}   = $seeds;
+                $_incomplete{refaddr $self} = $leeches;
                 $_tier{refaddr $self}->_torrent->_event(
                                             q[tracker_success],
                                             {Tracker => $self,

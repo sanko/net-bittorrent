@@ -19,7 +19,7 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 $|++;
 my $multi_dot_torrent  = q[./t/900_data/950_torrents/952_multi.torrent];
 my $single_dot_torrent = q[./t/900_data/950_torrents/951_single.torrent];
-plan tests => 18;
+plan tests => 14;
 SKIP: {
     my $client = Net::BitTorrent->new();
     my $torrent =
@@ -106,10 +106,6 @@ SKIP: {
                                  Torrent => $torrent
                                 }
         );
-    ok($tracker->_set_complete(30),   q[Set number of seeds]);
-    ok($tracker->_set_incomplete(50), q[Set number of peers]);
-    is($tracker->complete(),   30, q[Get number of seeds]);
-    is($tracker->incomplete(), 50, q[Get number of seeds]);
     is_deeply($tracker->_torrent, $torrent,
               q[Get related N::B::Torrent object]);
     is($tracker->_client->isa(q[Net::BitTorrent]),

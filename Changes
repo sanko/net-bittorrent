@@ -1,7 +1,14 @@
-Version 0.0XX |
+Version 0.049 |
 
     API Changes/Compatibility Information:
      * Net::BitTorrent::Torrent->peers() is now public
+     * Lists of potential peers are kept by their source (N::B::DHT,
+       N::B::T::Tracker::HTTP, N::B::T::Tracker::UDP) rather than in
+       Net::BitTorrent::Torrent.
+     * Resume system (yeah, the thing I added two versions ago) was deprecated
+       and has been replaced.  I thought about it and changing the original
+       .torrent's metadata is a bad idea so I switched from Rakshasa- to
+       Rasterbar-like.
 
     Resolved Issues/Bug Fixes:
      * None
@@ -15,11 +22,21 @@ Version 0.0XX |
      * New debugging demonstration in /tatoeba/002-debug.pl
      * New threaded demonstration in /tatoeba/003-threads.pl
      * New resume demonstration in /tatoeba/004-resume.pl
+     * Various tests temporarily tie STDERR to check as_string() output
 
     Notes:
-     * No incompatible changes. Safe to upgrade from 0.046.
+     * There are several incompatible changes and I've been coding with the
+       flu this week.  Upgrade at your own risk.
+     * THIS PROJECT IS ACTIVELY SEEKING DEVELOPERS. Ahem, I hate to shout but
+       N::B could really use your help. Yes, you, the person reading this. If
+       you're interested, see the "Joining the Project" section in
+       Net::BitTorrent::Notes.
      * Various N::B::Torrent status and internal schedule fixes were made none
        of which really effect behavior.
+     * Meanwhile...
+         - 2008 ends as it began: uneventfully.
+         - RIAA drops MediaSentry.
+
 ---
 Version 0.046 | 2008-12-30 18:25:17 -0500 (Tue, 30 Dec 2008)
 

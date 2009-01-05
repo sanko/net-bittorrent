@@ -13,7 +13,7 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Version;
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 1; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     my @CONTENTS
         = \my (%_client, %tid, %node_id, %outstanding_p, %nodes, %tracking);
     my %REGISTRY;
@@ -70,6 +70,13 @@ package Net::BitTorrent::DHT;
     sub _client {
         return if defined $_[1];
         return $_client{refaddr + $_[0]};
+    }
+
+    sub _peers {
+        my ($self, $info_hash) = @_;
+        return q[] if !$tracking{refaddr $self}{$info_hash};
+        $tracking{refaddr $self}{$info_hash}{q[touch]} = time;
+        return $tracking{refaddr $self}{$info_hash}{q[peers]};
     }
 
     # Accesors | Public
@@ -417,17 +424,19 @@ package Net::BitTorrent::DHT;
                                             ->{q[a]}{q[info_hash]}
                         );
                     if ($torrent) {
-                        for my $value (@{$packet->{q[r]}{q[values]}}) {
-
-                            #warn q[********** add to torrent: ]
-                            #    . uncompact($value);
-                            $torrent->_append_nodes($value);
-                        }
-                    }
-                    else {
-
-                        #
-                        # xxx - ...what to do? What... to... do...
+                        $tracking{refaddr $self}{$torrent->infohash} = {
+                                    peers =>
+                                        compact(
+                                        uncompact(
+                                            $tracking{refaddr $self}
+                                                {$torrent->infohash}{q[peers]}
+                                        ),
+                                        (map { uncompact($_) }
+                                             @{$packet->{q[r]}{q[values]}}
+                                        )
+                                        ),
+                                    touch => time
+                        };
                     }
                     $self->_find_node_out($node, $node_id{refaddr $self});
                 }

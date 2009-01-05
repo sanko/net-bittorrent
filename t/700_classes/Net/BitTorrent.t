@@ -19,7 +19,7 @@ my $okay_udp        = $build->notes(q[okay_udp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-plan tests => 84;
+plan tests => 90;
 my ($tempdir) = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
 warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
 my $torrent;
@@ -242,8 +242,22 @@ is($client->remove_torrent(q[Junk!]),
 is_deeply($client->torrents, {}, q[   Check if torrent was removed]);
 like($client->_peers_per_torrent, qr[^\d+$],
      q[_peers_per_torrent() is a number]);
-ok($client->as_string(),  q[as_string()]);
-ok($client->as_string(1), q[as_string(1)]);
+ok($client->as_string(),  q[as_string() | simple]);
+ok($client->as_string(0), q[as_string(0) | simple]);
+is($client->as_string(), $client->as_string(0),
+    q[as_string() == as_string(0)]);
+isn't($client->as_string(), $client->as_string(1),
+      q[as_string() != as_string(1)]);
+sub TIEHANDLE { pass(q[Tied STDERR]); bless \{}, shift; }
+
+sub PRINT {
+    is((caller(0))[0], q[Net::BitTorrent], q[String written to STDERR]);
+}
+sub UNTIE { pass(q[Untied STDERR]); }
+tie(*STDERR, __PACKAGE__);
+$client->as_string();
+$client->as_string(1);
+untie *STDERR;
 SKIP: {
     skip(q[UDP-based tests have been disabled.],
          ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})

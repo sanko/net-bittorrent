@@ -155,7 +155,8 @@ l q[forcing the torrent to start];
 $torrent->start;
 l $torrent->as_string(1);
 l q[starting event loop...];
-$client->do_one_loop(0.25) && sleep(0.50) while $torrent;
+$client->do_one_loop(0.25) && sleep(0.50) while !$torrent->is_complete;
+l q[Exiting];
 
 =pod
 

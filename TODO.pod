@@ -26,8 +26,14 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 
 =back
 
+=item * intermediate .piece file to store incoming blocks
 
 =item * Document DHT stuff in N::B::Protocol
+
+=item * Remove /scripts/bittorrent.pl from the distribution
+
+It's a crutch and now, with the demonstration scripts, it's no longer
+needed.
 
 =back
 
@@ -39,9 +45,6 @@ Create a series of bad .torrent files to test N::B::Torrent with:
 
 =item * Fast Ext (fast set use)
 
-=item * Make trackers keep track of their own complete/incomplete tally
-rather than stuffing their value in the parent tier.
-
 =item * BEP 9: Extension for Peers to Send Metadata Files
 
 =item * ut_pex ...despite it being undocumented
@@ -52,17 +55,13 @@ rather than stuffing their value in the parent tier.
 
 =over
 
-=item * Net::BitTorrent::Notes
-
-=item * Per-torrent transfer limits.
+=item * Per-torrent transfer limits. (?)
 
 =item * improve file handling
 
 =over
 
 =item * large files (> 4G) typically require 64bit math
-
-=item * intermediate .piece file to store incoming blocks
 
 =back
 

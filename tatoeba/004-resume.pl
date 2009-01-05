@@ -3,24 +3,23 @@ use strict;
 use warnings;
 use Time::HiRes qw[sleep];
 use Net::BitTorrent;
-use Data::Dump qw[pp];
 my $client = Net::BitTorrent->new();
-my $torrent = $client->add_torrent({Path => 'a.legal.torrent'}) or exit;
+my $torrent
+    = $client->add_torrent({Path => 'a.legal.torrent', Resume => '.resume'})
+    or exit;
 $torrent->on_event(q[piece_hash_pass], sub { save(shift) });
-$torrent->hashcheck;
-sleep(0.25) and $client->do_one_loop(0.25) while !$torrent->is_complete;
 
 END {
     for my $t (values %{$client->torrents || {}}) { save($t); }
 }
+$torrent->hashcheck;
+sleep(0.25) and $client->do_one_loop(0.25) while !$torrent->is_complete;
 
 sub save {
     my ($torrent) = @_;
-    rename $torrent->path, $torrent->path . q[.bak]
-        if !-f $torrent->path . q[.bak];
-    open my $TORRENT, q[>], $torrent->path or next;
-    syswrite($TORRENT, $torrent->resume_data) or next;
-    close $TORRENT;
+    rename $torrent->resume_path, $torrent->resume_path . q[.bak]
+        if !-f $torrent->resume_path . q[.bak];
+    $torrent->save_resume_data;
 }
 
 =pod
@@ -42,51 +41,40 @@ L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> is to be used.
 
 =over
 
-=item Line 8
+=item Line 7
 
-Loads our .torrent file.  If
-L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">
-finds any resume data, it's automatically restored.
+Loads our .torrent file and sets the filename for the related resume
+data.
 
-=item Line 9
+=item Line 10
 
 Sets a per-torrent callback which, when triggered, saves our resume data.
 
-=item Line 13-15
-
-This is probably the most important place to save resume data because on
-restore, the last modified times of each file is compared with the times
-stored in the resume data.  If any of them fail to match, all of the
-resume data is considered invalid.
+=item Line 12-14
 
 Here, at the end of the process, we store resume data for every torrent
 in the client.  Yes, yes, I know... this little script only loads a
 single torrent.  Consider it a bonus for folks writing your own your own
 clients.  A small and obvious bonus, sure, but a bonus all the same.
 
-=item Line 19
+This is probably the most important place to save resume data because on
+restore, the last modified times of each file is compared with the times
+stored in the resume data.  If any of them fail to match, all of the
+resume data is considered invalid.
 
-Let's keep a backup of the original metadata just in case
-L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> (slim chance) or you
-(rather likely) makes a mistake and ruins everything.
+=item Line 20
 
-=item Line 21
-
-Opens the .torrent file in write mode.  Once the file is parsed in
-L<C<new( )>|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">,
-L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> is finished with it,
-so if the file is locked and fails to open here, some other process may
-be to blame.
+Let's keep a backup of the
+L<original metadata file|Net::BitTorrent::Torrent/"resume_path ( )"> just
+in case L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> makes a
+mistake and ruins everything.
 
 =item Line 22
 
 Writes the new
-L<'resume data'|Net::BitTorrent::Torrent/"resume_data ( [ RAW ] )"> to
-the file.  Notice I'm using C<syswrite> here because the resume data will
-certainly contain binary data.  For more, see the warnings listed in
-L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"badresumedata">.
-
-Now, the next time L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent">
+L<resume data|Net::BitTorrent::Torrent/"save_resume_data ( [ PATH ] )">
+to the file.  Now, the next time
+L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">
 loads this file, it will see the resume data and if it looks okay, your
 progress will be restored.
 
@@ -101,7 +89,7 @@ saving resume data every time a block is written to disk; true, this
 would keep resume data as up to date as possible, but there are certain
 internal steps taken while resume data is gathered that would, in the
 long run, slow everything down to a crawl.  For more, see
-L<C<resume_data ( )>|Net::BitTorrent::Torrent/"resume_data ( [ RAW ] )"> in
+L<C<save_resume_data ( )>|Net::BitTorrent::Torrent/"save_resume_data ( [ PATH ] )"> in
 L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> and the sections
 L<'Resume API'|Net::BitTorrent::Notes/"Resume API"> and
 L<'How do I quick Resume a .torrent Session Between Client Sessions?'|Net::BitTorrent::Notes/"Quick Resume a .torrent Session Between Client Sessions">

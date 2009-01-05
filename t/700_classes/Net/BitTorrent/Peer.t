@@ -654,19 +654,54 @@ SKIP: {
         undef,
         q[Torrent => bless(\{}, 'junk')]
     );
+    is( Net::BitTorrent::Peer->new({Client  => $client,
+                                    Torrent => $torrent,
+                                    Address => q[127.0.0.1:0]
+                                   }
+        ),
+        undef,
+        q[No Source]
+    );
+    is( Net::BitTorrent::Peer->new({Client  => $client,
+                                    Torrent => $torrent,
+                                    Address => q[127.0.0.1:0],
+                                    Source  => undef
+                                   }
+        ),
+        undef,
+        q[Source => undef]
+    );
     warn sprintf q[%d|%d], 21, $test_builder->{q[Curr_Test]};
     warn(q[Test incoming peers]);
     {
         $peers{q[A]} =
             Net::BitTorrent::Peer->new({Client  => $client,
                                         Torrent => $torrent,
-                                        Address => q[127.0.0.1:0]
+                                        Address => q[127.0.0.1:0],
+                                        Source  => q[User]
                                        }
             );
         isa_ok($peers{q[A]}, q[Net::BitTorrent::Peer], q[new()]);
         weaken $peers{q[A]};
         ok(isweak($peers{q[A]}),    q[  ...make $peers{q[A]} a weak ref]);
         ok($peers{q[A]}->as_string, q[as_string]);
+        is($peers{q[A]}->as_string,
+            $peers{q[A]}->as_string(0),
+            q[as_string() vs as_string(0)]);
+        isn't($peers{q[A]}->as_string,
+              $peers{q[A]}->as_string(1),
+              q[as_string() vs as_string(1)]);
+        sub TIEHANDLE { pass(q[Tied STDERR]); bless \{}, shift; }
+
+        sub PRINT {
+            is((caller(0))[0],
+                q[Net::BitTorrent::Peer], q[String written to STDERR]);
+        }
+        sub UNTIE { pass(q[Untied STDERR]); }
+        tie(*STDERR, __PACKAGE__);
+        $peers{q[A]}->as_string;
+        $peers{q[A]}->as_string(1);
+        untie *STDERR;
         isa_ok($peers{q[A]}->_socket, q[GLOB], q[_socket]);
         isa_ok($peers{q[A]}->_torrent,
                q[Net::BitTorrent::Torrent], q[_torrent]);

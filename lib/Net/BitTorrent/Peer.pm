@@ -10,7 +10,7 @@ package Net::BitTorrent::Peer;
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use version qw[qv];
     our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];
@@ -21,7 +21,7 @@ package Net::BitTorrent::Peer;
                %_bitfield,         %_am_choking,      %_am_interested,
                %_peer_choking,     %_peer_interested, %_incoming,
                %requests_out,      %requests_in,      %_last_contact,
-               %_incoming_fastset, %_reserved_bytes
+               %_incoming_fastset, %_reserved_bytes,  %_source
         );
     my %REGISTRY;
 
@@ -84,6 +84,7 @@ END
             $_data_out{refaddr $self} = q[];
             $_data_in{refaddr $self}  = q[];
             $_incoming{refaddr $self} = 1;
+            $_source{refaddr $self}   = q[Incoming];
         }
         else {
             if ($args->{q[Address]}
@@ -98,6 +99,11 @@ END
                 || (!$args->{q[Torrent]}->isa(q[Net::BitTorrent::Torrent])))
             {   carp
                     q[Net::BitTorrent::Peer->new({}) requires a blessed 'Torrent'];
+                return;
+            }
+            if (!$args->{q[Source]}) {
+                carp
+                    q[Net::BitTorrent::Peer->new({}) would like to know where this peer info is from];
                 return;
             }
             my $half_open = grep {
@@ -165,6 +171,7 @@ END
             $_data_in{refaddr $self} = q[];
             $_client{refaddr $self}->_add_connection($self, q[rw]) or return;
             $_incoming{refaddr $self} = 0;
+            $_source{refaddr $self}   = $args->{q[Source]};
         }
         if ($self) {
             ${$_am_choking{refaddr $self}}      = 1;
@@ -253,6 +260,7 @@ END
     sub _peer_interested { return ${$_peer_interested{refaddr +shift}} }
     sub _am_interested   { return ${$_am_interested{refaddr +shift}} }
     sub _incoming        { return $_incoming{refaddr +shift} }
+    sub _source          { return $_source{refaddr +shift} }
 
     # Methods | Private
     sub _rw {
@@ -648,7 +656,10 @@ END
 
         if (not defined $request) {
             weaken $self;
-            $self->_disconnect(q[Handed a piece we never asked for.]);
+            $self->_disconnect(
+                sprintf
+                    q[Handed a piece we never asked for (I: %d | O: %d | L: %d).],
+                $index, $offset, $length);
             return;
         }
         $_torrent{refaddr $self}->_add_downloaded($request->{q[Length]});
@@ -1408,10 +1419,10 @@ ADVANCED
              : q[Unknown]
             ),
             ($_incoming{refaddr $self} ? q[Incoming] : q[Outgoing]),
-            (map { $_ ? q[Yes] : q[No] } ($_peer_interested{refaddr $self},
-                                          $_am_interested{refaddr $self},
-                                          $_am_choking{refaddr $self},
-                                          $_peer_choking{refaddr $self}
+            (map { $_ ? q[Yes] : q[No] } (${$_peer_interested{refaddr $self}},
+                                          ${$_am_interested{refaddr $self}},
+                                          ${$_am_choking{refaddr $self}},
+                                          ${$_peer_choking{refaddr $self}}
              )
             ),
             ($_torrent{refaddr $self}

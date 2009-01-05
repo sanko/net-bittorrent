@@ -87,48 +87,25 @@ L<Net::BitTorrent::Torrent::start( )|Net::BitTorrent::Torrent/"start( )">
 
 Note: This section describes resume functionality as of C<v0.045>.
 
-C<Net::BitTorrent> has a complete resume system which is capable of
-resuming single torrents.  The resume data is not checked for tampering,
-so there are a few things to remember when handling it:X<badresumedata>
-
-=over
-
-=item 1.
-
-Resume data will contain binary data so if you're storing the data
-to a file, you B<MUST> use C<binmode( )>, (preferably) C<syswrite( )> and
-C<sysread()>, or whatever your favorite way to write raw bytes happens to
-be.
-
-=item 2.
-
-Resume data contains the last-modified times of all related files
-so make sure gathering resume data is the last thing you do and be
-careful with any media players which modify metadata as these will cause
-you nothing but trouble.
-
-=back
+C<Net::BitTorrent> is capable of restoring the state of single torrents
+between sessions.  To store resume data, use the
+L<save_resume_data( )|Net::BitTorrent::Torrent/"save_resume_data ( [ PATH ] )">
 
 To resume a single torrent, use a variation of the following to save the
 data...
 
- my $torrent = $bt->add_torrent( { Path=> 'some.torrent' });
+ my $torrent = $bt->add_torrent( { Path=> 'some.torrent', Resume = '.resume' });
 
  # later...
 
- rename $torrent->path, $torrent->path . '.bak' # keep a backup just in case
- open my $D, '>'  $torrent->path;
- syswrite $D, $torrent->resume_data(); # save current state to disk
- close $D;
+ $torrent->save_resume_data();
 
-To resume, simply load the new .torrent file as usual:
+...and unless C<Net::BitTorrent::Torrent> decides the resume data is
+bad, you'll start right were you left off. I would suggest storing resume
+data on a regular basis while the client runs and again on exit.
 
- my $torrent = $bt->add_torrent( { Path=> 'some.torrent' });
 
-...and unless C<Net::BitTorrent> decides the resume data is
-L<bad|/badresumedata>, you'll start right were you left off. I would suggest
-storing resume data on a regular basis while the client runs and again on
-exit.
+To view a fully functioning example, see C</tatoeba/004-resume.pl>.
 
 For more on what exactly you're saving and the structure of the data, see
 L<Resume API|/"Resume API"> in the
@@ -486,10 +463,10 @@ is a list of both stable and experimental workarounds by OS:
 
 =head2 Resume API
 
-C<Net::BitTorrent::Torrent>'s resume data is stored in the bencoded
-.torrent file under a key named 'net-bittorrent'.  To retrieve this data,
-use the L<resume_data( )|Net::BitTorrent::Torrent/"resume_data( [ RAW ] )">
-method of L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent>.
+C<Net::BitTorrent::Torrent>'s resume data is bencoded and stored in a
+file.  To restore this data, use the C<Resume> parameter when calling
+L<Net::BitTorrent::Torrent-E<gt>new( )|Net::BitTorrent::Torrent/"new ( { [ARGS] } )">
+or L<Net::BitTorrent-E<gt>add_torrent( )|Net::BitTorrent/"add_torrent ( { ... } )">.
 
 I<Note: The structure and data held in the resume data is subject to
 change in future versions.>
@@ -499,6 +476,11 @@ change in future versions.>
 Parsed resume data is a simple hash containing the following keys:
 
 =over
+
+=item C<.format>
+
+A string describing what sort of file this is.  For now, it's value is
+C<Net::BitTorrent resume>.
 
 =item C<.t>
 
@@ -599,7 +581,7 @@ distribution.  For detail see the SVN logs.
 
 =item v0.040
 
-Entire distribution was rewritten. Both the internal and the API have
+Entire distribution was rewritten. Both the internals and the API have
 broken compatibility.
 
 =back
@@ -609,6 +591,25 @@ broken compatibility.
 If you're interested in assisting with
 L<Net::BitTorent|Net::BitTorrent>'s development but don't know where to
 begin, here are a few ideas.
+
+=head2 Joining the Project
+
+=for html <span style="color: #F00; font-size: 1.5em;">
+
+THIS PROJECT IS ACTIVELY SEEKING DEVELOPERS.  Ahem, I hate to shout but
+over the next few major versions, my priority is Protocol Encryption
+() which requires a (vauge) familiarity with cryptography.
+
+So, if you're interested in helping with that, or anything listed on the
+L<TODO|Net::BitTorrent::Todo> list or, maybe you have a suggestion and
+are willing to see it through to completion, L<contact me|/"Author">; I'm
+handing out SVN commit bits like (expensive) candy!
+
+=for html </span>
+
+In general, N::B could use a second or third pair of eyes.  So, if you're
+interested in BitTorrent, p2p, or just Perl in general,
+L<let me know|/"Author">.
 
 =head2 Automated Test Reports
 
@@ -703,7 +704,7 @@ intended, and then submit.
 
 =back
 
-=head2 Co-Development and Patch Submission
+=head2 Patch Submission
 
 C<Net::BitTorrent> is too large for just one person to hack on.  If
 you're Perl adept and would like to help, you can start by fixing
@@ -759,7 +760,7 @@ http://twitter.com/net_bitTorrent.
 
 =item Ohloh
 
-It's open source social networking.  ...I think.  Regardless of it's use,
+It's open source social networking.  ...I think.  Regardless of its use,
 Net::BitTorrent has an Ohloh page:
 http://www.ohloh.net/projects/net-bittorrent/
 
@@ -794,7 +795,7 @@ libtorrent, written in C++ and released under the MIT License.
 
 =back
 
-=head
+=head2 Related Information
 
 =over
 

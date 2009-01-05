@@ -61,6 +61,8 @@ scripts/.+/.+
 # Don't package silly stuff
 tatoeba/.+/.+
 tatoeba/.*.log$
+#   Created by tatoeba/004-resume.pl
+tatoeba/.*\.resume$
 
 # Don't package downloaded/perif files
 \.avi
