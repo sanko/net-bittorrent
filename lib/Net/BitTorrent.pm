@@ -20,8 +20,7 @@ package Net::BitTorrent;
     use Net::BitTorrent::DHT;
     use Net::BitTorrent::Version;
     use version qw[qv];
-    our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \my (%_tcp,                  %_udp,
                %_schedule,             %_tid,
@@ -1352,33 +1351,10 @@ L<Net::BitTorrent::Notes|Net::BitTorrent::Notes> if you've found one.
 
 =head1 Notes
 
-=head2 Support and Availability
+=head2 Support Links
 
-Visit the following for support and information related to
-L<Net::BitTorrent|Net::BitTorrent>:
-
-=over 4
-
-=item The project's website
-
-For SVN info, please visit the project's home:
-http://sankorobinson.com/net-bittorrent/.
-
-=item Bug and Issue Tracker
-
-Use http://code.google.com/p/net-bittorrent/issues/list for bug
-tracking.
-
-Before sending a report, make sure the bug is reproducible.  If the
-problem requires a specific .torrent file, the issue tracker allows
-attachments.  Make sure you are using the a recent release of
-L<Net::BitTorrent|Net::BitTorrent>.  This may mean checking out the latest
-SVN commit.
-
-=back
-
-See L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"See Also">
-for links to a mailing list, SVN information, and more.
+Please refer to
+L<Net::BitTorrent::Notes|Net::BitTorrent::Notes/"Support and Information Links for C<Net::BitTorrent>">.
 
 =head2 Dependencies
 
@@ -1386,31 +1362,6 @@ L<Net::BitTorrent|Net::BitTorrent> requires L<version|version> and
 L<Digest::SHA|Digest::SHA> to function and relies upon
 L<Module::Build|Module::Build> for installation.  As of perl 5.10, these
 are all CORE modules; they come bundled with the distribution.
-
-=head2 Development Policy
-
-=over 4
-
-=item * B<All APIs are subject to change.>
-
-Changes to documented or well established parts will be clearly listed
-and archived in the F<CHANGES> file.
-
-Functions and parameters that are all_lower_case_and_contain_underscores
-are typically experimental and have a very good chance of being
-depreciated in a future version.
-
-=item * B<All undocumented functionality is subject to change without notice.>
-
-L<Net::BitTorrent|Net::BitTorrent> is just asploding with incomplete bits
-of stuff so I reserve the right to change or eliminate code at any time
-without warning I<unless> functionality is defined in POD documentation.
-
-If you sift through the source and find something nifty that isn't
-described I<in full> in POD, don't expect your client to work with future
-releases.
-
-=back
 
 =head2 Examples
 
@@ -1440,7 +1391,7 @@ decide what to do with it.
 
 L Rotger
 
-#bittorrent on Freenode for letting me idle.
+C<#bittorrent> on Freenode for letting me idle.
 
 Michel Valdrighi for b2
 
@@ -1468,6 +1419,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: BitTorrent.pm 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
 
 =cut

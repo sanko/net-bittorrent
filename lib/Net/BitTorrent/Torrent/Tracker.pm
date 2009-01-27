@@ -10,8 +10,7 @@ package Net::BitTorrent::Torrent::Tracker;
     use Net::BitTorrent::Torrent::Tracker::HTTP;
     use Net::BitTorrent::Torrent::Tracker::UDP;
     use version qw[qv];
-    our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS) = \my (%torrent, %urls);
     my %REGISTRY;
 
@@ -184,6 +183,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: Tracker.pm 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
 
 =cut

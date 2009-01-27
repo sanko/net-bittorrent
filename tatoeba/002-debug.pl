@@ -198,6 +198,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: 002-debug.pl 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
 
 =cut

@@ -7,7 +7,7 @@ use Config;
 $|++;
 my $automated_testing = $ENV{q[AUTOMATED_TESTING]}
     || $ENV{q[PERL_MM_USE_DEFAULT]};
-my $is_developer = ((-d q[.svn]) ? 1 : 0) or ($ENV{RELEASE_TESTING} ? 1 : 0);
+my $is_developer = ((-d q[.git]) ? 1 : 0) or ($ENV{RELEASE_TESTING} ? 1 : 0);
 my $okay_tcp     = okay_tcp();
 my $okay_udp     = okay_udp();
 my @tests;
@@ -42,12 +42,15 @@ FAIL
 my $class = $is_developer
     ? Module::Build->subclass(class => q[Net::BitTorrent::Build],
                               code  => <<'SUBCLASS' ) : q[Module::Build];
+use strict;
+use warnings;
+
 # TODO: add pod
 sub ACTION_profile {
     my ($self) = @_;
     unless (Module::Build::ModuleInfo->find_module_by_name('Devel::NYTProf'))
     {   warn(
-            qq[Cannot run testcover action unless Devel::NYTProf is installed.\n]
+            "Cannot run testcover action unless Devel::NYTProf is installed.\n"
         );
         return;
     }
@@ -67,34 +70,34 @@ sub ACTION_profile {
                 && $self->up_to_date($self->test_files, $cover_files);
     }
     local $Test::Harness::switches = local $Test::Harness::Switches
-        = local $ENV{HARNESS_PERL_SWITCHES} = q[-d:NYTProf];
+        = local $ENV{HARNESS_PERL_SWITCHES} = '-d:NYTProf';
     $self->notes(profile => 1);
-    $self->depends_on(q[test]);
-    $self->do_system(q[nytprofhtml --open]);
+    $self->depends_on('test');
+    $self->do_system('nytprofhtml --open');
     $self->notes(profile => 0);    # clean up
 }
 
 sub ACTION_tidy {
     my ($self) = @_;
     unless (Module::Build::ModuleInfo->find_module_by_name('Perl::Tidy')) {
-        warn(qq[Cannot run tidy action unless Perl::Tidy is installed.\n]);
+        warn("Cannot run tidy action unless Perl::Tidy is installed.\n");
         return;
     }
     require Perl::Tidy;
-    my $demo_files =
-        $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
+    my $demo_files
+        = $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
     for my $files ([keys(%{$self->script_files})],       # scripts first
                    [values(%{$self->find_pm_files})],    # modules
                    [@{$self->find_test_files}],          # test suite next
                    [@{$demo_files}]                      # demos last
         )
-    {   $files = [sort map { File::Spec->rel2abs(q[./] . $_) } @{$files}];
+    {   $files = [sort map { File::Spec->rel2abs('./' . $_) } @{$files}];
 
         # One at a time...
         for my $file (@$files) {
-            printf qq[Running perltidy on '%s' ...\n],
+            printf "Running perltidy on '%s' ...\n",
                 File::Spec->abs2rel($file);
-            $self->add_to_cleanup($file . q[.tidy]);
+            $self->add_to_cleanup($file . '.tidy');
             Perl::Tidy::perltidy(argv => <<'END' . $file); } }
 --brace-tightness=2
 --block-brace-tightness=1
@@ -126,63 +129,237 @@ sub ACTION_tidy {
 --backup-file-extension=tidy
 
 END
-    $self->depends_on(q[code]);
+    $self->depends_on('code');
     return 1;
 }
 
 sub ACTION_wastetime {
     my ($self) = @_;
     unless (Module::Build::ModuleInfo->find_module_by_name('File::Copy')) {
-        warn(qq[Cannot run mindist action unless File::Copy is installed.\n]);
+        warn("Cannot run mindist action unless File::Copy is installed.\n");
         return;
     }
     require File::Copy;
-    mkdir q[./archive] if !-d q[./archive];
+    my $_quiet = $self->quiet(1);
+    mkdir './archive' if !-d './archive';
     my $dist_dir = q[];
     for my $i (1 .. 999) {
         $self->SUPER::ACTION_distdir();
         $dist_dir = $self->dist_dir;
-        $self->do_system(qq[tar --mode=0755 -cf $dist_dir.tar $dist_dir]);
-        $self->do_system(qq[gzip -9 -f -n $dist_dir.tar]);
-       #File::Copy::copy($dist_dir . q[.tar.gz],
-       #     q[X:/archive/] . $dist_dir . q[.tar.gz] . sprintf(q[.%03d], $i));
-        rename $dist_dir . q[.tar.gz], q[./archive/] . $dist_dir . q[.tar.gz]
-            if !-f q[./archive/] . $dist_dir . q[.tar.gz]
-                or -s $dist_dir . q[.tar.gz]
-                < -s q[./archive/] . $dist_dir . q[.tar.gz];
-        printf qq[dist #%03d ... %d bytes\n], $i, -s $dist_dir . q[.tar.gz];
-        unlink $dist_dir . q[.tar.gz];
+        $self->make_tarball($dist_dir, $dist_dir, 1);
+
+        #File::Copy::copy($dist_dir . '.tar.gz',
+        #     'X:/archive/' . $dist_dir . '.tar.gz' . sprintf('.%03d', $i));
+        rename $dist_dir . '.tar.gz', './archive/' . $dist_dir . '.tar.gz'
+            if !-f './archive/' . $dist_dir . '.tar.gz'
+                or -s $dist_dir . '.tar.gz'
+                < -s './archive/' . $dist_dir . '.tar.gz';
+        printf "dist #%03d ... %d bytes\n", $i, -s $dist_dir . '.tar.gz';
+        unlink $dist_dir . '.tar.gz';
         $self->delete_filetree($dist_dir);
     }
-    return
-        File::Copy::copy(q[./archive/] . $dist_dir . q[.tar.gz],
-                         $dist_dir . q[.tar.gz]);
+    File::Copy::copy('./archive/' . $dist_dir . '.tar.gz',
+                     $dist_dir . '.tar.gz');
+    return $self->quiet($_quiet);
 }
 
 sub ACTION_spellcheck {
     my ($self) = @_;
-    my $demo_files =
-        $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
+    my $demo_files
+        = $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
     for my $files (
         [keys(%{$self->script_files})],       # scripts first
         [values(%{$self->find_pm_files})],    # modules
         [@{$self->find_test_files}],          # test suite
-        [values(%{shift->_find_file_by_type(q[pod], q[.])})], # docs
-        [@{$demo_files}]                      # demos
+        [values(%{shift->_find_file_by_type('pod', '.')})],    # docs
+        [@{$demo_files}]                                       # demos
         )
-    {   $files = [sort map { File::Spec->rel2abs(q[./] . $_) } @{$files}];
+    {   $files = [sort map { File::Spec->rel2abs('./' . $_) } @{$files}];
         for my $file (@$files) {
             $file = File::Spec->abs2rel($file);
             system(
-                 sprintf(q[title aspell - '%s'], File::Spec->abs2rel($file)));
-            $self->do_system(sprintf q[perldoc %s > %s.spell], $file, $file);
-            $self->add_to_cleanup($file . q[.spell]);
-            system(q[aspell check ] . $file . q[.spell]);
-            $self->add_to_cleanup($file . q[.bak]);
+                  sprintf('title aspell - "%s"', File::Spec->abs2rel($file)));
+            $self->do_system(sprintf 'perldoc %s > %s.spell', $file, $file);
+            $self->add_to_cleanup($file . '.spell');
+            system('aspell check ' . $file . '.spell');
+            $self->add_to_cleanup($file . '.bak');
         }
     }
-    $self->depends_on(q[code]);
+    $self->depends_on('code');
 }
+
+sub ACTION_changes {
+    my ($self) = @_;
+    require Fcntl;
+    require POSIX;
+    require File::Spec::Functions;
+    {
+        print 'Update Changes file... ';
+
+        # open and lock the file
+        sysopen(my ($CHANGES_R), 'Changes', Fcntl::O_RDONLY)
+            || die 'Failed to open Changes for reading';
+        flock $CHANGES_R, Fcntl::LOCK_EX;
+
+        # Read the file's content and scroll back to the top
+        sysread($CHANGES_R, my ($CHANGES_D), -s $CHANGES_R)
+            || die 'Failed to read Changes';
+
+        # Okay, we're done with this file for now
+        flock $CHANGES_R, Fcntl::LOCK_UN;
+        close $CHANGES_R;
+
+        # gather various info
+        my (@bits) = split q[,], qx[git log --pretty=format:"%at,%H,%h" -n 1];
+
+        #my $Mod = qx[git log -n 1 --pretty=format:"%cr"];
+        my $Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
+                                   gmtime($bits[0]));
+        my $Commit = $bits[1];
+        my $dist = sprintf("Version %s | %s | %s",
+                           ($self->dist_version()->is_alpha()
+                            ? (q[0.0XX], q[Distant future])
+                            : ($self->dist_version()->numify, $Date)
+                           ),
+                           $bits[2]
+        );
+
+        # start changing the data around
+        $CHANGES_D =~ s[.+(\r?\n)][$dist$1];
+        $CHANGES_D
+            =~ s[(_ -.-. .... .- -. --. . ... _+).*][$1 . sprintf <<'END',
+        $self->{'properties'}{'meta_merge'}{'resources'}{'ChangeLog'},
+        $self->dist_version
+    ]se;
+
+For more information, see the commit log:
+    %s
+
+$Ver: %s $ from git
+$Date$
+$Rev$
+$URL$
+END
+
+     # Keep a backup (just in case) and move the file so we can create it next
+        rename('Changes', 'Changes.bak')
+            || die sprintf 'Failed to rename Changes (%s)', $^E;
+
+        # open and lock the file
+        sysopen(my ($CHANGES_W), 'Changes', Fcntl::O_WRONLY | Fcntl::O_CREAT)
+            || die 'Failed to open Changes for reading';
+        sysseek($CHANGES_W, 0, Fcntl::SEEK_SET)
+            || die 'Failed to seek in Changes';
+
+        # hope all went well and save the new log to disk
+        syswrite($CHANGES_W, $CHANGES_D) || die 'Failed to update Changes';
+
+        # unlock the file and close it
+        flock $CHANGES_W, Fcntl::LOCK_UN;
+        close($CHANGES_W) || die 'Failed to close Changes';
+        printf "Done.\n    (%s)\n", $dist;
+    }
+    {
+        print 'Fake SVN...';
+        my @manifest_files = sort grep {
+                   $_ !~ m[\.torrent]
+                && $_ !~ m[\.jpg$]
+                && $_ !~ m[\.yml$]i
+
+                #&& $_ !~ m[^Changes$]
+                && $_ !~ m[^Build.PL$]
+        } keys %{$self->_read_manifest('MANIFEST')};
+    FILE: for my $file (@manifest_files) {
+            print q[.];
+
+            #warn sprintf q[%s | %s | %s], $date, $commit, $file;
+            my $mode = (stat $file)[2];
+            chmod($mode | oct(222), $file)
+                or die "Can't make $file writable: $!";
+
+            # open and lock the file
+            sysopen(my ($CHANGES_R), $file, Fcntl::O_RDONLY)
+                || die sprintf 'Failed to open "%s" for reading', $file;
+            flock $CHANGES_R, Fcntl::LOCK_EX;
+
+            # Read the file's content and scroll back to the top
+            sysread($CHANGES_R, my ($CHANGES_D), -s $CHANGES_R)
+                || die "Failed to read $file";
+
+            # Okay, we're done with this file for now
+            flock $CHANGES_R, Fcntl::LOCK_UN;
+            close $CHANGES_R;
+
+            # gather various info
+            # gather various info
+            my (@bits) = split q[,],
+                qx[git log --pretty=format:"%at,%H,%x25%x73 %h %x25%x2E%x32%x30%x73 %ce" -n 1 $file];
+
+            #my $Mod = qx[git log -n 1 --pretty=format:"%cr"];
+            my $Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
+                                       gmtime($bits[0]));
+            my $Commit = $bits[1];
+            #die $bits[2];
+            my $Id = sprintf $bits[2], (File::Spec->splitpath($file))[2],
+                $Date;
+
+            # start changing the data around
+            my $CHANGES_O = $CHANGES_D;
+            $CHANGES_D =~ s[\$Date(:[^\$]*)?\$][\$Date: $Date \$]ig;
+            $CHANGES_D =~ s[\$Id(:[^\$]*)?\$][\$Id: $Id \$]ig;
+            $CHANGES_D
+                =~ s[\$Url(:[^\$]*)?\$][\$Url: http://github.com/sanko/net-bittorrent/raw/$Commit/$file \$]ig;
+            $CHANGES_D =~ s[\$(Rev(:?ision)?)(:[^\$]*)?\$][\$$1: $Commit \$]ig;
+
+            #$CHANGES_D =~ s[\$Mod:.+\$][\$Mod: $Mod \$]ig;
+            # Skip to the next file if this one wasn't updated
+            next FILE if $CHANGES_D eq $CHANGES_O;
+
+     #warn qq[Updated $file];
+     #die $CHANGES_D;
+     # Keep a backup (just in case) and move the file so we can create it next
+            rename($file, $file . '.bak')
+                || die sprintf 'Failed to rename %s (%s)', $file, $^E;
+
+            # open and lock the file
+            sysopen(my ($CHANGES_W), $file, Fcntl::O_WRONLY | Fcntl::O_CREAT)
+                || warn(sprintf q[Failed to open %s for reading: %s], $file,
+                        $^E)
+                && next FILE;
+            sysseek($CHANGES_W, 0, Fcntl::SEEK_SET)
+                || warn 'Failed to seek in ' . $file && next FILE;
+
+            # hope all went well and save the new log to disk
+            syswrite($CHANGES_W, $CHANGES_D)
+                || warn 'Failed to update ' . $file && next FILE;
+
+            # unlock the file and close it
+            flock $CHANGES_W, Fcntl::LOCK_UN;
+            close($CHANGES_W) || die 'Failed to close Changes';
+            chmod($mode, $file);
+        }
+        print "Done.\n";
+    }
+    return 1;
+}
+
+sub ACTION_distmeta {
+    my ($self) = @_;
+    $self->do_create_makefile_pl if $self->create_makefile_pl;
+    $self->do_create_readme      if $self->create_readme;
+    $self->do_create_metafile;
+    $self->SUPER::depends_on('changes');
+}
+
+sub make_tarball {
+    my ($self, $dir, $file, $quiet) = @_;
+    $file ||= $dir;
+    $self->do_system(
+            'tar --mode=0755 -c' . ($quiet ? q[] : 'v') . "f $file.tar $dir");
+    $self->do_system("gzip -9 -f -n $file.tar");
+    return 1;
+}
+1;
 SUBCLASS
 my $mb = $class->new(
     module_name       => q[Net::BitTorrent],
@@ -229,21 +406,24 @@ my $mb = $class->new(
                           }
                       }
     },
-    script_files => qw[scripts/bittorrent.pl],
-    test_files   => \@tests,
-    meta_merge   => {
-         no_index  => {directory => [q[tatoeba]]},
-         resources => {
+
+    #script_files => qw[scripts/bittorrent.pl],
+    test_files => \@tests,
+    meta_merge => {
+        generated_by => q[Conversion, software version 7.0],
+        keywords     => [qw[BitTorrent client peer p2p torrent socket DHT]],
+
+        #no_index  => {directory => [q[tatoeba]]},
+        resources => {
              bugtracker =>
                  q[http://code.google.com/p/net-bittorrent/issues/list],
+             ChangeLog =>
+                 q[http://github.com/sanko/net-bittorrent/commits/master],
              homepage => q[http://sankorobinson.com/net-bittorrent/],
              license => q[http://www.perlfoundation.org/artistic_license_2_0],
              MailingList => q[http://groups.google.com/group/net-bittorrent],
-             repository =>
-                 q[http://code.google.com/p/net-bittorrent/source/browse/]
-         },
-         keywords     => [qw[BitTorrent client peer p2p torrent socket dht]],
-         generated_by => q[Sanko Robinson version 1.0 (stable ...usually)]
+             repository  => q[http://github.com/sanko/net-bittorrent/]
+        }
     },
 );
 $mb->notes(okay_tcp          => $okay_tcp);
@@ -277,7 +457,7 @@ sub find_cb {
 }
 
 BEGIN {    # Tired of getting FAIL-mail from outdated build environments
-    if ($] < 5.008001) {    # 5+ years old-- anything less is just silly
+    if ($] < 5.008001) {  # already 5+ years old-- anything less is just silly
         warn sprintf
             q[Perl v5.8.1 required--this is only v%vd, stopped],
             $^V;

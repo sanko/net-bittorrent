@@ -67,10 +67,11 @@ SKIP: {
     is(build_keepalive(), qq[\0\0\0\0],
         q[   ...requires no params and has no payload]);
 SKIP: {
-        skip(
-            q[fine grain regression tests; turn on $ENV{RELESE_TESTING} to enable],
-            157
-        ) if not $release_testing;
+
+  #skip(
+  #    q[fine grain regression tests; turn on $ENV{RELESE_TESTING} to enable],
+  #    157
+  #) if not $release_testing;
         is(build_choke(), qq[\0\0\0\1\0],
             q[   ...requires no params and has no payload]);
         is(build_unchoke(), qq[\0\0\0\1\1],
@@ -434,10 +435,11 @@ SKIP: {
     my $data = join q[], @original_data;
     is(parse_packet($data), undef, q[Requires a ref]);
     is($data, join(q[], @original_data), q[   ...left data alone.]);
-    skip(
-        q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
-        ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
-    ) if not $release_testing;
+
+#skip(
+#    q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable],
+#    ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
+#) if not $release_testing;
     is_deeply(parse_packet(\$data),
               {Payload => [qq[\0\0\0\0\0\0\0\0],
                            qq[\1#Eg\x89\1#Eg\x89\1#Eg\x89\1#Eg\x89],
@@ -609,4 +611,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id$
+$Id: Protocol.t c1256b0 2008-12-11 14:49:56Z sanko@cpan.org $

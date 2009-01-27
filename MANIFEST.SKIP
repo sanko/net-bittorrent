@@ -51,7 +51,7 @@ scripts/gui\.xrc
 scripts/bittorrent_full.pl
 scripts/POE\.pl
 scripts/webg?ui\.pl
-scripts/x\.pl
+scripts/x.*\.pl
 scripts/.*\.zip
 scripts/.*\.js
 scripts/.*\.bencode
@@ -86,3 +86,7 @@ commitlog.txt
 
 # Skip .torrents I don't want bundled but are helpful for dev
 \b/[^\d\.\_]+.+\.torrent
+
+# Still adjusting...
+git.pod
+\B\.git\b

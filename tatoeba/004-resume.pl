@@ -20,6 +20,30 @@ sub save {
     rename $torrent->resume_path, $torrent->resume_path . q[.bak]
         if !-f $torrent->resume_path . q[.bak];
     $torrent->save_resume_data;
+    warn q[---------- ] x 3;
+    for my $file (@{$torrent->files}) {
+        warn sprintf q[%s is %3.2f%% complete], $file->path,
+            _percent_complete($file);
+    }
+}
+
+sub _percent_complete {
+    my ($self) = @_;
+    my $start = 0;
+    for my $index (0 .. $self->index - 1) {
+        $start += $self->torrent->files->[$index]->size;
+    }
+    my $end = $start + $self->size;
+    my $piece_length
+        = $self->torrent->raw_data(1)->{q[info]}{q[piece length]};
+    my $have      = 0;
+    my $_bitfield = $self->torrent->bitfield;
+    $start = int($start / $piece_length);
+    $end   = int(($end / $piece_length) + 1);
+    for my $index ($start .. $end) { $have += vec($_bitfield, $index, 1); }
+    my $return = ($have / ($end - $start) * 100)
+        ;    # may be > 100 because pieces and file boundries overlap
+    return $return > 100 ? 100 : $return;
 }
 
 =pod
@@ -119,6 +143,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: 004-resume.pl 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
 
 =cut

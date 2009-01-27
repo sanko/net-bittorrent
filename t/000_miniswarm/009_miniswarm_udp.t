@@ -1,5 +1,4 @@
 # -*- perl -*-
-# $Id$
 # Miniature swarm of 1 seed and 5 new peers
 #
 use strict;
@@ -12,8 +11,9 @@ use lib q[../../lib];
 use Net::BitTorrent::Util qw[:compact :bencode];
 use Net::BitTorrent;
 $|++;
-my $test_builder          = Test::More->builder;
-my $miniswarm_dot_torrent = q[t/900_data/950_torrents/953_miniswarm.torrent];
+my $test_builder = Test::More->builder;
+my $miniswarm_dot_torrent
+    = q[./t/900_data/950_torrents/953_miniswarm.torrent];
 chdir q[../../] if not -f $miniswarm_dot_torrent;
 my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
@@ -281,4 +281,3 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id$

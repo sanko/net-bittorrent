@@ -8,6 +8,9 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
+=item * Wire protocol encryption
+<http://www.azureuswiki.com/index.php/Message_Stream_Encryption>
+
 =item * Flesh out the test suite and example scripts
 
 Create a series of bad .torrent files to test N::B::Torrent with:
@@ -37,17 +40,15 @@ needed.
 
 =back
 
+=back
+
 =head1 Short term goals
 
 =over
 
 =item * DHT callbacks (?)
 
-=item * Fast Ext (fast set use)
-
 =item * BEP 9: Extension for Peers to Send Metadata Files
-
-=item * ut_pex ...despite it being undocumented
 
 =back
 
@@ -67,11 +68,7 @@ needed.
 
 =item * scripts/wx-gui-client.pl (perhaps)
 
-=item * PoCo::BitTorrent
-
 =item * Proxy support
-
-=item * uTP depending on how well it works out if/when it hits IETF
 
 =back
 
@@ -79,8 +76,11 @@ needed.
 
 =over
 
-=item * Wire protocol encryption
-<http://www.azureuswiki.com/index.php/Message_Stream_Encryption#Implementation_Notes_for_BitTorrent_Clients>
+=item * PoCo::BitTorrent
+
+=item * uTP depending on how well it works out if/when it hits IETF
+
+=item * ut_pex ...despite it being undocumented
 
 =back
 
@@ -107,7 +107,5 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
-
-=for svn $Id$
 
 =cut

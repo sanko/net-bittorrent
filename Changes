@@ -1,4 +1,35 @@
-Version 0.049 |
+Version 0.0XX | Distant future | 6929734
+
+    API Changes/Compatibility Information:
+     * None
+
+    Resolved Issues/Bug Fixes:
+     * None
+
+    Protocol/Behavioral Changes:
+     * None
+
+    Documentation/Sample Code/Test Suite:
+     * Several updates in the language used in N::B::Version's pod
+     * N::B::Notes has been trimmed down a bit
+     * N::B's pod has been trimmed
+     * ALL tests are run even on non-dev systems to shake out the last few (I
+         hope) crash/protocol bugs before attention is turned to more advanced
+         stuff
+
+    Notes:
+     * This dev build is being uploaded only to gather tester data. Not for
+       broad use.
+     * Meanwhile...
+       * I lost eight years worth of incomplete projects (including early
+         versions of N::B based on AnyEvent and Moose) when one of my drives
+         failed.
+       * Development is now git based: http://github.com/sanko/net-bittorrent
+       * RIAA Drops Atlantic v. Brennan
+         http://news.slashdot.org/article.pl?sid=09/01/09/022236
+
+---
+Version 0.049 | 2009-01-05 17:38:02 -0500 (Mon, 05 Jan 2009)
 
     API Changes/Compatibility Information:
      * Net::BitTorrent::Torrent->peers() is now public
@@ -343,8 +374,9 @@ Version 0.008 | 2008-04-01 19:46:20 -0400 (Tue, 01 Apr 2008)
 
 _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
-    http://code.google.com/p/net-bittorrent/source/list
+    http://github.com/sanko/net-bittorrent/commits/master
 
-$Rev$ from public svn
-$Date$
-$URL: https://net-bittorrent.googlecode.com/svn/trunk/Changes $
+$Ver: 0.049_003 $ from git
+$Date: 2009-01-05 22:38:02Z (Mon, 05 Jan 2009) $
+$Rev: 6929734ce43c61d44670d1deee94c388408240ba $
+$Url: http://github.com/sanko/net-bittorrent/raw/6929734ce43c61d44670d1deee94c388408240ba/Changes $

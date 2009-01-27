@@ -7,8 +7,7 @@ package Net::BitTorrent::Torrent::File;
     use Scalar::Util qw[blessed weaken refaddr];
     use Fcntl qw[/O_/ /SEEK/ :flock];
     use version qw[qv];
-    our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 42; our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \
         my (%path, %torrent, %size, %index, %priority, %mode, %handle,
@@ -79,7 +78,28 @@ package Net::BitTorrent::Torrent::File;
     sub index   { return $index{refaddr +shift} }
     sub path    { return $path{refaddr +shift} }
 
-    # Methods | private
+    # Accessors | Private
+    sub _percent_complete {
+        my ($self) = @_;
+        my $start = 0;
+        for my $index (0 .. $index{refaddr $self} - 1) {
+            $start += $torrent{refaddr $self}->files->[$index]->size;
+        }
+        my $end          = $start + $size{refaddr $self};
+        my $piece_length = $torrent{refaddr $self}->raw_data(1)
+            ->{q[info]}{q[piece length]};
+        my $have      = 0;
+        my $_bitfield = $torrent{refaddr +shift}->bitfield;
+        $start = int($start / $piece_length);
+        $end   = int(($end / $piece_length) + 1);
+        for my $index ($start .. $end) {
+            $have += vec($_bitfield, $index, 1);
+        }
+        my $return = ($have / ($end - $start) * 100);
+        return $return > 100 ? 100 : $return;
+    }
+
+    # Methods | Private
     sub _open {
         my ($self, $mode) = @_;
         if ((!$mode) || ($mode !~ m[^[rw]$])) {
@@ -529,6 +549,7 @@ Path: %s
 Size: %d bytes
 Priority: %d
 Open mode: %s
+Complete: %3.2f%%
 
 Torrent: %s
 Index: %d of %d
@@ -541,6 +562,7 @@ END
              : $mode{refaddr $self} eq q[rw] ? q[Read/Write]
              : q[Closed]
             ),
+            $self->_percent_complete,
             $torrent{refaddr $self}->infohash, $index{refaddr $self},
             scalar(@{$torrent{refaddr $self}->files});
         return defined wantarray ? $dump : print STDERR qq[$dump\n];
@@ -675,6 +697,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: File.pm b894db1 2008-12-05 04:54:43Z sanko@cpan.org $
 
 =cut

@@ -24,26 +24,26 @@ SKIP: {
     if ($Net::BitTorrent::Version::VERSION =~ m[_]) {
         like(Net::BitTorrent::Version->gen_peerid(),
              qr[^NB\d{3}U-.{13}$],
-             q[Peer ID conforms to spec. (unstable/SVN build)]
+             q[Peer ID conforms to spec. (unstable build)]
         );
         my $old_value = $Net::BitTorrent::Version::UNSTABLE_RELEASE;
         $Net::BitTorrent::Version::UNSTABLE_RELEASE = 0;
         like(Net::BitTorrent::Version->gen_peerid(),
              qr[^NB\d{3}S-.{13}$],
-             q[Peer ID conforms to spec. (fake stable/CPAN build)]
+             q[Peer ID conforms to spec. (fake stable build)]
         );
         $Net::BitTorrent::Version::UNSTABLE_RELEASE = $old_value;
     }
     else {
         like(Net::BitTorrent::Version->gen_peerid(),
              qr[^NB\d{3}S-.{13}$],
-             q[Peer ID conforms to spec. (stable/CPAN build)]
+             q[Peer ID conforms to spec. (stable build)]
         );
         my $old_value = $Net::BitTorrent::Version::UNSTABLE_RELEASE;
         $Net::BitTorrent::Version::UNSTABLE_RELEASE = 1;
         like(Net::BitTorrent::Version->gen_peerid(),
              qr[^NB\d{3}U-.{13}$],
-             q[Peer ID conforms to spec. (fake unstable/SVN build)]
+             q[Peer ID conforms to spec. (fake unstable build)]
         );
         $Net::BitTorrent::Version::UNSTABLE_RELEASE = $old_value;
     }
@@ -66,4 +66,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id$
+$Id: Version.t 644376d 2008-12-02 04:25:26Z sanko@cpan.org $

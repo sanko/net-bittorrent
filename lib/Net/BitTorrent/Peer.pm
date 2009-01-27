@@ -9,8 +9,7 @@ package Net::BitTorrent::Peer;
     use Socket qw[/F_INET/ SOMAXCONN SOCK_STREAM /inet_/ /pack_sockaddr_in/];
     use Fcntl qw[F_SETFL O_NONBLOCK];
     use version qw[qv];
-    our $SVN = q[$Id$];
-    our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new((qw$Rev$)[1])->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];
@@ -1465,6 +1464,26 @@ ADVANCED
         for (@CONTENTS) { delete $_->{refaddr $self}; }
         return delete $REGISTRY{refaddr $self};
     }
+
+    sub _rc4_crypt {
+        my ($_key, $plaintext) = @_;
+        my @key = unpack q[C*], $_key;
+        my ($_j, $i, $j) = (0, 0, 0);
+        my @S = 0 .. 255;    # KSA
+        for my $_i (0 .. 255) {
+            $_j = ($_j + $key[$_i % @key] + $S[$_i]) & 255;
+            @S[$_i, $_j] = @S[$_j, $_i];
+        }
+        my $rc4_output = sub {    # PRGA
+            $i = ($i + 1) & 255;
+            $j = ($j + $S[$i]) & 255;
+            @S[$i, $j] = @S[$j, $i];
+            return $S[($S[$i] + $S[$j]) & 255];
+        };
+        return pack q[C*],
+            map { ord(substr($plaintext, $_, 1)) ^ $rc4_output->() }
+            0 .. length($plaintext) - 1;
+    }
     1;
 }
 
@@ -1532,6 +1551,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: Peer.pm 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
 
 =cut

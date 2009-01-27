@@ -11,7 +11,7 @@ use Net::BitTorrent::Torrent qw[:status];
 use Net::BitTorrent;
 $|++;
 my ($dir, $chk, $int, $VERSION, $port, $ver, @tor, %opts)
-    = (q[./], 1, 1, sprintf q[%.3f], (qw$Rev$)[1] / 1000);
+    = (q[./], 1, 1, 0.050);
 GetOptions(
     q[check!]      => \$chk,
     q[directory:s] => \$dir,
@@ -199,6 +199,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: bittorrent.pl d230426 2008-12-30 23:25:17Z sanko@cpan.org $
 
 =cut

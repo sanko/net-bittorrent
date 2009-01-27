@@ -69,6 +69,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id$
+=for svn $Id: 000-basic.pl d230426 2008-12-30 23:25:17Z sanko@cpan.org $
 
 =cut

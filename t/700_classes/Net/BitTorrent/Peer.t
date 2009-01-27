@@ -32,9 +32,10 @@ SKIP: {
     skip(
         q[Due to system configuration, socket-based tests have been disabled.  ...which makes N::B pretty useless.]
     ) if !$okay_tcp;
-    skip(
-        q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable]
-    ) if !$release_testing;
+
+#skip(
+#    q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable]
+#) if !$release_testing;
     my ($tempdir)
         = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
     warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
@@ -956,4 +957,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id$
+$Id: Peer.t 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
