@@ -27,6 +27,8 @@ file.
 
 =head1 Lowdown
 
+This section only makes sense when you view the source.
+
 =over
 
 =item Line 6
@@ -89,6 +91,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: 001-torrent-info.pl 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: 001-torrent-info.pl fac4ae0 2009-01-27 17:00:38Z sanko@cpan.org $
 
 =cut

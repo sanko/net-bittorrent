@@ -430,11 +430,11 @@ begin, here are a few ideas.
 
 C<Net::BitTorrent> is too large for just one person to hack on.  If
 you're Perl adept and would like to help, you can start by forking the
-project on github: http://github.com/sanko/net-bittorrent/.  To you
-tinkering and then send me a pull request.  Minor patches get your name
-in the changelog.  Major patches get your name in the
-L<Acknowledgments|Net::BitTorrent/Acknowledgments> section and an
-invitation to be a trusted collaborator.  Oooo.  Ahhh.
+project on github: http://github.com/sanko/net-bittorrent/.  When ready,
+send me a pull request, I'll look over your changes and get back to you.
+Minor patches get your name in the changelog.  Major patches get your
+name in the L<Acknowledgments|Net::BitTorrent/Acknowledgments> section
+and an invitation to be a trusted collaborator.  Oooo.  Ahhh.
 
 =for html <span style="color: #F00; font-size: 1.5em;">
 
@@ -637,6 +637,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Notes.pod 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: Notes.pod fac4ae0 2009-01-27 17:00:38Z sanko@cpan.org $
 
 =cut
