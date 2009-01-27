@@ -1,88 +1,263 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<?xml version="1.0" encoding="us-ascii"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+"http://www.w3.org/TR/2001/REC-xhtml11-20010531/DTD/xhtml11-flat.dtd"
+>
+<html xml:lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta content="text/html; charset=us-ascii" http-equiv=
+    "Content-Type" />
+    <meta content="en" http-equiv="Content-Language" />
+    <meta content="text/css" http-equiv="Content-Style-Type" />
+    <meta content=
+    "Net::BitTorrent, perl, software, JAPH, Sanko Robinson, sanko, torrent, bittorrent, Artistic License"
+    name="keywords" />
+    <link href="http://creativecommons.org/licenses/by/3.0/" rel=
+    "copyright" />
+    <link href="http://sankorobinson.com/atom/?tag=Net::BitTorrent"
+    rel="alternate" title="Net::BitTorrent-related blog entries"
+    type="application/atom+xml" />
+    <link href=
+    "http://github.com/feeds/sanko/commits/net-bittorrent/master"
+    rel="alternate" title="Net::BitTorrent/master commit feed" type=
+    "application/atom+xml" />
+    <meta content="text/html; charset=us-ascii" http-equiv=
+    "Content-Type" />
+    <title>
+      Sanko Robinson | Net::BitTorrent
+    </title>
+    <link href="http://sankorobinson.com/~stylesheets/basic.css" rel=
+    "stylesheet" type="text/css" />
+    <link href="http://sankorobinson.com/~stylesheets/perl-dusk.css"
+    rel="stylesheet" type="text/css" />
+  </head>
+  <body class="static">
+    <div id="container">
+      <div id="body">
+        <div id="articles">
+          <div class="article">
+            <p class="title">
+              Net::BitTorrent
+            </p>
+            <p>
+              &hellip;brings BitTorrent to Perl! It works pretty much
+              <a href=
+              "http://bbbike.radzeit.de/~slaven/cpantestersmatrix.cgi?dist=Net-BitTorrent&amp;maxver=1"
+              title="CPAN Testers Matrix">everywhere</a>, depends
+              <a href=
+              "http://deps.cpantesters.org/?module=Net::BitTorrent;perl=latest"
+              title="Dependancy tree for Net::BitTorrent">only on
+              core modules</a>, and it&#39;s <a href="#samplecode"
+              title="View brief example">easy to use</a>.
+            </p>
+            <p>
+              <a href="http://search.cpan.org/dist/Net-BitTorrent"
+              title="Distribution permalink">Net::BitTorrent</a>
+              development is hosted by <a href=
+              "http://github.com/sanko/net-bittorrent/">GitHub</a>.
+              The official support channel is, <a href=
+              "irc://irc.p2p-network.net/#net-bittorrent">#net-bittorrent</a>
+              on IRC but there&#39;s also a <a href=
+              "http://groups.google.com/group/net-bittorrent" title=
+              "Low traffic mailing list">mailing list</a> where users
+              can seek assistance and an <a href=
+              "http://code.google.com/p/net-bittorrent/issues/list"
+              title=
+              "When reporting bugs, please include as much information as possible.">
+              issue tracker</a> for bug reports. To stay up to date
+              with development, <a href=
+              "http://twitter.com/Net_BitTorrent" title=
+              "Work log on Twitter.">follow the project on
+              Twitter</a> or skim my <a href=
+              "http://sankorobinson.com/?tag=Net::BitTorrent">blog-like
+              thing</a>.
+            </p>
+            <p>
+              Several <a href=
+              "http://search.cpan.org/src/SANKO/Net-BitTorrent-0.049/tatoeba/">
+              example scripts</a> come with the <a href=
+              "http://search.cpan.org/dist/Net-BitTorrent/" title=
+              "Look here for the most recent stable release.">distribution
+              on CPAN</a> but since you asked nicely, here&#39;s a
+              quick demonstration of that easy I mentioned earlier.
+            </p>
+            <ol class="dusk" id="samplecode">
+              <li class="line">
+                <em class="preprocessor">#!perl -w</em>
+              </li>
+              <li class="line_alt">&nbsp;
+              </li>
+              <li class="line">
+                <em class="comment"># synopsis.pl - A very brief
+                example</em>
+              </li>
+              <li class="line_alt">&nbsp;
+              </li>
+              <li class="line">
+                <em class="keyword">use</em> <em class=
+                "default">Net::BitTorrent</em><em class=
+                "punctuation">;</em>
+              </li>
+              <li class="line_alt">my <em class="scalar">$client</em>
+              <em class="operator">=</em> <em class=
+              "default">Net::BitTorrent</em><em class=
+              "punctuation">-&gt;</em><em class=
+              "default">new</em><em class="punctuation">( );</em>
+              </li>
+              <li class="line">&nbsp;
+              </li>
+              <li class="line_alt">
+                <em class="scalar">$client</em><em class=
+                "punctuation">-&gt;</em><em class=
+                "default">on_event</em><em class="punctuation">(</em>
+              </li>
+              <li class="line indent_1">
+                <em class="string">q[piece_hash_pass]</em><em class=
+                "punctuation">,</em>
+              </li>
+              <li class="line_alt indent_1">
+                <em class="keyword">sub</em> <em class=
+                "default">hash_pass</em> <em class=
+                "punctuation">{</em>
+              </li>
+              <li class="line indent_2">
+                <em class="keyword">my</em> <em class=
+                "punctuation">(</em><em class=
+                "scalar">$self</em><em class="punctuation">,</em>
+                <em class="scalar">$args</em><em class=
+                "punctuation">)</em> <em class="operator">=</em>
+                <em class="array">@_</em><em class=
+                "punctuation">;</em>
+              </li>
+              <li class="line_alt indent_2">
+                <em class="keyword">printf</em><em class=
+                "punctuation">(</em><em class="string">qq[pass: piece
+                number %04d of %s\n]</em><em class=
+                "punctuation">,</em>
+              </li>
+              <li class="line indent_3">
+                <em class="scalar">$args</em><em class=
+                "punctuation">-&gt;{</em><em class=
+                "string">q[Index]</em><em class="punctuation">},</em>
+                <em class="scalar">$args</em><em class=
+                "punctuation">-&gt;{</em><em class=
+                "string">q[Torrent]</em><em class=
+                "punctuation">}-&gt;</em><em class=
+                "default">infohash</em><em class=
+                "punctuation">);</em>
+              </li>
+              <li class="line_alt indent_1">
+                <em class="punctuation">}</em>
+              </li>
+              <li class="line">
+                <em class="punctuation">);</em>
+              </li>
+              <li class="line_alt">&nbsp;
+              </li>
+              <li class="line">
+                <em class="keyword">my</em> <em class=
+                "scalar">$torrent</em> <em class="operator">=</em>
+                <em class="scalar">$client</em><em class=
+                "punctuation">-&gt;</em><em class=
+                "default">add_torrent</em><em class=
+                "punctuation">({</em>Path <em class=
+                "punctuation">=&gt;</em> <em class=
+                "string">q[a.legal.torrent]</em><em class=
+                "punctuation">})</em>
+              </li>
+              <li class="line_alt indent_1">
+                <em class="keyword_2">or</em> <em class=
+                "keyword">die</em> <em class="string">q[Cannot load
+                .torrent]</em><em class="punctuation">;</em>
+              </li>
+              <li class="line">&nbsp;
+              </li>
+              <li class="line_alt">
+                <em class="scalar">$torrent</em>-&gt;hashcheck;
+                <em class="comment"># Verify any existing data</em>
+              </li>
+              <li class="line">&nbsp;
+              </li>
+              <li class="line_alt">
+                <em class="scalar">$client</em><em class=
+                "punctuation">-&gt;</em><em class=
+                "default">do_one_loop</em><em class="punctuation">(
+                )</em> <em class="keyword">while</em> <em class=
+                "number">1</em><em class="punctuation">;</em>
+              </li>
+            </ol>
+            <p>
+              If you find <a href=
+              "http://search.cpan.org/dist/Net-BitTorrent" title=
+              "Distribution permalink">Net::BitTorrent</a> useful,
+              feel free to support the project with donations;
+              <a href="http://github.com/sanko/net-bittorrent/"
+              title="git with it!">code is welcome from
+              developers</a> and <a href=
+              "http://pledgie.org/campaigns/2571" title="$.$;;;">cash
+              is welcome from <em class="italic">everyone</em></a>.
+            </p>
+          </div>
+          <div class="bottom fix abso lute ed _all_ _center_ center"
+          id="footer">
+            <div id="name">
+              <a href="http://sankorobinson.com/">Sanko Robinson</a>
+            </div>
+            <div id="navigation">
+              <a href=
+              "http://sankorobinson.com/net-bittorrent/">Project
+              page</a> &middot; <a href=
+              "http://sankorobinson.com/?tag=Net::BitTorrent">Blahg</a>
+              &middot; <a href=
+              "http://sankorobinson.com/about/#contact">Contact</a>
+              &middot; <a href=
+              "http://search.cpan.org/dist/Net-BitTorrent/">CPAN</a>
+              &middot; <a href=
+              "http://github.com/sanko/net-bittorrent/">Master</a>
+              &middot; Download [ <a href=
+              "http://github.com/sanko/net-bittorrent/zipball/master">
+              zip</a> | <a href=
+              "http://github.com/sanko/net-bittorrent/tarball/master">
+              tar</a> ]
+            </div>
+            <div class="invisible" id="license">
+              <a href=
+              "http://creativecommons.org/licenses/by-sa/3.0/us/"
+              rel="license">CC 3.0 By-SA</a> <a href=
+              "http://www.opensource.org/licenses/artistic-license-2.0.php"
+              rel="license">Artistic License 2.0</a>
+            </div>
+          </div><!--
+TODO:
+ -
+ -
+ -
 
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+About:
+ - LastMod: Uh... nfi...
 
-	<title>sanko/net-bittorrent @ GitHub</title>
-	
-	<style type="text/css">
-		body {
-  		margin-top: 1.0em;
-  		background-color: #e36102;
-		  font-family: "helvetica"; 
-  		color: #ffffff;
-    }
-    #container {
-      margin: 0 auto;
-      width: 700px;
-    }
-		h1 { font-size: 3.8em; color: #1c9efd; margin-bottom: 3px; }
-		h1 .small { font-size: 0.4em; }
-		h1 a { text-decoration: none }
-		h2 { font-size: 1.5em; color: #1c9efd; }
-    h3 { text-align: center; color: #1c9efd; }
-    a { color: #1c9efd; }
-    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
-    .download { float: right; }
-		pre { background: #000; color: #fff; padding: 15px;}
-    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-    .footer { text-align:center; padding-top:30px; font-style: italic; }
-	</style>
-	
-</head>
-
-<body>
-  <a href="http://github.com/sanko/net-bittorrent"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
-  
-  <div id="container">
-
-    <div class="download">
-      <a href="http://github.com/sanko/net-bittorrent/zipball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
-      <a href="http://github.com/sanko/net-bittorrent/tarball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
-    </div>
-      
-    <h1><a href="http://github.com/sanko/net-bittorrent">net-bittorrent</a> 
-      <span class="small">by <a href="http://github.com/sanko">sanko</a></small></h1>
-
-    <div class="description">
-      Net::BitTorrent CPAN module
-    </div>
-
-    <h2>Authors</h2>
-<p>Sanko Robinson (sanko@cpan.org)<br/><br/>      </p>
-<h2>Contact</h2>
-<p>Sanko Robinson (sanko@cpan.org)<br/>      </p>
-
-
-    <h2>Download</h2>
-    <p>
-      You can download this project in either
-      <a href="http://github.com/sanko/net-bittorrent/zipball/master">zip</a> or
-      <a href="http://github.com/sanko/net-bittorrent/tarball/master">tar</a> formats.
-    </p>
-    <p>You can also clone the project with <a href="http://git-scm.com">Git</a>
-      by running:
-      <pre>$ git clone git://github.com/sanko/net-bittorrent</pre>
-    </p>
-      
-    <div class="footer">
-      get the source code on GitHub : <a href="http://github.com/sanko/net-bittorrent">sanko/net-bittorrent</a>
-    </div>
-    
-  </div>
-
-  <script type="text/javascript">
-var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
-document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
-</script>
-<script type="text/javascript">
-try {
-var pageTracker = _gat._getTracker("UA-683755-5");
-pageTracker._trackPageview();
-} catch(err) {}</script>
-</body>
+    --><script type="text/javascript">
+//<![CDATA[
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+            //]]>
+          </script><script type="text/javascript">
+//<![CDATA[
+            try {
+            var pageTracker = _gat._getTracker("UA-683755-5");
+            pageTracker._trackPageview();
+            } catch(err) {}
+            //]]>
+          </script><!--
+    <a class="absolute top abs-right" href=
+    "http://github.com/sanko/net-bittorrent"><img alt=
+    "Fork me on GitHub" src=
+    "http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" /></a>
+    -->
+        </div>
+      </div>
+    </div><a class="absolute top abs-right" href=
+    "http://github.com/sanko/net-bittorrent"><img alt=
+    "Fork me on GitHub" src=
+    "http://s3.amazonaws.com/github/ribbons/forkme_right_white_ffffff.png" /></a>
+  </body>
 </html>
