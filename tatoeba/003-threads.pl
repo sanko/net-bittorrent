@@ -23,7 +23,7 @@ sleep(0.25) and $client->do_one_loop(0.25) while !$torrent->is_complete;
 
 =head1 NAME
 
-/tatoeba/003-threads.pl - Trivial, Multi-threaded Example
+003-threads.pl - Trivial Demonstration of a Multi-threaded Client
 
 =head1 Description
 
@@ -120,6 +120,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: 003-threads.pl 5a297aa 2009-01-02 17:39:49Z sanko@cpan.org $
+=for svn $Id: 003-threads.pl 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
 
 =cut

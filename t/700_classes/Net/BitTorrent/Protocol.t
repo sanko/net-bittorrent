@@ -16,7 +16,7 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 $|++;
 
 BEGIN {
-    plan tests => 267;
+    plan tests => 269;
     use_ok(q[Net::BitTorrent::Protocol], qw[:all]);
 }
 SKIP: {
@@ -73,40 +73,39 @@ SKIP: {
   #    157
   #) if not $release_testing;
         is(build_choke(), qq[\0\0\0\1\0],
-            q[   ...requires no params and has no payload]);
+            q[build_choke() requires no params and has no payload]);
         is(build_unchoke(), qq[\0\0\0\1\1],
-            q[   ...requires no params and has no payload]);
+            q[build_unchoke() requires no params and has no payload]);
         is(build_interested(), qq[\0\0\0\1\2],
-            q[   ...requires no params and has no payload]);
+            q[build_interested() requires no params and has no payload]);
         is(build_not_interested(), qq[\0\0\0\1\3],
-            q[   ...requires no params and has no payload]);
-        is(build_have(),            undef, q[   ...requires a single param]);
-        is(build_have(q[1desfdds]), undef, q[   ...an index]);
+            q[build_not_interested() requires no params and has no payload]);
+        is(build_have(),            undef,  q[build_have requires a single param]);
         is(build_have(9), qq[\0\0\0\5\4\0\0\0\t],
-            q[   ...requires a single param]);
-        is(build_have(0), qq[\0\0\0\5\4\0\0\0\0], q[   ...a number]);
-        is( build_have(999999999999999),
+                                            q[        ...requires a single param]);
+        is(build_have(q[1desfdds]), undef,  q[        ...an index]);
+        is(build_have(0), qq[\0\0\0\5\4\0\0\0\0],
+                                            q[        ...which must be a positive integer]);
+        is( build_have(4294967295),
             qq[\0\0\0\5\4\xFF\xFF\xFF\xFF],
-            q[   ...even a large one is okay]
+                                            q[        ...even a large one is okay (hit 32bit math limit)]
         );
-        warn(
-            q[     (A quadrillion piece torrent? Ha! The .torrent itself would be several GBs)]
-        );
-        is(build_have(-5),      undef, q[   ...as long as it's positive]);
-        is(build_bitfield(),    undef, q[   ...requires a single param]);
-        is(build_bitfield(q[]), undef, q[   ...a packed bitfield]);
+        is(build_have(-5),      undef,      q[        ...as long as it's positive]);
+        #
+        is(build_bitfield(),    undef,  q[build_bitfield() requires a single param]);
+        is(build_bitfield(q[]), undef,  q[              ...a packed bitfield]);
         is(build_bitfield(q[abcdefg]),
             qq[\0\0\0\b\5abcdefg],
-            q[   ...but what _doesn't_ unpack to binary?]);
+                                        q[              ...but what _doesn't_ unpack to binary?]);
         my $tmp = join((join time, keys(%ENV)), %INC);  # fairly random string
         is(build_bitfield($tmp),
             pack(q[N], length($tmp) + 1) . chr(5) . $tmp,
-            q[   ...more testing]);
-        is(build_request(undef, 2,     3), undef, q[   ...requires an index]);
-        is(build_request(1,     undef, 3), undef, q[   ...an offset]);
-        is(build_request(1, 2, undef), undef, q[   ...and a length.]);
+                                        q[              ...more testing]);
+        is(build_request(undef, 2,     3), undef,   q[build_request() requires an index]);
+        is(build_request(1,     undef, 3), undef,   q[             ...an offset]);
+        is(build_request(1, 2, undef), undef,       q[             ...and a length.]);
         is(build_request(q[], q[], q[]),
-            undef, q[   They should all be positive numbers (A)]);
+            undef,                                  q[   They should all be positive numbers (A)]);
         is(build_request(-1, q[], q[]),
             undef, q[   They should all be positive numbers (B)]);
         is(build_request(1, q[], q[]),
@@ -120,26 +119,27 @@ SKIP: {
         is(build_request(1, 2, 3),
             qq[\0\0\0\r\6\0\0\0\1\0\0\0\2\0\0\0\3],
             q[   They should all be positive numbers (G)]);
-        is( build_request(999999999999999, 999999999999999, 999999999999999),
+        is( build_request(4294967295, 4294967295, 4294967295),
             pack(q[H*], q[0000000d06ffffffffffffffffffffffff]),
             q[   They should all be positive numbers (H)]
         );
-        is(build_piece(undef, 2, 3), undef, q[   ...requires an index]);
-        is(build_piece(1,   undef, q[test]), undef, q[   ...an offset]);
-        is(build_piece(1,   2,     undef),   undef, q[   ...and data]);
-        is(build_piece(q[], q[],   q[]),     undef, q[   validation (A)]);
-        is(build_piece(-1,  q[],   q[]),     undef, q[   validation (B)]);
-        is(build_piece(1,   q[],   q[]),     undef, q[   validation (C)]);
-        is(build_piece(1,   -2,    q[]),     undef, q[   validation (D)]);
+        #
+        is(build_piece(undef, 2, 3), undef,             q[build_piece() requires an index]);
+        is(build_piece(1,   undef, q[test]), undef,     q[           ...an offset]);
+        is(build_piece(1,   2,     undef),   undef,     q[           ...and data]);
+        is(build_piece(q[], q[],   q[]),     undef,     q[   validation (A)]);
+        is(build_piece(-1,  q[],   q[]),     undef,     q[   validation (B)]);
+        is(build_piece(1,   q[],   q[]),     undef,     q[   validation (C)]);
+        is(build_piece(1,   -2,    q[]),     undef,     q[   validation (D)]);
         is(build_piece(1,   2,     \q[XXX]),
-            qq[\0\0\0\f\a\0\0\0\1\0\0\0\2XXX],
-            q[   validation (E)]);
+            qq[\0\0\0\f\a\0\0\0\1\0\0\0\2XXX],          q[   validation (E)]);
         is(build_piece(1, 2, \$tmp),
             (pack(q[NcN2a*], length($tmp) + 9, 7, 1, 2, $tmp)),
             q[   validation (F)]);
-        is(build_cancel(undef, 2,     3), undef, q[   ...requires an index]);
-        is(build_cancel(1,     undef, 3), undef, q[   ...an offset]);
-        is(build_cancel(1, 2, undef), undef, q[   ...and a length.]);
+#
+        is(build_cancel(undef, 2,     3), undef,        q[build_cancel() requires an index]);
+        is(build_cancel(1,     undef, 3), undef,        q[            ...an offset]);
+        is(build_cancel(1, 2, undef), undef,            q[            ...and a length.]);
         is(build_cancel(q[], q[], q[]),
             undef, q[   They should all be positive numbers (A)]);
         is(build_cancel(-1, q[], q[]),
@@ -155,20 +155,23 @@ SKIP: {
         is(build_cancel(1, 2, 3),
             qq[\0\0\0\r\b\0\0\0\1\0\0\0\2\0\0\0\3],
             q[   They should all be positive numbers (G)]);
-        is( build_cancel(999999999999999, 999999999999999, 999999999999999),
+        is( build_cancel(4294967295, 4294967295, 4294967295),
             pack(q[H*], q[0000000d08ffffffffffffffffffffffff]),
             q[   They should all be positive numbers (H)]
         );
-        is(build_port(),    undef, q[   Requires a port number]);
-        is(build_port(-5),  undef, q[   ...and ports are always positive]);
-        is(build_port(3.3), undef, q[   ...integers]);
+        #
+        is(build_port(),    undef, q[build_port() requires a port number]);
+        is(build_port(-5),  undef, q[          ...and ports are always positive]);
+        is(build_port(3.3), undef, q[          ...integers]);
         is(build_port(q[test]), undef, q[   Validation (A)]);
         is(build_port(8555), qq[\0\0\0\5\t\0\0!k], q[   Validation (B)]);
         is(build_port(652145), qq[\0\0\0\a\t\0\t\xF3q], q[   Validation (C)]);
-        is(build_allowed_fast(), undef, q[   Requires a piece index]);
+        #
+        is(build_allowed_fast(), undef, q[build_allowed_fast() requires a piece index]);
         is(build_allowed_fast(-5), undef,
-            q[   ...which is always a positive]);
-        is(build_allowed_fast(3.3),     undef, q[   ...integer]);
+                                        q[                  ...which is always a positive]);
+        is(build_allowed_fast(3.3),     undef,
+                                        q[                  ...integer]);
         is(build_allowed_fast(q[test]), undef, q[   Validation (A)]);
         is(build_allowed_fast(8555),
             qq[\0\0\0\5\21\0\0!k], q[   Validation (B)]);
@@ -176,9 +179,10 @@ SKIP: {
             qq[\0\0\0\5\21\0\t\xF3q], q[   Validation (C)]);
         is(build_allowed_fast(0), qq[\0\0\0\5\21\0\0\0\0],
             q[   Validation (D)]);
-        is(build_reject(undef, 2,     3), undef, q[   ...requires an index]);
-        is(build_reject(1,     undef, 3), undef, q[   ...an offset]);
-        is(build_reject(1, 2, undef), undef, q[   ...and a length.]);
+            #
+        is(build_reject(undef, 2,     3), undef, q[build_reject() requires an index]);
+        is(build_reject(1,     undef, 3), undef, q[            ...an offset]);
+        is(build_reject(1, 2, undef), undef,     q[            ...and a length.]);
         is(build_reject(q[], q[], q[]),
             undef, q[   They should all be positive numbers (A)]);
         is(build_reject(-1, q[], q[]),
@@ -194,34 +198,38 @@ SKIP: {
         is(build_reject(1, 2, 3),
             qq[\0\0\0\r\20\0\0\0\1\0\0\0\2\0\0\0\3],
             q[   They should all be positive numbers (G)]);
-        is( build_reject(999999999999999, 999999999999999, 999999999999999),
+        is( build_reject(4294967295, 4294967295, 4294967295),
             pack(q[H*], q[0000000d10ffffffffffffffffffffffff]),
             q[   They should all be positive numbers (H)]
         );
+        #
         is(build_have_all(), qq[\0\0\0\1\16],
-            q[   ...requires no params and has no payload]);
+            q[build_have_all() requires no params and has no payload]);
+            #
         is(build_have_none(), qq[\0\0\0\1\17],
-            q[   ...requires no params and has no payload]);
-        is(build_suggest(),    undef, q[   Requires a piece index]);
-        is(build_suggest(-5),  undef, q[   ...which is always a positive]);
-        is(build_suggest(3.3), undef, q[   ...integer]);
+            q[build_have_none() requires no params and has no payload]);
+            #
+        is(build_suggest(),    undef, q[build_suggest() requires a piece index]);
+        is(build_suggest(-5),  undef, q[             ...which is always a positive]);
+        is(build_suggest(3.3), undef, q[             ...integer]);
         is(build_suggest(q[test]), undef, q[   Validation (A)]);
         is(build_suggest(8555), qq[\0\0\0\5\r\0\0!k], q[   Validation (B)]);
         is(build_suggest(652145), qq[\0\0\0\5\r\0\t\xF3q],
             q[   Validation (C)]);
         is(build_suggest(0), qq[\0\0\0\5\r\0\0\0\0], q[   Validation (D)]);
+        #
         is(build_extended(), undef,
-            q[   ...requires a message id and a playload]);
-        is(build_extended(undef, {}), undef, q[   ...validation (A)]);
-        is(build_extended(-1,    {}), undef, q[   ...validation (B)]);
-        is(build_extended(q[],   {}), undef, q[   ...validation (C)]);
-        is(build_extended(0, undef), undef, q[   ...validation (D)]);
-        is(build_extended(0, 2),     undef, q[   ...validation (E)]);
-        is(build_extended(0, -2),    undef, q[   ...validation (F)]);
-        is(build_extended(0, q[]),   undef, q[   ...validation (G)]);
+                                            q[build_extended() requires a message id and a playload]);
+        is(build_extended(undef, {}), undef,q[   validation (A)]);
+        is(build_extended(-1,    {}), undef,q[   validation (B)]);
+        is(build_extended(q[],   {}), undef,q[   validation (C)]);
+        is(build_extended(0, undef), undef, q[   validation (D)]);
+        is(build_extended(0, 2),     undef, q[   validation (E)]);
+        is(build_extended(0, -2),    undef, q[   validation (F)]);
+        is(build_extended(0, q[]),   undef, q[   validation (G)]);
         is( build_extended(0, {}),
             qq[\0\0\0\4\24\0de],
-            q[   ...validation (H)]
+            q[   validation (H)]
         );
         is( build_extended(0,
                            {m => {ut_pex => 1, q[µT_PEX] => 2},
@@ -233,47 +241,53 @@ SKIP: {
                            }
             ),
             qq[\0\0\0Z\24\0d1:md6:ut_pexi1e7:\xC2\xB5T_PEXi2ee1:pi30e4:reqqi30e1:v21:Net::BitTorrent r0.306:yourip4:\x7F\0\0\1e],
-            q[   ...validation (I | initial handshake)]
+            q[   validation (I | initial handshake)]
         );
-        is(_parse_handshake(),          undef, q[Undef]);
-        is(_parse_handshake(q[]),       undef, q[Empty]);
-        is(_parse_handshake(q[Hahaha]), undef, q[Not enough data]);
+        #
+        is(_parse_handshake(),          undef, q[_parse_handshake()    == undef (no data)]);
+        is(_parse_handshake(q[]),       undef, q[_parse_handshake('') == undef (no/not enough data)]);
+        is(_parse_handshake(q[Hahaha]), undef, q[_parse_handshake('Hahaha') == undef (Not enough data)]);
         is( _parse_handshake(      qq[\23NotTorrent protocol\0\0\0\0\0\0\0\0]
                                  . q[AAAAAAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBBBBB]
             ),
             undef,
-            q[Bad protocol name]
+            q[_parse_handshake("\23NotTorrent protocol[...]") == undef (Bad protocol name)]
         );
         is_deeply(_parse_handshake(
                                    qq[\23BitTorrent protocol\0\0\0\0\0\0\0\0]
                                  . q[AAAAAAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBBBBB]
                   ),
                   [qq[\0] x 8, q[A] x 20, q[B] x 20],
-                  q[Correct handshake]
+                  q[_parse_handshake([...]) == [packet] (Correct handshake)]
         );
+        #
         is(_parse_keepalive(), undef,
-            q[  ...has no payload and nothing to test]);
-        is(_parse_choke(), undef, q[  ...has no payload and nothing to test]);
+            q[_parse_keepalive() has no payload and nothing to test]);
+        is(_parse_choke(), undef, q[_parse_choke() has no payload and nothing to test]);
         is(_parse_unchoke(), undef,
-            q[  ...has no payload and nothing to test]);
+            q[_parse_unchoke() has no payload and nothing to test]);
         is(_parse_interested(), undef,
-            q[  ...has no payload and nothing to test]);
+            q[_parse_interested() has no payload and nothing to test]);
         is(_parse_not_interested(), undef,
-            q[  ...has no payload and nothing to test]);
-        is(_parse_have(),             undef,     q[Undef]);
-        is(_parse_have(q[]),          undef,     q[Empty]);
-        is(_parse_have(qq[\0\0\0d]),  100,       q[ ...100]);
-        is(_parse_have(qq[\0\0\0\0]), 0,         q[ ...0]);
-        is(_parse_have(qq[\0\0\4\0]), 1024,      q[ ...1024]);
-        is(_parse_have(qq[\f\f\f\f]), 202116108, q[ ...202116108]);
-        is(_parse_bitfield(),         undef,     q[Undef]);
-        is(_parse_bitfield(q[]),      undef,     q[Empty]);
+            q[_parse_not_interested() has no payload and nothing to test]);
+        is(_parse_have(),             undef,     q[_parse_have() == undef (no packed index)]);
+        is(_parse_have(q[]),          undef,     q[_parse_have('') == undef (no packed index)]);
+        is(_parse_have(qq[\0\0\0d]),  100,       q[_parse_have("\0\0\0d") == 100]);
+        is(_parse_have(qq[\0\0\0\0]), 0,         q[_parse_have("\0\0\0\0") == 0]);
+        is(_parse_have(qq[\0\0\4\0]), 1024,      q[_parse_have("\0\0\4\0") == 1024]);
+        is(_parse_have(qq[\f\f\f\f]), 202116108, q[_parse_have("\f\f\f\f") == 202116108]);
+        is(_parse_have(qq[\x0f\x0f\x0f\x0f]),  252645135, q[_parse_have("\x0f\x0f\x0f\x0f") == 252645135]);
+        is(_parse_have(qq[\xff\xff\xff\xff]), 4294967295, q[_parse_have("\xff\xff\xff\xff") == 4294967295 (upper limit for 32-bit math)]);
+        #
+        is(_parse_bitfield(),         undef,     q[_parse_bitfield() == undef (no data)]);
+        is(_parse_bitfield(q[]),      undef,     q[_parse_bitfield('') == undef (no data)]);
         is(_parse_bitfield(pack q[B*], q[1110010100010]),
-            qq[\xA7\b], q[ ...1110010100010]);
-        is(_parse_bitfield(pack q[B*], q[00]),    qq[\0],  q[ ..00]);
-        is(_parse_bitfield(pack q[B*], q[00001]), qq[\20], q[ ...00001]);
+            qq[\xA7\b],                          q[_parse_bitfield([...], '1110010100010') == "\xA7\b"]);
+        is(_parse_bitfield(pack q[B*], q[00]),    qq[\0],  q[_parse_bitfield([...], '00') == "\0"]);
+        is(_parse_bitfield(pack q[B*], q[00001]), qq[\20], q[_parse_bitfield([...], '00001') == "\20"]);
         is(_parse_bitfield(pack q[B*], q[1111111111111]),
-            qq[\xFF\37], q[ ...1111111111111]);
+            qq[\xFF\37], q[_parse_bitfield([...], '1111111111111') == "\xFF\37"]);
+        #
         is(_parse_request(),    undef, q[Undef]);
         is(_parse_request(q[]), undef, q[Empty]);
         is_deeply(_parse_request(qq[\0\0\0\0\0\0\0\0\0\0\0\0]),
@@ -611,4 +625,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Protocol.t c1256b0 2008-12-11 14:49:56Z sanko@cpan.org $
+$Id: Protocol.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $

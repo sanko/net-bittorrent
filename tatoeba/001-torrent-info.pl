@@ -13,7 +13,7 @@ print map { qq[\n] . $_->path } @{$torrent->files};
 
 =head1 NAME
 
-/tatoeba/001-torrent-info.pl - Use Net::BitTorrent to gather information
+001-torrent-info.pl - Demonstration of using a standalone Net::BitTorrent::Torrent object to gather information
 
 =head1 Description
 
@@ -89,6 +89,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: 001-torrent-info.pl d230426 2008-12-30 23:25:17Z sanko@cpan.org $
+=for svn $Id: 001-torrent-info.pl 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
 
 =cut
