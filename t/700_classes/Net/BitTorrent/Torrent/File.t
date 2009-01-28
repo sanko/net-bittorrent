@@ -20,7 +20,7 @@ my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
-plan tests => 173;
+plan tests => 172;
 SKIP: {
     my $client = Net::BitTorrent->new();
     my $torrent = $client->add_torrent({Path => $single_dot_torrent});
@@ -243,8 +243,6 @@ SKIP: {
     ok(close($filehandle),  q[...close temp file to test _mkpath]);
     ok(unlink($file->path), q[...unlink temp file to test _mkpath]);
     my ($vol, $dir, undef) = File::Spec->splitpath($file->path);
-    ok(rmdir(File::Spec->catdir($vol, $dir)),
-        q[...rmdir temp dir to test _mkpath]);
     ok($file->_mkpath(), q[_mkpath is okay]);
     is($file->_open(q[r]), undef, q[A file must be pre-existing to read]);
     is($file->mode(),      undef, q[Mode is still undef]);
@@ -359,4 +357,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: File.t 644376d 2008-12-02 04:25:26Z sanko@cpan.org $
+$Id: File.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
