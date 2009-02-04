@@ -1,21 +1,26 @@
-Version 0.0XX | Distant future | 56a7b7c
+Version 0.0XX | Distant future | ff8a013
 
     API Changes/Compatibility Information:
-     * None
+     * N::B::Peer objects have their sockets closed and removed before calling
+        any peer_disconnect callbacks
 
     Resolved Issues/Bug Fixes:
      * None
 
     Protocol/Behavioral Changes:
-     * None
+     * Protocol Encryption (soon)
 
     Documentation/Sample Code/Test Suite:
-     * Several updates in the language used in N::B::Version's pod
-     * N::B::Notes has been trimmed down a bit
-     * N::B's pod has been trimmed
      * ALL tests are run even on non-dev systems to shake out the last few (I
          hope) crash/protocol bugs before attention is turned to more advanced
          stuff
+    * More pod cleanup
+        - Fix bad internal link in N::B::Version
+        - Several updates in the language used in N::B::Version's pod
+        - N::B::Notes has been trimmed down a bit
+        - N::B's pod has been trimmed
+        - tatoeba/* shorten NAME content to avoid search.cpan.org wrap
+    * fix t/[...]/Protocol.t failures due to the limits of 32-bit math
 
     Notes:
      * This dev build is being uploaded only to gather tester data. Not for
@@ -376,7 +381,7 @@ _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
     http://github.com/sanko/net-bittorrent/commits/master
 
-$Ver: 0.049_004 $ from git
-$Date: 2009-01-27 02:13:14Z (Tue, 27 Jan 2009) $
-$Rev: 56a7b7cf26a0abfcb71202e2eea9c006aa8b8426 $
-$Url: http://github.com/sanko/net-bittorrent/raw/56a7b7cf26a0abfcb71202e2eea9c006aa8b8426/Changes $
+$Ver: 0.049_005 $ from git
+$Date: 2009-01-27 17:00:38Z (Tue, 27 Jan 2009) $
+$Rev: fac4ae0147614d828a9d9bd5bcac901ec441f8f4 $
+$Url: http://github.com/sanko/net-bittorrent/raw/fac4ae0147614d828a9d9bd5bcac901ec441f8f4/Changes $

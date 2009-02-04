@@ -387,6 +387,12 @@ package Net::BitTorrent::Torrent;
     }
 
     # Mutators | Private
+
+    sub _add_node {
+        my ($self, $node)=@_;
+        return $_nodes{refaddr $self} .= compact($node);
+    }
+
     sub _set_bitfield {
         my ($self, $new_value) = @_;
         return if (${$status{refaddr $self}} & CHECKING);
@@ -1744,6 +1750,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Torrent.pm 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
+=for svn $Id: Torrent.pm 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
 
 =cut

@@ -103,7 +103,7 @@ package Net::BitTorrent::Torrent::File;
     sub _open {
         my ($self, $mode) = @_;
         if ((!$mode) || ($mode !~ m[^[rw]$])) {
-            carp q[Net::BitTorrent::Torrent::File->_open() requires a mode];
+            carp q[Net::BitTorrent::Torrent::File->_open() requires a valid mode];
             return;
         }
         if (defined $handle{refaddr $self} and defined $mode{refaddr $self}) {
@@ -697,6 +697,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: File.pm b894db1 2008-12-05 04:54:43Z sanko@cpan.org $
+=for svn $Id: File.pm 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
 
 =cut
