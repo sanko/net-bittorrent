@@ -11,7 +11,7 @@ package Net::BitTorrent::Peer;
     use Math::BigInt try => q[GMP,Pari,Calc];    # Tested only with Calc
     use Digest::SHA qw[sha1];
     use version qw[qv];
-    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 5; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];
@@ -49,7 +49,9 @@ package Net::BitTorrent::Peer;
         USELESS_PEER() =>
             q[Useless peer (Not interested and not interesting.)],
         -101 => q[Bad VC in encrypted handshake],
-        -102 => q[Failed to sync DH-5]
+        -102 => q[Failed to sync DH-5],
+        -103 => q[Bad encrypted header at stage 4],
+        -104 => q[Bad encrypted handshake (Bad SKEY)]
     );
     sub USELESS_PEER        {-41}
     sub NOT_SERVING_TORRENT {-11}
@@ -63,7 +65,8 @@ package Net::BitTorrent::Peer;
     sub MSE_OKAY  {0x032}
     sub REG_ONE   {0x064}
     sub REG_TWO   {0x128}
-    sub REG_OKAY  {0x256}
+    sub REG_WAIT  {0x256}
+    sub REG_OKAY  {0x512}
 
     #
     sub CRYPTO_PLAIN {0x01}
@@ -87,7 +90,6 @@ package Net::BitTorrent::Peer;
 
     sub new {
         my ($class, $args) = @_;
-        warn q[Here!];
         my $self = undef;
         if (not defined $args) {
             carp q[Net::BitTorrent::Peer->new({}) requires ]
@@ -129,7 +131,7 @@ END
                             && $_->{q[Object]}->_port
                             && $_->{q[Object]}->_port eq $port
                         } values %{$args->{q[Client]}->_connections}
-                ) >= $args->{q[Client]}->_connections_per_host
+                ) > $args->{q[Client]}->_connections_per_host
                 )
             {   shutdown($args->{q[Socket]}, 2);
                 close($args->{q[Socket]});
@@ -146,6 +148,7 @@ END
             $_data_in{refaddr $self}  = q[];
             $_incoming{refaddr $self} = 1;
             $_source{refaddr $self}   = q[Incoming];
+            $_state{refaddr $self}    = MSE_TWO;
         }
         else {
             if ($args->{q[Address]}
@@ -189,7 +192,7 @@ END
                             && $_->{q[Object]}->_port
                             && $_->{q[Object]}->_port eq $port
                         } values %{$args->{q[Torrent]}->_client->_connections}
-                ) >= $args->{q[Torrent]}->_client->_connections_per_host
+                ) > $args->{q[Torrent]}->_client->_connections_per_host
                 )
             {   return;
             }
@@ -235,10 +238,14 @@ END
                     ($_Ya{refaddr $self}->as_hex =~ m[(..)]g);
                 shift @bits;
                 $_data_out{refaddr $self} .= join(q[], @bits) . $PadA;
-                warn q[Step 1A Complete: ] . $_state{refaddr $self};
-                $_state{refaddr $self} = MSE_TWO;
+                $_client{refaddr $self}->_add_connection($self, q[rw]);
+
+                # warn q[Step 1A Complete: ] . $self->as_string;
+                $_state{refaddr $self} = MSE_THREE;
             }
             else {
+                $_state{refaddr $self} = REG_ONE;
+                $_client{refaddr $self}->_add_connection($self, q[rw]);
                 $_data_out{refaddr $self} .=
                     build_handshake($_payload{q[Reserved]},
                                     $_payload{q[Infohash]},
@@ -250,7 +257,7 @@ END
                                                  Type    => HANDSHAKE
                                                 }
                 );
-                $_state{refaddr $self} = REG_ONE;
+                $_state{refaddr $self} = REG_TWO;
             }
             $_data_in{refaddr $self} = q[];
             $_client{refaddr $self}->_add_connection($self, q[rw]) or return;
@@ -354,7 +361,8 @@ END
     sub _rw {
         my ($self, $read, $write, $error) = @_;
 
-#Carp::cluck sprintf q[%s->_rw(%d, %d, %d)], __PACKAGE__, $read, $write, $error;
+        #Carp::cluck sprintf q[%s->_rw(%d, %d, %d) | %d], __PACKAGE__, $read,
+        #    $write, $error, $_state{refaddr $self};
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
@@ -377,9 +385,15 @@ END
             if (length $_data_out{refaddr $self}) {
 
                 # Wraps the built-in syswrite() and applies any PE Encryption
-                my $_data_out
-                    = substr($_data_out{refaddr $self}, 0, $write, q[]);
-                if ($_crypto_select{refaddr $self} & CRYPTO_RC4) {
+                if ($_crypto_select{refaddr $self} == CRYPTO_PLAIN) {
+                    $actual_write =
+                        syswrite($_socket{refaddr $self},
+                                 $_data_out{refaddr $self},
+                                 $write, 0);
+                }
+                elsif ($_crypto_select{refaddr $self} == CRYPTO_RC4) {
+                    my $_data_out
+                        = substr($_data_out{refaddr $self}, 0, $write, q[]);
                     $_data_out =
                         $self->_RC4((  $_incoming{refaddr $self}
                                      ? $_KeyB{refaddr $self}
@@ -387,23 +401,9 @@ END
                                     ),
                                     $_data_out
                         );
+                    $actual_write = syswrite($_socket{refaddr $self},
+                                           $_data_out, length($_data_out), 0);
                 }
-
-=pod
-
-=begin old
-
-                $actual_write =
-                    syswrite($_socket{refaddr $self},
-                             $_data_out{refaddr $self},
-                             $write, 0);
-
-=end old
-
-=cut
-
-                $actual_write = syswrite($_socket{refaddr $self},
-                                         $_data_out, length($_data_out), 0);
                 if (not $actual_write) {
                     weaken $self;
                     $self->_disconnect($^E);
@@ -434,10 +434,59 @@ END
                 }
                 $_client{refaddr $self}->_event(q[peer_read],
                                      {Peer => $self, Length => $actual_read});
-            PACKET: while ($_data_in{refaddr $self}) {
-                    my $data_len = length $_data_in{refaddr $self};
-                    if ($_state{refaddr $self} == MSE_TWO) {
-                        $_state{refaddr $self} = MSE_THREE;
+            }
+        }
+##############################################################################
+    PACKET: while ($_data_in{refaddr $self}) {
+            my $data_len = length $_data_in{refaddr $self};
+            if ($_state{refaddr $self} == MSE_TWO) {
+                if ($_data_in{refaddr $self} !~ m[^.BitTorrent protocol]) {
+
+                    # Step 2B:
+                    #  - Read Ya from A
+                    #  - Generate Yb, PadB
+                    #  - Generate S
+                    #  - Send Yb, PadB to A
+                    if (length($_data_in{refaddr $self}) < 96) {
+                        warn sprintf
+                            q[Not enough data for Step 2B (req: 96, have: %d)],
+                            length($_data_in{refaddr $self});
+                        return;
+                    }
+                    $_Ya{refaddr $self} = Math::BigInt->new(
+                        join q[],    # Read Ya from A
+                        q[0x],
+                        map { sprintf q[%02x], ord $_ } split //,
+                        substr($_data_in{refaddr $self}, 0, 96, q[])
+                    );
+                    $_Xb{refaddr $self}
+                        = int(rand(1) * 9999999999999999);    # Random Xb
+                    $_Yb{refaddr $self} = Math::BigInt->new(DH_G)
+                        ->bmodpow($_Xb{refaddr $self}, DH_P);
+                    my @bits
+                        = map { chr hex $_ }
+                        ($_Ya{refaddr $self}
+                         ->bmodpow($_Xb{refaddr $self}, DH_P)->as_hex
+                         =~ m[(..)]g);
+                    shift @bits;
+                    $_S{refaddr $self} = join q[], @bits;
+                    my @_bits = map { chr hex $_ }
+                        ($_Yb{refaddr $self}->as_hex =~ m[(..)]g);
+                    shift @_bits;
+                    $_client{refaddr $self}->_add_connection($self, q[rw]);
+                    $_data_out{refaddr $self} .= join(q[], @_bits)
+                        . join(q[],
+                               map { chr int rand(255) }
+                                   1 .. (rand(1024) % 512));
+
+                    # warn q[Step 2B Complete: ] . $self->as_string;
+                    $_state{refaddr $self} = MSE_FOUR;
+                }
+                else {
+                    $_state{refaddr $self} = REG_TWO;
+                }
+            }
+            elsif ($_state{refaddr $self} == MSE_THREE) {
 
                # Step 3A:
                #  - Read Yb from B
@@ -448,180 +497,286 @@ END
                #  - Generate PadC, IA, SKEY
                #  - Send ENCRYPT(VC, crypto_provide, len(PadC), PadC, len(IA))
                #  - Send ENCRYPT(IA)
-                        $_Yb{refaddr $self}
-                            = Math::BigInt->new(
-                                  join q[],
-                                  q[0x],
-                                  map { sprintf q[%02x], ord $_ } split //,
-                                  substr($_data_in{refaddr $self}, 0, 96, q[])
-                            );
-                        warn sprintf q[%d | %s],
-                            length($_Yb{refaddr $self}->as_hex),
-                            $_Yb{refaddr $self}->as_hex;
-                        my @bits
-                            = map { chr hex $_ }
-                            ($_Yb{refaddr $self}
-                             ->bmodpow($_Xa{refaddr $self}, DH_P)->as_hex
-                             =~ m[(..)]g);
-                        shift @bits;
-                        $_S{refaddr $self} = join q[], @bits;
-                        $_KeyA{refaddr $self}
-                            = sha1(      q[keyA] 
-                                       . $_S{refaddr $self}
-                                       . pack(q[H*],
-                                           $_torrent{refaddr $self}->infohash)
-                            );
+                if (length($_data_in{refaddr $self}) < 96) {
+                    warn q[# Not enough data yet];
+                    return;
+                }
+                $_Yb{refaddr $self} =
+                    Math::BigInt->new(join q[],
+                                      q[0x],
+                                      map { sprintf q[%02x], ord $_ }
+                                          split //,
+                                      substr($_data_in{refaddr $self},
+                                             0, 96, q[]
+                                      )
+                    );
+                my @bits
+                    = map { chr hex $_ }
+                    ($_Yb{refaddr $self}->bmodpow($_Xa{refaddr $self}, DH_P)
+                     ->as_hex =~ m[(..)]g);
+                shift @bits;
+                $_S{refaddr $self} = join q[], @bits;
+                $_KeyA{refaddr $self}
+                    = sha1(  q[keyA]
+                           . $_S{refaddr $self}
+                           . pack(q[H*], $_torrent{refaddr $self}->infohash));
+                $_client{refaddr $self}->_add_connection($self, q[rw]);
 
-                        # first piece: HASH('req1' . S)
-                        $_data_out{refaddr $self}
-                            .= sha1(q[req1] . $_S{refaddr $self});
+                # first piece: HASH('req1' . S)
+                $_data_out{refaddr $self}
+                    .= sha1(q[req1] . $_S{refaddr $self});
 
-                        # second piece: HASH('req2', SKEY) xor HASH('req3', S)
-                        $_data_out{refaddr $self} .= (
-                                   sha1(
-                                       q[req2]
-                                           . pack(q[H*],
-                                           $_torrent{refaddr $self}->infohash)
-                                       ) ^ sha1(q[req3] . $_S{refaddr $self})
-                        );
+                # second piece: HASH('req2', SKEY) xor HASH('req3', S)
+                $_data_out{refaddr $self}
+                    .= sha1(
+                    q[req2] . pack(q[H*], $_torrent{refaddr $self}->infohash))
+                    ^ sha1(q[req3] . $_S{refaddr $self});
 
           # third piece: ENCRYPT(VC, crypto_provide, len(PadC), PadC, len(IA))
-                        my $PadC = q[];
-                        my $IA   = q[];
-                        $self->_RC4($_KeyA{refaddr $self}, q[ ] x 1024, 1);
-                        $_data_out{refaddr $self} .= $self->_RC4(
-                            $_KeyA{refaddr $self},
-                            VC                       # 64 | 8
-                                . crypto_provide     # 32 | 4
-                                . len($PadC)         # 16 | 2
-                                . $PadC              # '' | 0
-                                . len($IA)           # 16 | 2
-                        );
+                my $PadC = q[];
+                my $IA   = q[];
+                $self->_RC4($_KeyA{refaddr $self}, q[ ] x 1024, 1);
+                $_client{refaddr $self}->_add_connection($self, q[rw]);
+                $_data_out{refaddr $self} .= $self->_RC4(
+                    $_KeyA{refaddr $self},
+                    VC                       # 64 | 8
+                        . crypto_provide     # 32 | 4
+                        . len($PadC)         # 16 | 2
+                        . $PadC              # '' | 0
+                        . len($IA)           # 16 | 2
+                );
 
-=f
-    # fouth piece: ENCRYPT(IA)
-    #warn sprintf q[Wrote %d bytes], syswrite $Ali{q[_socket]},
-    #   RC4([...], $Ali{q[IA]});
-=cut
-                        warn q[Step 3A complete];
-                        $_state{refaddr $self} = MSE_FIVE;
-                        last PACKET;
+                # fouth piece: ENCRYPT(IA)
+                $_data_out{refaddr $self}
+                    .= $self->_RC4($_KeyA{refaddr $self}, $IA);
+                $_client{refaddr $self}->_add_connection($self, q[rw]);
+
+                # warn q[Step 3A Complete ] . $self->as_string;
+                $_state{refaddr $self} = MSE_FIVE;
+                last PACKET;
+            }
+            elsif ($_state{refaddr $self} == MSE_FOUR) {
+                if (length($_data_in{refaddr $self}) < 40) {
+                    $_client{refaddr $self}->_add_connection($self, q[rw]);
+                    return;
+                }
+
+                # Step 4B:
+                # - Sync on sha1('req1', S)
+                # - Get !req2|req3
+                # - Locate torrent
+                # - Disconnect if we aren't serving this torrent
+                # - Get crypto_provide (requires decode)
+                # - Decide on an encryption scheme
+                # - Generate PadD
+                # - Send ENCRYPT(VC, crypto_select, len(padD), padD)
+                # - Send ENCRYPT2(Payload Stream)
+                if (index($_data_in{refaddr $self},
+                          sha1(q[req1], $_S{refaddr $self})) == -1
+                    )
+                {   $_client{refaddr $self}->_add_connection($self, q[rw]);
+                    return;
+                }
+                substr(    # Sync on sha1(q[req1], $Ali{q[S]})
+                    $_data_in{refaddr $self},
+                    0,
+                    index($_data_in{refaddr $self},
+                          sha1(q[req1], $_S{refaddr $self})
+                    ),
+                    q[]
+                );
+                my $req1      = substr($_data_in{refaddr $self}, 0, 20, q[]);
+                my $req2_req3 = substr($_data_in{refaddr $self}, 0, 20, q[]);
+            INFOHASH:
+                for my $torrent (values %{$_client{refaddr $self}->torrents})
+                {
+                    if ((sha1(q[req2], pack q[H*], $torrent->infohash)
+                         ^ sha1(q[req3], $_S{refaddr $self})
+                        ) eq $req2_req3
+                        )
+                    {   $_torrent{refaddr $self} = $torrent;
+                        weaken $_torrent{refaddr $self};
+                        ${$_bitfield{refaddr $self}}
+                            = pack(q[b*],
+                                   qq[\0] x $_torrent{refaddr $self}
+                                       ->piece_count);
+                        last INFOHASH;
                     }
-                    elsif ($_state{refaddr $self} == MSE_FIVE) {
+                }
+                if (!$_torrent{refaddr $self}) {
+                    $self->_disconnect(-103);
+                    return;
+                }
+                if (!$_torrent{refaddr $self}) {
+                    $self->_disconnect(-104);
+                    return;
+                }
+                $_KeyA{refaddr $self}
+                    = sha1(  q[keyA]
+                           . $_S{refaddr $self}
+                           . pack(q[H*], $_torrent{refaddr $self}->infohash));
+                $self->_RC4($_KeyA{refaddr $self}, q[ ] x 1024, 1);
+                my ($VC, $crypto_provide, $len_padC, $PadC, $len_IA)
+                    = (
+                      $self->_RC4($_KeyA{refaddr $self},
+                                 substr($_data_in{refaddr $self}, 0, 16, q[]))
+                          =~ m[^(.{8})(....)(..)()(..)$]
+                    );
 
-                        # Step 5A:
-                        # - Synch on ENCRYPT(VC)
-                        # - Find crypto_select
-                        # -
-                        # - Send ENCRYPT2(Payload Stream)
-                        #
-                        #
-                        #
-                        #
-                        #
-                        #
-                        #
-                        #
-                        $_KeyB{refaddr $self}
-                            = sha1(      q[keyB] 
-                                       . $_S{refaddr $self}
-                                       . pack(q[H40],
-                                           $_torrent{refaddr $self}->infohash)
-                            );
-                        $self->_RC4($_KeyB{refaddr $self}, q[ ] x 1024, 1);
-                        my $index = index($_data_in{refaddr $self},
-                                      $self->_RC4($_KeyB{refaddr $self}, VC));
-                        if (($index == -1)
+                # TODO - Prioritize encryption schemes
+                if (unpack(q[N], $crypto_provide) & CRYPTO_PLAIN) {
+                    $_crypto_select{refaddr $self} = CRYPTO_PLAIN;
+                }
+                elsif (unpack(q[N], $crypto_provide) & CRYPTO_XOR) {
+                    $_crypto_select{refaddr $self} = CRYPTO_XOR;
+                }
+                elsif (unpack(q[N], $crypto_provide) & CRYPTO_RC4) {
+                    $_crypto_select{refaddr $self} = CRYPTO_RC4;
+                }
+                elsif (unpack(q[N], $crypto_provide) & CRYPTO_AES) {
+                    $_crypto_select{refaddr $self} = CRYPTO_AES;
+                }
+                my $IA = substr($_data_in{refaddr $self}, 0,
+                                unpack(q[n], $len_IA), q[]);
+                if ($IA) {
+                    if ($_crypto_select{refaddr $self} = CRYPTO_RC4) {
+                        $IA = $self->_RC4($_KeyA{refaddr $self}, $IA);
+                    }
+                    $_data_in{refaddr $self} = $IA;
+                }
+                $_KeyB{refaddr $self}
+                    = sha1(  q[keyB]
+                           . $_S{refaddr $self}
+                           . pack(q[H*], $_torrent{refaddr $self}->infohash));
+                $self->_RC4($_KeyB{refaddr $self}, q[ ] x 1024, 1);
+                my $PadD = q[];
 
-                            # && ( enough data is in cache)
-                            )
-                        {   $self->_disconnect(-102);
-                            return;
-                        }
-                        substr($_data_in{refaddr $self}, 0, $index, q[]);
-                        $self->_RC4($_KeyB{refaddr $self}, q[ ] x 1024, 1);
-                        my ($VC, $crypto_select, $len_PadD) = (
-                            $self->_RC4(    # Find crypto_select
-                                $_KeyB{refaddr $self},
-                                substr($_data_in{refaddr $self}, 0, 14, q[])
-                                ) =~ m[^(.{8})(....)(..)$]
-                        );
-                        if ($VC ne VC) {
-                            $self->_disconnect(-101); # retry with unencrypted
-                            return;
-                        }
-                        $_crypto_select{refaddr $self}
-                            = unpack(q[N], $crypto_select);
-                        warn q[Plain]
-                            if $_crypto_select{refaddr $self} & CRYPTO_PLAIN;
-                        warn q[XOR  ]
-                            if $_crypto_select{refaddr $self} & CRYPTO_XOR;
-                        warn q[RC4  ]
-                            if $_crypto_select{refaddr $self} & CRYPTO_RC4;
-                        warn q[AES  ]
-                            if $_crypto_select{refaddr $self} & CRYPTO_AES;
-                        warn $VC;
-                        substr($_data_in{refaddr $self}, 0,
-                               unpack(q[n], $len_PadD), q[]);
-                        my %_payload = (
-                                 Reserved =>
-                                     $_client{refaddr $self}->_build_reserved,
-                                 Infohash =>
-                                     pack(q[H40],
-                                          $_torrent{refaddr $self}->infohash),
-                                 PeerID => $_client{refaddr $self}->peerid
-                        );
-                        $_data_out{refaddr $self} .=
-                            build_handshake($_payload{q[Reserved]},
-                                $_payload{q[Infohash]}, $_payload{q[PeerID]});
-                        $_client{refaddr $self}->_event(
-                                                       q[outgoing_packet],
-                                                       {Peer    => $self,
-                                                        Payload => \%_payload,
-                                                        Type    => HANDSHAKE
-                                                       }
-                        );
-                        warn q[Step 5A Complete : ] . $_state{refaddr $self};
-                        $_state{refaddr $self} = MSE_OKAY;
-                        last PACKET;
+                # Send ENCRYPT(VC, crypto_select, len(padD), padD)
+                $_data_out{refaddr $self} .=
+                    $self->_RC4($_KeyB{refaddr $self},
+                                VC
+                                     . pack(q[N],
+                                            $_crypto_select{refaddr $self})
+                                     . len($PadD)
+                                     . $PadD
+                    );
+                $_client{refaddr $self}->_add_connection($self, q[rw]);
+
+                # warn q[Step 4B Complete: ] . $self->as_string;
+                $_state{refaddr $self} = REG_ONE;
+                last PACKET;
+            }
+            elsif ($_state{refaddr $self} == MSE_FIVE) {
+                if (length($_data_in{refaddr $self}) < 34) {
+                    $_client{refaddr $self}->_add_connection($self, q[rw]);
+                    return;
+                }
+
+                # Step 5A:
+                # - Synch on ENCRYPT(VC)
+                # - Find crypto_select
+                # -
+                # - Send ENCRYPT2(Payload Stream)
+                $_KeyB{refaddr $self}
+                    = sha1( q[keyB]
+                          . $_S{refaddr $self}
+                          . pack(q[H40], $_torrent{refaddr $self}->infohash));
+                $self->_RC4($_KeyB{refaddr $self}, q[ ] x 1024, 1);
+                my $index = index($_data_in{refaddr $self},
+                                  $self->_RC4($_KeyB{refaddr $self}, VC));
+                if ($index == -1) {
+                    if (length($_data_in{refaddr $self}) >= 628) {
+                        $self->_disconnect(-102);
                     }
                     else {
-                        my $packet = parse_packet(\$_data_in{refaddr $self});
-                        if (not defined $packet) {
-                            if (length($_data_in{refaddr $self}) != $data_len)
-                            {   weaken $self;
-                                $self->_disconnect(-22);
-                                return;
-                            }
-                            last PACKET;
-                        }
-                        my %dispatch = (
-                                 &HANDSHAKE      => \&__handle_handshake,
-                                 &KEEPALIVE      => \&__handle_keepalive,
-                                 &CHOKE          => \&__handle_choke,
-                                 &UNCHOKE        => \&__handle_unchoke,
-                                 &INTERESTED     => \&__handle_interested,
-                                 &NOT_INTERESTED => \&__handle_not_interested,
-                                 &HAVE           => \&__handle_have,
-                                 &BITFIELD       => \&__handle_bitfield,
-                                 &REQUEST        => \&__handle_request,
-                                 &PIECE          => \&__handle_piece,
-                                 &CANCEL         => \&__handle_cancel,
-                                 &HAVE_ALL       => \&__handle_have_all,
-                                 &HAVE_NONE      => \&__handle_have_none,
-                                 &ALLOWED_FAST   => \&__handle_allowed_fast,
-                                 &REJECT         => \&__handle_reject,
-                                 &EXTPROTOCOL    => \&__handle_ext_protocol
-                        );
-                        if (defined $dispatch{$packet->{q[Type]}}) {
-                            $dispatch{$packet->{q[Type]}}($self,
-                                                       $packet->{q[Payload]});
-                        }
-                        elsif (eval require Data::Dump) {
-                            Carp::carp q[Unknown packet! ]
-                                . Data::Dump::pp($packet);
-                        }
+                        $_client{refaddr $self}
+                            ->_add_connection($self, q[rw]);
                     }
+                    return;
+                }
+                substr($_data_in{refaddr $self}, 0, $index, q[]);
+                $self->_RC4($_KeyB{refaddr $self}, q[ ] x 1024, 1);
+                my ($VC, $crypto_select, $len_PadD) = (
+                    $self->_RC4(    # Find crypto_select
+                        $_KeyB{refaddr $self},
+                        substr($_data_in{refaddr $self}, 0, 14, q[])
+                        ) =~ m[^(.{8})(....)(..)$]
+                );
+                if ($VC ne VC) {
+                    warn $VC;
+                    $self->_disconnect(-101);    # retry unencrypted
+                    return;
+                }
+                $_crypto_select{refaddr $self} = unpack(q[N], $crypto_select);
+
+      #                 warn q[Plain]
+      #~                     if $_crypto_select{refaddr $self} & CRYPTO_PLAIN;
+      #~                 warn q[XOR  ]
+      #~                     if $_crypto_select{refaddr $self} & CRYPTO_XOR;
+      #~                 warn q[RC4  ]
+      #~                     if $_crypto_select{refaddr $self} & CRYPTO_RC4;
+      #~                 warn q[AES  ]
+      #~                     if $_crypto_select{refaddr $self} & CRYPTO_AES;
+      #
+                substr($_data_in{refaddr $self}, 0,
+                       unpack(q[n], $len_PadD), q[]);
+                my %_payload = (
+                         Reserved => $_client{refaddr $self}->_build_reserved,
+                         Infohash =>
+                             pack(q[H40], $_torrent{refaddr $self}->infohash),
+                         PeerID => $_client{refaddr $self}->peerid
+                );
+                $_data_out{refaddr $self} .=
+                    build_handshake($_payload{q[Reserved]},
+                                    $_payload{q[Infohash]},
+                                    $_payload{q[PeerID]}
+                    );
+                $_client{refaddr $self}->_event(q[outgoing_packet],
+                                                {Peer    => $self,
+                                                 Payload => \%_payload,
+                                                 Type    => HANDSHAKE
+                                                }
+                );
+                $_state{refaddr $self} = REG_WAIT;
+                $_client{refaddr $self}->_add_connection($self, q[rw]);
+
+                # warn q[Step 5A Complete: ] . $self->as_string;
+                $_state{refaddr $self} = REG_TWO;
+                last PACKET;
+            }
+            else {
+                my $packet = parse_packet(\$_data_in{refaddr $self});
+                if (not defined $packet) {
+                    if (length($_data_in{refaddr $self}) != $data_len) {
+                        weaken $self;
+                        $self->_disconnect(-22);
+                        return;
+                    }
+                    last PACKET;
+                }
+                my %dispatch = (&HANDSHAKE      => \&__handle_handshake,
+                                &KEEPALIVE      => \&__handle_keepalive,
+                                &CHOKE          => \&__handle_choke,
+                                &UNCHOKE        => \&__handle_unchoke,
+                                &INTERESTED     => \&__handle_interested,
+                                &NOT_INTERESTED => \&__handle_not_interested,
+                                &HAVE           => \&__handle_have,
+                                &BITFIELD       => \&__handle_bitfield,
+                                &REQUEST        => \&__handle_request,
+                                &PIECE          => \&__handle_piece,
+                                &CANCEL         => \&__handle_cancel,
+                                &HAVE_ALL       => \&__handle_have_all,
+                                &HAVE_NONE      => \&__handle_have_none,
+                                &ALLOWED_FAST   => \&__handle_allowed_fast,
+                                &REJECT         => \&__handle_reject,
+                                &EXTPROTOCOL    => \&__handle_ext_protocol
+                );
+                if (defined $dispatch{$packet->{q[Type]}}) {
+                    $dispatch{$packet->{q[Type]}}($self,
+                                                  $packet->{q[Payload]});
+                }
+                elsif (eval require Data::Dump) {
+                    Carp::carp q[Unknown packet! ] . Data::Dump::pp($packet);
                 }
             }
         }
@@ -652,8 +807,11 @@ END
             $self->_disconnect(-10);
             return;
         }
-        if ($_incoming{refaddr $self} && !$_torrent{refaddr $self}) {
-            $_torrent{refaddr $self} = $_client{refaddr $self}
+        if ($_incoming{refaddr $self}
+            && (   ($_state{refaddr $self} == REG_TWO)
+                || (!$_torrent{refaddr $self}))
+            )
+        {   $_torrent{refaddr $self} = $_client{refaddr $self}
                 ->_locate_torrent(unpack(q[H40], $payload->[1]));
             if (!defined $_torrent{refaddr $self}) {
                 weaken $self;
@@ -663,6 +821,9 @@ END
                 );
                 return;
             }
+            weaken $_torrent{refaddr $self};
+            ${$_bitfield{refaddr $self}}
+                = pack(q[b*], qq[\0] x $_torrent{refaddr $self}->piece_count);
             if (scalar(
                     grep {
                                $_->{q[Object]}->isa(q[Net::BitTorrent::Peer])
@@ -670,7 +831,7 @@ END
                             && $_->{q[Object]}->peerid eq
                             $peerid{refaddr $self}
                         } values %{$_client{refaddr $self}->_connections}
-                ) >= $_client{refaddr $self}->_connections_per_host
+                ) > $_client{refaddr $self}->_connections_per_host
                 )
             {   $self->_disconnect(-13, {PeerID => $peerid{refaddr $self}});
                 return;
@@ -680,10 +841,7 @@ END
             {   $self->_disconnect(-17);
                 return;
             }
-            weaken $_torrent{refaddr $self};
-            ${$_bitfield{refaddr $self}}
-                = pack(q[b*], qq[\0] x $_torrent{refaddr $self}->piece_count);
-            if ($threads::shared::threads_shared) {
+              if ($threads::shared::threads_shared) {
                 threads::shared::share($_bitfield{refaddr $self});
             }
             my %_payload = (
@@ -702,9 +860,12 @@ END
                                              Type    => HANDSHAKE
                                             }
             );
+            $_state{refaddr $self} = REG_WAIT;
+            $_client{refaddr $self}->_add_connection($self, q[rw]);
         }
         $self->_send_bitfield;
         $self->_send_extended_handshake;
+        $_state{refaddr $self} == REG_OKAY;
     }
 
     sub __handle_keepalive {
@@ -890,7 +1051,7 @@ END
                                         }
         );
         if (not @{$requests_in{refaddr $self}}) {
-            $_client{refaddr $self}->_schedule({Time   => time + 15,
+            $_client{refaddr $self}->_schedule({Time   => time + 3,
                                                 Code   => \&_fill_requests,
                                                 Object => $self
                                                }
@@ -1666,7 +1827,7 @@ END
         delete $_socket{refaddr $self};
         $_client{refaddr $self}->_event(q[peer_disconnect],
                                         {Peer   => $self,
-                                         Reason => $reason,
+                                         Reason => ($reason + 0),
                                          ($extra ? (Advanced => $extra) : ())
                                         }
         );
@@ -1706,7 +1867,7 @@ ADVANCED
                                           ${$_peer_choking{refaddr $self}}
              )
             ),
-            ($_torrent{refaddr $self}
+            (($_state{refaddr $self} == REG_OKAY)
              ? (sprintf q[%s],
                 join q[],
                 map { vec(${$_bitfield{refaddr $self}}, $_, 1) ? q[|] : q[ ] }
@@ -1768,13 +1929,12 @@ ADVANCED
         };
         my $_j = 0;
         if ($reset || !$_RC4_S{refaddr $self}{$pass}) {
-            Carp::cluck q[Reset _RC4];
             my @key = unpack q[C*], $pass;
             @{$_RC4_S{refaddr $self}{$pass}} = 0 .. 255;    # KSA
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j 
+                    = (  $_j
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]
@@ -1836,7 +1996,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008-2009 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of The Artistic License 2.0.  See the F<LICENSE>
@@ -1852,6 +2012,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Peer.pm 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: Peer.pm cd3894a 2009-02-04 16:34:21Z sanko@cpan.org $
 
 =cut

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-use Test::More qw[no_plan];
+use Test::More;
 use Module::Build;
 use Socket qw[AF_INET SOCK_STREAM INADDR_LOOPBACK SOL_SOCKET
     sockaddr_in unpack_sockaddr_in inet_ntoa];
@@ -23,6 +23,7 @@ my $verbose         = $build->notes(q[verbose]);
 my $threads         = $build->notes(q[threads]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 my ($flux_capacitor, %peers) = (0, ());
+plan tests => 142;
 
 BEGIN {
     *CORE::GLOBAL::time
@@ -30,26 +31,676 @@ BEGIN {
 }
 SKIP: {
     skip(
-        q[Due to system configuration, socket-based tests have been disabled.  ...which makes N::B pretty useless.]
+        q[Due to system configuration, tcp-related tests have been disabled.  ...which makes N::B pretty useless.]
     ) if !$okay_tcp;
 
 #skip(
 #    q[Fine grained regression tests skipped; turn on $ENV{RELESE_TESTING} to enable]
 #) if !$release_testing;
-    my ($tempdir)
-        = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
-    warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
-    my $client = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
-    skip(q[Skip Failed to create client.]) if !$client;
-    my $torrent = $client->add_torrent({Path    => $simple_dot_torrent,
-                                        BaseDir => $tempdir
-                                       }
-    );
+    my %client;
 
     END {
-        return if not defined $torrent;
-        for my $file (@{$torrent->files}) { $file->_close() }
+        for my $client (values %client) {
+            for my $torrent (values %{$client->torrents}) {
+                for my $file (@{$torrent->files}) {
+                    if ($file->mode) {
+                        warn sprintf q[Closing '%s'...], $file->path;
+                        $file->_close();
+                    }
+                }
+            }
+        }
     }
+    {    # Client A
+        $client{q[A]} = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
+        isa_ok($client{q[A]},
+               q[Net::BitTorrent],
+               sprintf(q[Client  A%s],
+                       $client{q[A]}
+                       ? q[ (pid:]
+                           . $client{q[A]}->peerid
+                           . q[, tcp:]
+                           . $client{q[A]}->_tcp_port . q[)]
+                       : q[])
+        );
+
+       #isa_ok($client{q[A]}->add_torrent({Path => $simple_dot_torrent,
+       #                                   BaseDir =>
+       #                                       tempdir(q[~NBSF_test_XXXXXXXX],
+       #                                               CLEANUP => 1,
+       #                                               TMPDIR  => 1
+       #                                       )
+       #                                  }
+       #       ),
+       #       q[Net::BitTorrent::Torrent],
+       #       q[Torrent A]
+       #);
+        my ($_address,    # defined in peer_connect
+            $_peer,       # defined in ip_filter
+            $_read        # defined (and updated if needed) by peer_read
+        );
+        ok( $client{q[A]}->on_event(
+                q[ip_filter],
+                sub {
+                    my ($self, $params) = @_;
+                    is($self, $client{q[A]},
+                        q[Object handed to callback matches what we expected [ip_filter]]
+                    );
+                    like($_address = delete($params->{q[Address]}),
+                         qr[^(.+:\d+)$],
+                         q[Params contain a properly formated 'Address' value [ip_filter]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [ip_filter]]
+                    );
+                }
+            ),
+            q[Set customized 'ip_filter' callback for Client A]
+        );
+        ok( $client{q[A]}->on_event(
+                q[peer_write],
+                sub {
+                    my ($self, $params) = @_;
+                    my ($explain) = explain $params;
+                    die(q[We've sent a packet to a peer for reasons beyond me: ]
+                            . $explain);
+                }
+            ),
+            q[Set customized 'peer_write' callback for Client A]
+        );
+        ok( $client{q[A]}->on_event(
+                q[peer_read],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[A]},
+                        q[Object handed to callback matches what we expected [peer_read]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [peer_read]]
+                    );
+                    like($_read += delete($params->{q[Length]}),
+                         qr[^\d+$],
+                         q[Params contains the 'Length' of data we read from this peer [peer_read]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [peer_read]]
+                    );
+                    is($_peer->_host . q[:] . $_peer->_port,
+                        $_address, q[Resolved host is as expected]);
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, undef,
+                        q[Internal status: We have not parsed their peerid)]);
+                    is($_peer->_reserved_bytes, undef,
+                        q[Internal status: We have not parsed their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have not parsed their infohash)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not parsed their bitfield)]
+                    );
+                    isa_ok($_peer->_socket, q[GLOB],
+                           q[Internal status: Peer has a socket (duh))]);
+                }
+            ),
+            ,
+            q[Set customized 'peer_read' callback for Client A]
+        );
+        ok( $client{q[A]}->on_event(
+                q[peer_connect],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[A]},
+                        q[Object handed to callback matches what we expected [peer_connect]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [peer_connect]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [peer_connect]]
+                    );
+                    is($_peer->_host . q[:] . $_peer->_port,
+                        $_address, q[Resolved host is as expected]);
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, undef,
+                        q[Internal status: We have not recieved their peerid)]
+                    );
+                    is($_peer->_reserved_bytes, undef,
+                        q[Internal status: We have not recieved their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have not recieved their infohash)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not recieved their bitfield)]
+                    );
+                    isa_ok($_peer->_socket, q[GLOB],
+                           q[Internal status: Peer has a socket (duh))]);
+                }
+            ),
+            q[Set customized 'peer_connect' callback for Client A]
+        );
+        ok( $client{q[A]}->on_event(
+                q[peer_disconnect],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[A]},
+                        q[Object handed to callback matches what we expected [peer_disconnect]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [peer_disconnect]]
+                    );
+                    is(delete($params->{q[Reason]}), -11,
+                        q[Params contain a 'Reason' (-11: We aren't serving this torrent) [peer_disconnect]]
+                    );
+                    is_deeply(delete $params->{q[Advanced]},
+                              {Infohash => unpack q[H40], (q[A] x 20)},
+                              q[This particular disconnection comes with some 'Advanced' parameters [peer_disconnect]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [peer_disconnect]]
+                    );
+                TODO: {
+                        local $TODO = q[I may cache these in the future];
+                        is( ($_peer->_host || q[]) . q[:]
+                                . ($_peer->_port || q[]),
+                            $_address,
+                            q[Resolved host is as expected]
+                        );
+                    }
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, q[B] x 20,
+                        q[Internal status: We have recieved their peerid)]);
+                    is( $_peer->_reserved_bytes,
+                        qq[\0] x 8,
+                        q[Internal status: We have recieved their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have not recieved their infohash)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not recieved their bitfield)]
+                    );
+                    is($_peer->_socket, undef,
+                        q[Internal status: Peer no longer has a socket]);
+                }
+            ),
+            q[Set customized 'peer_disconnect' callback for Client A]
+        );
+        ok( $client{q[A]}->on_event(
+                q[outgoing_packet],
+                sub {
+                    my ($self, $params) = @_;
+                    my ($explain) = explain $params;
+                    die(q[We've sent a packet to a peer for reasons beyond me: ]
+                            . $explain);
+                }
+            ),
+            q[Set customized 'outgoing_packet' callback for Client A]
+        );
+        ok( $client{q[A]}->on_event(
+                q[incoming_packet],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[A]},
+                        q[Object handed to callback matches what we expected [incoming_packet]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [incoming_packet]]
+                    );
+                    is_deeply(delete $params->{q[Type]},
+                              Net::BitTorrent::Peer::HANDSHAKE(),
+                              q[We are (only) expecting a handshake from this peer [incoming_packet]]
+                    );
+                    is_deeply(delete $params->{q[Payload]},
+                              {Infohash => q[A] x 20,
+                               PeerID   => q[B] x 20,
+                               Reserved => qq[\0] x 8,
+                              },
+                              q[Payload for this handshake is what we expected it to be [incoming_packet]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [incoming_packet]]
+                    );
+                    is($_peer->_host . q[:] . $_peer->_port,
+                        $_address, q[Resolved host is as expected]);
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, q[B] x 20,
+                        q[Internal status: We have recieved their peerid)]);
+                    is( $_peer->_reserved_bytes,
+                        qq[\0] x 8,
+                        q[Internal status: We have recieved their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have recieved their infohash but we aren't serving this torrent)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not recieved their bitfield (and never will))]
+                    );
+                    isa_ok($_peer->_socket,
+                           q[GLOB],
+                           q[Internal status: Peer (still) has a socket (for now))]
+                    );
+                }
+            ),
+            q[Set customized 'peer_connect' callback for Client A]
+        );
+        my $newsock_A = newsock($client{q[A]});
+        $client{q[A]}->do_one_loop(1);
+        is( syswrite($newsock_A,
+                     build_handshake(chr(0) x 8, q[A] x 20, q[B] x 20)
+            ),
+            68,
+            q[Send handshake to Client A]
+        );
+        for my $iteration (1 .. 10) {
+            $client{q[A]}->do_one_loop(1);
+            last if $_read == 68;
+        }
+        is($_read, 68, q[We read the entire handshake and nothing more]);
+    }
+    is($test_builder->{q[Curr_Test]},
+        78, q[*** The test suite is on track after Client A]);
+##############################################################################
+    {    # Client B
+        $client{q[B]} = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
+        isa_ok($client{q[B]},
+               q[Net::BitTorrent],
+               sprintf(q[Client  A%s],
+                       $client{q[B]}
+                       ? q[ (pid:]
+                           . $client{q[B]}->peerid
+                           . q[, tcp:]
+                           . $client{q[B]}->_tcp_port . q[)]
+                       : q[])
+        );
+        isa_ok($client{q[B]}->add_torrent({Path => $simple_dot_torrent,
+                                           BaseDir =>
+                                               tempdir(q[~NBSF_test_XXXXXXXX],
+                                                       CLEANUP => 1,
+                                                       TMPDIR  => 1
+                                               )
+                                          }
+               ),
+               q[Net::BitTorrent::Torrent],
+               q[Torrent B]
+        );
+        my ($_address,    # defined in peer_connect
+            $_peer,       # defined in ip_filter
+            $_read        # defined (and updated if needed) by peer_read
+        );
+        ok( $client{q[B]}->on_event(
+                q[ip_filter],
+                sub {
+                    my ($self, $params) = @_;
+                    is($self, $client{q[B]},
+                        q[Object handed to callback matches what we expected [ip_filter]]
+                    );
+                    like($_address = delete($params->{q[Address]}),
+                         qr[^(.+:\d+)$],
+                         q[Params contain a properly formated 'Address' value [ip_filter]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [ip_filter]]
+                    );
+                }
+            ),
+            q[Set customized 'ip_filter' callback for Client B]
+        );
+        ok( $client{q[B]}->on_event(
+                q[peer_write],
+                sub {
+                    my ($self, $params) = @_;
+                    my ($explain) = explain $params;
+                    die(q[We've sent a packet to a peer for reasons beyond me: ]
+                            . $explain);
+                }
+            ),
+            q[Set customized 'peer_write' callback for Client B]
+        );
+        ok( $client{q[B]}->on_event(
+                q[peer_read],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[B]},
+                        q[Object handed to callback matches what we expected [peer_read]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [peer_read]]
+                    );
+                    like($_read += delete($params->{q[Length]}),
+                         qr[^\d+$],
+                         q[Params contains the 'Length' of data we read from this peer [peer_read]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [peer_read]]
+                    );
+                    is($_peer->_host . q[:] . $_peer->_port,
+                        $_address, q[Resolved host is as expected]);
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, undef,
+                        q[Internal status: We have not parsed their peerid)]);
+                    is($_peer->_reserved_bytes, undef,
+                        q[Internal status: We have not parsed their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have not parsed their infohash)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not parsed their bitfield)]
+                    );
+                    isa_ok($_peer->_socket, q[GLOB],
+                           q[Internal status: Peer has a socket (duh))]);
+                }
+            ),
+            ,
+            q[Set customized 'peer_read' callback for Client B]
+        );
+        ok( $client{q[B]}->on_event(
+                q[peer_connect],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[B]},
+                        q[Object handed to callback matches what we expected [peer_connect]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [peer_connect]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [peer_connect]]
+                    );
+                    is($_peer->_host . q[:] . $_peer->_port,
+                        $_address, q[Resolved host is as expected]);
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, undef,
+                        q[Internal status: We have not recieved their peerid)]
+                    );
+                    is($_peer->_reserved_bytes, undef,
+                        q[Internal status: We have not recieved their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have not recieved their infohash)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not recieved their bitfield)]
+                    );
+                    isa_ok($_peer->_socket, q[GLOB],
+                           q[Internal status: Peer has a socket (duh))]);
+                }
+            ),
+            q[Set customized 'peer_connect' callback for Client B]
+        );
+        ok( $client{q[B]}->on_event(
+                q[peer_disconnect],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[B]},
+                        q[Object handed to callback matches what we expected [peer_disconnect]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [peer_disconnect]]
+                    );
+                    is(delete($params->{q[Reason]}), -13,
+                        q[Params contain a 'Reason' (-13: We aren't serving this torrent) [peer_disconnect]]
+                    );
+                    is_deeply(delete $params->{q[Advanced]},
+                              {Infohash => unpack q[H40], (q[A] x 20)},
+                              q[This particular disconnection comes with some 'Advanced' parameters [peer_disconnect]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [peer_disconnect]]
+                    );
+                TODO: {
+                        local $TODO = q[I may cache these in the future];
+                        is( ($_peer->_host || q[]) . q[:]
+                                . ($_peer->_port || q[]),
+                            $_address,
+                            q[Resolved host is as expected]
+                        );
+                    }
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, q[B] x 20,
+                        q[Internal status: We have recieved their peerid)]);
+                    is( $_peer->_reserved_bytes,
+                        qq[\0] x 8,
+                        q[Internal status: We have recieved their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have not recieved their infohash)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not recieved their bitfield)]
+                    );
+                    is($_peer->_socket, undef,
+                        q[Internal status: Peer no longer has a socket]);
+                }
+            ),
+            q[Set customized 'peer_disconnect' callback for Client B]
+        );
+        ok( $client{q[B]}->on_event(
+                q[outgoing_packet],
+                sub {
+                    my ($self, $params) = @_;
+                    my ($explain) = explain $params;
+                    #die(q[We've sent a packet to a peer for reasons beyond me: ]
+                    #        . $explain);
+                }
+            ),
+            q[Set customized 'outgoing_packet' callback for Client B]
+        );
+        ok( $client{q[B]}->on_event(
+                q[incoming_packet],
+                sub {
+                    my ($self, $params) = @_;
+                    is( $self,
+                        $client{q[B]},
+                        q[Object handed to callback matches what we expected [incoming_packet]],
+                    );
+                    isa_ok($_peer = delete($params->{q[Peer]}),
+                           q[Net::BitTorrent::Peer],
+                           q[Params contain a blessed N::B::Peer object in 'Peer' [incoming_packet]]
+                    );
+                    is_deeply(delete $params->{q[Type]},
+                              Net::BitTorrent::Peer::HANDSHAKE(),
+                              q[We are (only) expecting a handshake from this peer [incoming_packet]]
+                    );
+                    is_deeply(delete $params->{q[Payload]},
+                              {Infohash =>
+                                   pack(q[H40], (keys %{$self->torrents})[0]),
+                               PeerID   => q[B] x 20,
+                               Reserved => qq[\0] x 8,
+                              },
+                              q[Payload for this handshake is what we expected it to be [incoming_packet]]
+                    );
+                    is_deeply(
+                        $params,
+                        {},
+                        q[Params contain no other data as exptexed [incoming_packet]]
+                    );
+                    is($_peer->_host . q[:] . $_peer->_port,
+                        $_address, q[Resolved host is as expected]);
+                    is($_peer->_am_choking, 1,
+                        q[Initial status: Peer is choked]);
+                    is($_peer->_peer_choking, 1,
+                        q[Initial status: Peer is choking us]);
+                    is($_peer->_am_interested, 0,
+                        q[Initial status: Peer is not interesting]);
+                    is($_peer->_peer_interested, 0,
+                        q[Initial status: Peer is not interested]);
+                    is($_peer->_incoming, 1,
+                        q[Internal status: Peer initiated this connection (_incoming())]
+                    );
+                    is($_peer->_source, q[Incoming],
+                        q[Internal status: Peer initiated this connection (_source())]
+                    );
+                    is($_peer->peerid, q[B] x 20,
+                        q[Internal status: We have recieved their peerid)]);
+                    is( $_peer->_reserved_bytes,
+                        qq[\0] x 8,
+                        q[Internal status: We have recieved their reserved bytes)]
+                    );
+                    is($_peer->_torrent, undef,
+                        q[Internal status: We have recieved their infohash but we aren't serving this torrent)]
+                    );
+                    is($_peer->_bitfield, undef,
+                        q[Internal status: We have not recieved their bitfield (and never will))]
+                    );
+                    isa_ok($_peer->_socket,
+                           q[GLOB],
+                           q[Internal status: Peer (still) has a socket (for now))]
+                    );
+                }
+            ),
+            q[Set customized 'peer_connect' callback for Client B]
+        );
+        my $newsock_A = newsock($client{q[B]});
+        $client{q[B]}->do_one_loop(1);
+        is( syswrite($newsock_A,
+                     build_handshake(
+                                   chr(0) x 8,
+                                   pack(q[H40],
+                                        (keys %{$client{q[B]}->torrents})[0]),
+                                   q[B] x 20
+                     )
+            ),
+            68,
+            q[Send handshake to Client B]
+        );
+        for my $iteration (1 .. 10) {
+            $client{q[B]}->do_one_loop(1);
+            last if $_read == 68;
+        }
+        is($_read, 68, q[We read the entire handshake and nothing more]);
+    }
+    is($test_builder->{q[Curr_Test]},
+        141, q[*** The test suite is on track after Client B]);
+
+=old
+
+
     ok( $client->on_event(
             q[peer_read],
             sub {
@@ -192,7 +843,7 @@ SKIP: {
                              $self->peerid, $peer->peerid);
                     }
                     else {
-                        fail(sprintf q[Unknown peerid: %s], $peer->peerid);
+                        die(sprintf q[Unknown peerid: %s], $peer->peerid);
                     }
                 }
                 elsif ($type == CHOKE) {
@@ -273,12 +924,12 @@ SKIP: {
                             pass(q[Good peer has i:1]);
                         }
                         else {
-                            fail(sprintf q[Peer claims to have %d],
+                            die(sprintf q[Peer claims to have %d],
                                  $payload->{q[Index]});
                         }
                     }
                     else {
-                        fail(sprintf q[Unknown peer '%s' has %d],
+                        die(sprintf q[Unknown peer '%s' has %d],
                              $peer->peerid, $args->{q[Index]});
                     }
                 }
@@ -306,7 +957,7 @@ SKIP: {
                              $self->peerid, $peer->peerid);
                     }
                     else {
-                        fail(sprintf q[Unknown peerid: %s], $peer->peerid);
+                        die(sprintf q[Unknown peerid: %s], $peer->peerid);
                     }
                     warn(sprintf(q[Bitfield from %s], $peer->as_string));
                 }
@@ -405,7 +1056,7 @@ SKIP: {
                                  $self->peerid, $peer->peerid);
                         }
                         else {
-                            fail(sprintf q[Unknown peerid: %s],
+                            die(sprintf q[Unknown peerid: %s],
                                  $peer->peerid);
                         }
                     }
@@ -791,13 +1442,16 @@ SKIP: {
         is($peers{q[C]}->_peer_choking,    1, q[Initial incoming choke]);
         is($peers{q[C]}->_am_interested,   0, q[Initial outgoing interest]);
         is($peers{q[C]}->_peer_interested, 0, q[Initial incoming interest]);
+
         ok(syswrite($newsock_C, build_interested), q[Incoming interested]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         is($peers{q[C]}->_peer_interested, 1, q[Peer is interested]);
+
         ok(syswrite($newsock_C, build_unchoke), q[Incoming unchoke]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         is($peers{q[C]}->_peer_choking, 0, q[Peer has unchoked us]);
         warn sprintf q[%d|%d], 172, $test_builder->{q[Curr_Test]};
+
         ok(syswrite($newsock_C, build_choke), q[Incoming choke]);
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         is($peers{q[C]}->_peer_choking,
@@ -927,20 +1581,23 @@ SKIP: {
         ok($client->do_one_loop(1), q[    do_one_loop(1)]);
         warn sprintf q[%d|%d], 474, $test_builder->{q[Curr_Test]};
     }
+=cut
+
 }
 
 sub newsock {
     my ($server) = @_;
     my ($port, $packed_ip) = unpack_sockaddr_in(getsockname($server->_tcp));
-    warn(sprintf q[Creating new sockpair to connect to %s:%d],
-         inet_ntoa($packed_ip), $port);
     my $outgoing;
     socket($outgoing, AF_INET, SOCK_STREAM, getprotobyname(q[tcp]))
         ? do {
-        pass(q[Created new socket]);
+        warn(sprintf q[Creating new sockpair to connect to %s:%d (%s)],
+             inet_ntoa($packed_ip), $port, $server->peerid);
         connect($outgoing, getsockname($server->_tcp));
         }
-        : fail(q[Failed to create new socket]);
+        : die(
+            sprintf q[Failed to create new sockpair to connect to %s:%d (%s)],
+            inet_ntoa($packed_ip), $port, $server->peerid);
     return $outgoing;
 }
 __END__
@@ -957,4 +1614,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Peer.t 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
+$Id: Peer.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $

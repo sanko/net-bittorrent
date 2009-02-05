@@ -368,28 +368,21 @@ my $mb = $class->new(
     dist_abstract     => q[BitTorrent peer-to-peer protocol],
     dist_version_from => q[lib/Net/BitTorrent/Version.pm],
     requires          => {
-        q[Cwd]           => 0,
-        q[Digest::SHA]   => 5.45,
-        q[Errno]         => 0,
-        q[Exporter]      => 0,
-        q[Fcntl]         => 0,
-        q[File::Path]    => 0,
-        q[File::Spec]    => 0,
-        q[Module::Build] => 0.30,
-        q[perl]          => q[5.8.1],
-        q[Scalar::Util]  => 1.19,
-        q[Socket]        => 1.77,
-        q[Test::More]    => 0.80,
-        q[Time::HiRes]   => 0,
-        q[version]       => 0.74,
-        ((!eval {
-              my $eval = pack(q[Q], time);
-              1;
-          }
-         )
-         ? (q[Math::BigInt] => 0)
-         : ()
-        )
+                 q[Cwd]           => 0,
+                 q[Digest::SHA]   => 5.45,
+                 q[Errno]         => 0,
+                 q[Exporter]      => 0,
+                 q[Fcntl]         => 0,
+                 q[File::Path]    => 0,
+                 q[File::Spec]    => 0,
+                 q[Math::BigInt]  => 0,
+                 q[Module::Build] => 0.30,
+                 q[perl]          => q[5.8.1],
+                 q[Scalar::Util]  => 1.19,
+                 q[Socket]        => 1.77,
+                 q[Test::More]    => 0.80,
+                 q[Time::HiRes]   => 0,
+                 q[version]       => 0.74
     },
     build_requires => {q[Module::Build] => 0.30,
                        q[Test::More]    => 0.80
@@ -471,7 +464,7 @@ BEGIN {    # Tired of getting FAIL-mail from outdated build environments
     }
 }
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of The Artistic License 2.0.  See the LICENSE file

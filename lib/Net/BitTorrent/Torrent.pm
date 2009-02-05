@@ -387,9 +387,8 @@ package Net::BitTorrent::Torrent;
     }
 
     # Mutators | Private
-
     sub _add_node {
-        my ($self, $node)=@_;
+        my ($self, $node) = @_;
         return $_nodes{refaddr $self} .= compact($node);
     }
 
@@ -425,10 +424,9 @@ package Net::BitTorrent::Torrent;
     }
 
     # Accessors | Private
-    sub _client       { return $_client{refaddr +shift}; }
-    sub _block_length { return $_block_length{refaddr +shift} }
-
-    #sub _nodes          { return $_nodes{refaddr +shift}; }
+    sub _client         { return $_client{refaddr +shift}; }
+    sub _block_length   { return $_block_length{refaddr +shift} }
+    sub _nodes          { return $_nodes{refaddr +shift}; }
     sub _working_pieces { return $_working_pieces{refaddr +shift}; }
     sub _basedir        { return $_basedir{refaddr +shift}; }
 
@@ -1750,6 +1748,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Torrent.pm 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: Torrent.pm 9fd5274 2009-02-04 03:41:43Z sanko@cpan.org $
 
 =cut

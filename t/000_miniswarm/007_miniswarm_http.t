@@ -7,6 +7,7 @@ use Module::Build;
 use Test::More;
 use Socket qw[SOCK_STREAM /F_INET/ unpack_sockaddr_in inet_ntoa];
 use File::Temp qw[];
+use Time::HiRes qw[sleep];
 use lib q[../../lib];
 use Net::BitTorrent::Util qw[:compact :bencode];
 use Net::BitTorrent;
@@ -17,7 +18,6 @@ my $miniswarm_dot_torrent
 chdir q[../../] if not -f $miniswarm_dot_torrent;
 my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
-my $okay_udp        = $build->notes(q[okay_udp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
@@ -28,7 +28,7 @@ $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 my $BlockLength = 2**14;
 my $Seeds       = 1;
 my $Peers       = 5;
-my $Timeout     = 45;
+my $Timeout     = 60;
 plan tests => int(($Seeds * 2) + ($Peers * 2));
 my $sprintf = q[%0] . length($Peers > $Seeds ? $Peers : $Seeds) . q[d];
 my $_infohash = q[2b3aaf361bd40540bf7e3bfd140b954b90e4dfbc];
@@ -50,7 +50,16 @@ SKIP: {
              $test_builder->{q[Expected_Tests]}
                  - $test_builder->{q[Curr_Test]}
         ) if not $client{q[seed_] . $chr};
-        $client{q[seed_] . $chr}->_set_use_dht($okay_udp);
+        $client{q[seed_] . $chr}->_set_use_dht(0);
+
+        #~$client{q[seed_] . $chr}->on_event(
+        #~    q[peer_disconnect],
+        #~    sub {
+        #~        require Data::Dumper;
+        #~        warn Data::Dumper->Dumper(\@_);
+        #~    }
+        #~);
+        $client{q[seed_] . $chr}->_set_connections_per_host(3);
         my $torrent = $client{q[seed_] . $chr}->add_torrent(
                                      {Path    => $miniswarm_dot_torrent,
                                       BaseDir => q[./t/900_data/930_miniswarm]
@@ -94,6 +103,16 @@ SKIP: {
                  - $test_builder->{q[Curr_Test]}
         ) if not $client{$chr};
         $client{$chr}->_set_use_dht(0);
+        $client{$chr}->_set_connections_per_host($Peers);
+        $client{$chr}->_set_encryption_mode(0x01);
+
+        #~$client{$chr}->on_event(
+        #~    q[peer_disconnect],
+        #~    sub {
+        #~        require Data::Dumper;
+        #~        warn Data::Dumper->Dumper(\@_);
+        #~    }
+        #~);
         my $torrent =
             $client{$chr}->add_torrent(
                                      {Path => $miniswarm_dot_torrent,
@@ -142,10 +161,12 @@ SKIP: {
                   - $test_builder->{q[Curr_Test]}
              )
         ) if (int(time - $^T) > $Timeout);
+        sleep 0.25;
     }
 
     END {
         for my $client (values %client) {
+            next if !$client->torrents->{$_infohash};
             for my $file (@{$client->torrents->{$_infohash}->files}) {
                 $file->_close;
             }
@@ -245,7 +266,7 @@ sub check_tracker {
     }
 }
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of The Artistic License 2.0.  See the LICENSE file

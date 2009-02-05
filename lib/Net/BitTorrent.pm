@@ -51,7 +51,7 @@ package Net::BitTorrent;
         $_k_dl{refaddr $self}                 = 0;
         $_peers_per_torrent{refaddr $self}    = 100;
         $_half_open{refaddr $self}            = 8;
-        $_connections_per_host{refaddr $self} = 2;
+        $_connections_per_host{refaddr $self} = 1;
         $_torrents{refaddr $self}             = {};
         $_tid{refaddr $self}                  = qq[\0] x 5;
         $_use_dht{refaddr $self}              = 1;
@@ -1428,7 +1428,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008-2009 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of The Artistic License 2.0.  See the F<LICENSE>
@@ -1444,6 +1444,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: BitTorrent.pm 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: BitTorrent.pm cd3894a 2009-02-04 16:34:21Z sanko@cpan.org $
 
 =cut

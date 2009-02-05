@@ -1,14 +1,17 @@
-Version 0.0XX | Distant future | ff8a013
+Version 0.0XX | Distant future | cd3894a
 
     API Changes/Compatibility Information:
      * N::B::Peer objects have their sockets closed and removed before calling
         any peer_disconnect callbacks
 
     Resolved Issues/Bug Fixes:
-     * None
+     * Fixed HAVE reporting. They weren't being sent out at all before this
+         version.
 
     Protocol/Behavioral Changes:
-     * Protocol Encryption (soon)
+     * Protocol Encryption (Considered unstable)
+     * Shorter waiting period before filling requests (15s -> 3s)
+     * Default for number of allowed connections per host has changed (2 -> 1)
 
     Documentation/Sample Code/Test Suite:
      * ALL tests are run even on non-dev systems to shake out the last few (I
@@ -25,6 +28,7 @@ Version 0.0XX | Distant future | ff8a013
     Notes:
      * This dev build is being uploaded only to gather tester data. Not for
        broad use.
+     * When stable, this will become a major bugfix release.
      * Meanwhile...
        * I lost eight years worth of incomplete projects (including early
          versions of N::B based on AnyEvent and Moose) when one of my drives
@@ -381,7 +385,7 @@ _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
     http://github.com/sanko/net-bittorrent/commits/master
 
-$Ver: 0.049_005 $ from git
-$Date: 2009-01-27 17:00:38Z (Tue, 27 Jan 2009) $
-$Rev: fac4ae0147614d828a9d9bd5bcac901ec441f8f4 $
-$Url: http://github.com/sanko/net-bittorrent/raw/fac4ae0147614d828a9d9bd5bcac901ec441f8f4/Changes $
+$Ver: 0.049_006 $ from git
+$Date: 2009-02-04 03:41:43Z (Wed, 04 Feb 2009) $
+$Rev: 9fd5274b241ac93fdb11f4cc819910683d7089d4 $
+$Url: http://github.com/sanko/net-bittorrent/raw/9fd5274b241ac93fdb11f4cc819910683d7089d4/Changes $
