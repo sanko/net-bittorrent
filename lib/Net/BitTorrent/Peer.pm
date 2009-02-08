@@ -397,7 +397,7 @@ END
                 $self->_disconnect($^E);
                 return;
             }
-            warn sprintf q[Read %d bytes of data], $actual_read;
+            #warn sprintf q[Read %d bytes of data], $actual_read;
             $_last_contact{refaddr $self} = time;
             if (!$peerid{refaddr $self}) {
                 $_client{refaddr $self}
@@ -571,9 +571,10 @@ END
         #  - Generate S
         #  - Send Yb, PadB to A
         if (length($_data_in{refaddr $self}) < 96) {
-            warn sprintf
-                q[Not enough data for Step 2B (req: 96, have: %d)],
-                length($_data_in{refaddr $self});
+            #warn sprintf
+            #    q[Not enough data for Step 2B (req: 96, have: %d)],
+            #    length($_data_in{refaddr $self});
+            $_client{refaddr $self}->_add_connection($self, q[rw]);
             return 1;
         }
         $_Ya{refaddr $self} = Math::BigInt->new(
@@ -598,8 +599,8 @@ END
                   join(q[], @_bits)
                 . join(q[], map { chr int rand(255) } 1 .. (rand(1024) % 512))
         );
-        warn sprintf q[Step 2B Complete: %s | %d bytes in cache],
-            $self->as_string,
+        #warn sprintf q[Step 2B Complete: %s | %d bytes in cache],
+            #$self->as_string,
             $self->_syswrite(
                   join(q[], @_bits)
                 . join(q[], map { chr int rand(255) } 1 .. (rand(1024) % 512))
@@ -623,9 +624,9 @@ END
         #  - Send ENCRYPT(VC, crypto_provide, len(PadC), PadC, len(IA))
         #  - Send ENCRYPT(IA)
         if (length($_data_in{refaddr $self}) < 96) {
-            warn sprintf
-                q[Not enough data for Step 3A (req: 96, have: %d)],
-                length($_data_in{refaddr $self});
+            #warn sprintf
+            #    q[Not enough data for Step 3A (req: 96, have: %d)],
+            #    length($_data_in{refaddr $self});
             $_client{refaddr $self}->_add_connection($self, q[rw]);
             return 1;
         }
@@ -674,7 +675,7 @@ END
         # fouth piece: ENCRYPT(IA)
         $self->_syswrite($self->_RC4($_KeyA{refaddr $self}, $IA));
         $_client{refaddr $self}->_add_connection($self, q[rw]);
-        warn q[Step 3A Complete ] . $self->as_string;
+        #warn q[Step 3A Complete ] . $self->as_string;
         $_state{refaddr $self} = MSE_FIVE;
         return 1;
     }
@@ -684,9 +685,9 @@ END
         #warn((caller(0))[3]);
         my ($self) = @_;
         if (length($_data_in{refaddr $self}) < 40) {
-            warn sprintf
-                q[Not enough data for Step 4B (req: 40, have: %d)],
-                length($_data_in{refaddr $self});
+            #warn sprintf
+            #    q[Not enough data for Step 4B (req: 40, have: %d)],
+            #    length($_data_in{refaddr $self});
             $_client{refaddr $self}->_add_connection($self, q[rw]);
             return 1;
         }
@@ -916,9 +917,9 @@ END
         }
         my $payload = $packet->{q[Payload]};
         return if !defined $payload;
-        warn q[plaintext handshake two!];
-        use Data::Dump qw[pp];
-        warn pp $packet;
+        #warn q[plaintext handshake two!];
+        #use Data::Dump qw[pp];
+        #warn pp $packet;
 
         # Locate torrent or disconnect
         # Set torrent
@@ -1012,7 +1013,7 @@ END
         }
         my $payload = $packet->{q[Payload]};
         return if !defined $payload;
-        warn q[plaintext handshake two!];
+        #warn q[plaintext handshake two!];
 
         #use Data::Dump qw[pp];
         #warn pp $packet;
@@ -2199,7 +2200,7 @@ ADVANCED
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j 
+                    = (  $_j
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]

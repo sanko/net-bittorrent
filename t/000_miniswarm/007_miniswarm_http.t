@@ -33,8 +33,8 @@ $SIG{__WARN__} = (
 my $BlockLength = 2**16;
 my $Seeds       = 1;
 my $Peers       = 5;
-my $Timeout     = 60;
-my $Encrypt     = 1;
+my $Timeout     = 120;
+my $Encrypt     = 0;
 plan tests => int(($Seeds * 2) + ($Peers * 2));
 my $sprintf = q[%0] . length($Peers > $Seeds ? $Peers : $Seeds) . q[d];
 my $_infohash = q[2b3aaf361bd40540bf7e3bfd140b954b90e4dfbc];
@@ -61,10 +61,7 @@ SKIP: {
         $client{q[seed_] . $chr}->_set_encryption_mode($Encrypt);
         $client{q[seed_] . $chr}->on_event(
             q[peer_disconnect],
-            sub {
-                require Data::Dumper;
-                warn Data::Dumper->Dumper(\@_);
-            }
+            sub { warn q[Disconnect: ] . $_[1]->{q[Reason]}; }
         );
         my $torrent = $client{q[seed_] . $chr}->add_torrent(
                                      {Path    => $miniswarm_dot_torrent,
@@ -114,10 +111,7 @@ SKIP: {
         $client{$chr}->_set_encryption_mode($Encrypt);
         $client{$chr}->on_event(
             q[peer_disconnect],
-            sub {
-                require Data::Dumper;
-                warn Data::Dumper->Dumper(\@_);
-            }
+            sub {warn q[Disconnect: ] . $_[1]->{q[Reason]};            }
         );
         my $torrent =
             $client{$chr}->add_torrent(
