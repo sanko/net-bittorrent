@@ -23,7 +23,7 @@ my $verbose         = $build->notes(q[verbose]);
 my $threads         = $build->notes(q[threads]);
 $SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
 my ($flux_capacitor, %peers) = (0, ());
-plan tests => 142;
+plan tests => 91;
 
 BEGIN {
     *CORE::GLOBAL::time
@@ -162,7 +162,6 @@ SKIP: {
                            q[Internal status: Peer has a socket (duh))]);
                 }
             ),
-            ,
             q[Set customized 'peer_read' callback for Client A]
         );
         ok( $client{q[A]}->on_event(
@@ -370,7 +369,7 @@ SKIP: {
         is($_read, 68, q[We read the entire handshake and nothing more]);
     }
     is($test_builder->{q[Curr_Test]},
-        78, q[*** The test suite is on track after Client A]);
+        44, q[*** The test suite is on track after Client A]);
 ##############################################################################
     {    # Client B
         $client{q[B]} = Net::BitTorrent->new({LocalHost => q[127.0.0.1]});
@@ -482,7 +481,6 @@ SKIP: {
                            q[Internal status: Peer has a socket (duh))]);
                 }
             ),
-            ,
             q[Set customized 'peer_read' callback for Client B]
         );
         ok( $client{q[B]}->on_event(
@@ -605,8 +603,9 @@ SKIP: {
                 sub {
                     my ($self, $params) = @_;
                     my ($explain) = explain $params;
-                    #die(q[We've sent a packet to a peer for reasons beyond me: ]
-                    #        . $explain);
+
+                 #die(q[We've sent a packet to a peer for reasons beyond me: ]
+                 #        . $explain);
                 }
             ),
             q[Set customized 'outgoing_packet' callback for Client B]
@@ -696,7 +695,7 @@ SKIP: {
         is($_read, 68, q[We read the entire handshake and nothing more]);
     }
     is($test_builder->{q[Curr_Test]},
-        141, q[*** The test suite is on track after Client B]);
+        90, q[*** The test suite is on track after Client B]);
 
 =old
 
@@ -1582,7 +1581,6 @@ SKIP: {
         warn sprintf q[%d|%d], 474, $test_builder->{q[Curr_Test]};
     }
 =cut
-
 }
 
 sub newsock {
@@ -1614,4 +1612,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Peer.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+$Id: Peer.t 44b03f5 2009-02-05 16:55:07Z sanko@cpan.org $

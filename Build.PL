@@ -387,7 +387,9 @@ my $mb = $class->new(
     build_requires => {q[Module::Build] => 0.30,
                        q[Test::More]    => 0.80
     },
-    recommends    => {q[Data::Dump] => 0},
+    recommends => {q[Data::Dump] => 0,
+                   q[perl]       => q[5.10.0]
+    },
     auto_features => {win32_utf8_support => {
                           description => q[Unicode filename support on Win32],
                           requires    => {

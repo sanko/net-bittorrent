@@ -8,8 +8,7 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
-=item * Wire protocol encryption
-<http://www.azureuswiki.com/index.php/Message_Stream_Encryption>
+=item * Retry without encryption when a peer disconnects during handshake
 
 =item * Flesh out the test suite and example scripts
 
