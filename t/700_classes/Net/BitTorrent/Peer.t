@@ -1612,4 +1612,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Peer.t 44b03f5 2009-02-05 16:55:07Z sanko@cpan.org $
+$Id: Peer.t 8548b34 2009-02-08 22:58:06Z sanko@cpan.org $

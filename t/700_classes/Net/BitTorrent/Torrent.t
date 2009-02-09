@@ -482,4 +482,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Torrent.t 6929734 2009-01-05 22:38:02Z sanko@cpan.org $
+$Id: Torrent.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $

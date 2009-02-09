@@ -823,4 +823,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Protocol.t fac4ae0 2009-01-27 17:00:38Z sanko@cpan.org $
+$Id: Protocol.t 51f07f7 2009-01-27 20:56:44Z sanko@cpan.org $

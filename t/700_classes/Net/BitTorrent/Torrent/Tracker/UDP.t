@@ -112,4 +112,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: UDP.t d230426 2008-12-30 23:25:17Z sanko@cpan.org $
+$Id: UDP.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $

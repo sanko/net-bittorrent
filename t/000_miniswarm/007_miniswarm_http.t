@@ -1,5 +1,5 @@
 #!perl -I../../lib
-# Miniature swarm of 5 seeds and 15 new peers
+# Miniature swarm of 1 seeds and 2 new peers
 #
 use strict;
 use warnings;
@@ -32,9 +32,9 @@ $SIG{__WARN__} = (
 }
 my $BlockLength = 2**16;
 my $Seeds       = 1;
-my $Peers       = 5;
+my $Peers       = 2;
 my $Timeout     = 120;
-my $Encrypt     = 0;
+my $Encrypt     = 1;
 plan tests => int(($Seeds * 2) + ($Peers * 2));
 my $sprintf = q[%0] . length($Peers > $Seeds ? $Peers : $Seeds) . q[d];
 my $_infohash = q[2b3aaf361bd40540bf7e3bfd140b954b90e4dfbc];
@@ -57,11 +57,13 @@ SKIP: {
                  - $test_builder->{q[Curr_Test]}
         ) if not $client{q[seed_] . $chr};
         $client{q[seed_] . $chr}->_set_use_dht(0);
-        $client{q[seed_] . $chr}->_set_connections_per_host($Peers);
+        $client{q[seed_] . $chr}->_set_connections_per_host(1);
         $client{q[seed_] . $chr}->_set_encryption_mode($Encrypt);
         $client{q[seed_] . $chr}->on_event(
             q[peer_disconnect],
-            sub { warn q[Disconnect: ] . $_[1]->{q[Reason]}; }
+            sub {
+                warn q[Disconnect: ] . $_[1]->{q[Reason]};
+            }
         );
         my $torrent = $client{q[seed_] . $chr}->add_torrent(
                                      {Path    => $miniswarm_dot_torrent,
@@ -93,7 +95,6 @@ SKIP: {
                 my ($s, $a) = @_;
                 my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
                 ok(1, sprintf(q[seed_%s announce okay], $chr));
-                return $t->_tier->_torrent->_new_peer();
             }
         );
         $client{q[seed_] . $chr}->do_one_loop(0.25);
@@ -111,7 +112,9 @@ SKIP: {
         $client{$chr}->_set_encryption_mode($Encrypt);
         $client{$chr}->on_event(
             q[peer_disconnect],
-            sub {warn q[Disconnect: ] . $_[1]->{q[Reason]};            }
+            sub {
+                warn q[Disconnect: ] . $_[1]->{q[Reason]};
+            }
         );
         my $torrent =
             $client{$chr}->add_torrent(
@@ -148,17 +151,20 @@ SKIP: {
                 my ($s, $a) = @_;
                 my ($t, $p) = ($a->{q[Tracker]}, $a->{q[Payload]});
                 ok(1, sprintf(q[peer_%s announce okay], $chr));
-                return $t->_tier->_torrent->_new_peer();
             }
         );
         my $tracker = qq[http://127.0.0.1:$_tracker_port/announce];
         $torrent->_add_tracker([$tracker]);
         $client{$chr}->do_one_loop(0.25);
         check_tracker();
-     }
+    }
     while ($test_builder->{q[Curr_Test]} < $test_builder->{q[Expected_Tests]})
-    {   #check_tracker();
-        grep { $_->do_one_loop(0.25); } values %client;
+    {    #check_tracker();
+        for my $peer (values %client) {
+            for (1 .. 3) {
+                $peer->do_one_loop(0.33);
+            }
+        }
         skip(q[This is taking too long and I have a train to catch.],
              (      $test_builder->{q[Expected_Tests]}
                   - $test_builder->{q[Curr_Test]}

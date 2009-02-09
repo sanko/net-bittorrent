@@ -86,7 +86,7 @@ package Net::BitTorrent::Peer;
 
     sub crypto_provide {
         return pack q[N],
-            CRYPTO_PLAIN | CRYPTO_RC4    #| CRYPTO_XOR | CRYPTO_AES;
+            CRYPTO_PLAIN    # | CRYPTO_RC4    #| CRYPTO_XOR | CRYPTO_AES;
     }
     sub len { pack(q[n], length(shift)); }
 
@@ -397,6 +397,7 @@ END
                 $self->_disconnect($^E);
                 return;
             }
+
             #warn sprintf q[Read %d bytes of data], $actual_read;
             $_last_contact{refaddr $self} = time;
             if (!$peerid{refaddr $self}) {
@@ -406,24 +407,22 @@ END
             $_client{refaddr $self}->_event(q[peer_read],
                                      {Peer => $self, Length => $actual_read});
         }
-        if ($write) {
-            if ($_data_out{refaddr $self}) {
-                $actual_write =
-                    syswrite($_socket{refaddr $self},
-                             $_data_out{refaddr $self},
-                             $write, 0);
+        if ($write && $_data_out{refaddr $self}) {
+            $actual_write =
+                syswrite($_socket{refaddr $self},
+                         $_data_out{refaddr $self},
+                         $write, 0);
 
-                #warn sprintf q[Wrote %d bytes of data], $actual_write;
-                if (not $actual_write) {
-                    weaken $self;
-                    $self->_disconnect($^E);
-                    return;
-                }
-                else {
-                    $_client{refaddr $self}->_event(q[peer_write],
+            #warn sprintf q[Wrote %d bytes of data], $actual_write;
+            if (not $actual_write) {
+                weaken $self;
+                $self->_disconnect($^E);
+                return;
+            }
+            else {
+                $_client{refaddr $self}->_event(q[peer_write],
                                     {Peer => $self, Length => $actual_write});
-                    substr($_data_out{refaddr $self}, 0, $actual_write, q[]);
-                }
+                substr($_data_out{refaddr $self}, 0, $actual_write, q[]);
             }
         }
 
@@ -431,8 +430,7 @@ END
         return ($actual_read, $actual_write);
     }
 
-    sub _syswrite
-    {    # Wraps the built-in syswrite() and applies any PE Encryption
+    sub _syswrite {    # applies any encryption
         my ($self, $data) = @_;
         return if !$data;
 
@@ -521,14 +519,13 @@ END
                 }
             }
         }
-        $_client{refaddr $self}->_add_connection($self,
-                         (length($_data_out{refaddr $self}) ? q[rw] : q[ro]));
+        $_client{refaddr $self}->_add_connection($self, q[rw]);
         $_parse_packets_schedule{refaddr $self}
             = $_client{refaddr $self}->_schedule({Time   => time + 3,
                                                   Code   => \&_parse_packets,
                                                   Object => $self
                                                  }
-            );
+            ) if !$time;
         return 1;
     }
 
@@ -541,15 +538,18 @@ END
         # Step 1A:
         #  - Generate Ya, PadA
         #  - Send Ya, PadA to B
-        $_Xa{refaddr $self} = int(rand(1) * 9999999999999999);
+        $_Xa{refaddr $self} = int rand(9999999999999999);
         $_Ya{refaddr $self}
             = Math::BigInt->new(DH_G)->bmodpow($_Xa{refaddr $self}, DH_P);
-        my $PadA = join q[],
-            map { chr int rand(255) } 1 .. (rand(1024) % 512);
         my @bits
             = map { chr hex $_ } ($_Ya{refaddr $self}->as_hex =~ m[(..)]g);
         shift @bits;
-        $self->_syswrite(join(q[], @bits) . $PadA);
+
+        #warn sprintf q[Step 1A Complete: %s | %d bytes in cache],
+        #$self->as_string,
+        $self->_syswrite(join q[], @bits,
+                         (map { chr rand(255) } 1 .. int(rand 512)));
+        $_client{refaddr $self}->_add_connection($self, q[rw]);
         $_state{refaddr $self} = MSE_THREE;
         return 1;
     }
@@ -571,6 +571,7 @@ END
         #  - Generate S
         #  - Send Yb, PadB to A
         if (length($_data_in{refaddr $self}) < 96) {
+
             #warn sprintf
             #    q[Not enough data for Step 2B (req: 96, have: %d)],
             #    length($_data_in{refaddr $self});
@@ -583,7 +584,7 @@ END
             map { sprintf q[%02x], ord $_ } split //,
             substr($_data_in{refaddr $self}, 0, 96, q[])
         );
-        $_Xb{refaddr $self} = int(rand(1) * 9999999999999999);    # Random Xb
+        $_Xb{refaddr $self} = int rand(9999999999999999);    # Random Xb
         $_Yb{refaddr $self}
             = Math::BigInt->new(DH_G)->bmodpow($_Xb{refaddr $self}, DH_P);
         my @bits
@@ -599,12 +600,13 @@ END
                   join(q[], @_bits)
                 . join(q[], map { chr int rand(255) } 1 .. (rand(1024) % 512))
         );
+
         #warn sprintf q[Step 2B Complete: %s | %d bytes in cache],
-            #$self->as_string,
-            $self->_syswrite(
+        #    $self->as_string,
+        $self->_syswrite(
                   join(q[], @_bits)
                 . join(q[], map { chr int rand(255) } 1 .. (rand(1024) % 512))
-            );
+        );
         $_state{refaddr $self} = MSE_FOUR;
         return 1;
     }
@@ -624,6 +626,7 @@ END
         #  - Send ENCRYPT(VC, crypto_provide, len(PadC), PadC, len(IA))
         #  - Send ENCRYPT(IA)
         if (length($_data_in{refaddr $self}) < 96) {
+
             #warn sprintf
             #    q[Not enough data for Step 3A (req: 96, have: %d)],
             #    length($_data_in{refaddr $self});
@@ -674,7 +677,7 @@ END
 
         # fouth piece: ENCRYPT(IA)
         $self->_syswrite($self->_RC4($_KeyA{refaddr $self}, $IA));
-        $_client{refaddr $self}->_add_connection($self, q[rw]);
+
         #warn q[Step 3A Complete ] . $self->as_string;
         $_state{refaddr $self} = MSE_FIVE;
         return 1;
@@ -685,6 +688,7 @@ END
         #warn((caller(0))[3]);
         my ($self) = @_;
         if (length($_data_in{refaddr $self}) < 40) {
+
             #warn sprintf
             #    q[Not enough data for Step 4B (req: 40, have: %d)],
             #    length($_data_in{refaddr $self});
@@ -762,12 +766,13 @@ END
         elsif (unpack(q[N], $crypto_provide) & CRYPTO_PLAIN) {
             $_crypto_select{refaddr $self} = CRYPTO_PLAIN;
         }
-        elsif (unpack(q[N], $crypto_provide) & CRYPTO_XOR) {
-            $_crypto_select{refaddr $self} = CRYPTO_XOR;
-        }
-        elsif (unpack(q[N], $crypto_provide) & CRYPTO_AES) {
-            $_crypto_select{refaddr $self} = CRYPTO_AES;
-        }
+
+        #elsif (unpack(q[N], $crypto_provide) & CRYPTO_XOR) {
+        #    $_crypto_select{refaddr $self} = CRYPTO_XOR;
+        #}
+        #elsif (unpack(q[N], $crypto_provide) & CRYPTO_AES) {
+        #    $_crypto_select{refaddr $self} = CRYPTO_AES;
+        #}
         else {
             weaken $self;
             $self->_disconnect(-105);
@@ -805,8 +810,9 @@ END
         #warn((caller(0))[3]);
         my ($self) = @_;
         if (length($_data_in{refaddr $self}) < 34) {
-            warn sprintf q[Not enough data for enc five (req: 34, have: %d)],
-                length($_data_in{refaddr $self});
+
+            #warn sprintf q[Not enough data for enc five (req: 34, have: %d)],
+            #    length($_data_in{refaddr $self});
             $_client{refaddr $self}->_add_connection($self, q[rw]);
             return;
         }
@@ -869,7 +875,8 @@ END
             # XXX - Decode their IA
         }
         $_client{refaddr $self}->_add_connection($self, q[rw]);
-        warn q[Step 5A Complete: ] . $self->as_string;
+
+        #warn q[Step 5A Complete: ] . $self->as_string;
         $_state{refaddr $self} = REG_ONE;
         return 1;
     }
@@ -917,10 +924,10 @@ END
         }
         my $payload = $packet->{q[Payload]};
         return if !defined $payload;
+
         #warn q[plaintext handshake two!];
         #use Data::Dump qw[pp];
         #warn pp $packet;
-
         # Locate torrent or disconnect
         # Set torrent
         # Set bitfield
@@ -1013,8 +1020,8 @@ END
         }
         my $payload = $packet->{q[Payload]};
         return if !defined $payload;
-        #warn q[plaintext handshake two!];
 
+        #warn q[plaintext handshake two!];
         #use Data::Dump qw[pp];
         #warn pp $packet;
         # Locate torrent or disconnect
@@ -1965,12 +1972,7 @@ END
             and ($_torrent{refaddr $self}->status & 32))
         {   return;
         }
-        $_client{refaddr $self}->_schedule({Time   => time + 60,
-                                            Code   => \&_fill_requests,
-                                            Object => $self
-                                           }
-        );
-        while ((length($_data_out{refaddr $self}) < 2**15)
+        while ((length($_data_out{refaddr $self}) < 2**18)
                and @{$requests_in{refaddr $self}})
         {   my $request = shift @{$requests_in{refaddr $self}};
             next
@@ -2002,6 +2004,11 @@ END
 
             #if (rand(20) >= 20) { $self->_send_choke; }
         }
+        $_client{refaddr $self}->_schedule({Time   => time + 3,
+                                            Code   => \&_fill_requests,
+                                            Object => $self
+                                           }
+        ) if @{$requests_in{refaddr $self}};
         $_client{refaddr $self}->_add_connection($self, q[rw]) or return;
         return 1;
     }
@@ -2200,7 +2207,7 @@ ADVANCED
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j
+                    = (  $_j 
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]
@@ -2254,6 +2261,54 @@ C<VERBOSE> is a boolean value.
 
 =back
 
+=begin :podcoverage
+
+=over
+
+=item CRYPTO_AES
+
+=item CRYPTO_PLAIN
+
+=item CRYPTO_RC4
+
+=item CRYPTO_XOR
+
+=item DH_G
+
+=item DH_P
+
+=item MSE_FIVE
+
+=item MSE_FOUR
+
+=item MSE_ONE
+
+=item MSE_THREE
+
+=item MSE_TWO
+
+=item NOT_SERVING_TORRENT
+
+=item REG_OKAY
+
+=item REG_ONE
+
+=item REG_THREE
+
+=item REG_TWO
+
+=item USELESS_PEER
+
+=item VC
+
+=item crypto_provide
+
+=item len
+
+=back
+
+=end :podcoverage
+
 =head1 Author
 
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
@@ -2278,6 +2333,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Peer.pm 44b03f5 2009-02-05 16:55:07Z sanko@cpan.org $
+=for svn $Id: Peer.pm 75328f5 2009-02-08 23:15:37Z sanko@cpan.org $
 
 =cut

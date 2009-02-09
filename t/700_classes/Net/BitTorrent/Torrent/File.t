@@ -357,4 +357,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: File.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+$Id: File.t 6b7bd42 2009-01-28 18:37:51Z sanko@cpan.org $

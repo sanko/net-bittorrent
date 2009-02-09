@@ -698,6 +698,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: File.pm 9fd5274 2009-02-04 03:41:43Z sanko@cpan.org $
+=for svn $Id: File.pm 44b03f5 2009-02-05 16:55:07Z sanko@cpan.org $
 
 =cut

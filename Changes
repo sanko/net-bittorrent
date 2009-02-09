@@ -1,4 +1,4 @@
-Version 0.0XX | Distant future | 44b03f5
+Version 0.0XX | Distant future | 75328f5
 
     API Changes/Compatibility Information:
      * N::B::Peer objects have their sockets closed and removed *before*
@@ -384,7 +384,7 @@ _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
     http://github.com/sanko/net-bittorrent/commits/master
 
-$Ver: 0.049_008 $ from git
-$Date: 2009-02-05 16:55:07Z (Thu, 05 Feb 2009) $
-$Rev: 44b03f588ac218d134e0531be4ebb63d7189321a $
-$Url: http://github.com/sanko/net-bittorrent/raw/44b03f588ac218d134e0531be4ebb63d7189321a/Changes $
+$Ver: 0.049_009 $ from git
+$Date: 2009-02-08 22:58:06Z (Sun, 08 Feb 2009) $
+$Rev: 8548b34405df7bf3bf70d3fd6367b78d6c8ecb1a $
+$Url: http://github.com/sanko/net-bittorrent/raw/8548b34405df7bf3bf70d3fd6367b78d6c8ecb1a/Changes $

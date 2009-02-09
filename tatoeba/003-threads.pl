@@ -122,6 +122,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: 003-threads.pl fac4ae0 2009-01-27 17:00:38Z sanko@cpan.org $
+=for svn $Id: 003-threads.pl ff8a013 2009-01-27 21:51:50Z sanko@cpan.org $
 
 =cut
