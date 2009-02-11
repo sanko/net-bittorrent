@@ -402,7 +402,7 @@ my $mb = $class->new(
                       }
     },
 
-    #script_files => qw[scripts/bittorrent.pl],
+#script_files => qw[scripts/bittorrent.pl], # relocated to tatoeba/005-console.pl
     test_files => \@tests,
     meta_merge => {
         generated_by => q[Conversion, software version 7.0],

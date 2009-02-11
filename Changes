@@ -1,40 +1,32 @@
-Version 0.0XX | Distant future | 75328f5
+Version 0.0XX | Distant future | a7a7e9d
 
     API Changes/Compatibility Information:
      * N::B::Peer objects have their sockets closed and removed *before*
         calling any peer_disconnect callbacks.
+     * Reasons handed to peer_disconnect callbacks are now language agnostic.
+       Please see Net::BitTorrent::Peer for more information.
 
     Resolved Issues/Bug Fixes:
      * Fixed major bug related to outgoing HAVE packets.
 
     Protocol/Behavioral Changes:
-     * Protocol Encryption (header-only: stable, full-encryption: unstable)
+     * Message Stream Encryption (enabled by default)
      * Shorter waiting period before filling requests (15s -> 3s)
      * Default for number of allowed connections per host has changed (2 -> 1)
 
     Documentation/Sample Code/Test Suite:
-     * ALL tests are run even on non-dev systems to shake out the last few (I
-         hope) crash/protocol bugs before attention is turned to more advanced
-         stuff
-    * More pod cleanup
-        - Fix bad internal link in N::B::Version
-        - Several updates in the language used in N::B::Version's pod
-        - N::B::Notes has been trimmed down a bit
-        - N::B's pod has been trimmed
-        - tatoeba/* shorten NAME content to avoid search.cpan.org wrap
-    * fix t/[...]/Protocol.t failures due to the limits of 32-bit math
+    * Genereal documentation cleanup
+    * Fix t/[...]/Protocol.t failures due to the limits of 32-bit math
+    * (Start of a) Rewrite of t/[...]Peer.t to be more complete and emulate
+       real-world sessions.
+    * New demonstration script: /tatoeba/005-console.pl
+         - Formerly known as /scripts/bittorrent.pl
 
     Notes:
-     * This dev build is being uploaded only to gather tester data. Not for
-       broad use.
-     * When stable, this will become a major bugfix release.
+     * With the addition of Protocol Encryption and the bugfix mentioned above,
+       I strongly suggest an upgrade for all users despite the API tweeks.
      * Meanwhile...
-       * I lost eight years worth of incomplete projects (including early
-         versions of N::B based on AnyEvent and Moose) when one of my drives
-         failed.
-       * Development is now git based: http://github.com/sanko/net-bittorrent
-       * RIAA Drops Atlantic v. Brennan
-         http://news.slashdot.org/article.pl?sid=09/01/09/022236
+         - Development moved to github: http://github.com/sanko/net-bittorrent
 
 ---
 Version 0.049 | 2009-01-05 17:38:02 -0500 (Mon, 05 Jan 2009)
@@ -384,7 +376,7 @@ _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
     http://github.com/sanko/net-bittorrent/commits/master
 
-$Ver: 0.049_009 $ from git
-$Date: 2009-02-08 22:58:06Z (Sun, 08 Feb 2009) $
-$Rev: 8548b34405df7bf3bf70d3fd6367b78d6c8ecb1a $
-$Url: http://github.com/sanko/net-bittorrent/raw/8548b34405df7bf3bf70d3fd6367b78d6c8ecb1a/Changes $
+$Ver: 0.049_010 $ from git
+$Date: 2009-02-09 04:49:58Z (Mon, 09 Feb 2009) $
+$Rev: a7a7e9db9f72a4641d337f3cb95b6d3b6763efcb $
+$Url: http://github.com/sanko/net-bittorrent/raw/a7a7e9db9f72a4641d337f3cb95b6d3b6763efcb/Changes $

@@ -20,7 +20,7 @@ package Net::BitTorrent;
     use Net::BitTorrent::DHT;
     use Net::BitTorrent::Version;
     use version qw[qv];
-    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 4; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 5; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS) = \my (
         %_tcp,                  %_udp,
         %_schedule,             %_tid,
@@ -35,9 +35,9 @@ package Net::BitTorrent;
         %_encryption_mode
     );
     my %REGISTRY;
-    sub _MSE_DISABLED {0x00}
-    sub _MSE_ENABLED  {0x01}
-    sub _MSE_FORCED   {0x02}
+    sub _MSE_DISABLED {0}
+    sub _MSE_ENABLED  {1}
+    sub _MSE_FORCED   {2}
 
     sub new {
         my ($class, $args) = @_;
@@ -55,7 +55,7 @@ package Net::BitTorrent;
         $_torrents{refaddr $self}             = {};
         $_tid{refaddr $self}                  = qq[\0] x 5;
         $_use_dht{refaddr $self}              = 1;
-        $_encryption_mode{refaddr $self}      = _MSE_DISABLED;
+        $_encryption_mode{refaddr $self}      = _MSE_ENABLED;
 
         # Internals
         $_connections{refaddr $self} = {};
@@ -781,19 +781,6 @@ END
 
 Net::BitTorrent - BitTorrent peer-to-peer protocol class
 
-=head1 NOTICE
-
-=for html <span style="color: #F00; font-size: 1.5em;">
-
-THIS PROJECT IS ACTIVELY SEEKING DEVELOPERS. Ahem, I hate to shout but
-N::B could really use a second or third pair of eyes over the next few
-versions.  So, if you're interested and have cryptographic experience,
-or you're just familiar with Perl and want to chip in, see the notes
-on L<Joining the Project|Net::BitTorrent::Notes/"Joining the Project">
-and L<let me know|/"Author">.
-
-=for html </span>
-
 =head1 Synopsis
 
   use Net::BitTorrent;
@@ -1444,6 +1431,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: BitTorrent.pm 75328f5 2009-02-08 23:15:37Z sanko@cpan.org $
+=for svn $Id: BitTorrent.pm a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
 
 =cut

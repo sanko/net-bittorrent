@@ -12,6 +12,30 @@ package Net::BitTorrent::Peer;
     use Digest::SHA qw[sha1];
     use version qw[qv];
     our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 8; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    use vars qw[@EXPORT_OK %EXPORT_TAGS];
+    use Exporter qw[];
+    *import = *import = *Exporter::import;
+    @EXPORT_OK = qw[
+        DISCONNECT_BY_REMOTE           DISCONNECT_LOOPBACK
+        DISCONNECT_NO_SUCH_TORRENT     DISCONNECT_HANDSHAKE_INFOHASH
+        DISCONNECT_MALFORMED_HANDSHAKE DISCONNECT_MALFORMED_PACKET
+        DISCONNECT_PREXISTING          DISCONNECT_TOO_MANY
+        DISCONNECT_HASHCHECKING        DISCONNECT_SEED
+        DISCONNECT_TIMEOUT_HANDSHAKE   DISCONNECT_USELESS_PEER
+        DISCONNECT_HANDSHAKE_SYNC_DH5  ];
+    %EXPORT_TAGS = (
+        all        => [@EXPORT_OK],
+        disconnect => [
+            qw[
+                DISCONNECT_BY_REMOTE           DISCONNECT_LOOPBACK
+                DISCONNECT_NO_SUCH_TORRENT     DISCONNECT_HANDSHAKE_INFOHASH
+                DISCONNECT_MALFORMED_HANDSHAKE DISCONNECT_MALFORMED_PACKET
+                DISCONNECT_PREXISTING          DISCONNECT_TOO_MANY
+                DISCONNECT_HASHCHECKING        DISCONNECT_SEED
+                DISCONNECT_TIMEOUT_HANDSHAKE   DISCONNECT_USELESS_PEER
+                DISCONNECT_HANDSHAKE_SYNC_DH5  ]
+        ],
+    );
     use lib q[../../../lib];
     use Net::BitTorrent::Protocol qw[:build parse_packet :types];
     use Net::BitTorrent::Util qw[:bencode];
@@ -30,65 +54,79 @@ package Net::BitTorrent::Peer;
     );
     my %REGISTRY;
     my %_Disconnect_Strings = (
-        0   => q[Connection closed by remote peer],    # or unknown
-        -10 => q[...we've connected to ourself.],
-        NOT_SERVING_TORRENT() => q[We aren't serving this torrent]
-        ,    # comes with { Infohash => [...] }
-        -12 => q[Bad plaintext handshake (Incorrect Infohash)],
-        -13 => q[Bad plaintext handshake],
-        -16 => q[Already connected to this peer]
-        ,    # comes with { PeerID => [...] }
-        -17 => q[Enough peers already!],
-        -18 => q[Hash checking],
-        -22 => q[...bad packet.],
-        -25 => q[Disconnect seed],
-        -26 => q[Handed a piece we never asked for]
+        DISCONNECT_BY_REMOTE() =>
+            q[Connection closed by remote peer],    # or unknown
+        DISCONNECT_LOOPBACK()        => q[...we've connected to ourself.],
+        DISCONNECT_NO_SUCH_TORRENT() => q[We aren't serving this torrent]
+        ,                                   # comes with { Infohash => [...] }
+        DISCONNECT_HANDSHAKE_INFOHASH() =>
+            q[Bad plaintext handshake (Incorrect Infohash)],
+        DISCONNECT_MALFORMED_HANDSHAKE() => q[Bad plaintext handshake],
+        DISCONNECT_MALFORMED_PACKET()    => q[...bad packet.],
+        DISCONNECT_PREXISTING()          => q[Already connected to this peer]
+        ,                                   # comes with { PeerID => [...] }
+        DISCONNECT_TOO_MANY()     => q[Enough peers already!],
+        DISCONNECT_HASHCHECKING() => q[Hash checking],
+        DISCONNECT_SEED()         => q[Disconnect seed],
+        -26                       => q[Handed a piece we never asked for]
         ,    # { Index => \d, Offset => \d, Length=> \d }
         -28 => q[Sent a reject to a non-existant piece],
         -29 => q[Rejected a request we never made.],
-        -30 => q[Failed to complete handshake within 30s],
+        DISCONNECT_TIMEOUT_HANDSHAKE() =>
+            q[Failed to complete handshake within 30s],
         -40 => q[Peer is idle],
-        USELESS_PEER() =>
+        DISCONNECT_USELESS_PEER() =>
             q[Useless peer (Not interested and not interesting.)],
-        -101 => q[Bad VC in encrypted handshake],
-        -102 => q[Failed to sync DH-5],
-        -103 => q[Bad encrypted header at stage 4],
+        -101                            => q[Bad VC in encrypted handshake],
+        DISCONNECT_HANDSHAKE_SYNC_DH5() => q[Failed to sync DH-5],
+        -103                            => q[Bad encrypted header at stage 4],
         -104 => q[Bad encrypted handshake (Bad SKEY)],
         -105 => q[Unsupported encryption scheme]
     );
-    sub USELESS_PEER        { -41; }
-    sub NOT_SERVING_TORRENT { -11; }
+    sub DISCONNECT_BY_REMOTE           {0}
+    sub DISCONNECT_LOOPBACK            {-10}
+    sub DISCONNECT_NO_SUCH_TORRENT     {-11}
+    sub DISCONNECT_HANDSHAKE_INFOHASH  {-12}
+    sub DISCONNECT_MALFORMED_HANDSHAKE {-13}
+    sub DISCONNECT_MALFORMED_PACKET    {-22}
+    sub DISCONNECT_PREXISTING          {-16}
+    sub DISCONNECT_TOO_MANY            {-17}
+    sub DISCONNECT_HASHCHECKING        {-18}
+    sub DISCONNECT_SEED                {-25}
+    sub DISCONNECT_TIMEOUT_HANDSHAKE   {-30}
+    sub DISCONNECT_USELESS_PEER        {-41}
+    sub DISCONNECT_HANDSHAKE_SYNC_DH5  {-102}
 
     # States
-    sub MSE_ONE   { 1; }
-    sub MSE_TWO   { 2; }
-    sub MSE_THREE { 3; }
-    sub MSE_FOUR  { 4; }
-    sub MSE_FIVE  { 5; }
-    sub REG_ONE   { 11; }
-    sub REG_TWO   { 12; }
-    sub REG_THREE { 13; }
-    sub REG_OKAY  { 100; }
+    sub MSE_ONE   { 1 }
+    sub MSE_TWO   { 2 }
+    sub MSE_THREE { 3 }
+    sub MSE_FOUR  { 4 }
+    sub MSE_FIVE  { 5 }
+    sub REG_ONE   { 11 }
+    sub REG_TWO   { 12 }
+    sub REG_THREE { 13 }
+    sub REG_OKAY  { 100 }
 
     #
-    sub CRYPTO_PLAIN { 0x01; }
-    sub CRYPTO_RC4   { 0x02; }
-    sub CRYPTO_XOR   { 0x04; }    # unimplemented
-    sub CRYPTO_AES   { 0x08; }    # unimplemented
+    sub CRYPTO_PLAIN { 0x01 }
+    sub CRYPTO_RC4   { 0x02 }
+    sub CRYPTO_XOR   { 0x04 }    # unimplemented
+    sub CRYPTO_AES   { 0x08 }    # unimplemented
 
     sub DH_P {
         return Math::BigInt->new(
             q[0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A63A36210000000000090563]
-        );
+        )
     }
-    sub DH_G { 2; }
-    sub VC   { qq[\0] x 8; }
+    sub DH_G { 2 }
+    sub VC   { qq[\0] x 8 }
 
     sub crypto_provide {
         return pack q[N],
             CRYPTO_PLAIN    # | CRYPTO_RC4    #| CRYPTO_XOR | CRYPTO_AES;
     }
-    sub len { pack(q[n], length(shift)); }
+    sub len { pack(q[n], length(shift)) }
 
     sub new {
 
@@ -273,7 +311,7 @@ END
                         my $s = shift;
                         if (!$peerid{refaddr $s}) {
                             weaken $s;
-                            $s->_disconnect(-30);
+                            $s->_disconnect(DISCONNECT_TIMEOUT_HANDSHAKE);
                         }
                         return 1;
                     },
@@ -350,7 +388,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT);
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT);
             return;
         }
         if ($error) {
@@ -361,7 +399,7 @@ END
         if (defined $_torrent{refaddr $self}
             and $_torrent{refaddr $self}->status & 2)
         {   weaken $self;
-            $self->_disconnect(-18);
+            $self->_disconnect(DISCONNECT_HASHCHECKING);
             return;
         }
         my ($actual_read, $actual_write) = (0, 0);
@@ -485,7 +523,7 @@ END
                         # N::B::Protocol removed some data but couldn't parse
                         #   a packet from what was removed. Gotta be bad data.
                         weaken $self;
-                        $self->_disconnect(-22);
+                        $self->_disconnect(DISCONNECT_MALFORMED_PACKET);
                         return;
                     }
                     last PACKET;
@@ -510,12 +548,31 @@ END
                     $dispatch{$packet->{q[Type]}}($self,
                                                   $packet->{q[Payload]});
                 }
-                elsif (eval require Data::Dump) {
-                    Carp::carp q[Unknown packet! ] . Data::Dump::pp($packet);
-                }
                 else {
+                    my $packet_dump = q[];
+                    if (eval require Data::Dump) {    # I like this better
+                        $packet_dump = Data::Dump::pp($packet);
+                    }
+                    else {    # fallback to lame core module
+                        require Data::Dumper;
+                        $packet_dump = Data::Dumper::Dumper($packet);
+                    }
                     Carp::carp
-                        q[Unknown packet! ...but I don't have Data::Dump installed so when I inform him of this bug, I'll be of no real help to Net::BitTorrent's author.];
+                        sprintf <<'END', $self->as_string(1), $packet_dump;
+------------------------------------------------------------------------------
+Unknown incoming packet. This may be a bug in Net::BitTorrent, so please c+p
+the following block when you report this in the Net::BitTorrent Issue Tracker:
+http://code.google.com/p/net-bittorrent/issues/list
+------------------------------------------------------------------------------
+= Peer Information ===========================================================
+%s
+= Packet Information =========================================================
+%s
+------------------------------------------------------------------------------
+See the "Issue Tracker" section in 'perldoc Net::BitTorrent::Notes' for more
+information. Thanks!
+------------------------------------------------------------------------------
+END
                 }
             }
         }
@@ -831,7 +888,7 @@ END
                           $self->_RC4($_KeyB{refaddr $self}, VC));
         if ($index == -1) {
             if (length($_data_in{refaddr $self}) >= 628) {
-                $self->_disconnect(-102);
+                $self->_disconnect(DISCONNECT_HANDSHAKE_SYNC_DH5);
             }
             else {
                 $_client{refaddr $self}->_add_connection($self, q[rw]);
@@ -919,7 +976,7 @@ END
         return if !defined $packet;
         if ($packet->{q[Type]} != HANDSHAKE) {
             weaken $self;
-            $self->_disconnect(-13);
+            $self->_disconnect(DISCONNECT_MALFORMED_HANDSHAKE);
             return;
         }
         my $payload = $packet->{q[Payload]};
@@ -947,14 +1004,14 @@ END
         );
         if ($payload->[2] eq $_client{refaddr $self}->peerid) {
             weaken $self;
-            $self->_disconnect(-10);
+            $self->_disconnect(DISCONNECT_LOOPBACK);
             return;
         }
         $_torrent{refaddr $self} = $_client{refaddr $self}
             ->_locate_torrent(unpack(q[H40], $payload->[1]));
         if (!defined $_torrent{refaddr $self}) {
             weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT,
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT,
                                {Infohash => unpack(q[H40], $payload->[1])});
             return;
         }
@@ -969,12 +1026,13 @@ END
                     } values %{$_client{refaddr $self}->_connections}
             ) > $_client{refaddr $self}->_connections_per_host
             )
-        {   $self->_disconnect(-16, {PeerID => $peerid{refaddr $self}});
+        {   $self->_disconnect(DISCONNECT_PREXISTING,
+                               {PeerID => $peerid{refaddr $self}});
             return;
         }
         if (scalar($_torrent{refaddr $self}->peers)
             >= $_client{refaddr $self}->_peers_per_torrent)
-        {   $self->_disconnect(-17);
+        {   $self->_disconnect(DISCONNECT_TOO_MANY);
             return;
         }
         if ($threads::shared::threads_shared) {
@@ -1015,7 +1073,7 @@ END
         return if !defined $packet;
         if ($packet->{q[Type]} != HANDSHAKE) {
             weaken $self;
-            $self->_disconnect(-13);
+            $self->_disconnect(DISCONNECT_MALFORMED_HANDSHAKE);
             return;
         }
         my $payload = $packet->{q[Payload]};
@@ -1046,14 +1104,14 @@ END
         # Avoid connecting to ourselves
         if ($payload->[2] eq $_client{refaddr $self}->peerid) {
             weaken $self;
-            $self->_disconnect(-10);
+            $self->_disconnect(DISCONNECT_LOOPBACK);
             return;
         }
 
         # make sure the infohash is what we expect
         if ($payload->[1] ne pack q[H*], $_torrent{refaddr $self}->infohash) {
             weaken $self;
-            $self->_disconnect(-12);
+            $self->_disconnect(DISCONNECT_HANDSHAKE_INFOHASH);
             return;
         }
 
@@ -1076,7 +1134,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # XXX - this should never happen
             return;
         }
@@ -1099,7 +1157,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1130,7 +1188,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1154,7 +1212,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1180,7 +1238,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1206,7 +1264,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1220,7 +1278,7 @@ END
         if ((unpack(q[b*], ${$_bitfield{refaddr $self}}) !~ m[1])
             && $_torrent{refaddr $self}->is_complete)
         {   weaken $self;
-            $self->_disconnect(-25);
+            $self->_disconnect(DISCONNECT_SEED);
             return;
         }
         $self->_check_interest;
@@ -1241,7 +1299,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1255,7 +1313,7 @@ END
         if ((unpack(q[b*], ${$_bitfield{refaddr $self}}) !~ m[1])
             && $_torrent{refaddr $self}->is_complete)
         {   weaken $self;
-            $self->_disconnect(-25);
+            $self->_disconnect(DISCONNECT_SEED);
             return;
         }
         return $self->_check_interest;
@@ -1272,7 +1330,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1308,7 +1366,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1410,7 +1468,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1445,7 +1503,7 @@ END
         return if !defined $_socket{refaddr $self};
         if (!$_torrent{refaddr $self}->status & 1) {
             weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1459,7 +1517,7 @@ END
         );
         if ($_torrent{refaddr $self}->is_complete) {
             weaken $self;
-            $self->_disconnect(-25);
+            $self->_disconnect(DISCONNECT_SEED);
             return;
         }
         $self->_check_interest;
@@ -1478,7 +1536,7 @@ END
         return if !defined $_socket{refaddr $self};
         if (!($_torrent{refaddr $self}->status & 1)) {
             weaken $self;    # this should never happen
-            $self->_disconnect(NOT_SERVING_TORRENT);
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT);
             return;
         }
         ${$_bitfield{refaddr $self}}
@@ -1565,7 +1623,7 @@ END
         if (defined $_torrent{refaddr $self}    # this should never happen
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT);
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT);
             return;
         }
         return if $_torrent{refaddr $self}->status & 32;
@@ -1602,7 +1660,7 @@ END
         if (!$_torrent{refaddr $self}) { return; }
         if (!($_torrent{refaddr $self}->status & 1)) {
             weaken $self;    # this should never happen
-            $self->_disconnect(NOT_SERVING_TORRENT);
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT);
             return;
         }
         return if $_torrent{refaddr $self}->status & 32;
@@ -1647,7 +1705,7 @@ END
             and (!${$_am_interested{refaddr $self}})
             and (!${$_peer_interested{refaddr $self}}))
         {   weaken $self;
-            $self->_disconnect(USELESS_PEER);
+            $self->_disconnect(DISCONNECT_USELESS_PEER);
             return;
         }
         $_client{refaddr $self}->_schedule(
@@ -1718,7 +1776,7 @@ END
         return if ${$_peer_choking{refaddr $self}};
         if (!($_torrent{refaddr $self}->status & 1)) {
             weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1837,7 +1895,7 @@ END
         # warn((caller(0))[3]);
         my ($self) = @_;
         return if !defined $_torrent{refaddr $self};
-        return $self->_disconnect(NOT_SERVING_TORRENT)
+        return $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
             if !$_torrent{refaddr $self}->status & 1;
         return if !defined $_socket{refaddr $self};
         return if !defined $_reserved_bytes{refaddr $self};
@@ -1888,7 +1946,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1931,7 +1989,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -1964,7 +2022,7 @@ END
         if (defined $_torrent{refaddr $self}
             and !($_torrent{refaddr $self}->status & 1))
         {   weaken $self;
-            $self->_disconnect(NOT_SERVING_TORRENT)
+            $self->_disconnect(DISCONNECT_NO_SUCH_TORRENT)
                 ;    # this should never happen
             return;
         }
@@ -2022,7 +2080,7 @@ END
         if (defined $_torrent{refaddr $self}
             and $_torrent{refaddr $self}->status & 2)
         {   weaken $self;
-            $self->_disconnect(-18);
+            $self->_disconnect(DISCONNECT_HASHCHECKING);
             return;
         }
         return if ${$_am_choking{refaddr $self}} == 1;
@@ -2049,7 +2107,7 @@ END
         if (defined $_torrent{refaddr $self}
             and $_torrent{refaddr $self}->status & 2)
         {   weaken $self;
-            $self->_disconnect(-18);
+            $self->_disconnect(DISCONNECT_HASHCHECKING);
             return;
         }
         return if $_torrent{refaddr $self}->status & 32;
@@ -2207,7 +2265,7 @@ ADVANCED
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j 
+                    = (  $_j
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]
@@ -2287,8 +2345,6 @@ C<VERBOSE> is a boolean value.
 
 =item MSE_TWO
 
-=item NOT_SERVING_TORRENT
-
 =item REG_OKAY
 
 =item REG_ONE
@@ -2296,8 +2352,6 @@ C<VERBOSE> is a boolean value.
 =item REG_THREE
 
 =item REG_TWO
-
-=item USELESS_PEER
 
 =item VC
 
@@ -2308,6 +2362,99 @@ C<VERBOSE> is a boolean value.
 =back
 
 =end :podcoverage
+
+=head1 Notes
+
+As of version C<0.049_8> of this module, C<peer_disconnect> callbacks are
+provided with a language agnostic, numeric reason. So far, this is the
+list of possible disconnections:
+
+=over
+
+=item DISCONNECT_BY_REMOTE
+
+The connection closed by remote peer for unknown reasons
+
+=item DISCONNECT_LOOPBACK
+
+We connected to ourself according to PeerID.
+
+=item DISCONNECT_NO_SUCH_TORRENT
+
+Remote peer attempted to create a session related to a torrent we aren't
+currently serving. Occasionally, this will also provide an C<Infohash>
+parameter for your callback.
+
+=item DISCONNECT_HANDSHAKE_INFOHASH
+
+A remote peer sent us a bad plaintext handshake. This is triggered when,
+after a particular infohash was implied in an encrypted handshake, the
+remote peer sent us a mismatched infohash in the plaintext handshake.
+
+=item DISCONNECT_MALFORMED_HANDSHAKE
+
+Bad plaintext handshake. May be malformed or, if encryption is disabled
+locally, the remote peer attempted an encrypted handshake.
+
+=item DISCONNECT_MALFORMED_PACKET
+
+This is given when the remote peer gives us a malformed packet. See also
+L<DISCONNECT_MALFORMED_HANDSHAKE|/"DISCONNECT_MALFORMED_HANDSHAKE">.
+
+=item DISCONNECT_PREXISTING
+
+Already connected to this peer. When there are too many established
+connections with a particular peer (as determined by their PeerID), we
+disconnect further connections with the reason. This reason provides
+the remote peer's C<PeerID> when triggered.
+
+=item DISCONNECT_TOO_MANY
+
+Enough peers already! We've hit the hard limit for the number of peers
+allowed globally or per torrent.
+
+=item DISCONNECT_HASHCHECKING
+
+This reason is given when a remote peer connects to us while the torrent
+they're seeking is busy being hash checked (potentially in another
+thread).
+
+=item DISCONNECT_SEED
+
+This is given when we and the remote peer are both seeds.
+
+=item DISCONNECT_TIMEOUT_HANDSHAKE
+
+Peer failed to complete plaintext or encrypted handshake within 30s.
+
+=item DISCONNECT_USELESS_PEER
+
+Peer has been connected for at least 3m and is neither interested nor
+interesting.
+
+=item DISCONNECT_HANDSHAKE_SYNC_DH5
+
+Failed to sync MSE handshake at stage five.
+
+=begin TODO
+
+        -26 => q[Handed a piece we never asked for]
+        ,    # { Index => \d, Offset => \d, Length=> \d }
+        -28 => q[Sent a reject to a non-existant piece],
+        -29 => q[Rejected a request we never made.],
+        -40 => q[Peer is idle],
+        -101 => q[Bad VC in encrypted handshake],
+        -103 => q[Bad encrypted header at stage 4],
+        -104 => q[Bad encrypted handshake (Bad SKEY)],
+        -105 => q[Unsupported encryption scheme]
+
+=end TODO
+
+=back
+
+To import this list of keywords into your namespace, use the C<disconnect>
+tag. Please note that this API tweek is experimental and may change or be
+removed in a future version. ...it's also probably incomplete.
 
 =head1 Author
 
@@ -2333,6 +2480,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Peer.pm 75328f5 2009-02-08 23:15:37Z sanko@cpan.org $
+=for svn $Id: Peer.pm a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
 
 =cut

@@ -54,6 +54,9 @@ package Net::BitTorrent::Protocol;
                 _build_dht_reply_ping      _build_dht_query_ping
                 _build_dht_reply_find_node _build_dht_query_find_node]
         ],
+
+        # XXX - Move MSE-related functions from N::B::Peer
+        #mse => [qw[  ]]
     );
     sub HANDSHAKE      {-1}
     sub KEEPALIVE      {q[]}
@@ -978,6 +981,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Protocol.pm 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: Protocol.pm a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
 
 =cut

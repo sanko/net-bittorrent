@@ -1347,7 +1347,11 @@ Initial status of the torrent.  This parameter is ORed with the loaded
 and queued (if applicable) values.
 
 For example, you could set the torrent to automatically start after
-L<hashcheck|/"hashcheck ( )"> with C<{ [...] Status =E<gt> 4, [...] }>.
+L<hashcheck|/"hashcheck ( )"> with
+C<{ [...] Status =E<gt> START_AFTER_CHECK, [...] }>.
+
+To import all supported statuses into your namespace, use the
+C<status> keyword.
 
 This is an optional parameter.
 
@@ -1748,6 +1752,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Torrent.pm 44b03f5 2009-02-05 16:55:07Z sanko@cpan.org $
+=for svn $Id: Torrent.pm a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
 
 =cut

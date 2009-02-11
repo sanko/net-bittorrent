@@ -57,6 +57,8 @@ scripts/.*\.js
 scripts/.*\.bencode
 scripts/.*\.torrent
 scripts/.+/.+
+# renamed tatoeba/005-console.pl and no longer installed with N::B
+scripts/bittorrent.pl
 
 # Don't package silly stuff
 tatoeba/.+/.+

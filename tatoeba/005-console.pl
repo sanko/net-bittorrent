@@ -54,8 +54,7 @@ sub trans_status {
 
 sub save {
     for my $torrent (values %{$bt->torrents || {}}) {
-        open my $TORRENT, q[>], $torrent->path or next;
-        syswrite($TORRENT, $torrent->resume_data) or next;
+        $torrent->save_resume_data;
     }
 }
 $SIG{q[INT]} = sub {
@@ -84,7 +83,8 @@ $bt->on_event(q[piece_hash_fail], sub { piece_status(q[fail], $_[1]); });
 for my $path (@tor) {
     my $obj = $bt->add_torrent({Path    => $path,
                                 BaseDir => $dir,
-                                Status  => ($chk ? START_AFTER_CHECK : ())
+                                Status  => ($chk ? START_AFTER_CHECK : ()),
+                                Resume  => $path . '.resume'
                                }
     ) || next;
     $obj->status & CHECKED || $obj->hashcheck;
@@ -101,18 +101,23 @@ $bt->do_one_loop(0.25) && sleep(0.50) while 1;
 
 =head1 NAME
 
-bittorrent - Very basic example BitTorrent client
+005-console.pl - A quick demo of what can be accomplished in (slightly) less than 100 lines
 
 =head1 Description
 
-This is a B<very> basic demonstration of a full C<Net::BitTorrent>-based
-client.
+In truth, this is still a B<very> basic demonstration of a full
+C<Net::BitTorrent>-based client but I wanted to fit this into C<100>
+comfortable lines.
+
+It's certainly enough to get you started.
 
 =head1 Synopsis
 
- bittorrent file.torrent
+005-console.pl - (Sorta) Complete Net::BitTorrent client in under 100 lines
+
+ 005-console.pl file.torrent
    or
- bittorrent [options] [file ...]
+ 005-console.pl [options] [file ...]
 
  Options:
    -t     --torrent     .torrent file to load
@@ -161,7 +166,7 @@ we have none of the data of this torrent.
 Allows otherwise private settings to be changed.  For example, to set the
 upload bandwidth limit...
 
-  bittorrent --options _set_max_ul_rate=8192 [...]
+  005-console.pl --options _set_max_ul_rate=8192 [...]
 
 You may pass several C<--options> parameters.
 
@@ -170,6 +175,143 @@ You may pass several C<--options> parameters.
 Guess.
 
 =back
+
+=head1 Lowdown
+
+This section only makes sense when you view the source.
+
+=over
+
+=item Line 15
+
+Uses L<Getopt::Long|Getopt::Long> to parse any L<options|/"Options"> and,
+if none are found, falls back to L<Pod::Usage|Pod::Usage> and lists all
+avalible options.
+
+=item Line 29
+
+Shoves everything L<Getopt::Long|Getopt::Long> couldn't parse and looks
+like a file on the system into the list of potential .torrent files.
+
+=item Line 30
+
+Prints usage info and exits if no torrents are in the afforementioned
+list.
+
+=item Line 34
+
+Creates L<Net::BitTorrent|Net::BitTorrent> object which opens on the port
+defined with the C<-p> command line parameter (falls back to C<0>).
+
+If L<N::B|Net::BitTorrent> fails to create the new object, the script
+croaks here with an error message.
+
+=item Line 37
+
+This is the function used later by the C<piece_hash_pass> and
+C<piece_hash_pass> callbacks.
+
+It prints (among other things) the piece's index, the related infohash,
+and a rough estimate of the torrent's completion.
+
+=item Line 47
+
+This function is used by the C<incoming_packet> and C<outgoing_packet>
+callbacks to report various block-level status updates in both
+directions.
+
+=item Line 55
+
+This function saves resume data for every torrent loaded. For more
+information on resume data and how it's used, see
+L<004-resume.pl|004-resume.pl>.
+
+=item Line 60
+
+Sets a handler to catch C<Ctrl+C> key combinations. When triggered, it
+L<saves|/"Line 55"> the resume data and dumps
+L<"verbose information"|Net::BitTorrent::Torrent/"as_string ( [ VERBOSE ] )">
+about each loaded torrent.
+
+If this is triggered more than once in a C<3> second period, the script
+will exit.
+
+=item Line 65
+
+Saves resume data on script exit.
+
+=item Lines 66-82
+
+Sets client-wide callbacks for C<incoming_packet>, C<outgoing_packet>,
+C<piece_hash_pass>, and C<piece_hash_fail> events. These in turn hand
+most of their data to functions described earlier.
+
+=item Lines 83-93
+
+Loops through each torrent file listed on the commandline...
+
+=over
+
+=item Line 84
+
+Attempts to load the torrent into a new
+L<Net::BitTorrent::Torrent object|Net::BitTorrent::Torrent>. The new
+object stores related data in the L<directory|/"--directory"> defined on
+the command line, if the user decided to
+L<skip hash checking|/"--no-check">, the torrent's
+L<status|Net::BitTorrent::Torrent/"status ( )"> is set to C<START>
+otherwise, it defaults to C<START_AFTER_CHECK>. The
+L<Resume|Net::BitTorrent::Torrent/"Resume"> parameter is set to
+C<[.torrent's filename].resume>.
+
+If creating the new object fails, the script skips to the next potential
+torrent.
+
+=item Line 90
+
+Validates the new L<Net::BitTorrent::Torrent object|Net::BitTorrent::Torrent>
+object's data if the user hasn't disabled it on the command line.
+
+=item Line 91
+
+Prints a quick status line which includes the torrent's path, a snippet
+of the infohash, and an indicaton of whether or not the torrent allows
+the use or the DHT swarm.
+
+=back
+
+=item Line 94
+
+Sets a client-wide callback for C<file_error> events.
+
+Note that this callback is set I<after> the torrents are hashchecked.
+I've done this because this event is triggered every time
+L<Net::BitTorrent::Torrent::File|Net::BitTorrent::Torrent::File> attempts
+to open the file and fails. So, unless the files are pre-existing, the
+script would dump screens full of useless error messages.
+
+=item Line 95-97
+
+This nested loop is really more of a hack than useful code... it allows
+users to set otherwise private data in each loaded torrent. In the wrong
+hands, this can be dangerous, in the right hands, it's a great way to
+test activity in the swarm under various conditions without digging too
+deeply into the source. For more, see the
+L<C<--options> ...option|/"--options">.
+
+You'll probably not need anything that messes with C<N::B>'s internals in
+your script.
+
+=item Line 98
+
+Goes to work and takes a short nap between loops to save the CPU.
+
+=back
+
+=head1 Notes
+
+This script I<used> to be installed with L<Net::BitTorrent|Net::BitTorrent>
+as C<bittorrent.pl>.
 
 =head1 See Also
 
@@ -183,7 +325,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008-2009 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of The Artistic License 2.0.  See the F<LICENSE>
@@ -199,6 +341,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: bittorrent.pl a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
+=for svn $Id$
 
 =cut

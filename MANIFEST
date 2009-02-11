@@ -17,7 +17,6 @@ MANIFEST			This list of files
 META.yml
 Notes.pod
 README
-scripts/bittorrent.pl
 t/000_miniswarm/007_miniswarm_http.t
 t/000_miniswarm/008_miniswarm_dht.t
 t/000_miniswarm/009_miniswarm_udp.t
@@ -48,4 +47,5 @@ tatoeba/001-torrent-info.pl
 tatoeba/002-debug.pl
 tatoeba/003-threads.pl
 tatoeba/004-resume.pl
+tatoeba/005-console.pl
 TODO.pod
