@@ -38,7 +38,7 @@ Module::Build::Compat->run_build_pl(args => \@ARGV);
 require Module::Build;
 Module::Build::Compat->write_makefile(build_class => q[Module::Build]);
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of The Artistic License 2.0.  See the LICENSE file
@@ -51,4 +51,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Makefile.PL 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+$Id: Makefile.PL a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $

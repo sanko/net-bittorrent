@@ -5,6 +5,7 @@ use Module::Build;
 use Test::More;
 use File::Temp qw[tempfile tempdir];
 use File::Spec;
+use Time::HiRes qw[];
 use lib q[../../../../../lib];
 use Net::BitTorrent::Torrent::File;
 use Net::BitTorrent::Torrent;
@@ -19,7 +20,13 @@ my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
-$SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
+$SIG{__WARN__} = (
+    $verbose
+    ? sub {
+        diag(sprintf(q[%02.4f], Time::HiRes::time- $^T), q[ ], shift);
+        }
+    : sub { }
+);
 plan tests => 172;
 SKIP: {
     my $client = Net::BitTorrent->new();
@@ -344,7 +351,7 @@ SKIP: {
     }
 }
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of The Artistic License 2.0.  See the LICENSE file
@@ -357,4 +364,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: File.t 6b7bd42 2009-01-28 18:37:51Z sanko@cpan.org $
+$Id: File.t a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $

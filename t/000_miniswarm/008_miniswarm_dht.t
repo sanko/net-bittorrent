@@ -7,6 +7,7 @@ use Module::Build;
 use Test::More;
 use File::Temp qw[];
 use lib q[../../lib];
+use Time::HiRes qw[];
 use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent::Util qw[:compact :bencode];
 use Net::BitTorrent;
@@ -20,7 +21,13 @@ my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $okay_udp        = $build->notes(q[okay_udp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
-$SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
+$SIG{__WARN__} = (
+    $verbose
+    ? sub {
+        diag(sprintf(q[%02.4f], Time::HiRes::time- $^T), q[ ], shift);
+        }
+    : sub { }
+);
 my $BlockLength = 2**14;
 my $Seeds       = 1;
 my $Peers       = 5;
@@ -170,7 +177,7 @@ SKIP: {
     }
 }
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of The Artistic License 2.0.  See the LICENSE file

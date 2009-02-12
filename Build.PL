@@ -369,13 +369,14 @@ my $mb = $class->new(
     dist_version_from => q[lib/Net/BitTorrent/Version.pm],
     requires          => {
                  q[Cwd]           => 0,
+                 q[Data::Dumper]  => 0,
                  q[Digest::SHA]   => 5.45,
                  q[Errno]         => 0,
                  q[Exporter]      => 0,
                  q[Fcntl]         => 0,
                  q[File::Path]    => 0,
                  q[File::Spec]    => 0,
-                 q[Math::BigInt]  => 0,
+                 q[Math::BigInt]  => 1.78,
                  q[Module::Build] => 0.30,
                  q[perl]          => q[5.8.1],
                  q[Scalar::Util]  => 1.19,
@@ -387,10 +388,13 @@ my $mb = $class->new(
     build_requires => {q[Module::Build] => 0.30,
                        q[Test::More]    => 0.80
     },
-    recommends => {q[Data::Dump] => 0,
-                   q[perl]       => q[5.10.0]
+    recommends => {q[Data::Dump]         => 0,
+                   q[perl]               => q[5.10.0],
+                   q[Math::Pari]         => 0,
+                   q[Math::BigInt::Pari] => 0
     },
-    auto_features => {win32_utf8_support => {
+    auto_features => {
+                 win32_utf8_support => {
                           description => q[Unicode filename support on Win32],
                           requires    => {
                                        q[Encode]         => 0,
@@ -399,7 +403,14 @@ my $mb = $class->new(
                                        q[Win32]          => 0,
                                        q[Win32API::File] => 0.10
                           }
-                      }
+                 },
+                 improved_dh_speed => {
+                     description =>
+                         q[MSE-related calculations are significantly faster],
+                     requires => {q[Math::Pari]         => 0,
+                                  q[Math::BigInt::Pari] => 0
+                     }
+                 }
     },
 
 #script_files => qw[scripts/bittorrent.pl], # relocated to tatoeba/005-console.pl

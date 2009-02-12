@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Test::More;
 use Module::Build;
+use Time::HiRes qw[];
 use lib q[../../../../lib];
 $|++;
 my $test_builder       = Test::More->builder;
@@ -12,7 +13,13 @@ my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
 my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
-$SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
+$SIG{__WARN__} = (
+    $verbose
+    ? sub {
+        diag(sprintf(q[%02.4f], Time::HiRes::time- $^T), q[ ], shift);
+        }
+    : sub { }
+);
 $|++;
 
 BEGIN {
@@ -810,7 +817,7 @@ SKIP: {
     warn q[TODO: DHT packets!];
 }
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of The Artistic License 2.0.  See the LICENSE file
@@ -823,4 +830,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Protocol.t 51f07f7 2009-01-27 20:56:44Z sanko@cpan.org $
+$Id: Protocol.t a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $

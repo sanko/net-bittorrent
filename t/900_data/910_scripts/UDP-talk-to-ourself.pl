@@ -1,5 +1,5 @@
 #!perl -w
-# $Id: UDP-talk-to-ourself.pl 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+# $Id: UDP-talk-to-ourself.pl a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
 # Stolen from IO
 use strict;
 use warnings;
@@ -76,7 +76,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of The Artistic License 2.0.  See the F<LICENSE>
@@ -92,6 +92,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: UDP-talk-to-ourself.pl 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: UDP-talk-to-ourself.pl a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
 
 =cut

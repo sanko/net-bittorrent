@@ -1,5 +1,5 @@
 #!perl -I../../lib
-# Miniature swarm of 1 seeds and 2 new peers
+# Miniature swarm of 1 seeds and 5 new peers
 #
 use strict;
 use warnings;
@@ -7,7 +7,8 @@ use Module::Build;
 use Test::More;
 use Socket qw[SOCK_STREAM /F_INET/ unpack_sockaddr_in inet_ntoa];
 use File::Temp qw[];
-use Time::HiRes qw[sleep time];
+use Time::HiRes qw[sleep];
+use Math::BigInt 0.78 try => q[Pari,GMP,FastCalc,Calc];
 use Net::BitTorrent::Util qw[:compact :bencode];
 use Net::BitTorrent;
 $|++;
@@ -22,7 +23,7 @@ my $verbose         = $build->notes(q[verbose]);
 $SIG{__WARN__} = (
     $verbose
     ? sub {
-        diag(sprintf(q[%02.4f], time - $^T), q[ ], shift);
+        diag(sprintf(q[%02.4f], Time::HiRes::time- $^T), q[ ], shift);
         }
     : sub { }
 );
@@ -32,7 +33,7 @@ $SIG{__WARN__} = (
 }
 my $BlockLength = 2**16;
 my $Seeds       = 1;
-my $Peers       = 2;
+my $Peers       = 5;
 my $Timeout     = 120;
 my $Encrypt     = 1;
 plan tests => int(($Seeds * 2) + ($Peers * 2));
@@ -57,7 +58,7 @@ SKIP: {
                  - $test_builder->{q[Curr_Test]}
         ) if not $client{q[seed_] . $chr};
         $client{q[seed_] . $chr}->_set_use_dht(0);
-        $client{q[seed_] . $chr}->_set_connections_per_host(1);
+        $client{q[seed_] . $chr}->_set_connections_per_host($Peers);
         $client{q[seed_] . $chr}->_set_encryption_mode($Encrypt);
         $client{q[seed_] . $chr}->on_event(
             q[peer_disconnect],
@@ -161,16 +162,18 @@ SKIP: {
     while ($test_builder->{q[Curr_Test]} < $test_builder->{q[Expected_Tests]})
     {    #check_tracker();
         for my $peer (values %client) {
-            for (1 .. 3) {
-                $peer->do_one_loop(0.33);
-            }
+
+            #for (1 .. 3) {
+            $peer->do_one_loop(0.33);
+
+            #}
         }
         skip(q[This is taking too long and I have a train to catch.],
              (      $test_builder->{q[Expected_Tests]}
                   - $test_builder->{q[Curr_Test]}
              )
         ) if (int(time - $^T) > $Timeout);
-        sleep 0.5;
+        sleep 0.25;
     }
 
     END {

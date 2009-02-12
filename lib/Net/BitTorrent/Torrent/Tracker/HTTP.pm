@@ -11,7 +11,7 @@ package Net::BitTorrent::Torrent::Tracker::HTTP;
     use lib q[../../../../../lib];
     use Net::BitTorrent::Util qw[:bencode :compact];
     use version qw[qv];
-    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 3; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 99; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     my (@CONTENTS)
         = \my (%_url,   %_tier,     %resolve,
                %_event, %_socket,   %_data_out,
@@ -405,7 +405,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008-2009 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of The Artistic License 2.0.  See the F<LICENSE>
@@ -421,6 +421,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: HTTP.pm 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+=for svn $Id: HTTP.pm a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
 
 =cut

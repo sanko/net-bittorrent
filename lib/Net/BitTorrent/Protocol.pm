@@ -7,7 +7,7 @@ package Net::BitTorrent::Protocol;
     use lib q[../../../lib];
     use Net::BitTorrent::Util qw[:bencode];
     use version qw[qv];
-    our $VERSION_BASE = 48; our $UNSTABLE_RELEASE = 2; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 99; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     use vars qw[@EXPORT_OK %EXPORT_TAGS];
     use Exporter qw[];
     *import = *import = *Exporter::import;
@@ -965,7 +965,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
+Copyright (C) 2008-2009 by Sanko Robinson E<lt>sanko@cpan.orgE<gt>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of The Artistic License 2.0.  See the F<LICENSE>
@@ -981,6 +981,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Protocol.pm a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
+=for svn $Id: Protocol.pm 04a9c9b 2009-02-11 18:33:16Z sanko@cpan.org $
 
 =cut

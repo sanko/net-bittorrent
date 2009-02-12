@@ -7,6 +7,7 @@ use Digest::SHA qw[sha1_hex];
 use File::Temp qw[tempdir tempfile];
 use Scalar::Util qw[/weak/];
 use File::Spec::Functions qw[rel2abs];
+use Time::HiRes qw[];
 use lib q[../../../../lib];
 use Net::BitTorrent::Util qw[/code/];
 use Net::BitTorrent::Torrent;
@@ -24,7 +25,13 @@ my $release_testing = $build->notes(q[release_testing]);
 my $verbose         = $build->notes(q[verbose]);
 my $threads         = $build->notes(q[threads]);
 my $profile         = $build->notes(q[profile]);
-$SIG{__WARN__} = ($verbose ? sub { diag shift } : sub { });
+$SIG{__WARN__} = (
+    $verbose
+    ? sub {
+        diag(sprintf(q[%02.4f], Time::HiRes::time- $^T), q[ ], shift);
+        }
+    : sub { }
+);
 SKIP: {
     is(Net::BitTorrent::Torrent->new(), undef, q[new() returns undef]);
     is(Net::BitTorrent::Torrent->new(q[FAIL!]),
@@ -469,7 +476,7 @@ sub _infohash {
     return sha1_hex(bencode(_raw_data($key)->{q[info]}));
 }
 __END__
-Copyright (C) 2008 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of The Artistic License 2.0.  See the LICENSE file
@@ -482,4 +489,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Torrent.t 56a7b7c 2009-01-27 02:13:14Z sanko@cpan.org $
+$Id: Torrent.t a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $

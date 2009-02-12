@@ -8,10 +8,10 @@ package Net::BitTorrent::Peer;
     use List::Util qw[sum max];
     use Socket qw[/F_INET/ SOMAXCONN SOCK_STREAM /inet_/ /pack_sockaddr_in/];
     use Fcntl qw[F_SETFL O_NONBLOCK];
-    use Math::BigInt try => q[GMP,Pari,FastCalc,Calc]; # Tested only with Calc
+    use Math::BigInt;
     use Digest::SHA qw[sha1];
     use version qw[qv];
-    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 8; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 99; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     use vars qw[@EXPORT_OK %EXPORT_TAGS];
     use Exporter qw[];
     *import = *import = *Exporter::import;
@@ -26,8 +26,7 @@ package Net::BitTorrent::Peer;
     %EXPORT_TAGS = (
         all        => [@EXPORT_OK],
         disconnect => [
-            qw[
-                DISCONNECT_BY_REMOTE           DISCONNECT_LOOPBACK
+            qw[ DISCONNECT_BY_REMOTE           DISCONNECT_LOOPBACK
                 DISCONNECT_NO_SUCH_TORRENT     DISCONNECT_HANDSHAKE_INFOHASH
                 DISCONNECT_MALFORMED_HANDSHAKE DISCONNECT_MALFORMED_PACKET
                 DISCONNECT_PREXISTING          DISCONNECT_TOO_MANY
@@ -98,33 +97,33 @@ package Net::BitTorrent::Peer;
     sub DISCONNECT_HANDSHAKE_SYNC_DH5  {-102}
 
     # States
-    sub MSE_ONE   { 1 }
-    sub MSE_TWO   { 2 }
-    sub MSE_THREE { 3 }
-    sub MSE_FOUR  { 4 }
-    sub MSE_FIVE  { 5 }
-    sub REG_ONE   { 11 }
-    sub REG_TWO   { 12 }
-    sub REG_THREE { 13 }
-    sub REG_OKAY  { 100 }
+    sub MSE_ONE   {1}
+    sub MSE_TWO   {2}
+    sub MSE_THREE {3}
+    sub MSE_FOUR  {4}
+    sub MSE_FIVE  {5}
+    sub REG_ONE   {11}
+    sub REG_TWO   {12}
+    sub REG_THREE {13}
+    sub REG_OKAY  {100}
 
     #
-    sub CRYPTO_PLAIN { 0x01 }
-    sub CRYPTO_RC4   { 0x02 }
-    sub CRYPTO_XOR   { 0x04 }    # unimplemented
-    sub CRYPTO_AES   { 0x08 }    # unimplemented
+    sub CRYPTO_PLAIN {0x01}
+    sub CRYPTO_RC4   {0x02}
+    sub CRYPTO_XOR   {0x04}    # unimplemented
+    sub CRYPTO_AES   {0x08}    # unimplemented
 
     sub DH_P {
         return Math::BigInt->new(
             q[0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A63A36210000000000090563]
-        )
+        );
     }
-    sub DH_G { 2 }
+    sub DH_G {2}
     sub VC   { qq[\0] x 8 }
 
     sub crypto_provide {
         return pack q[N],
-            CRYPTO_PLAIN    # | CRYPTO_RC4    #| CRYPTO_XOR | CRYPTO_AES;
+            CRYPTO_PLAIN       # | CRYPTO_RC4    #| CRYPTO_XOR | CRYPTO_AES;
     }
     sub len { pack(q[n], length(shift)) }
 
@@ -134,7 +133,7 @@ package Net::BitTorrent::Peer;
         my ($class, $args) = @_;
         my $self = undef;
         if (not defined $args) {
-            carp q[Net::BitTorrent::Peer->new({}) requires ]
+            carp q[Net::BitTorrent::Peer->new({ }) requires ]
                 . q[parameters a hashref];
             return;
         }
@@ -149,14 +148,14 @@ END
         if ($args->{q[Socket]}) {
             if (ref($args->{q[Socket]}) ne q[GLOB]) {
                 carp
-                    q[Net::BitTorrent::Peer->new({}) requires a GLOB-type socket];
+                    q[Net::BitTorrent::Peer->new({ }) requires a GLOB-type socket];
                 return;
             }
             if (   (!$args->{q[Client]})
                 || (!blessed $args->{q[Client]})
                 || (!$args->{q[Client]}->isa(q[Net::BitTorrent])))
             {   carp
-                    q[Net::BitTorrent::Peer->new({}) requires a blessed Net::BitTorrent object in the 'Client' parameter];
+                    q[Net::BitTorrent::Peer->new({ }) requires a blessed Net::BitTorrent object in the 'Client' parameter];
                 return;
             }
             my ($port, $packed_ip)
@@ -201,19 +200,19 @@ END
                 !~ m[^(?:(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.]?){4}):\d+$]
                 )
             {   carp
-                    q[Net::BitTorrent::Peer->new({}) requires an IPv4:port 'Address'];
+                    q[Net::BitTorrent::Peer->new({ }) requires an IPv4:port 'Address'];
                 return;
             }
             if (   (!$args->{q[Torrent]})
                 || (!blessed $args->{q[Torrent]})
                 || (!$args->{q[Torrent]}->isa(q[Net::BitTorrent::Torrent])))
             {   carp
-                    q[Net::BitTorrent::Peer->new({}) requires a blessed 'Torrent'];
+                    q[Net::BitTorrent::Peer->new({ }) requires a blessed 'Torrent'];
                 return;
             }
             if (!$args->{q[Source]}) {
                 carp
-                    q[Net::BitTorrent::Peer->new({}) would like to know where this peer info is from];
+                    q[Net::BitTorrent::Peer->new({ }) would like to know where this peer info is from];
                 return;
             }
             my $half_open = grep {
@@ -267,8 +266,10 @@ END
                  PeerID   => $_client{refaddr $self}->peerid
             );
 
-            if ($_client{refaddr $self}->_encryption_mode != 0x00) {
-                $_state{refaddr $self} = MSE_ONE;
+            if (   ($_client{refaddr $self}->_encryption_mode != 0x00)
+                && (!$args->{q[_plaintext]})    # XXX
+                )
+            {   $_state{refaddr $self} = MSE_ONE;
             }
             else {
                 $_state{refaddr $self} = REG_ONE;
@@ -311,7 +312,29 @@ END
                         my $s = shift;
                         if (!$peerid{refaddr $s}) {
                             weaken $s;
+                            my ($host, $port) = ($self->_host, $self->_port);
                             $s->_disconnect(DISCONNECT_TIMEOUT_HANDSHAKE);
+                            if ((!$_incoming{refaddr $self}
+                                )    # outgoing connection
+                                 #&& ($_crypto_select{refaddr $self} != CRYPTO_PLAIN)
+                                && ($_torrent{refaddr $self})
+                                && ($_state{refaddr $self} < REG_ONE)
+                                && $host
+                                && $port
+                                )
+                            {
+
+                                #warn q[RETRY! :D];
+                                my $peer =    # retry unencrypted
+                                    Net::BitTorrent::Peer->new(
+                                    {   Address =>
+                                            (sprintf q[%s:%d], $host, $port),
+                                        Torrent => $_torrent{refaddr $self},
+                                        Source  => q[TODO],
+                                        _plaintext => 1    # XXX
+                                    }
+                                    );
+                            }
                         }
                         return 1;
                     },
@@ -617,7 +640,8 @@ END
         my ($self) = @_;
         $_client{refaddr $self}->_add_connection($self, q[rw]);
         if ($_data_in{refaddr $self} =~ m[^\x13BitTorrent protocol.{48}$]s) {
-            warn q[Switching to plaintext handshake];
+
+            #warn q[Switching to plaintext handshake];
             $_state{refaddr $self} = REG_TWO;
             return;
         }
@@ -888,7 +912,19 @@ END
                           $self->_RC4($_KeyB{refaddr $self}, VC));
         if ($index == -1) {
             if (length($_data_in{refaddr $self}) >= 628) {
+                my ($host, $port) = ($self->_host, $self->_port);
                 $self->_disconnect(DISCONNECT_HANDSHAKE_SYNC_DH5);
+                my $peer =    # retry unencrypted
+                    Net::BitTorrent::Peer->new(
+                    {Address    => (sprintf q[%s:%d], $host, $port),
+                     Torrent    => $_torrent{refaddr $self},
+                     Source     => q[TODO],
+                     _plaintext => 1                  # XXX
+                    }
+                    )
+                    if $host
+                        && $port
+                        && !$_incoming{refaddr $self};
             }
             else {
                 $_client{refaddr $self}->_add_connection($self, q[rw]);
@@ -905,7 +941,15 @@ END
         );
         if ($VC ne VC) {
             weaken $self;
-            $self->_disconnect(-101);    # XXX - retry unencrypted
+            $self->_disconnect(-101);
+            my $peer =      # retry unencrypted
+                Net::BitTorrent::Peer->new(
+                {   Address => (sprintf q[%s:%d], $self->_host, $self->_port),
+                    Torrent    => $_torrent{refaddr $self},
+                    Source     => q[TODO],
+                    _plaintext => 1                           # XXX
+                }
+                ) if !$_incoming{refaddr $self};
             return;
         }
         $_crypto_select{refaddr $self} = unpack(q[N], $crypto_select);
@@ -2265,7 +2309,7 @@ ADVANCED
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j
+                    = (  $_j 
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]
@@ -2480,6 +2524,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Peer.pm a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
+=for svn $Id: Peer.pm 04a9c9b 2009-02-11 18:33:16Z sanko@cpan.org $
 
 =cut
