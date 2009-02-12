@@ -197,16 +197,16 @@ sub ACTION_changes {
         print 'Update Changes file... ';
 
         # open and lock the file
-        sysopen(my ($CHANGES_R), 'Changes', Fcntl::O_RDONLY)
+        sysopen(my ($CHANGES_R), 'Changes', Fcntl::O_RDONLY())
             || die 'Failed to open Changes for reading';
-        flock $CHANGES_R, Fcntl::LOCK_EX;
+        flock $CHANGES_R, Fcntl::LOCK_EX();
 
         # Read the file's content and scroll back to the top
         sysread($CHANGES_R, my ($CHANGES_D), -s $CHANGES_R)
             || die 'Failed to read Changes';
 
         # Okay, we're done with this file for now
-        flock $CHANGES_R, Fcntl::LOCK_UN;
+        flock $CHANGES_R, Fcntl::LOCK_UN();
         close $CHANGES_R;
 
         # gather various info
@@ -246,16 +246,16 @@ END
             || die sprintf 'Failed to rename Changes (%s)', $^E;
 
         # open and lock the file
-        sysopen(my ($CHANGES_W), 'Changes', Fcntl::O_WRONLY | Fcntl::O_CREAT)
+        sysopen(my ($CHANGES_W), 'Changes', Fcntl::O_WRONLY() | Fcntl::O_CREAT())
             || die 'Failed to open Changes for reading';
-        sysseek($CHANGES_W, 0, Fcntl::SEEK_SET)
+        sysseek($CHANGES_W, 0, Fcntl::SEEK_SET())
             || die 'Failed to seek in Changes';
 
         # hope all went well and save the new log to disk
         syswrite($CHANGES_W, $CHANGES_D) || die 'Failed to update Changes';
 
         # unlock the file and close it
-        flock $CHANGES_W, Fcntl::LOCK_UN;
+        flock $CHANGES_W, Fcntl::LOCK_UN();
         close($CHANGES_W) || die 'Failed to close Changes';
         printf "Done.\n    (%s)\n", $dist;
     }
@@ -278,16 +278,16 @@ END
                 or die "Can't make $file writable: $!";
 
             # open and lock the file
-            sysopen(my ($CHANGES_R), $file, Fcntl::O_RDONLY)
+            sysopen(my ($CHANGES_R), $file, Fcntl::O_RDONLY())
                 || die sprintf 'Failed to open "%s" for reading', $file;
-            flock $CHANGES_R, Fcntl::LOCK_EX;
+            flock $CHANGES_R, Fcntl::LOCK_EX();
 
             # Read the file's content and scroll back to the top
             sysread($CHANGES_R, my ($CHANGES_D), -s $CHANGES_R)
                 || die "Failed to read $file";
 
             # Okay, we're done with this file for now
-            flock $CHANGES_R, Fcntl::LOCK_UN;
+            flock $CHANGES_R, Fcntl::LOCK_UN();
             close $CHANGES_R;
 
             # gather various info
@@ -322,11 +322,11 @@ END
                 || die sprintf 'Failed to rename %s (%s)', $file, $^E;
 
             # open and lock the file
-            sysopen(my ($CHANGES_W), $file, Fcntl::O_WRONLY | Fcntl::O_CREAT)
+            sysopen(my ($CHANGES_W), $file, Fcntl::O_WRONLY() | Fcntl::O_CREAT())
                 || warn(sprintf q[Failed to open %s for reading: %s], $file,
                         $^E)
                 && next FILE;
-            sysseek($CHANGES_W, 0, Fcntl::SEEK_SET)
+            sysseek($CHANGES_W, 0, Fcntl::SEEK_SET())
                 || warn 'Failed to seek in ' . $file && next FILE;
 
             # hope all went well and save the new log to disk
@@ -334,7 +334,7 @@ END
                 || warn 'Failed to update ' . $file && next FILE;
 
             # unlock the file and close it
-            flock $CHANGES_W, Fcntl::LOCK_UN;
+            flock $CHANGES_W, Fcntl::LOCK_UN();
             close($CHANGES_W) || die 'Failed to close Changes';
             chmod($mode, $file);
         }
@@ -404,7 +404,7 @@ my $mb = $class->new(
                                        q[Win32API::File] => 0.10
                           }
                  },
-                 improved_dh_speed => {
+                 improved_message_stream_encryption_speed => {
                      description =>
                          q[MSE-related calculations are significantly faster],
                      requires => {q[Math::Pari]         => 0,

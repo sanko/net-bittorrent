@@ -72,7 +72,7 @@ Validates data. As this starts,
 connections to L<peers|Net::BitTorrent::Torrent/"peers ( )"> related to
 this L<torrent|Net::BitTorrent::Torrent> in the parent thread are closed.
 While the child does the checking, our
-L<bitfield|Net::BitTorrent::Torrent/"bitfield ( )"> is kept in synch with
+L<bitfield|Net::BitTorrent::Torrent/"bitfield ( )"> is kept in sync with
 the parent (thanks to L<threads::shared|threads::shared>), and our
 L<status|Net::BitTorrent::Torrent/"status ( )"> goes through some
 changes.
@@ -122,6 +122,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: 003-threads.pl a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
+=for svn $Id: 003-threads.pl 3f42870 2009-02-12 05:01:56Z sanko@cpan.org $
 
 =cut

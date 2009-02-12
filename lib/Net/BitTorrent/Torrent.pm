@@ -379,8 +379,8 @@ package Net::BitTorrent::Torrent;
         my $_connections = $_client{refaddr $self}->_connections;
         return map {
             (    ($_->{q[Object]}->isa(q[Net::BitTorrent::Peer]))
-             and ($_->{q[Object]}->_torrent)
-             and ($_->{q[Object]}->_torrent eq $self))
+             and ($_->{q[Object]}->torrent)
+             and ($_->{q[Object]}->torrent eq $self))
                 ? $_->{q[Object]}
                 : ()
         } values %$_connections;
@@ -626,7 +626,7 @@ package Net::BitTorrent::Torrent;
             my $node = shift @nodes;
             next
                 if scalar grep {
-                sprintf(q[%s:%d], ($_->_host || q[]), ($_->_port || 0)) eq
+                sprintf(q[%s:%d], ($_->host || q[]), ($_->port || 0)) eq
                     $node    # already connected to this peer
                 } @peers;
             my $ok = $_client{refaddr $self}
@@ -698,7 +698,7 @@ package Net::BitTorrent::Torrent;
         }
         my $piece;
         my $_wanted   = $self->_wanted;
-        my $relevence = $peer->_bitfield & $_wanted;
+        my $relevence = $peer->bitfield & $_wanted;
         return if unpack(q[b*], $relevence) !~ m[1];
         my $endgame = (    # XXX - static ratio
             (sum(split(q[], unpack(q[b*], $_wanted)))
@@ -1297,7 +1297,7 @@ L<queue ( )|/"queue ( CLIENT )">.
 
 Creates a C<Net::BitTorrent::Torrent> object.  This constructor is
 called by
-L<Net::BitTorrent->add_torrent( )|Net::BitTorrent/add_torrent ( { ... } )>.
+L<Net::BitTorrent-E<gt>add_torrent( )|Net::BitTorrent/"add_torrent ( { ... } )">.
 
 C<new( )> accepts arguments as a hash, using key-value pairs:
 
@@ -1752,6 +1752,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Torrent.pm 04a9c9b 2009-02-11 18:33:16Z sanko@cpan.org $
+=for svn $Id: Torrent.pm 3f42870 2009-02-12 05:01:56Z sanko@cpan.org $
 
 =cut

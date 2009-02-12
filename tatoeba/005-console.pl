@@ -5,6 +5,7 @@ use Getopt::Long;
 use Pod::Usage;
 use Carp qw[croak carp];
 use Time::HiRes qw[sleep];
+use Math::BigInt 0.78 try => q[Pari,GMP,FastCalc,Calc];
 use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent::Util qw[:bencode];
 use Net::BitTorrent::Torrent qw[:status];
@@ -46,7 +47,7 @@ sub piece_status {
 
 sub trans_status {
     printf qq[%-10s p:%15s:%-5d i:%4d o:%7d l:%5d  \r],
-        shift, $_[0]->{q[Peer]}->_host, $_[0]->{q[Peer]}->_port,
+        shift, $_[0]->{q[Peer]}->host, $_[0]->{q[Peer]}->port,
         $_[0]->{q[Payload]}{q[Index]},
         $_[0]->{q[Payload]}{q[Offset]},
         $_[0]->{q[Payload]}{q[Length]};
@@ -182,23 +183,34 @@ This section only makes sense when you view the source.
 
 =over
 
-=item Line 15
+=item Line 8
+
+If encryption is enabled, L<Net::BitTorrent::Peer|Net::BitTorrent::Peer>
+relies on L<Math::BigInt|Math::BigInt> to do all the 96bit math the MSE
+specification requires. This math is done for each and every encrypted
+connection so, using the slow, stock libraries will cause you all sorts
+of headaches.
+
+Here, we prioritize using the easy-to-build Pari library. I suggest you
+do the same in your scripts if you leave encryption enabled.
+
+=item Line 16
 
 Uses L<Getopt::Long|Getopt::Long> to parse any L<options|/"Options"> and,
 if none are found, falls back to L<Pod::Usage|Pod::Usage> and lists all
-avalible options.
+available options.
 
-=item Line 29
+=item Line 30
 
 Shoves everything L<Getopt::Long|Getopt::Long> couldn't parse and looks
 like a file on the system into the list of potential .torrent files.
 
-=item Line 30
+=item Line 31
 
-Prints usage info and exits if no torrents are in the afforementioned
+Prints usage info and exits if no torrents are in the aforementioned
 list.
 
-=item Line 34
+=item Line 35
 
 Creates L<Net::BitTorrent|Net::BitTorrent> object which opens on the port
 defined with the C<-p> command line parameter (falls back to C<0>).
@@ -206,7 +218,7 @@ defined with the C<-p> command line parameter (falls back to C<0>).
 If L<N::B|Net::BitTorrent> fails to create the new object, the script
 croaks here with an error message.
 
-=item Line 37
+=item Line 38
 
 This is the function used later by the C<piece_hash_pass> and
 C<piece_hash_pass> callbacks.
@@ -214,45 +226,45 @@ C<piece_hash_pass> callbacks.
 It prints (among other things) the piece's index, the related infohash,
 and a rough estimate of the torrent's completion.
 
-=item Line 47
+=item Line 48
 
 This function is used by the C<incoming_packet> and C<outgoing_packet>
 callbacks to report various block-level status updates in both
 directions.
 
-=item Line 55
+=item Line 56
 
 This function saves resume data for every torrent loaded. For more
 information on resume data and how it's used, see
 L<004-resume.pl|004-resume.pl>.
 
-=item Line 60
+=item Line 61
 
 Sets a handler to catch C<Ctrl+C> key combinations. When triggered, it
-L<saves|/"Line 55"> the resume data and dumps
+L<saves|/"Line 56"> the resume data and dumps
 L<"verbose information"|Net::BitTorrent::Torrent/"as_string ( [ VERBOSE ] )">
 about each loaded torrent.
 
 If this is triggered more than once in a C<3> second period, the script
 will exit.
 
-=item Line 65
+=item Line 66
 
 Saves resume data on script exit.
 
-=item Lines 66-82
+=item Lines 67-83
 
 Sets client-wide callbacks for C<incoming_packet>, C<outgoing_packet>,
 C<piece_hash_pass>, and C<piece_hash_fail> events. These in turn hand
 most of their data to functions described earlier.
 
-=item Lines 83-93
+=item Lines 84-94
 
 Loops through each torrent file listed on the commandline...
 
 =over
 
-=item Line 84
+=item Line 85
 
 Attempts to load the torrent into a new
 L<Net::BitTorrent::Torrent object|Net::BitTorrent::Torrent>. The new
@@ -267,30 +279,30 @@ C<[.torrent's filename].resume>.
 If creating the new object fails, the script skips to the next potential
 torrent.
 
-=item Line 90
+=item Line 91
 
 Validates the new L<Net::BitTorrent::Torrent object|Net::BitTorrent::Torrent>
 object's data if the user hasn't disabled it on the command line.
 
-=item Line 91
+=item Line 92
 
 Prints a quick status line which includes the torrent's path, a snippet
-of the infohash, and an indicaton of whether or not the torrent allows
+of the infohash, and an indication of whether or not the torrent allows
 the use or the DHT swarm.
 
 =back
 
-=item Line 94
+=item Line 95
 
 Sets a client-wide callback for C<file_error> events.
 
 Note that this callback is set I<after> the torrents are hashchecked.
 I've done this because this event is triggered every time
 L<Net::BitTorrent::Torrent::File|Net::BitTorrent::Torrent::File> attempts
-to open the file and fails. So, unless the files are pre-existing, the
+to open the file and fails. So, unless the files are preexisting, the
 script would dump screens full of useless error messages.
 
-=item Line 95-97
+=item Line 96-98
 
 This nested loop is really more of a hack than useful code... it allows
 users to set otherwise private data in each loaded torrent. In the wrong
@@ -302,7 +314,7 @@ L<C<--options> ...option|/"--options">.
 You'll probably not need anything that messes with C<N::B>'s internals in
 your script.
 
-=item Line 98
+=item Line 99
 
 Goes to work and takes a short nap between loops to save the CPU.
 
@@ -341,6 +353,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: 005-console.pl 04a9c9b 2009-02-11 18:33:16Z sanko@cpan.org $
+=for svn $Id: 005-console.pl 3f42870 2009-02-12 05:01:56Z sanko@cpan.org $
 
 =cut

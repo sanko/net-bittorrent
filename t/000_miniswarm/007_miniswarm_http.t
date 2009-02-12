@@ -8,7 +8,8 @@ use Test::More;
 use Socket qw[SOCK_STREAM /F_INET/ unpack_sockaddr_in inet_ntoa];
 use File::Temp qw[];
 use Time::HiRes qw[sleep];
-use Math::BigInt 0.78 try => q[Pari,GMP,FastCalc,Calc];
+
+#use Math::BigInt 0.78 try => q[Pari,GMP,FastCalc,Calc];
 use Net::BitTorrent::Util qw[:compact :bencode];
 use Net::BitTorrent;
 $|++;

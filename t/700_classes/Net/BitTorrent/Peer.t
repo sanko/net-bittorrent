@@ -140,31 +140,31 @@ SKIP: {
                         {},
                         q[Params contain no other data as exptexed [peer_read]]
                     );
-                    is($_peer->_host . q[:] . $_peer->_port,
+                    is($_peer->host . q[:] . $_peer->port,
                         $_address, q[Resolved host is as expected]);
-                    is($_peer->_am_choking, 1,
+                    is($_peer->am_choking, 1,
                         q[Initial status: Peer is choked]);
-                    is($_peer->_peer_choking, 1,
+                    is($_peer->peer_choking, 1,
                         q[Initial status: Peer is choking us]);
-                    is($_peer->_am_interested, 0,
+                    is($_peer->am_interested, 0,
                         q[Initial status: Peer is not interesting]);
-                    is($_peer->_peer_interested, 0,
+                    is($_peer->peer_interested, 0,
                         q[Initial status: Peer is not interested]);
-                    is($_peer->_incoming, 1,
+                    is($_peer->incoming, 1,
                         q[Internal status: Peer initiated this connection (_incoming())]
                     );
-                    is($_peer->_source, q[Incoming],
+                    is($_peer->source, q[Incoming],
                         q[Internal status: Peer initiated this connection (_source())]
                     );
                     is($_peer->peerid, undef,
                         q[Internal status: We have not parsed their peerid)]);
-                    is($_peer->_reserved_bytes, undef,
+                    is($_peer->reserved_bytes, undef,
                         q[Internal status: We have not parsed their reserved bytes)]
                     );
-                    is($_peer->_torrent, undef,
+                    is($_peer->torrent, undef,
                         q[Internal status: We have not parsed their infohash)]
                     );
-                    is($_peer->_bitfield, undef,
+                    is($_peer->bitfield, undef,
                         q[Internal status: We have not parsed their bitfield)]
                     );
                     isa_ok($_peer->_socket, q[GLOB],
@@ -190,32 +190,32 @@ SKIP: {
                         {},
                         q[Params contain no other data as exptexed [peer_connect]]
                     );
-                    is($_peer->_host . q[:] . $_peer->_port,
+                    is($_peer->host . q[:] . $_peer->port,
                         $_address, q[Resolved host is as expected]);
-                    is($_peer->_am_choking, 1,
+                    is($_peer->am_choking, 1,
                         q[Initial status: Peer is choked]);
-                    is($_peer->_peer_choking, 1,
+                    is($_peer->peer_choking, 1,
                         q[Initial status: Peer is choking us]);
-                    is($_peer->_am_interested, 0,
+                    is($_peer->am_interested, 0,
                         q[Initial status: Peer is not interesting]);
-                    is($_peer->_peer_interested, 0,
+                    is($_peer->peer_interested, 0,
                         q[Initial status: Peer is not interested]);
-                    is($_peer->_incoming, 1,
+                    is($_peer->incoming, 1,
                         q[Internal status: Peer initiated this connection (_incoming())]
                     );
-                    is($_peer->_source, q[Incoming],
+                    is($_peer->source, q[Incoming],
                         q[Internal status: Peer initiated this connection (_source())]
                     );
                     is($_peer->peerid, undef,
                         q[Internal status: We have not recieved their peerid)]
                     );
-                    is($_peer->_reserved_bytes, undef,
+                    is($_peer->reserved_bytes, undef,
                         q[Internal status: We have not recieved their reserved bytes)]
                     );
-                    is($_peer->_torrent, undef,
+                    is($_peer->torrent, undef,
                         q[Internal status: We have not recieved their infohash)]
                     );
-                    is($_peer->_bitfield, undef,
+                    is($_peer->bitfield, undef,
                         q[Internal status: We have not recieved their bitfield)]
                     );
                     isa_ok($_peer->_socket, q[GLOB],
@@ -459,31 +459,31 @@ SKIP: {
                         {},
                         q[Params contain no other data as exptexed [peer_read]]
                     );
-                    is($_peer->_host . q[:] . $_peer->_port,
+                    is($_peer->host . q[:] . $_peer->port,
                         $_address, q[Resolved host is as expected]);
-                    is($_peer->_am_choking, 1,
+                    is($_peer->am_choking, 1,
                         q[Initial status: Peer is choked]);
-                    is($_peer->_peer_choking, 1,
+                    is($_peer->peer_choking, 1,
                         q[Initial status: Peer is choking us]);
-                    is($_peer->_am_interested, 0,
+                    is($_peer->am_interested, 0,
                         q[Initial status: Peer is not interesting]);
-                    is($_peer->_peer_interested, 0,
+                    is($_peer->peer_interested, 0,
                         q[Initial status: Peer is not interested]);
-                    is($_peer->_incoming, 1,
+                    is($_peer->incoming, 1,
                         q[Internal status: Peer initiated this connection (_incoming())]
                     );
-                    is($_peer->_source, q[Incoming],
+                    is($_peer->source, q[Incoming],
                         q[Internal status: Peer initiated this connection (_source())]
                     );
                     is($_peer->peerid, undef,
                         q[Internal status: We have not parsed their peerid)]);
-                    is($_peer->_reserved_bytes, undef,
+                    is($_peer->reserved_bytes, undef,
                         q[Internal status: We have not parsed their reserved bytes)]
                     );
-                    is($_peer->_torrent, undef,
+                    is($_peer->torrent, undef,
                         q[Internal status: We have not parsed their infohash)]
                     );
-                    is($_peer->_bitfield, undef,
+                    is($_peer->bitfield, undef,
                         q[Internal status: We have not parsed their bitfield)]
                     );
                     isa_ok($_peer->_socket, q[GLOB],
@@ -509,32 +509,32 @@ SKIP: {
                         {},
                         q[Params contain no other data as exptexed [peer_connect]]
                     );
-                    is($_peer->_host . q[:] . $_peer->_port,
+                    is($_peer->host . q[:] . $_peer->port,
                         $_address, q[Resolved host is as expected]);
-                    is($_peer->_am_choking, 1,
+                    is($_peer->am_choking, 1,
                         q[Initial status: Peer is choked]);
-                    is($_peer->_peer_choking, 1,
+                    is($_peer->peer_choking, 1,
                         q[Initial status: Peer is choking us]);
-                    is($_peer->_am_interested, 0,
+                    is($_peer->am_interested, 0,
                         q[Initial status: Peer is not interesting]);
-                    is($_peer->_peer_interested, 0,
+                    is($_peer->peer_interested, 0,
                         q[Initial status: Peer is not interested]);
-                    is($_peer->_incoming, 1,
+                    is($_peer->incoming, 1,
                         q[Internal status: Peer initiated this connection (_incoming())]
                     );
-                    is($_peer->_source, q[Incoming],
+                    is($_peer->source, q[Incoming],
                         q[Internal status: Peer initiated this connection (_source())]
                     );
                     is($_peer->peerid, undef,
                         q[Internal status: We have not recieved their peerid)]
                     );
-                    is($_peer->_reserved_bytes, undef,
+                    is($_peer->reserved_bytes, undef,
                         q[Internal status: We have not recieved their reserved bytes)]
                     );
-                    is($_peer->_torrent, undef,
+                    is($_peer->torrent, undef,
                         q[Internal status: We have not recieved their infohash)]
                     );
-                    is($_peer->_bitfield, undef,
+                    is($_peer->bitfield, undef,
                         q[Internal status: We have not recieved their bitfield)]
                     );
                     isa_ok($_peer->_socket, q[GLOB],
@@ -1590,6 +1590,7 @@ SKIP: {
         warn sprintf q[%d|%d], 474, $test_builder->{q[Curr_Test]};
     }
 =cut
+
 }
 
 sub newsock {
@@ -1621,4 +1622,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Peer.t 04a9c9b 2009-02-11 18:33:16Z sanko@cpan.org $
+$Id: Peer.t 3f42870 2009-02-12 05:01:56Z sanko@cpan.org $
