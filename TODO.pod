@@ -8,8 +8,6 @@ Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
 =over
 
-=item * Retry without encryption when a peer disconnects during handshake
-
 =item * Flesh out the test suite and example scripts
 
 Create a series of bad .torrent files to test N::B::Torrent with:

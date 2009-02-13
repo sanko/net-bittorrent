@@ -4,7 +4,7 @@ package Net::BitTorrent::Version;
     use strict;
     use warnings;
     use version qw[qv];
-    our $VERSION_BASE = 49; our $UNSTABLE_RELEASE = 99; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 50; our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     our $PRODUCT_TOKEN = qq[Net::BitTorrent $VERSION];
 
     sub gen_peerid {
@@ -170,6 +170,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Version.pm 04a9c9b 2009-02-11 18:33:16Z sanko@cpan.org $
+=for svn $Id: Version.pm 3f42870 2009-02-12 05:01:56Z sanko@cpan.org $
 
 =cut

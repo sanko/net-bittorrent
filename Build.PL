@@ -378,7 +378,7 @@ my $mb = $class->new(
                  q[File::Spec]    => 0,
                  q[Math::BigInt]  => 1.78,
                  q[Module::Build] => 0.30,
-                 q[perl]          => q[5.8.1],
+                 q[perl]          => q[5.8.8],
                  q[Scalar::Util]  => 1.19,
                  q[Socket]        => 1.77,
                  q[Test::More]    => 0.80,
@@ -398,7 +398,6 @@ my $mb = $class->new(
                           description => q[Unicode filename support on Win32],
                           requires    => {
                                        q[Encode]         => 0,
-                                       q[perl]           => q[5.8.7],
                                        q[utf8]           => 0,
                                        q[Win32]          => 0,
                                        q[Win32API::File] => 0.10
@@ -463,9 +462,9 @@ sub find_cb {
 }
 
 BEGIN {    # Tired of getting FAIL-mail from outdated build environments
-    if ($] < 5.008001) {  # already 5+ years old-- anything less is just silly
+    if ($] < 5.008008) {  # already 3+ years old...
         warn sprintf
-            q[Perl v5.8.1 required--this is only v%vd, stopped],
+            q[Perl v5.8.8 required--this is only v%vd, stopped],
             $^V;
         exit 0;
     }

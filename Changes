@@ -1,4 +1,4 @@
-Version 0.0XX | Distant future | 3f42870
+Version 0.050 | 2009-02-12 19:52:19Z (Thu, 12 Feb 2009) | 3d04563
 
     API Changes/Compatibility Information:
      * N::B::Peer objects have their sockets closed and removed *before*
@@ -23,8 +23,8 @@ Version 0.0XX | Distant future | 3f42870
          - Formerly known as /scripts/bittorrent.pl
 
     Notes:
-     * With the addition of Protocol Encryption and the bugfix mentioned above,
-       I strongly suggest an upgrade for all users despite the API tweeks.
+     * With the addition of Protocol Encryption and the bugfix, I strongly
+       suggest an upgrade for all users despite the API tweeks.
      * Meanwhile...
          - Development moved to github: http://github.com/sanko/net-bittorrent
 
@@ -376,7 +376,7 @@ _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
     http://github.com/sanko/net-bittorrent/commits/master
 
-$Ver: 0.049_099 $ from git
-$Date: 2009-02-12 05:01:56Z (Thu, 12 Feb 2009) $
-$Rev: 3f42870076d53b9650ff5d7590f202e9c036af44 $
-$Url: http://github.com/sanko/net-bittorrent/raw/3f42870076d53b9650ff5d7590f202e9c036af44/Changes $
+$Ver: 0.050 $ from git
+$Date: 2009-02-12 19:52:19Z (Thu, 12 Feb 2009) $
+$Rev: 3d04563ed53b5f152fafb60975f7df416364e8d8 $
+$Url: http://github.com/sanko/net-bittorrent/raw/3d04563ed53b5f152fafb60975f7df416364e8d8/Changes $
