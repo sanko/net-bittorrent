@@ -429,12 +429,22 @@ my $mb = $class->new(
                  }
     },
     script_files => qw[scripts/net-bittorrent.pl],
-    test_files => \@tests,
-    meta_merge => {
+    test_files   => \@tests,
+    meta_merge   => {
         generated_by => q[Conversion, software version 7.0],
-        keywords     => [qw[BitTorrent client peer p2p torrent socket DHT]],
+        keywords     => [
+            qw[BitTorrent client peer p2p torrent socket
+                DHT Kademlia exhange kad Mainline
+                MSE stream encryption cryptography PHE PE
+                DH D-H Diffie-Hellman key exchange
+                RC4 ARC4 Alleged ARCFOUR
+                ]
+        ],
+        no_index => {
 
-        #no_index  => {directory => [q[tatoeba]]},
+            #directory => [qw[tatoeba]],
+            file => [qw[scripts/net-bittorrent.pl]]
+        },
         resources => {
              bugtracker =>
                  q[http://code.google.com/p/net-bittorrent/issues/list],
@@ -478,7 +488,7 @@ sub find_cb {
 }
 
 BEGIN {    # Tired of getting FAIL-mail from outdated build environments
-    if ($] < 5.008008) {  # already 3+ years old...
+    if ($] < 5.008008) {    # already 3+ years old...
         warn sprintf
             q[Perl v5.8.8 required--this is only v%vd, stopped],
             $^V;
