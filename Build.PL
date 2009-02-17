@@ -294,6 +294,7 @@ END
             # gather various info
             my (@bits) = split q[,],
                 qx[git log --pretty=format:"%at,%H,%x25%x73 %h %x25%x2E%x32%x30%x73 %ce" -n 1 $file];
+            next FILE if !@bits;
 
             #my $Mod = qx[git log -n 1 --pretty=format:"%cr"];
             my $Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
@@ -341,6 +342,22 @@ END
         print "Done.\n";
     }
     return 1;
+}
+
+sub ACTION_testkwalitee {
+    my ($self) = @_;
+    use Test::More;
+    eval { require Test::Kwalitee; Test::Kwalitee->import() };
+    plan( skip_all => 'Test::Kwalitee not installed; skipping' ) if $@;
+}
+
+
+sub ACTION_testpod {
+    my ($self) = @_;
+    use Test::More;
+    eval "use Test::Pod 1.00";
+    plan skip_all => "Test::Pod 1.00 required for testing POD" if $@;
+    all_pod_files_ok(all_pod_files(qw[lib scripts tatoeba t]));
 }
 
 sub ACTION_distmeta {
@@ -411,8 +428,7 @@ my $mb = $class->new(
                      }
                  }
     },
-
-#script_files => qw[scripts/bittorrent.pl], # relocated to tatoeba/005-console.pl
+    script_files => qw[scripts/net-bittorrent.pl],
     test_files => \@tests,
     meta_merge => {
         generated_by => q[Conversion, software version 7.0],

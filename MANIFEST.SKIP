@@ -46,19 +46,8 @@
 \bNet-BitTorrent-[\d\.\_]+
 
 # Don't package incomplete/private stuff
-scripts/gui\.pl
-scripts/gui\.xrc
-scripts/bittorrent_full.pl
-scripts/POE\.pl
-scripts/webg?ui\.pl
-scripts/x.*\.pl
-scripts/.*\.zip
-scripts/.*\.js
-scripts/.*\.bencode
-scripts/.*\.torrent
 scripts/.+/.+
-# renamed tatoeba/005-console.pl and no longer installed with N::B
-scripts/bittorrent.pl
+scripts/x.pl
 
 # Don't package silly stuff
 tatoeba/.+/.+

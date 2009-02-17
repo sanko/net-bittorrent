@@ -17,6 +17,7 @@ MANIFEST			This list of files
 META.yml
 Notes.pod
 README
+scripts/net-bittorrent.pl
 t/000_miniswarm/007_miniswarm_http.t
 t/000_miniswarm/008_miniswarm_dht.t
 t/000_miniswarm/009_miniswarm_udp.t
