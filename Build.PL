@@ -446,8 +446,7 @@ my $mb = $class->new(
             file => [qw[scripts/net-bittorrent.pl]]
         },
         resources => {
-             bugtracker =>
-                 q[http://code.google.com/p/net-bittorrent/issues/list],
+             bugtracker => q[http://github.com/sanko/net-bittorrent/issues],
              ChangeLog =>
                  q[http://github.com/sanko/net-bittorrent/commits/master],
              homepage => q[http://sankorobinson.com/net-bittorrent/],

@@ -594,7 +594,7 @@ END
 ------------------------------------------------------------------------------
 Unknown incoming packet. This may be a bug in Net::BitTorrent, so please c+p
 the following block when you report this in the Net::BitTorrent Issue Tracker:
-http://code.google.com/p/net-bittorrent/issues/list
+http://github.com/sanko/net-bittorrent/issues
 ------------------------------------------------------------------------------
 = Peer Information ===========================================================
 %s
@@ -2315,7 +2315,7 @@ ADVANCED
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j 
+                    = (  $_j
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]
@@ -2586,6 +2586,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Peer.pm 3d04563 2009-02-12 19:52:19Z sanko@cpan.org $
+=for svn $Id: Peer.pm d8d71ee 2009-02-13 20:55:16Z sanko@cpan.org $
 
 =cut

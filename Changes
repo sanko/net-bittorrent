@@ -1,4 +1,4 @@
-Version 0.0XX | Distant future | d8d71ee
+Version 0.0XX | Distant future | c46c0fa
 
     API Changes/Compatibility Information:
      * N/A
@@ -16,6 +16,7 @@ Version 0.0XX | Distant future | d8d71ee
     Notes:
      * Meanwhile...
          - New IRC-based support: irc://irc.p2p-network.com/net-bittorrent
+         - Bug tracker is now at http://github.com/sanko/net-bittorrent/issues
 
 ---
 Version 0.050 | 2009-02-13 20:55:16Z (Fri, 13 Feb 2009) | d8d71ee
@@ -396,7 +397,7 @@ _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
     http://github.com/sanko/net-bittorrent/commits/master
 
-$Ver: 0.050_001 $ from git
-$Date: 2009-02-13 20:55:16Z (Fri, 13 Feb 2009) $
-$Rev: d8d71ee3dd208ccb1396d48008da75cca2630f7d $
-$Url: http://github.com/sanko/net-bittorrent/raw/d8d71ee3dd208ccb1396d48008da75cca2630f7d/Changes $
+$Ver: 0.050_002 $ from git
+$Date: 2009-02-17 22:11:17Z (Tue, 17 Feb 2009) $
+$Rev: 862fd0369f8a45f553a1c12d4d3b3ca1820c81a9 $
+$Url: http://github.com/sanko/net-bittorrent/raw/862fd0369f8a45f553a1c12d4d3b3ca1820c81a9/Changes $
