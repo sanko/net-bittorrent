@@ -24,3 +24,7 @@ git.pod
 
 scripts/x.pl
 tatoeba/a.legal.torrent
+
+scripts/*.torrent
+
+scripts/*/*
