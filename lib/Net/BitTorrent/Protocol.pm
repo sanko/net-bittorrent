@@ -249,6 +249,24 @@ package Net::BitTorrent::Protocol;
         my $packet = pack(q[ca*], $msgID, bencode($data));
         return pack(q[Nca*], length($packet) + 1, 20, $packet);
     }
+    my %parse_packet_dispatch = (&KEEPALIVE      => \&_parse_keepalive,
+                                 &CHOKE          => \&_parse_choke,
+                                 &UNCHOKE        => \&_parse_unchoke,
+                                 &INTERESTED     => \&_parse_interested,
+                                 &NOT_INTERESTED => \&_parse_not_interested,
+                                 &HAVE           => \&_parse_have,
+                                 &BITFIELD       => \&_parse_bitfield,
+                                 &REQUEST        => \&_parse_request,
+                                 &PIECE          => \&_parse_piece,
+                                 &CANCEL         => \&_parse_cancel,
+                                 &PORT           => \&_parse_port,
+                                 &SUGGEST        => \&_parse_suggest,
+                                 &HAVE_ALL       => \&_parse_have_all,
+                                 &HAVE_NONE      => \&_parse_have_none,
+                                 &REJECT         => \&_parse_reject,
+                                 &ALLOWED_FAST   => \&_parse_allowed_fast,
+                                 &EXTPROTOCOL    => \&_parse_extended
+    );
 
     sub parse_packet {
         my ($data) = @_;
@@ -270,26 +288,8 @@ package Net::BitTorrent::Protocol;
         {   if ((unpack(q[N], $$data) <= length($$data))) {
                 (my ($packet_data), $$data) = unpack(q[N/aa*], $$data);
                 (my ($type), $packet_data) = unpack(q[ca*], $packet_data);
-                my %dispatch = (&KEEPALIVE      => \&_parse_keepalive,
-                                &CHOKE          => \&_parse_choke,
-                                &UNCHOKE        => \&_parse_unchoke,
-                                &INTERESTED     => \&_parse_interested,
-                                &NOT_INTERESTED => \&_parse_not_interested,
-                                &HAVE           => \&_parse_have,
-                                &BITFIELD       => \&_parse_bitfield,
-                                &REQUEST        => \&_parse_request,
-                                &PIECE          => \&_parse_piece,
-                                &CANCEL         => \&_parse_cancel,
-                                &PORT           => \&_parse_port,
-                                &SUGGEST        => \&_parse_suggest,
-                                &HAVE_ALL       => \&_parse_have_all,
-                                &HAVE_NONE      => \&_parse_have_none,
-                                &REJECT         => \&_parse_reject,
-                                &ALLOWED_FAST   => \&_parse_allowed_fast,
-                                &EXTPROTOCOL    => \&_parse_extended
-                );
-                if (defined $dispatch{$type}) {
-                    my $payload = $dispatch{$type}($packet_data);
+                if (defined $parse_packet_dispatch{$type}) {
+                    my $payload = $parse_packet_dispatch{$type}($packet_data);
                     $packet = {Type => $type,
                                (defined $payload
                                 ? (Payload => $payload)
@@ -981,6 +981,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Protocol.pm 3f42870 2009-02-12 05:01:56Z sanko@cpan.org $
+=for svn $Id: Protocol.pm d8d71ee 2009-02-13 20:55:16Z sanko@cpan.org $
 
 =cut

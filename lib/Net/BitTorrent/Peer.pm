@@ -517,15 +517,7 @@ END
         $_client{refaddr $self}->_add_connection($self, q[rw]);
         return length($_data_out{refaddr $self} .= $data);
     }
-
-    sub _parse_packets {
-        my ($self, $time) = @_;
-
-        #warn((caller(0))[3] . q[ | ] . $_state{refaddr $self}) . q[ | ]
-        #    . ($peerid{refaddr $self} || q[Unknown]);
-        #warn q[$_state{refaddr $self} == ] . $_state{refaddr $self};
-        if ($_state{refaddr $self} != REG_OKAY) {
-            my %handshake_dispatch = (
+    my %_parse_packets_handshake_dispatch = (
                           &MSE_ONE   => \&___handle_encrypted_handshake_one,
                           &MSE_TWO   => \&___handle_encrypted_handshake_two,
                           &MSE_THREE => \&___handle_encrypted_handshake_three,
@@ -534,9 +526,36 @@ END
                           &REG_ONE   => \&___handle_plaintext_handshake_one,
                           &REG_TWO   => \&___handle_plaintext_handshake_two,
                           &REG_THREE => \&___handle_plaintext_handshake_three
-            );
-            if (defined $handshake_dispatch{$_state{refaddr $self}}) {
-                $handshake_dispatch{$_state{refaddr $self}}($self);
+    );
+    my %_parse_packets_dispatch = (
+                                 &KEEPALIVE      => \&__handle_keepalive,
+                                 &CHOKE          => \&__handle_choke,
+                                 &UNCHOKE        => \&__handle_unchoke,
+                                 &INTERESTED     => \&__handle_interested,
+                                 &NOT_INTERESTED => \&__handle_not_interested,
+                                 &HAVE           => \&__handle_have,
+                                 &BITFIELD       => \&__handle_bitfield,
+                                 &REQUEST        => \&__handle_request,
+                                 &PIECE          => \&__handle_piece,
+                                 &CANCEL         => \&__handle_cancel,
+                                 &HAVE_ALL       => \&__handle_have_all,
+                                 &HAVE_NONE      => \&__handle_have_none,
+                                 &ALLOWED_FAST   => \&__handle_allowed_fast,
+                                 &REJECT         => \&__handle_reject,
+                                 &EXTPROTOCOL    => \&__handle_ext_protocol
+    );
+
+    sub _parse_packets {
+        my ($self, $time) = @_;
+
+        #warn((caller(0))[3] . q[ | ] . $_state{refaddr $self}) . q[ | ]
+        #    . ($peerid{refaddr $self} || q[Unknown]);
+        #warn q[$_state{refaddr $self} == ] . $_state{refaddr $self};
+        if ($_state{refaddr $self} != REG_OKAY) {
+            if (defined
+                $_parse_packets_handshake_dispatch{$_state{refaddr $self}})
+            {   $_parse_packets_handshake_dispatch{$_state{refaddr $self}}(
+                                                                       $self);
             }
             else {
                 Carp::cluck q[Unknown state: ] . $_state{refaddr $self};
@@ -560,25 +579,9 @@ END
                     }
                     last PACKET;
                 }
-                my %dispatch = (&KEEPALIVE      => \&__handle_keepalive,
-                                &CHOKE          => \&__handle_choke,
-                                &UNCHOKE        => \&__handle_unchoke,
-                                &INTERESTED     => \&__handle_interested,
-                                &NOT_INTERESTED => \&__handle_not_interested,
-                                &HAVE           => \&__handle_have,
-                                &BITFIELD       => \&__handle_bitfield,
-                                &REQUEST        => \&__handle_request,
-                                &PIECE          => \&__handle_piece,
-                                &CANCEL         => \&__handle_cancel,
-                                &HAVE_ALL       => \&__handle_have_all,
-                                &HAVE_NONE      => \&__handle_have_none,
-                                &ALLOWED_FAST   => \&__handle_allowed_fast,
-                                &REJECT         => \&__handle_reject,
-                                &EXTPROTOCOL    => \&__handle_ext_protocol
-                );
-                if (defined $dispatch{$packet->{q[Type]}}) {
-                    $dispatch{$packet->{q[Type]}}($self,
-                                                  $packet->{q[Payload]});
+                if (defined $_parse_packets_dispatch{$packet->{q[Type]}}) {
+                    $_parse_packets_dispatch{$packet->{q[Type]}}($self,
+                                                       $packet->{q[Payload]});
                 }
                 else {
                     my $packet_dump = q[];
@@ -2315,7 +2318,7 @@ ADVANCED
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j
+                    = (  $_j 
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]
