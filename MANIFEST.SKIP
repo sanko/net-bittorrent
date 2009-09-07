@@ -55,7 +55,7 @@ tatoeba/.*.log$
 #   Created by tatoeba/004-resume.pl
 tatoeba/.*\.resume$
 
-# Don't package downloaded/perif files
+# Don't package downloaded/extra files
 \.avi
 \.mpe?g
 \.wmv
@@ -81,3 +81,15 @@ commitlog.txt
 # Still adjusting...
 git.pod
 \B\.git\b
+
+# Just for me
+.gitattributes
+.gitclean.pl
+.gitignore
+.gitsmudge.pl
+
+# Not yet...
+t/000_miniswarm/015_miniswarm_magnet.t
+
+# Devel scripts
+~.+\.pl
