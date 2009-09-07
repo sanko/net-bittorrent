@@ -26,7 +26,7 @@ $SIG{__WARN__} = (
     : sub { }
 );
 my ($flux_capacitor, %peers) = (0, ());
-plan tests => 2;
+plan tests => 4;
 SKIP: {
     skip(q[Socket-based tests have been disabled.],
          ($test_builder->{q[Expected_Tests]} - $test_builder->{q[Curr_Test]})
@@ -40,6 +40,17 @@ SKIP: {
     ) if !$client || !$client->_dht;
     isa_ok($client->_dht, q[Net::BitTorrent::DHT], q[N::B->_dht]);
     ok($client->_dht->node_id, q[node_id()]);
+}
+
+# Bugfixes
+{
+    my $nb = Net::BitTorrent->new();
+    is_deeply($nb->_dht->nodes(), [],
+              'List of DHT nodes is empty by default');
+    $nb->add_torrent({Path => './t/900_data/950_torrents/956_dht.torrent'});
+    is_deeply($nb->_dht->nodes(),
+              [{qw[ip 127.0.0.1 port 1024]}],
+              'List of DHT nodes includes boot nodes from .torrent');
 }
 __END__
 Copyright (C) 2008-2009 by Sanko Robinson <sanko@cpan.org>
