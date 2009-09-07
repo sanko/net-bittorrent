@@ -2,6 +2,7 @@ Build.PL
 Changes
 lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/DHT.pm
+lib/Net/BitTorrent/Notes.pod
 lib/Net/BitTorrent/Peer.pm
 lib/Net/BitTorrent/Protocol.pm
 lib/Net/BitTorrent/Torrent.pm
@@ -15,7 +16,6 @@ LICENSE
 Makefile.PL
 MANIFEST			This list of files
 META.yml
-Notes.pod
 README
 scripts/net-bittorrent.pl
 t/000_miniswarm/007_miniswarm_http.t
