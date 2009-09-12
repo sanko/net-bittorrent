@@ -4,152 +4,44 @@ package MBX::Net::BitTorrent::Developer;
     use warnings;
     use base 'Module::Build';
 
-    # TODO: add pod
-    sub ACTION_profile {
-        my ($self) = @_;
-        unless (
-             Module::Build::ModuleInfo->find_module_by_name('Devel::NYTProf'))
-        {   warn(
-                "Cannot run testcover action unless Devel::NYTProf is installed.\n"
-            );
-            return;
-        }
-        $self->add_to_cleanup('nytprof.out', 'nytprof');
-        $self->depends_on('code');
-
-        # See whether any of the *.pm files have changed since last time
-        # profile was run.  If so, start over.
-        if (-e 'nytprof.out') {
-            my $pm_files =
-                $self->rscan_dir(File::Spec->catdir($self->blib, 'lib'),
-                                 qr[\.pm$]);
-            my $cover_files = $self->rscan_dir('cover_db',
-                                             sub { -f $_ and not /\.html$/ });
-            $self->do_system(qw(cover -delete))
-                unless $self->up_to_date($pm_files, $cover_files)
-                    && $self->up_to_date($self->test_files, $cover_files);
-        }
-        local $Test::Harness::Switches = local $Test::Harness::Switches
-            = local $ENV{HARNESS_PERL_SWITCHES} = '-d:NYTProf';
-        $self->notes(profile => 1);
-        $self->depends_on('test');
-        $self->do_system('nytprofhtml --open');
-        $self->notes(profile => 0);    # clean up
-    }
-
-    sub ACTION_tidy {
-        my ($self) = @_;
-        unless (Module::Build::ModuleInfo->find_module_by_name('Perl::Tidy'))
-        {   warn("Cannot run tidy action unless Perl::Tidy is installed.\n");
-            return;
-        }
-        require Perl::Tidy;
-        my $demo_files
-            = $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
-        for my $files ([keys(%{$self->script_files})],       # scripts first
-                       [values(%{$self->find_pm_files})],    # modules
-                       [@{$self->find_test_files}],          # test suite next
-                       [@{$demo_files}]                      # demos last
-            )
-        {   $files = [sort map { File::Spec->rel2abs('./' . $_) } @{$files}];
-
-            # One at a time...
-            for my $file (@$files) {
-                printf "Running perltidy on '%s' ...\n",
-                    File::Spec->abs2rel($file);
-                $self->add_to_cleanup($file . '.tidy');
-                Perl::Tidy::perltidy(argv => <<'END' . $file); } }
---brace-tightness=2
---block-brace-tightness=1
---block-brace-vertical-tightness=2
---paren-tightness=2
---paren-vertical-tightness=2
---square-bracket-tightness=2
---square-bracket-vertical-tightness=2
---brace-tightness=2
---brace-vertical-tightness=2
-
---delete-old-whitespace
---no-indent-closing-brace
---line-up-parentheses
---no-outdent-keywords
---no-outdent-long-quotes
---no-space-for-semicolon
---swallow-optional-blank-lines
-
---continuation-indentation=4
---maximum-line-length=78
-
---want-break-before='% + - * / x != == >= <= =~ !~ < > | & >= < = **= += *= &= <<= &&= -= /= |= \ >>= ||= .= %= ^= x= ? :'
-
---standard-error-output
---warning-output
-
---backup-and-modify-in-place
---backup-file-extension=tidy
-
-END
-        $self->depends_on('code');
+    sub make_tarball {
+        my ($self, $dir, $file, $quiet) = @_;
+        $file ||= $dir;
+        $self->do_system(
+            'tar --mode=0755 -c' . ($quiet ? q[] : 'v') . "f $file.tar $dir");
+        $self->do_system("gzip -9 -f -n $file.tar");
         return 1;
     }
 
-    sub ACTION_wastetime {
-        my ($self) = @_;
-        unless (Module::Build::ModuleInfo->find_module_by_name('File::Copy'))
-        {   warn("Cannot run mindist action unless File::Copy is installed.\n"
-            );
-            return;
+    sub ACTION_distdir {
+        my ($self, $args) = @_;
+        if ($self->notes('do_rcs')) {
+            $self->SUPER::depends_on('changelog');
+            $self->SUPER::depends_on('RCS');
         }
-        require File::Copy;
-        my $_quiet = $self->quiet(1);
-        mkdir './archive' if !-d './archive';
-        my $dist_dir = q[];
-        for my $i (1 .. 999) {
-            $self->SUPER::ACTION_distdir();
-            $dist_dir = $self->dist_dir;
-            $self->make_tarball($dist_dir, $dist_dir, 1);
-
-          #File::Copy::copy($dist_dir . '.tar.gz',
-          #     'X:/archive/' . $dist_dir . '.tar.gz' . sprintf('.%03d', $i));
-            rename $dist_dir . '.tar.gz', './archive/' . $dist_dir . '.tar.gz'
-                if !-f './archive/' . $dist_dir . '.tar.gz'
-                    or -s $dist_dir . '.tar.gz'
-                    < -s './archive/' . $dist_dir . '.tar.gz';
-            printf "dist #%03d ... %d bytes\n", $i, -s $dist_dir . '.tar.gz';
-            unlink $dist_dir . '.tar.gz';
-            $self->delete_filetree($dist_dir);
-        }
-        File::Copy::copy('./archive/' . $dist_dir . '.tar.gz',
-                         $dist_dir . '.tar.gz');
-        return $self->quiet($_quiet);
+        $self->notes('do_rcs' => 1);
+        $self->SUPER::ACTION_distdir(@_);
     }
 
-    sub ACTION_spellcheck {
+    sub ACTION_clear_config {
         my ($self) = @_;
-        my $demo_files
-            = $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
-        for my $files (
-            [keys(%{$self->script_files})],       # scripts first
-            [values(%{$self->find_pm_files})],    # modules
-            [@{$self->find_test_files}],          # test suite
-            [values(%{shift->_find_file_by_type('pod', '.')})],    # docs
-            [@{$demo_files}]                                       # demos
-            )
-        {   $files = [sort map { File::Spec->rel2abs('./' . $_) } @{$files}];
-            for my $file (@$files) {
-                $file = File::Spec->abs2rel($file);
-                system(
-                     sprintf('title aspell - "%s"', File::Spec->abs2rel($file)
-                     )
-                );
-                $self->do_system(sprintf 'perldoc %s > %s.spell',
-                                 $file, $file);
-                $self->add_to_cleanup($file . '.spell');
-                system('aspell check ' . $file . '.spell');
-                $self->add_to_cleanup($file . '.bak');
-            }
-        }
-        $self->depends_on('code');
+        print 'Cleaning Alien::FLTK config... ';
+        my $me = rel2abs($self->base_dir() . '/lib/Alien/FLTK.pm');
+        require IO::File;
+        my $mode_orig = (stat $me)[2] & 07777;
+        chmod($mode_orig | 0222, $me);    # Make it writeable
+        my $fh = IO::File->new($me, 'r+')
+            or die "Can't rewrite $me: $!";
+        seek($fh, 0, 0);
+        while (<$fh>) { last if /^__DATA__$/; }
+        die "Couldn't find __DATA__ token in $me" if eof($fh);
+        seek($fh, tell($fh), 0);
+        $fh->print("do{ my \$x = { }; \$x; }\n");
+        truncate($fh, tell($fh));
+        $fh->close;
+        chmod($mode_orig, $me)
+            or warn "Couldn't restore permissions on $me: $!";
+        print "okay\n";
     }
 
     sub ACTION_changelog {
@@ -172,14 +64,14 @@ END
 
         # gather various info
         my @bits = split ',', qx[git log --pretty=format:"%at,%H,%h" -n 1];
-        my $Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
-                                   gmtime($bits[0]));
-        my $Commit = $bits[1];
+        my $_Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
+                                    gmtime($bits[0]));
+        my $_Commit = $bits[1];
         my $dist = sprintf(
             'Version %s | %s | %s',
             ($self->dist_version() =~ m[_]   # $self->dist_version()->is_alpha
-             ? ('0.0XXX', 'In the not too distant future')
-             : ($self->dist_version(), $Date$self->dist_version()->numify
+             ? ('0.XXXXX', 'Soon. Probably.')
+             : ($self->dist_version(), $_Date) # $self->dist_version()->numify
             ),
             $bits[2]
         );
@@ -188,16 +80,16 @@ END
         $CHANGES_D =~ s[.+(\r?\n)][$dist$1];
         $CHANGES_D
             =~ s[(_ -.-. .... .- -. --. . ... _+).*][$1 . sprintf <<'END',
-        $self->{'properties'}{'meta_merge'}{'resources'}{'ChangeLog'}||'',
-        $self->dist_version , qw[$ $ $]
+        $self->{'properties'}{'meta_merge'}{'resources'}{'ChangeLog'}||'', '$',
+        $self->dist_version , qw[$ $ $ $ $ $ $]
     ]se;
 
 For more information, see the commit log:
     %s
 
-$Ver$ from git $Rev%s
-$Date%s
-$Url%s
+%sVer: %s %s from git %sRev%s
+%sDate%s
+%sUrl%s
 END
 
      # Keep a backup (just in case) and move the file so we can create it next
@@ -251,29 +143,28 @@ END
             my (@bits) = split q[,],
                 qx[git log --pretty=format:"%at,%H,%x25%x73 %h %x25%x2E%x32%x30%x73 %ce" -n 1 $file];
             next FILE if !@bits;
-            my $Mod  = qx[git log --pretty=format:"%cr" -n 1 $file];
-            my $Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
-                                       gmtime($bits[0]));
-            my $Commit = $bits[1];
-            my $Commit_short = substr($bits[1], 0, 7);
-            my $Id$bits[2], (File::Spec->splitpath($file))[2],
-                $Date;
-            my $Repo
+            my $_Mod  = qx[git log --pretty=format:"%cr" -n 1 $file];
+            my $_Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
+                                        gmtime($bits[0]));
+            my $_Commit = $bits[1];
+            my $_Commit_short = substr($bits[1], 0, 7);
+            my $_Id = sprintf $bits[2], (File::Spec->splitpath($file))[2],
+                $_Date;
+            my $_Repo
                 = $self->{'properties'}{'meta_merge'}{'resources'}
                 {'repository'}
                 || '';
 
             # start changing the data around
             my $CHANGES_O = $CHANGES_D;
-            $CHANGES_D =~ s[\$(Id)(:[^\$]*)?\$][\$$1: $Id$]ig;
-            $CHANGES_D =~ s[\$(Date)(:[^\$]*)?\$][\$$1: $Date$]ig;
-            $CHANGES_D =~ s[\$(Mod(ified)?)(:[^\$]*)?\$][\$$1: $Mod \$]ig;
+            $CHANGES_D =~ s[\$(Id)(:[^\$]*)?\$][\$$1: $_Id \$]ig;
+            $CHANGES_D =~ s[\$(Date)(:[^\$]*)?\$][\$$1: $_Date \$]ig;
+            $CHANGES_D =~ s[\$(Mod(ified)?)(:[^\$]*)?\$][\$$1: $_Mod \$]ig;
             $CHANGES_D
-                =~ s[\$(Url)(:[^\$]*)?\$][\$$1: $Repo/raw/$Commit/$file \$]ig
-                if $Repo;
-            $CHANGES_D =~ s|//raw|/raw|g;    # cleanup
+                =~ s[\$(Url)(:[^\$]*)?\$][\$$1: $_Repo/raw/$_Commit/$file \$]ig
+                if $_Repo;
             $CHANGES_D
-                =~ s[\$(Rev(ision)?)(?::[^\$]*)?\$]["\$$1: ". ($2?$Commit:$Commit_short)." \$"]ige;
+                =~ s[\$(Rev(ision)?)(?::[^\$]*)?\$]["\$$1: ". ($2?$_Commit:$_Commit_short)." \$"]ige;
 
             # Skip to the next file if this one wasn't updated
             next FILE if $CHANGES_D eq $CHANGES_O;
@@ -306,37 +197,62 @@ END
         return 1;
     }
 
-    sub ACTION_testkwalitee {
+    sub ACTION_tidy {
         my ($self) = @_;
-        use Test::More;
-        eval { require Test::Kwalitee; Test::Kwalitee->import() };
-        plan(skip_all => 'Test::Kwalitee not installed; skipping') if $@;
-    }
-
-    sub ACTION_testpod {
-        my ($self) = @_;
-        use Test::More;
-        eval "use Test::Pod 1.00";
-        plan skip_all => "Test::Pod 1.00 required for testing POD" if $@;
-        all_pod_files_ok(all_pod_files(qw[lib scripts tatoeba t]));
-    }
-
-    sub ACTION_distdir {
-        my ($self, $args) = @_;
-        if ($self->notes('do_rcs')) {
-            $self->SUPER::depends_on('changelog');
-            $self->SUPER::depends_on('RCS');
+        unless (Module::Build::ModuleInfo->find_module_by_name('Perl::Tidy'))
+        {   warn("Cannot run tidy action unless Perl::Tidy is installed.\n");
+            return;
         }
-        $self->notes('do_rcs' => 1);
-        $self->SUPER::ACTION_distdir(@_);
-    }
+        require Perl::Tidy;
+        my $demo_files
+            = $self->rscan_dir(File::Spec->catdir('tatoeba'), qr[\.pl$]);
+        my $inst_files
+            = $self->rscan_dir(File::Spec->catdir('inc'), qr[\.pm$]);
+        for my $files ([keys(%{$self->script_files})],       # scripts first
+                       [values(%{$self->find_pm_files})],    # modules
+                       [@{$self->find_test_files}],          # test suite next
+                       [@{$inst_files}],                     # installer files
+                       [@{$demo_files}]                      # demos last
+            )
+        {   $files = [sort map { File::Spec->rel2abs('./' . $_) } @{$files}];
 
-    sub make_tarball {
-        my ($self, $dir, $file, $quiet) = @_;
-        $file ||= $dir;
-        $self->do_system(
-            'tar --mode=0755 -c' . ($quiet ? q[] : 'v') . "f $file.tar $dir");
-        $self->do_system("gzip -9 -f -n $file.tar");
+            # One at a time...
+            for my $file (@$files) {
+                printf "Running perltidy on '%s' ...\n",
+                    File::Spec->abs2rel($file);
+                $self->add_to_cleanup($file . '.tidy');
+                Perl::Tidy::perltidy(argv => <<'END' . $file); } }
+--brace-tightness=2
+--block-brace-tightness=1
+--block-brace-vertical-tightness=2
+--paren-tightness=2
+--paren-vertical-tightness=2
+--square-bracket-tightness=2
+--square-bracket-vertical-tightness=2
+--brace-tightness=2
+--brace-vertical-tightness=2
+
+--delete-old-whitespace
+--no-indent-closing-brace
+--line-up-parentheses
+--no-outdent-keywords
+--no-outdent-long-quotes
+--no-space-for-semicolon
+--swallow-optional-blank-lines
+
+--continuation-indentation=4
+--maximum-line-length=78
+
+--want-break-before='% + - * / x != == >= <= =~ !~ < > | & >= < = **= += *= &= <<= &&= -= /= |= \ >>= ||= .= %= ^= x= ? :'
+
+--standard-error-output
+--warning-output
+
+--backup-and-modify-in-place
+--backup-file-extension=tidy
+
+END
+        $self->depends_on('code');
         return 1;
     }
     1;
