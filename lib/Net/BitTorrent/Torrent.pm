@@ -199,6 +199,17 @@ package Net::BitTorrent::Torrent;
                  )
             );
         }
+        if (   ($args->{q[Client]})
+            && (blessed $args->{q[Client]})
+            && ($args->{q[Client]}->isa(q[Net::BitTorrent])))
+        {   foreach my $_node ($raw_data{refaddr $self}{q[nodes]}
+                               ? @{$raw_data{refaddr $self}{q[nodes]}}
+                               : ()
+                )
+            {   $args->{q[Client]}->_dht->add_node(
+                                    {ip => $_node->[0], port => $_node->[1]});
+            }
+        }
         $args->{q[Status]} ||= 0;
         $args->{q[Status]} ^= CHECKING if $args->{q[Status]} & CHECKING;
         $args->{q[Status]} ^= CHECKED  if $args->{q[Status]} & CHECKED;

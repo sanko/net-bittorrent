@@ -4,7 +4,8 @@ Version 0.0XX | Distant future | c46c0fa
      * N/A
 
     Resolved Issues/Bug Fixes:
-     * N/A
+     * DHT nodes found in metadata are now handled according to spec
+       - Bug reported by Wouter Godefroy via email
 
     Protocol/Behavioral Changes:
      * N/A
