@@ -1,5 +1,5 @@
 #!perl -w
-# $Id: TCP-talk-to-ourself.pl a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
+# $Id$
 use strict;
 use warnings;
 require IO::Socket;
@@ -74,6 +74,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: TCP-talk-to-ourself.pl a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
+=for svn $Id$
 
 =cut

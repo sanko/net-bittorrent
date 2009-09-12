@@ -24,7 +24,7 @@ package Net::BitTorrent::Torrent;
     use Net::BitTorrent::Torrent::File;
     use Net::BitTorrent::Torrent::Tracker;
     use version qw[qv];
-    our $VERSION_BASE = 50; our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 51; our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     my %REGISTRY = ();
     my @CONTENTS = \my (%_client,  %path,            %_basedir,
                         %size,     %files,           %trackers,
