@@ -1590,7 +1590,6 @@ SKIP: {
         warn sprintf q[%d|%d], 474, $test_builder->{q[Curr_Test]};
     }
 =cut
-
 }
 
 sub newsock {
@@ -1622,4 +1621,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: Peer.t d8d71ee 2009-02-13 20:55:16Z sanko@cpan.org $
+$Id$

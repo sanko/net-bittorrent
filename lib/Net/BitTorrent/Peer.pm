@@ -2589,6 +2589,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: Peer.pm d8d71ee 2009-02-13 20:55:16Z sanko@cpan.org $
+=for svn $Id$
 
 =cut

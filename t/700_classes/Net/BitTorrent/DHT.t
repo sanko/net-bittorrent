@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -Iinc
 use strict;
 use warnings;
 use Test::More;
@@ -66,4 +66,4 @@ the Creative Commons Attribution-Share Alike 3.0 License.  See
 http://creativecommons.org/licenses/by-sa/3.0/us/legalcode.  For
 clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 
-$Id: DHT.t a7a7e9d 2009-02-09 04:49:58Z sanko@cpan.org $
+$Id$

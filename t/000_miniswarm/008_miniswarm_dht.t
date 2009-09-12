@@ -1,4 +1,4 @@
-# -*- perl -*-
+#!perl -Iinc
 # Miniature swarm of 1 seed, 3 DHT trackers, and 5 new peers
 #
 use strict;
@@ -6,7 +6,7 @@ use warnings;
 use Module::Build;
 use Test::More;
 use File::Temp qw[];
-use lib q[../../lib];
+use lib q[../../lib ../../../];
 use Time::HiRes qw[];
 use Net::BitTorrent::Protocol qw[:types];
 use Net::BitTorrent::Util qw[:compact :bencode];

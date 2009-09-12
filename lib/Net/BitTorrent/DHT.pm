@@ -790,6 +790,6 @@ clarification, see http://creativecommons.org/licenses/by-sa/3.0/us/.
 Neither this module nor the L<Author|/Author> is affiliated with
 BitTorrent, Inc.
 
-=for svn $Id: DHT.pm 3f42870 2009-02-12 05:01:56Z sanko@cpan.org $
+=for svn $Id$
 
 =cut
