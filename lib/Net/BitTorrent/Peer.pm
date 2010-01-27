@@ -11,7 +11,7 @@ package Net::BitTorrent::Peer;
     use Math::BigInt;
     use Digest::SHA qw[sha1];
     use version qw[qv];
-    our $VERSION_BASE = 50; our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
+    our $VERSION_BASE = 51; our $UNSTABLE_RELEASE = 0; our $VERSION = sprintf(($UNSTABLE_RELEASE ? q[%.3f_%03d] : q[%.3f]), (version->new(($VERSION_BASE))->numify / 1000), $UNSTABLE_RELEASE);
     use vars qw[@EXPORT_OK %EXPORT_TAGS];
     use Exporter qw[];
     *import = *import = *Exporter::import;
@@ -221,7 +221,7 @@ END
                     && !$_->{q[Object]}->torrent
             } values %{$args->{q[Torrent]}->_client->_connections};
             if ($half_open >= $args->{q[Torrent]}->_client->_half_open) {
-                warn sprintf q[%d half open sockets!], $half_open;
+                #warn sprintf q[%d half open sockets!], $half_open;
                 return;
             }
             if (scalar($args->{q[Torrent]}->peers)
@@ -2318,7 +2318,7 @@ ADVANCED
             ($_i{refaddr $self}{$pass}, $_j{refaddr $self}{$pass}) = (0, 0);
             for my $_i (0 .. 255) {
                 $_j
-                    = (  $_j 
+                    = (  $_j
                        + $key[$_i % @key]
                        + $_RC4_S{refaddr $self}{$pass}[$_i]) & 255;
                 @{$_RC4_S{refaddr $self}{$pass}}[$_i, $_j]
