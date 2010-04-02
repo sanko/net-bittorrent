@@ -80,8 +80,11 @@ SKIP: {
     is($client->_socket_open_tcp(inet_aton(q[127.0.0.1]), q[test]),
         undef,
         q[_socket_open_tcp(inet_aton(q[127.0.0.1]), q[test]) returns undef]);
-    is($client->_socket_open_tcp({}),
-        undef, q[_socket_open_tcp({}) returns undef]);
+SKIP: {
+        skip 'This does not work as expected on irix', 1 if $^O =~ m[irix]i;
+        is($client->_socket_open_tcp({}),
+            undef, q[_socket_open_tcp({}) returns undef]);
+    }
     is($client->_socket_open_tcp(q[127.0.0.1:25012]),
         undef, q[_socket_open_tcp(q[127.0.0.1:25012]) returns undef]);
     ok($client->_socket_open_tcp(q[127.0.0.1], 0),
@@ -114,8 +117,11 @@ SKIP: {
     is($client->_socket_open_udp(inet_aton(q[127.0.0.1]), q[test]),
         undef,
         q[_socket_open_udp(inet_aton(q[127.0.0.1]), q[test]) returns undef]);
-    is($client->_socket_open_udp({}),
-        undef, q[_socket_open_udp({}) returns undef]);
+SKIP: {
+        skip 'This does not work as expected on irix', 1 if $^O =~ m[irix]i;
+        is($client->_socket_open_udp({}),
+            undef, q[_socket_open_udp({}) returns undef]);
+    }
     is($client->_socket_open_udp(q[127.0.0.1:25012]),
         undef, q[_socket_open_udp(q[127.0.0.1:25012]) returns undef]);
     ok($client->_socket_open_udp(q[127.0.0.1], 0),
