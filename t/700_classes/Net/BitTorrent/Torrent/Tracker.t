@@ -11,6 +11,7 @@ use Net::BitTorrent;
 $|++;
 my $test_builder       = Test::More->builder;
 my $simple_dot_torrent = q[./t/900_data/950_torrents/953_miniswarm.torrent];
+my $multi_dot_torrent  = q[./t/900_data/950_torrents/952_multi.torrent];
 chdir q[../../../../../] if not -f $simple_dot_torrent;
 my $build           = Module::Build->current;
 my $okay_tcp        = $build->notes(q[okay_tcp]);
@@ -24,14 +25,12 @@ $SIG{__WARN__} = (
     : sub { }
 );
 $|++;
-my $multi_dot_torrent  = q[./t/900_data/950_torrents/952_multi.torrent];
-my $single_dot_torrent = q[./t/900_data/950_torrents/951_single.torrent];
 plan tests => 14;
 SKIP: {
     my $client = Net::BitTorrent->new();
     my $torrent =
         Net::BitTorrent::Torrent->new({Client => $client,
-                                       Path   => $single_dot_torrent
+                                       Path   => $simple_dot_torrent
                                       }
         );
     $client->on_event(q[tracker_success],

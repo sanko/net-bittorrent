@@ -37,7 +37,6 @@ t/900_data/910_scripts/UDP-talk-to-ourself.pl
 t/900_data/930_miniswarm/seed/1291672777_30adc6a421_o.jpg
 t/900_data/930_miniswarm/seed/2183742557_5c9a91727d_m.jpg
 t/900_data/930_miniswarm/seed/credit.txt
-t/900_data/950_torrents/951_single.torrent
 t/900_data/950_torrents/952_multi.torrent
 t/900_data/950_torrents/953_miniswarm.torrent
 t/900_data/950_torrents/954_perl-5.10.0.tar.gz.torrent
