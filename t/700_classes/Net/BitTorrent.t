@@ -26,7 +26,7 @@ $SIG{__WARN__} = (
         }
     : sub { }
 );
-plan tests => 90;
+plan tests => 89;
 my ($tempdir) = tempdir(q[~NBSF_test_XXXXXXXX], CLEANUP => 1, TMPDIR => 1);
 warn(sprintf(q[File::Temp created '%s' for us to play with], $tempdir));
 my $torrent;
@@ -191,7 +191,6 @@ SKIP: {
     isa_ok($_reuse_1, q[Net::BitTorrent],
            sprintf q[new({LocalPort => %d}) (Attempt to reuse port)],
            $client->_tcp_port);
-    is($_reuse_1->_tcp_port, undef, q[ ...but the TCP port is undef]);
 SKIP: {
         my ($_tmp_fail, $_tmp_okay);
         eval {
@@ -217,10 +216,13 @@ SKIP: {
     isa_ok($client_list_port, q[Net::BitTorrent],
            q[new({LocalPort => [20502, 20505]})]);
     my $socket = $client_list_port->_tcp;
-    isa_ok($client_list_port->_tcp, q[GLOB], q[Socket is valid.]);
-    my ($port, $packed_ip)
-        = unpack_sockaddr_in(getsockname($client_list_port->_tcp));
-    is($port, 20505, q[Correct port was opened (20505).]);
+SKIP: {
+        skip 'Failed to reopen socket', 2
+            if !defined $socket;
+        isa_ok($socket, q[GLOB], q[Socket is valid.]);
+        my ($port, $packed_ip) = unpack_sockaddr_in(getsockname($socket));
+        is($port, 20505, q[Correct port was opened (20505).]);
+    }
 }
 warn(q[Testing Net::BitTorrent->add_torrent()]);
 is($client->add_torrent(q[./t/900_data/950_torrents/952_multi.torrent]),
