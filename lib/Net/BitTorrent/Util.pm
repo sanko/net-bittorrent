@@ -32,7 +32,7 @@ package Net::BitTorrent::Util;
             return
                 join(q[], q[d],
                      (map { bencode($_) . bencode($ref->{$_}) }
-                          sort keys %{$ref}
+                      sort keys %{$ref}
                      ),
                      q[e]
                 );

@@ -1,21 +1,16 @@
-Version 0.052 | In the year 2000 | 0000000
-
-    API Changes/Compatibility Information:
-     * None yet
-
-    Resolved Issues/Bug Fixes:
-     * None yet
-
-    Protocol/Behavioral Changes:
-     * None yet
+Version 0.052 | 2010-04-02 18:10:33Z (Fri, 02 Apr 2010) | d2644fd
 
     Documentation/Sample Code/Test Suite:
+    * miniswarm tests are given less time before giving up
+    * 'bad' test (checking if port was opened twice... which seems to be okay
+        on some systems) has been removed
     * Removing t/900_data/950_torrents/951_single.torrent which was used to
         test large file support (caused "Out of memory!" errors on smokers
         with limited resources)
 
     Notes:
-     * None yet
+     * This will probably be the last 'stable' version before Net::BitTorrent
+        is rewritten. Stuff in TODO.pod will be expanded and used as a roadmap
 
 Version 0.051 | 2009-09-12 04:52:06Z (Sat, 12 Sep 2009) | 694da26
 
