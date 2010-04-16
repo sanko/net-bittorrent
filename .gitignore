@@ -30,4 +30,7 @@ commitlog.txt
 inc/*
 share/*
 
+# incomplete stuff
+lib2/*
+
 # $Id$
