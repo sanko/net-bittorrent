@@ -5,6 +5,7 @@ package Net::BitTorrent::Storage::File;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use File::Spec::Functions qw[catfile splitpath catpath];
     use File::Path qw[make_path];
+    use Fcntl qw[/O_/ /SEEK/ :flock];
     has 'path' => (is       => 'rw',
                    isa      => 'ArrayRef[Str]',
                    required => 1,
@@ -25,47 +26,67 @@ package Net::BitTorrent::Storage::File;
     #
     has 'filehandle' => (is  => 'rw',
                          isa => 'Maybe[GlobRef]');
-    enum '_file_perm' => qw[ro wo];
+    enum 'File::Open::Permission' => qw[ro wo];
     has 'open' => (
         is      => 'rw',
-        isa     => 'Maybe[_file_perm]',
+        isa     => 'Maybe[File::Open::Permission]',
         trigger => sub {
             my ($self, $new_mode, $old_mode) = @_;
             if (defined $new_mode) {
                 my $path = catfile @{$self->path};
                 my ($vol, $dirs, $file) = splitpath($path);
                 make_path(catpath $vol, $dirs, '') if $new_mode ne 'ro';
-                open(my ($FH), ($new_mode eq 'ro' ? '<' : '>'), $path)
+                my $_mode = $new_mode eq q[ro] ? O_RDONLY : O_WRONLY;
+                sysopen(my ($FH),
+                        $path,
+                        $_mode | (($_mode &= O_WRONLY)
+                                  ? O_CREAT
+                                  : 0
+                        )
+                    )
                     || return !$self->close();
                 $self->filehandle($FH);
+                flock $self->filehandle,
+                    $new_mode eq 'ro' ? LOCK_SH : LOCK_EX;
             }
             else {
-                close $self->filehandle if $self->filehandle;
+                if ($self->filehandle) {
+                    flock $self->filehandle, LOCK_UN;
+                    close $self->filehandle;
+                }
                 $self->filehandle(undef);
             }
         }
     );
     sub close () { !shift->open(undef); }
 
-    sub read ($$;$) {
-        my ($self, $length, $offset) = @_;
+    sub read ($$$) {
+        my ($self, $offset, $length) = @_;
+        use Carp;
+        Carp::cluck if !defined $length;
         return if !$self->open;
         return if $self->open ne 'ro';
         $offset //= 0;
-        return if $length + $offset > $self->length;
-        sysseek $self->filehandle, 0, 1;    # Set position to start of file
-        sysread $self->filehandle, my ($data), $length, $offset;
+        return
+            if $length + $offset > $self->length
+                && !$self->isa('Net::BitTorrent::Storage::Cache');
+        sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
+        sysread $self->filehandle, my ($data), $length;
         return $data;
     }
 
-    sub write ($$;$) {
-        my ($self, $data, $offset) = @_;
+    sub write ($$$) {
+        my ($self, $offset, $data) = @_;
         return if !$self->open;
         return if $self->open ne 'wo';
         $offset //= 0;
-        return if length($data) + $offset > $self->length;
-        sysseek $self->filehandle, 0, 1;    # Set position to start of file
-        return syswrite $self->filehandle, $data, length($data), $offset;
+        return
+            if length($data) + $offset > $self->length
+                && !$self->isa('Net::BitTorrent::Storage::Cache');
+        sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
+        eval truncate $self->filehandle, $offset
+            if $offset + length $data > -s $self->filehandle;
+        return syswrite $self->filehandle, $data, length($data);
     }
 }
 1;
