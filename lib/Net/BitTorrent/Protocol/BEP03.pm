@@ -17,26 +17,26 @@ package Net::BitTorrent::Protocol::BEP03;
 
     sub bencode {
         my ($ref) = @_;
-        $ref = defined $ref ? $ref : q[];
+        $ref = defined $ref ? $ref : '';
         if (not ref $ref) {
             return (  (defined $ref and $ref =~ m[^[-+]?\d+$])
-                    ? (q[i] . $ref . q[e])
-                    : (length($ref) . q[:] . $ref)
+                    ? ('i' . $ref . 'e')
+                    : (length($ref) . ':' . $ref)
             );
         }
-        elsif (ref $ref eq q[ARRAY]) {
-            return join(q[], q[l], (map { bencode($_) } @{$ref}), q[e]);
+        elsif (ref $ref eq 'ARRAY') {
+            return join('', 'l', (map { bencode($_) } @{$ref}),'e');
         }
-        elsif (ref $ref eq q[HASH]) {
+        elsif (ref $ref eq 'HASH') {
             return
-                join(q[], q[d],
+                join('', 'd',
                      (map { bencode($_) . bencode($ref->{$_}) }
                       sort keys %{$ref}
                      ),
-                     q[e]
+                     'e'
                 );
         }
-        return q[];
+        return '';
     }
 
     sub bdecode {
@@ -46,7 +46,7 @@ package Net::BitTorrent::Protocol::BEP03;
         if (   $string =~ m[^([1-9]\d*):]s
             or $string =~ m[^(0+):]s)
         {   my $size = $1;
-            $return = q[] if $1 =~ m[^0+$];
+            $return = '' if $1 =~ m[^0+$];
             $string =~ s|^$size:||s;
             while ($size) {
                 my $this_time = min($size, 32766);
