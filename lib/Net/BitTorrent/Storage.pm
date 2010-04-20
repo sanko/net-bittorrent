@@ -5,6 +5,15 @@ package Net::BitTorrent::Storage;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../';
     use Net::BitTorrent::Storage::File;
+    use Net::BitTorrent::Storage::Cache;
+
+    has 'cache' => (is         =>'rw',
+                    isa        =>'Net::BitTorrent::Storage::Cache',
+                    init_arg   =>undef,
+                    lazy_build => 1,
+                    builder    => sub{
+                        Net::BitTorrent::Storage::Cache->new( Storage => $_[0] )  }
+    );
     has 'torrent' => (is       => 'rw',
                       required => 1,
                       isa      => 'Net::BitTorrent::Torrent',
