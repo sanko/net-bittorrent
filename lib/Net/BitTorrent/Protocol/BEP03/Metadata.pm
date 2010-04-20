@@ -18,10 +18,10 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     );
     has 'storage' => (
         is  => 'ro',
+        required => 1,
         isa => 'Net::BitTorrent::Storage',
-
-        #lazy_build => 1,
-        default  => sub { Net::BitTorrent::Storage->new() },
+        lazy_build => 1,
+        builder  => sub { Net::BitTorrent::Storage->new( Torrent => $_[0]) },
         init_arg => 'Storage'
     );
     has 'trackers' => (isa => 'ArrayRef[Net::BitTorrent::Tracker]',

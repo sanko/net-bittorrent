@@ -6,6 +6,7 @@ package Net::BitTorrent::Storage;
     use lib '../../';
     use Net::BitTorrent::Storage::File;
     has 'torrent' => (is       => 'rw',
+                      required => 1,
                       isa      => 'Net::BitTorrent::Torrent',
                       init_arg => 'Torrent'
     );
