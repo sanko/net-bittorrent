@@ -38,10 +38,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         trigger  => sub {
             my ($self, $new_value, $old_value) = @_;
             if (@_ == 2) {
-
                 # parse files and trackers
-                use Data::Dump;
-                ddx $new_value;
                 if (defined $new_value->{'announce-list'}) {
                 }
                 else {
@@ -67,7 +64,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             warn 'Someone changed the metadata!';
         }
     );
-    has '_raw_metadata' => (
+    has '_raw' => (
         isa        => 'Str',
         lazy_build => 1,
         is         => 'rw',
@@ -87,11 +84,12 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         trigger  => sub {
             my ($self, $new_value, $old_value) = @_;
             if (@_ == 2) {
+
                 open(my ($FH), '<', $new_value)
                     || return !($_[0] = undef);    # exterminate! exterminate!
                 sysread($FH, my ($METADATA), -s $FH) == -s $FH
                     || return !($_[0] = undef);    # destroy!
-                $self->_raw_metadata($METADATA);
+                $self->_raw($METADATA);
                 return close $FH;
             }
 
