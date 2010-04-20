@@ -98,6 +98,26 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             # XXX - set the current value back to the old value
         }
     );
+    # Torrent::Infohash::* are useful enough to be in a higher package
+    type 'Torrent::Infohash' => where { defined $_ &&  /[a-f0-9]/i  && length $_ == 40 };
+    subtype 'Torrent::Infohash::Packed' => as 'Str' =>
+        where {
+             defined $_ && length$_ == 20 };
+    coerce 'Torrent::Infohash' => from 'Torrent::Infohash::Packed' =>
+        via { uc unpack 'H*', $_ };
+    coerce 'Torrent::Infohash::Packed' => from 'Torrent::Infohash' =>
+        via { pack 'H*', $_ };
+    has 'infohash' => (
+        is         => 'ro',
+        isa        => 'Torrent::Infohash',
+        init_arg   => undef,               # cannot set this with new()
+        coerce     => 1,                   # Both ways?
+        lazy_build => 1,
+        builder    => sub {                # returns Torrent::Infohash::Packed
+            require Digest::SHA;
+            return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
+        }
+    );
 
     # Quick accessors
     sub piece_length { return shift->metadata->{'info'}{'piece length'} }
