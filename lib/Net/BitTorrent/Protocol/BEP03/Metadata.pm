@@ -7,6 +7,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Net::BitTorrent::Types;
     use Net::BitTorrent::Protocol::BEP03 qw[:all];
     use Net::BitTorrent::Storage;
+    use Net::BitTorrent::Protocol::BEP12::Tracker; # Multitracker
     use Fcntl ':flock';
 
     # Extends Net::BitTorrent::Torrent
@@ -25,15 +26,18 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         builder  => '_build_storage',
         init_arg => 'Storage'
     );
+
     sub _build_storage {
         Net::BitTorrent::Storage->new( Torrent => $_[0])
-    has 'trackers' => (isa => 'ArrayRef[Net::BitTorrent::Tracker]',
-                       is  => 'rw',);
-    after 'trackers' => sub {    # All trackers have this torrent as parent
-        my ($self, $trackers) = @_;
-        foreach my $tracker (@{$trackers || []}) {
-            $tracker->torrent($self);
+
         }
+
+    has 'tracker' => (
+        isa => 'Net::BitTorrent::Protocol::BEP12::Tracker',
+        is  => 'rw',
+        lazy_build => 1,
+        builder => '_build_tracker'
+    );
     sub _build_tracker {
         Net::BitTorrent::Protocol::BEP12::Tracker->new(Torrent => $_[0]);
     }
@@ -46,8 +50,15 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             if (@_ == 2) {
                 # parse files and trackers
                 if (defined $new_value->{'announce-list'}) {
+                    $self->tracker(Net::BitTorrent::Protocol::BEP12::Tracker->new(Torrent => $self, URL => $new_value->{'announce'}));
+                    $self->tracker->add_tier( $_ ) for @{$new_value->{'announce-list'}}
+                }
+                elsif( $new_value->{'announce'} ) {
+                    $self->tracker(Net::BitTorrent::Protocol::BEP03::Tracker->new(Torrent => $self, URL => $new_value->{'announce'}));
+
                 }
                 else {
+                    # .torrent _requires_ DHT
                 }
 
                 #
