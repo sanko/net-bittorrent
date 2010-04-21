@@ -7,23 +7,23 @@ package Net::BitTorrent::Protocol::BEP12::Tracker::Tier;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../../';
 
-    extends 'Net::BitTorrent::Protocol::BEP03::Tracker';
+    #extends 'Net::BitTorrent::Protocol::BEP03::Tracker';
     use Net::BitTorrent::Types qw[:tracker];
-    #use Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
-    #use Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
-
-    has 'urls' => (
-        traits => ['Array'],
-        isa         => 'ArrayRef[Torrent::Tracker::UDP|Torrent::Tracker::HTTP]',
-        is          => 'rw',
-        init_arg => 'URLs',
-        coerce => 1,
-        required =>1,
-        handles => { add_url => 'push',
-                    shuffle  => 'shuffle' }
+    use Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
+    use Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
+    has 'trackers' => (
+                 traits => ['Array'],
+                 isa => 'ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker]',
+                 is  => 'rw',
+                 init_arg => 'Trackers',
+                 coerce   => 1,
+                 required => 1,
+                 handles  => {
+                             add_url => 'push',
+                             shuffle => 'shuffle'
+                 }
     );
-
-
+    after 'add_url' => sub { $_[0]->shuffle };
 }
 1;
 

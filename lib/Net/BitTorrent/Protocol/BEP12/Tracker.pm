@@ -13,27 +13,33 @@ package Net::BitTorrent::Protocol::BEP12::Tracker;
     #use Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
     #use Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
     has 'tiers' => (
-          traits => ['Array'],
-          isa =>
-              'ArrayRef[ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker]]',
-          is      => 'rw',
-          coerce  => 1,
-          default => sub { [] },
-          handles => {add_tier => 'push',
-                      shuffle  => 'shuffle'
-          }
+        traits => ['Array'],
+
+      #isa => 'ArrayRef[ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker]]',
+        isa    => 'ArrayRef[Net::BitTorrent::Protocol::BEP12::Tracker::Tier]',
+        is     => 'rw',
+        coerce => 1,
+        default => sub { [] },
+        handles => {add_tier => 'push',
+                    shuffle  => 'shuffle'
+        }
     );
     around 'add_tier' => sub {
         my ($code, $self, $trackers) = @_;
+        require Net::BitTorrent::Protocol::BEP12::Tracker::Tier;
+        require Net::BitTorrent::Protocol::BEP03::Tracker;
         return $code->(
             $self,
-            [map {
-                 Net::BitTorrent::Protocol::BEP03::Tracker->new(
+            Net::BitTorrent::Protocol::BEP12::Tracker::Tier->new(
+                Trackers => [
+                    map {
+                        Net::BitTorrent::Protocol::BEP03::Tracker->new(
                                                      URL     => $_,
                                                      Torrent => $self->torrent
-                     )
-                 } @$trackers
-            ]
+                            )
+                        } @$trackers
+                ]
+            )
         );
     };
     after 'add_tier' => sub { $_[0]->shuffle };
