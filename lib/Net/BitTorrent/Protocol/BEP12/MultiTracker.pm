@@ -8,6 +8,10 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use lib '../../../../';
     extends 'Net::BitTorrent::Protocol::BEP03::Tracker';
     use Net::BitTorrent::Types qw[:tracker];
+    around 'url' => sub {    # BEP03::Tracker->url is ro but that may change
+        my ($code, $self, $args) = @_;
+        $code->($self->tiers->[0]->url->[0], $args ? $args : ());
+    };
     has 'tiers' => (
          traits => ['Array'],
          isa =>
