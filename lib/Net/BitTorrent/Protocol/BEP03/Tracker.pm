@@ -8,7 +8,7 @@ package Net::BitTorrent::Protocol::BEP03::Tracker;
     use lib '../../../../';
     use Net::BitTorrent::Types qw[:tracker];
     has 'url' => (isa => 'Torrent::Tracker::HTTP | Torrent::Tracker::UDP',
-                  is  => 'rw',
+                  is  => 'ro',
                   init_arg => 'URL',
                   coerce   => 1,
                   required => 1

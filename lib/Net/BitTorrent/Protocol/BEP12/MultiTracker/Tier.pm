@@ -14,7 +14,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier;
     has 'trackers' => (
                  traits => ['Array'],
                  isa => 'ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker]',
-                 is  => 'rw',
+                 is  => 'ro',
                  init_arg => 'Trackers',
                  coerce   => 1,
                  required => 1,
