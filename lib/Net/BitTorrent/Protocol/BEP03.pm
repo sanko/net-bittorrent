@@ -4,8 +4,6 @@ package Net::BitTorrent::Protocol::BEP03;
     use strict;
     use warnings;
     use Carp qw[carp];
-    use List::Util qw[min max shuffle sum];
-    use version qw[qv];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use vars qw[@EXPORT_OK %EXPORT_TAGS];
     use Exporter qw[];
@@ -48,13 +46,8 @@ package Net::BitTorrent::Protocol::BEP03;
         {   my $size = $1;
             $return = '' if $1 =~ m[^0+$];
             $string =~ s|^$size:||s;
-            while ($size) {
-                my $this_time = min($size, 32766);
-                $string =~ s|^(.{$this_time})||s;
-                return if not $1;
-                $return .= $1;
-                $size = max(0, ($size - $this_time));
-            }
+            $return .= substr($string,0,$size,'');
+            return if length $return < $size;
             return wantarray ? ($return, $string) : $return;    # byte string
         }
         elsif ($string =~ s|^i([-+]?\d+)e||s) {                 # integer
