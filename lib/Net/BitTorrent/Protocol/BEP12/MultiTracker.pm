@@ -30,6 +30,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
         return $code->(
             $self,
             Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier->new(
+                Torrent  => $self->torrent,
                 Trackers => [
                     map {
                         Net::BitTorrent::Protocol::BEP03::Tracker->new(
