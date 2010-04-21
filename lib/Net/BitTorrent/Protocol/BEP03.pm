@@ -76,7 +76,6 @@ package Net::BitTorrent::Protocol::BEP03;
 }
 
 1;
-
 =pod
 
 =head1 NAME

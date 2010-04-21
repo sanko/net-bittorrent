@@ -18,26 +18,23 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                       default  => rel2abs '.',
                       init_arg => 'BaseDir'
     );
-    has 'storage' => (
-        is  => 'ro',
-        required => 1,
-        isa => 'Net::BitTorrent::Storage',
-        lazy_build => 1,
-        builder  => '_build_storage',
-        init_arg => 'Storage'
+    has 'storage' => (is         => 'ro',
+                      required   => 1,
+                      isa        => 'Net::BitTorrent::Storage',
+                      lazy_build => 1,
+                      builder    => '_build_storage',
+                      init_arg   => 'Storage'
     );
 
     sub _build_storage {
-        Net::BitTorrent::Storage->new( Torrent => $_[0])
-
-        }
-
-    has 'tracker' => (
-        isa => 'Net::BitTorrent::Protocol::BEP12::MultiTracker',
-        is  => 'rw',
-        lazy_build => 1,
-        builder => '_build_tracker'
+        Net::BitTorrent::Storage->new(Torrent => $_[0]);
+    }
+    has 'tracker' => (isa => 'Net::BitTorrent::Protocol::BEP03::Tracker',
+                      is  => 'rw',
+                      lazy_build => 1,
+                      builder    => '_build_tracker'
     );
+
     sub _build_tracker {
         Net::BitTorrent::Protocol::BEP12::MultiTracker->new(Torrent => $_[0]);
     }
@@ -47,24 +44,32 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         init_arg => undef,       # cannot set this with new()
         trigger  => sub {
             my ($self, $new_value, $old_value) = @_;
-            if (@_ == 2) {
-                # parse files and trackers
+            if (@_ == 2) {       # parse files and trackers
                 if (defined $new_value->{'announce-list'}) {
-                    $self->tracker(Net::BitTorrent::Protocol::BEP12::MultiTracker->new(Torrent => $self, URL => $new_value->{'announce'}));
-                    $self->tracker->add_tier( $_ ) for @{$new_value->{'announce-list'}}
+                    $self->tracker(
+                          Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
+                                               Torrent => $self,
+                                               URL => $new_value->{'announce'}
+                          )
+                    );
+                    $self->tracker->add_tier($_)
+                        for @{$new_value->{'announce-list'}};
                 }
-                elsif( $new_value->{'announce'} ) {
-                    $self->tracker(Net::BitTorrent::Protocol::BEP03::Tracker->new(Torrent => $self, URL => $new_value->{'announce'}));
-
+                elsif ($new_value->{'announce'}) {
+                    $self->tracker(
+                               Net::BitTorrent::Protocol::BEP03::Tracker->new(
+                                               Torrent => $self,
+                                               URL => $new_value->{'announce'}
+                               )
+                    );
                 }
-                else {
-                    # .torrent _requires_ DHT
+                else {    # .torrent _requires_ DHT
                 }
 
                 #
                 my @files;
                 if (defined $new_value->{'info'}{'files'})
-                {    # Multi-file .torrent
+                {         # Multi-file .torrent
                     $self->storage->files($new_value->{'info'}{'files'});
                     $self->storage->root($new_value->{'info'}{'name'});
                 }
@@ -101,7 +106,6 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         trigger  => sub {
             my ($self, $new_value, $old_value) = @_;
             if (@_ == 2) {
-
                 open(my ($FH), '<', $new_value)
                     || return !($_[0] = undef);    # exterminate! exterminate!
                 flock $FH, LOCK_SH;
@@ -114,22 +118,19 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             # XXX - set the current value back to the old value
         }
     );
-
     has 'infohash' => (
         is         => 'ro',
         isa        => 'Torrent::Infohash',
         init_arg   => undef,               # cannot set this with new()
         coerce     => 1,                   # Both ways?
         lazy_build => 1,
-        builder    => '_build_infohash'               # returns Torrent::Infohash::Packed
-
-
+        builder    => '_build_infohash'    # returns Torrent::Infohash::Packed
     );
-    sub _build_infohash {
-         require Digest::SHA;
-            return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
 
-        }
+    sub _build_infohash {
+        require Digest::SHA;
+        return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
+    }
 
     # Quick accessors
     sub piece_length { return shift->metadata->{'info'}{'piece length'} }
