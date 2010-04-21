@@ -10,7 +10,9 @@ package Net::BitTorrent::Types;
         infohash => [qw[Torrent::Infohash Torrent::Infohash::Packeed]],
         tracker  => [
             qw[Torrent::Tracker Torrent::Tracker::Tier Torrent::Tracker::UDP Torrent::Tracker::HTTP]
-        ]
+        ],
+        file => [qw[Torrent::Files]],
+        cache => [qw[Torrent::Cache::Packet]]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
@@ -41,6 +43,33 @@ package Net::BitTorrent::Types;
         require Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
         return Net::BitTorrent::Protocol::BEP15::Tracker::UDP->new(URL => $_);
         };
+
+    #
+    subtype 'Torrent::Files' => as 'ArrayRef[Net::BitTorrent::Storage::File]';
+    coerce 'Torrent::Files' => from 'ArrayRef[HashRef]' => via {
+        require Net::BitTorrent::Storage::File;
+        my $offset = 0;
+        [map {
+             my $obj =
+                 Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
+                                                     Path   => $_->{'path'},
+                                                     Offset => $offset
+                 );
+             $offset += $_->{'length'};
+             $obj
+             } @{$_}
+        ];
+    };
+    coerce 'Torrent::Files' => from 'HashRef' => via {
+        require Net::BitTorrent::Storage::File;
+        [Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
+                                             Path   => $_->{'path'}
+         )
+        ];
+    };
+    #
+    subtype 'Torrent::Cache::Packet' => as 'ArrayRef[Int]' =>
+        where { scalar @$_ == 2 };
 }
 1;
 

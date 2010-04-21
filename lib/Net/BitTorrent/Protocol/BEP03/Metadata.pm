@@ -4,6 +4,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Any::Moose '::Util::TypeConstraints';
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
+    use Net::BitTorrent::Types;
     use Net::BitTorrent::Protocol::BEP03 qw[:all];
     use Net::BitTorrent::Storage;
     use Fcntl ':flock';
@@ -102,15 +103,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             # XXX - set the current value back to the old value
         }
     );
-    # Torrent::Infohash::* are useful enough to be in a higher package
-    type 'Torrent::Infohash' => where { defined $_ &&  /[a-f0-9]/i  && length $_ == 40 };
-    subtype 'Torrent::Infohash::Packed' => as 'Str' =>
-        where {
-             defined $_ && length$_ == 20 };
-    coerce 'Torrent::Infohash' => from 'Torrent::Infohash::Packed' =>
-        via { uc unpack 'H*', $_ };
-    coerce 'Torrent::Infohash::Packed' => from 'Torrent::Infohash' =>
-        via { pack 'H*', $_ };
+
     has 'infohash' => (
         is         => 'ro',
         isa        => 'Torrent::Infohash',

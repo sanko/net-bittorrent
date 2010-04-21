@@ -7,6 +7,7 @@ package Net::BitTorrent::Storage::Cache;
     # XXX - Note, if using Mouse, MouseX::NativeTraits is required
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../';
+    use Net::BitTorrent::Types qw[:cache];
     extends 'Net::BitTorrent::Storage::File';
     has 'storage' => (is       => 'ro',
                       isa      => 'Net::BitTorrent::Storage',
@@ -37,15 +38,11 @@ package Net::BitTorrent::Storage::Cache;
     );
     around 'length' => sub {
         my ($code, $self) = @_;
-
-        # assume we get a DateTime object ...
         return -s catfile @{$self->path};
     };
-    subtype 'Storage::Cache::Packet' => as 'ArrayRef[Int]' =>
-        where { scalar @$_ == 2 };
     has 'packets' => (traits  => ['Hash'],
                       is      => 'ro',
-                      isa     => 'HashRef[Storage::Cache::Packet]',
+                      isa     => 'HashRef[Torrent::Cache::Packet]',
                       default => sub { {} },
                       handles => {_add_packet => 'set',
                                   _get_packet => 'get',

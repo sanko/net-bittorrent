@@ -21,33 +21,6 @@ package Net::BitTorrent::Storage;
                       isa      => 'Net::BitTorrent::Torrent',
                       init_arg => 'Torrent'
     );
-    subtype 'Torrent::Files' => as
-        'ArrayRef[Net::BitTorrent::Storage::File]';
-    coerce 'Torrent::Files' => from 'ArrayRef[HashRef]' => via {
-        my $offset = 0;
-        [map {
-             my $obj =
-                 Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
-                                                     Path   => $_->{'path'},
-                                                     Offset => $offset
-                 );
-             $offset += $_->{'length'};
-             $obj
-             } @{$_}
-        ];
-    };
-    coerce 'Torrent::Files' => from 'HashRef' => via {
-        [Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
-                                             Path   => $_->{'path'}
-         )
-        ];
-    };
-    has 'files' => (
-        is       => 'rw',
-        isa      => 'Torrent::Files',
-        init_arg => 'Files',
-        coerce   => 1
-    );
 
     has 'files' => (is       => 'rw',
                     isa      => 'Torrent::Files',
