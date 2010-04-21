@@ -7,10 +7,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Net::BitTorrent::Types;
     use Net::BitTorrent::Protocol::BEP03 qw[:all];
     use Net::BitTorrent::Storage;
-    use Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use Fcntl ':flock';
-
-    # Extends Net::BitTorrent::Torrent
     use File::Spec::Functions qw[rel2abs];
     has 'basedir' => (is       => 'ro',
                       isa      => 'Str',
@@ -46,6 +43,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             my ($self, $new_value, $old_value) = @_;
             if (@_ == 2) {       # parse files and trackers
                 if (defined $new_value->{'announce-list'}) {
+                    require Net::BitTorrent::Protocol::BEP12::MultiTracker;
                     $self->tracker(
                           Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
                                                Torrent => $self,
@@ -55,7 +53,8 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                     $self->tracker->add_tier($_)
                         for @{$new_value->{'announce-list'}};
                 }
-                elsif ($new_value->{'announce'}) {
+                elsif (defined $new_value->{'announce'}) {
+                    require Net::BitTorrent::Protocol::BEP03::Tracker;
                     $self->tracker(
                                Net::BitTorrent::Protocol::BEP03::Tracker->new(
                                                Torrent => $self,
