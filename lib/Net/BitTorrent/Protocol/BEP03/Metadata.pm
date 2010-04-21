@@ -21,9 +21,11 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         required => 1,
         isa => 'Net::BitTorrent::Storage',
         lazy_build => 1,
-        builder  => sub { Net::BitTorrent::Storage->new( Torrent => $_[0]) },
+        builder  => '_build_storage',
         init_arg => 'Storage'
     );
+    sub _build_storage {
+        Net::BitTorrent::Storage->new( Torrent => $_[0])
     has 'trackers' => (isa => 'ArrayRef[Net::BitTorrent::Tracker]',
                        is  => 'rw',);
     after 'trackers' => sub {    # All trackers have this torrent as parent
@@ -31,7 +33,9 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         foreach my $tracker (@{$trackers || []}) {
             $tracker->torrent($self);
         }
-    };
+    sub _build_tracker {
+        Net::BitTorrent::Protocol::BEP12::Tracker->new(Torrent => $_[0]);
+    }
     has 'metadata' => (
         isa      => 'HashRef',
         is       => 'rw',
@@ -113,11 +117,15 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         init_arg   => undef,               # cannot set this with new()
         coerce     => 1,                   # Both ways?
         lazy_build => 1,
-        builder    => sub {                # returns Torrent::Infohash::Packed
-            require Digest::SHA;
-            return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
-        }
+        builder    => '_build_infohash'               # returns Torrent::Infohash::Packed
+
+
     );
+    sub _build_infohash {
+         require Digest::SHA;
+            return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
+
+        }
 
     # Quick accessors
     sub piece_length { return shift->metadata->{'info'}{'piece length'} }

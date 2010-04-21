@@ -17,14 +17,18 @@ package Net::BitTorrent::Storage::Cache;
         is         => 'ro',
         isa        => 'ArrayRef',
         lazy_build => 1,
-        builder    => sub {
-            ['~' . substr($_[0]->storage->torrent->infohash, 0, 7) . '.dat'];
-        },
-        init_arg => 'Path',
-        trigger  => sub {
+        builder    => '_build_path',
+        init_arg   => 'Path',
+        trigger    => sub {
             my ($self, $new, $old);
-            $self->close; unlink catpath @{$old}}
+            $self->close;
+            unlink catpath @{$old};
+        }
     );
+
+    sub _build_path {
+        ['~' . substr($_[0]->storage->torrent->infohash, 0, 7) . '.dat'];
+    }
     has 'length' => (is         => 'ro',
                      isa        => 'Int',
                      required   => 0,
