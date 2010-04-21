@@ -10,7 +10,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier;
     use Net::BitTorrent::Types qw[:tracker];
     use Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
     use Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
-    has 'trackers' => (
+    has 'url' => (
                  traits => ['Array'],
                  isa => 'ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker]',
                  is  => 'ro',
@@ -19,7 +19,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier;
                  required => 1,
                  handles  => {
                              add_tracker => 'push',
-                             shuffle => 'shuffle'
+                             shuffle     => 'shuffle'
                  },
                  trigger => sub { $_[0]->shuffle }
     );
