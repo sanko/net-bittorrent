@@ -8,20 +8,16 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use lib '../../../../';
     extends 'Net::BitTorrent::Protocol::BEP03::Tracker';
     use Net::BitTorrent::Types qw[:tracker];
-
-    #use Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
-    #use Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
     has 'tiers' => (
-        traits => ['Array'],
-
-      #isa => 'ArrayRef[ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker]]',
-        isa    => 'ArrayRef[Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier]',
-        is     => 'rw',
-        coerce => 1,
-        default => sub { [] },
-        handles => {add_tier => 'push',
-                    shuffle  => 'shuffle'
-        }
+         traits => ['Array'],
+         isa =>
+             'ArrayRef[Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier]',
+         is      => 'rw',
+         coerce  => 1,
+         default => sub { [] },
+         handles => {add_tier => 'push',
+                     shuffle  => 'shuffle'
+         }
     );
     around 'add_tier' => sub {
         my ($code, $self, $trackers) = @_;
