@@ -72,7 +72,6 @@ package Net::BitTorrent::Storage::Cache;
     }
 
     sub del_packet ($$;$) {
-        warn 'reading...';
         my ($self, $index, $offset) = @_;
         $offset //= 0;
         my $where = $self->_del_packet($index . '|' . $offset);
