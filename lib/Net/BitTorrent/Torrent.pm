@@ -7,8 +7,11 @@ package Net::BitTorrent::Torrent;
     use lib '../../';
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
 
+    sub BUILD {
+        with 'Net::BitTorrent::Protocol::BEP27::Private::Metadata'
+            if $_[0]->metadata->{'info'}{'private'};
+    }
     no Any::Moose;
-    __PACKAGE__->meta->make_immutable();
 }
 1;
 
