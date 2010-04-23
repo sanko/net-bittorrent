@@ -80,6 +80,14 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                               ]
                     );
                 }
+
+                #
+                if ($_[0]->metadata->{'info'}{'private'}) {
+                    require
+                        Net::BitTorrent::Protocol::BEP27::Private::Metadata;
+                    Net::BitTorrent::Protocol::BEP27::Private::Metadata->meta
+                        ->apply($_[0]);
+                }
                 return 1;
             }
             warn 'Someone changed the metadata!';
