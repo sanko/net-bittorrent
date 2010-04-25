@@ -27,6 +27,11 @@ package Net::BitTorrent::Storage::File;
                      default  => 0,
                      init_arg => 'Offset'
     );
+    has 'priority' => (is       => 'rw',
+                       isa      => subtype(as 'Int' => as enum([0 .. 3])),
+                       default  => 2,
+                       init_arg => 'Priority'
+    );
 
     #
     has 'filehandle' => (is  => 'rw',
