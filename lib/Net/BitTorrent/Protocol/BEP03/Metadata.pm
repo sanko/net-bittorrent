@@ -138,6 +138,13 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         require Digest::SHA;
         return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
     }
+    has 'piece_count' => (is         => 'ro',
+                          isa        => 'Int',
+                          lazy_build => 1,
+                          builder    => '_build_piece_count',
+                          init_arg   => undef
+    );
+    sub _build_piece_count { return length(shift->pieces) / 20 }
     has 'have' => (traits     => ['String'],
                    is         => 'ro',
                    isa        => 'Str',
