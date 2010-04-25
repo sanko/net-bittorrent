@@ -45,6 +45,22 @@ package Net::BitTorrent::Storage;
             }
         }
     );
+
+    #
+    has 'size' => (is         => 'ro',
+                   isa        => 'Int',
+                   writer     => '_size',
+                   lazy_build => 1,
+                   builder    => '_build_size'
+    );
+
+    sub _build_size {
+        my ($self) = @_;
+        my $size = 0;
+        for my $file (@{$self->files}) { $size += $file->length; }
+        return $size;
+    }
+
 }
 1;
 
