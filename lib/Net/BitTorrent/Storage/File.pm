@@ -41,7 +41,7 @@ package Net::BitTorrent::Storage::File;
                 my $path = catfile @{$self->path};
                 my ($vol, $dirs, $file) = splitpath($path);
                 make_path(catpath $vol, $dirs, '') if $new_mode ne 'ro';
-                my $_mode = $new_mode eq q[ro] ? O_RDONLY : O_WRONLY;
+                my $_mode = $new_mode eq 'ro' ? O_RDONLY : O_WRONLY;
                 sysopen(my ($FH),
                         $path,
                         $_mode | (($_mode &= O_WRONLY)
@@ -65,18 +65,20 @@ package Net::BitTorrent::Storage::File;
     );
     sub close () { !shift->open(undef); }
 
-    sub read ($$$) {
+    sub read ($;$$) {
         my ($self, $offset, $length) = @_;
-        use Carp;
-        Carp::cluck if !defined $length;
         return if !$self->open;
         return if $self->open ne 'ro';
         $offset //= 0;
+        $length //= $self->length - $offset;
         return
             if $length + $offset > $self->length
                 && !$self->isa('Net::BitTorrent::Storage::Cache');
+        truncate $self->filehandle, $offset
+            if $offset + $length > -s $self->filehandle;
         sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
-        sysread $self->filehandle, my ($data), $length;
+        my $real_length = sysread $self->filehandle, my ($data), $length;
+        return if $real_length != $length;
         return $data;
     }
 
@@ -88,9 +90,9 @@ package Net::BitTorrent::Storage::File;
         return
             if length($data) + $offset > $self->length
                 && !$self->isa('Net::BitTorrent::Storage::Cache');
-        sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
-        eval truncate $self->filehandle, $offset
+        truncate $self->filehandle, $offset
             if $offset + length $data > -s $self->filehandle;
+        sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
         return syswrite $self->filehandle, $data, length($data);
     }
 }
