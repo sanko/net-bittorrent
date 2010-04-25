@@ -1,10 +1,16 @@
 package Net::BitTorrent::Torrent;
 {
     use Any::Moose;
+    use Any::Moose '::Util::TypeConstraints';
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     # Meat
     use lib '../../';
+    has 'client' => (isa      => 'Maybe[Net::BitTorrent]',
+                     is       => 'rw',
+                     weak_ref => 1,
+                     init_arg => 'Client'
+    );
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Any::Moose;
     __PACKAGE__->meta->make_immutable
