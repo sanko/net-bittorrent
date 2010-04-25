@@ -48,12 +48,13 @@ package Net::BitTorrent::Types;
     subtype 'Torrent::Files' => as 'ArrayRef[Net::BitTorrent::Storage::File]';
     coerce 'Torrent::Files' => from 'ArrayRef[HashRef]' => via {
         require Net::BitTorrent::Storage::File;
-        my $offset = 0;
+        my ($offset, $index) = (0, 0);
         [map {
              my $obj =
                  Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
                                                      Path   => $_->{'path'},
-                                                     Offset => $offset
+                                                     Offset => $offset,
+                                                     Index  => $index++
                  );
              $offset += $_->{'length'};
              $obj

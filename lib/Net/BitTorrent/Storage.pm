@@ -14,18 +14,20 @@ package Net::BitTorrent::Storage;
     );
 
     sub _build_cache {
-        Net::BitTorrent::Storage::Cache->new(Storage => $_[0]);
+        Net::BitTorrent::Storage::Cache->new(Storage => $_[0],
+                                             Index   => undef);
     }
     has 'torrent' => (is       => 'rw',
                       required => 1,
                       isa      => 'Net::BitTorrent::Torrent',
                       init_arg => 'Torrent'
     );
-
     has 'files' => (is       => 'rw',
                     isa      => 'Torrent::Files',
                     init_arg => 'Files',
-                    coerce   => 1
+                    coerce   => 1,
+                    traits   => ['Array'],
+                    handles  => {file_count => 'count',}
     );
     has 'root' => (
         is       => 'rw',
