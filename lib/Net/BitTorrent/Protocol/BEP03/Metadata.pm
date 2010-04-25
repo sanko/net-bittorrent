@@ -138,6 +138,16 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         require Digest::SHA;
         return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
     }
+    has 'have' => (traits     => ['String'],
+                   is         => 'ro',
+                   isa        => 'Str',
+                   lazy_build => 1,
+                   builder    => '_build_have',
+                   init_arg   => undef,
+                   writer     => '_have',
+                   clearer    => '_clear_have'
+    );
+    sub _build_have { pack 'b' . $_[0]->piece_count, '0' }
 
     # Quick accessors
     sub piece_length { return shift->metadata->{'info'}{'piece length'} }
