@@ -9,6 +9,11 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Net::BitTorrent::Storage;
     use Fcntl ':flock';
     use File::Spec::Functions qw[rel2abs];
+
+    #
+    requires 'client';
+
+    #
     has 'basedir' => (is       => 'ro',
                       isa      => 'Str',
                       required => 1,
