@@ -20,7 +20,11 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                       isa        => 'Net::BitTorrent::Storage',
                       lazy_build => 1,
                       builder    => '_build_storage',
-                      init_arg   => 'Storage'
+                      init_arg   => 'Storage',
+                      handles    => {
+                                  size => 'size',
+                                  read => 'read'
+                      }
     );
 
     sub _build_storage {
