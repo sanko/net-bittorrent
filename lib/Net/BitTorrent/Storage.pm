@@ -61,6 +61,41 @@ package Net::BitTorrent::Storage;
         return $size;
     }
 
+    sub read {
+        my ($self, $index, $offset, $length) = @_;
+        $offset //= 0;
+        $length //=
+            int $index == int $self->torrent->piece_count
+            ? $self->torrent->size % $self->torrent->piece_length
+            : $self->torrent->piece_length;
+        my $data       = '';
+        my $file_index = 0;
+        my $total_offset
+            = int(($index * $self->torrent->piece_length) + ($offset || 0));
+    SEARCH:
+        while ($total_offset > $self->files->[$file_index]->length) {
+            $total_offset -= $self->files->[$file_index]->length;
+            $file_index++;
+            last SEARCH    # XXX - return?
+                if not defined $self->files->[$file_index]->length;
+        }
+    READ: while ((defined $length) && ($length > 0)) {
+            my $this_read
+                = (($total_offset + $length)
+                   >= $self->files->[$file_index]->length)
+                ? ($self->files->[$file_index]->length - $total_offset)
+                : $length;
+            $self->files->[$file_index]->open('ro') or return;
+            my $_data = $self->files->[$file_index]
+                ->read($total_offset, $this_read);
+            $data .= $_data if $_data;
+            $file_index++;
+            $length -= $this_read;
+            last READ if not defined $self->files->[$file_index];
+            $total_offset = 0;
+        }
+        return \$data;
+    }
 }
 1;
 
