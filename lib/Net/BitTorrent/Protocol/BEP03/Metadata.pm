@@ -183,8 +183,8 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 : [$range]
             : [0 .. $self->piece_count - 1];
         my $bitfield = $self->have;
-        $self->_clear_have();
         if (scalar @$range <= $pieces_per_hashcheck) {
+            $self->_clear_have();
             for my $index (@$range) {
                 my $piece = $self->read($index);
                 next if !$piece || !$$piece;
@@ -193,6 +193,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                     = Digest::SHA::sha1($$piece) eq
                     substr($self->pieces, ($index * 20), 20);
             }
+            $self->_have($bitfield);
         }
         else {
             my $cv = AnyEvent->condvar;
@@ -210,7 +211,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             push @watchers, AE::idle($coderef);
             $cv->recv;
         }
-        return $self->_have($bitfield);
+        return 1;
     }
 }
 1;
