@@ -9,6 +9,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Net::BitTorrent::Storage;
     use Fcntl ':flock';
     use File::Spec::Functions qw[rel2abs];
+    use AnyEvent;
 
     #
     requires 'client';
