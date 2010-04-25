@@ -12,6 +12,11 @@ package Net::BitTorrent::Storage::File;
                    init_arg => 'Path',
                    trigger  => sub { $_[0]->close }
     );
+    has 'index' => (is       => 'ro',
+                    isa      => 'Maybe[Int]',
+                    required => 1,
+                    init_arg => 'Index'
+    );
     has 'length' => (is       => 'ro',
                      isa      => 'Int',
                      required => 1,
