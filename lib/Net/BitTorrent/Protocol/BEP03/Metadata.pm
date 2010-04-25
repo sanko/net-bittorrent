@@ -5,7 +5,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
     use Net::BitTorrent::Types;
-    use Net::BitTorrent::Protocol::BEP03 qw[:all];
+    use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
     use Net::BitTorrent::Storage;
     use Fcntl ':flock';
     use File::Spec::Functions qw[rel2abs];

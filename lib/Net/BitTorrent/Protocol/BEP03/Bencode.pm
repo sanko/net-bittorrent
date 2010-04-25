@@ -1,4 +1,4 @@
-package Net::BitTorrent::Protocol::BEP03;
+package Net::BitTorrent::Protocol::BEP03::Bencode;
 {
 
     use strict;
@@ -80,9 +80,9 @@ package Net::BitTorrent::Protocol::BEP03;
 
 =head1 NAME
 
-Net::BitTorrent::Protocol::BEP03 - Utility functions for BEP03: The BitTorrent Protocol Specification
+Net::BitTorrent::Protocol::BEP03::Bencode - Utility functions for BEP03: The BitTorrent Protocol Specification
 
-=head1 Importing From Net::BitTorrent::Protocol::BEP03
+=head1 Importing From Net::BitTorrent::Protocol::BEP03::Bencode
 
 By default, nothing is exported.
 
