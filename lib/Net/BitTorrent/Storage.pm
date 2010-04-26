@@ -43,7 +43,7 @@ package Net::BitTorrent::Storage;
         trigger  => sub {
             my ($self, $new_root, $old_root) = @_;
             if ($self->_count) {
-                for my $file (@{$self->files}) {
+                for my $file (@{$self->files}, $self->cache) {
                     $file->_shift if defined $old_root;
                     $file->_unshift(rel2abs $new_root);
                 }

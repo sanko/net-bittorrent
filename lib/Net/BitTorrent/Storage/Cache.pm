@@ -5,18 +5,6 @@ package Net::BitTorrent::Storage::Cache;
     use File::Spec::Functions qw[catfile splitpath];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     extends 'Net::BitTorrent::Storage::Node';
-    has 'path' => (
-        is       => 'ro',
-        isa      => 'ArrayRef[Str]',
-        init_arg => 'Path',
-        trigger  => sub {
-            my ($self, $new, $old) = @_;
-            return if !defined $old;
-            $self->close;
-            unlink canonpath(catfile(@{$old}));
-        },
-        required => 1
-    );
     has 'packets' => (traits  => ['Hash'],
                       is      => 'ro',
                       isa     => 'HashRef[Torrent::Cache::Packet]',
@@ -25,7 +13,8 @@ package Net::BitTorrent::Storage::Cache;
                                   _get_packet => 'get',
                                   _del_packet => 'delete',
                                   is_empty    => 'is_empty',
-                                  size        => 'count'
+                                  size        => 'count',
+                                  clear       => 'clear'
                       }
     );
 
@@ -59,7 +48,7 @@ package Net::BitTorrent::Storage::Cache;
         my $data = $self->read(0, -s $self->filehandle);
         substr($data, $where->[0], $where->[1], '');
         $self->close();
-        rename catfile(@{$self->path}), catfile(@{$self->path}) . '.old';
+        rename $self->path, $self->path . '.old';
         $self->open('wo') || return;
         return $self->write(0, $data);
     }
