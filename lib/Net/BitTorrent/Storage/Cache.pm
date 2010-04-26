@@ -26,16 +26,6 @@ package Net::BitTorrent::Storage::Cache;
     sub _build_path {
         ['~' . substr($_[0]->storage->torrent->infohash, 0, 7) . '.dat'];
     }
-    has 'length' => (is         => 'ro',
-                     isa        => 'Int',
-                     required   => 0,
-                     init_arg   => undef,
-                     lazy_build => 1
-    );
-    around 'length' => sub {
-        my ($code, $self) = @_;
-        return -s catfile @{$self->path};
-    };
     has 'packets' => (traits  => ['Hash'],
                       is      => 'ro',
                       isa     => 'HashRef[Torrent::Cache::Packet]',
@@ -75,7 +65,7 @@ package Net::BitTorrent::Storage::Cache;
         return if !defined $where;
         $self->close() if defined $self->open && $self->open ne 'ro';
         $self->open('ro') || return;
-        my $data = $self->read(0, $self->length);
+        my $data = $self->read(0, -s $self->filehandle);
         substr($data, $where->[0], $where->[1], '');
         $self->close();
         rename catfile(@{$self->path}), catfile(@{$self->path}) . '.old';
