@@ -5,20 +5,18 @@ package Net::BitTorrent::Storage::Cache;
     use File::Spec::Functions qw[catfile splitpath];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     extends 'Net::BitTorrent::Storage::Node';
-
     has 'path' => (
-        is         => 'ro',
-        isa        => 'ArrayRef',
-        init_arg   => 'Path',
-        trigger    => sub {
+        is       => 'ro',
+        isa      => 'ArrayRef[Str]',
+        init_arg => 'Path',
+        trigger  => sub {
             my ($self, $new, $old) = @_;
             return if !defined $old;
             $self->close;
-            unlink catpath @{$old};
+            unlink canonpath(catfile(@{$old}));
         },
         required => 1
     );
-
     has 'packets' => (traits  => ['Hash'],
                       is      => 'ro',
                       isa     => 'HashRef[Torrent::Cache::Packet]',

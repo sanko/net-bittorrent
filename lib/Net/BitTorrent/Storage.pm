@@ -6,6 +6,7 @@ package Net::BitTorrent::Storage;
     use lib '../../';
     use Net::BitTorrent::Storage::File;
     use Net::BitTorrent::Storage::Cache;
+    use File::Spec::Functions qw[rel2abs];
     has 'cache' => (is         => 'rw',
                     isa        => 'Net::BitTorrent::Storage::Cache',
                     init_arg   => undef,
@@ -14,8 +15,9 @@ package Net::BitTorrent::Storage;
     );
 
     sub _build_cache {
-        Net::BitTorrent::Storage::Cache->new(Storage => $_[0], Path =>
-            ['~' . substr($_[0]->torrent->infohash, 0, 7) . '.dat']
+        Net::BitTorrent::Storage::Cache->new(
+               Storage => $_[0],
+               Path => ['~' . substr($_[0]->torrent->infohash, 0, 7) . '.dat']
         );
     }
     has 'torrent' => (is       => 'rw',
@@ -28,7 +30,11 @@ package Net::BitTorrent::Storage;
                     init_arg => 'Files',
                     coerce   => 1,
                     traits   => ['Array'],
-                    handles  => {file_count => 'count',}
+                    handles  => {
+                                _count    => 'count',
+                                _add_file => 'push',
+                                _file     => 'get'
+                    },
     );
     has 'root' => (
         is       => 'rw',
@@ -36,12 +42,10 @@ package Net::BitTorrent::Storage;
         init_arg => 'Root',    # ??? - Should this be BaseDir/basedir
         trigger  => sub {
             my ($self, $new_root, $old_root) = @_;
-            if (@{$self->files} > 1) {
+            if ($self->_count) {
                 for my $file (@{$self->files}) {
-                    my $path = $file->path;
-                    shift @$path if defined $old_root;
-                    unshift @$path, $new_root;
-                    $file->path($path);
+                    $file->_shift if defined $old_root;
+                    $file->_unshift(rel2abs $new_root);
                 }
             }
         }

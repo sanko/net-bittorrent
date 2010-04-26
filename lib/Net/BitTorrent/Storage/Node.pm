@@ -4,15 +4,26 @@ package Net::BitTorrent::Storage::Node;
     use Moose::Util::TypeConstraints;
     use Net::BitTorrent::Types qw[:file];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
-    use File::Spec::Functions qw[catfile splitpath catpath];
+    use File::Spec::Functions qw[splitpath catpath canonpath catfile];
     use File::Path qw[make_path];
     use Fcntl qw[/O_/ /SEEK/ :flock];
     has 'path' => (is       => 'rw',
                    isa      => 'ArrayRef[Str]',
                    required => 1,
                    init_arg => 'Path',
-                   trigger  => sub { $_[0]->close }
+                   trigger  => sub { $_[0]->close },
+                   traits   => ['Array'],
+                   handles  => {
+                               _unshift    => 'unshift',
+                               _shift      => 'shift',
+                               _path_array => 'elements'
+                   }
     );
+    around 'path' => sub {
+        my ($code, $self, @args) = @_;
+        return canonpath(catfile @{$self->{'path'}}) if !@args;
+        return $code->($self, @args);
+    };
     has 'filehandle' => (is  => 'rw',
                          isa => 'Maybe[GlobRef]');
     has 'open' => (
@@ -21,12 +32,12 @@ package Net::BitTorrent::Storage::Node;
         trigger => sub {
             my ($self, $new_mode, $old_mode) = @_;
             if (defined $new_mode) {
-                my $path = catfile @{$self->path};
-                my ($vol, $dirs, $file) = splitpath($path);
-                make_path(catpath $vol, $dirs, '') if $new_mode =~ m[w];
+                my ($vol, $dirs, $file) = splitpath($self->path);
+                make_path(canonpath catpath $vol, $dirs, '')
+                    if $new_mode =~ m[w];
                 my $_mode = $new_mode eq 'ro' ? O_RDONLY : O_WRONLY;
                 sysopen(my ($FH),
-                        $path,
+                        $self->path,
                         $_mode | (($_mode &= O_WRONLY)
                                   ? O_CREAT
                                   : 0
