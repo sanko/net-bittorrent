@@ -24,21 +24,19 @@ package Net::BitTorrent::Storage::File;
                        default  => 2,
                        init_arg => 'Priority'
     );
-
-    #
     around 'read' => sub ($;$$) {
         my ($code, $self, $offset, $length) = @_;
         $offset //= 0;
         $length //= $self->length - $offset;
         return if $length + $offset > $self->length;
         return $code->($self, $offset, $length);
-        };
-        around 'write' => sub ($$$) {
+    };
+    around 'write' => sub ($$$) {
         my ($code, $self, $offset, $data) = @_;
         $offset //= 0;
         return if length($data) + $offset > $self->length;
         return $code->($self, $offset, $data);
-        };
+    };
 }
 1;
 
