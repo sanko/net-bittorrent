@@ -2,6 +2,7 @@ package Net::BitTorrent::Storage::Node;
 {
     use Any::Moose;
     use Any::Moose '::Util::TypeConstraints';
+    use Net::BitTorrent::Types qw[:file];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use File::Spec::Functions qw[catfile splitpath catpath];
     use File::Path qw[make_path];
@@ -12,20 +13,17 @@ package Net::BitTorrent::Storage::Node;
                    init_arg => 'Path',
                    trigger  => sub { $_[0]->close }
     );
-
-    #
     has 'filehandle' => (is  => 'rw',
                          isa => 'Maybe[GlobRef]');
-    enum 'File::Open::Permission' => qw[ro wo];
     has 'open' => (
         is      => 'rw',
-        isa     => 'Maybe[File::Open::Permission]',
+        isa     => 'Maybe[Torrent::File::Open::Permission]',
         trigger => sub {
             my ($self, $new_mode, $old_mode) = @_;
             if (defined $new_mode) {
                 my $path = catfile @{$self->path};
                 my ($vol, $dirs, $file) = splitpath($path);
-                make_path(catpath $vol, $dirs, '') if $new_mode ne 'ro';
+                make_path(catpath $vol, $dirs, '') if $new_mode =~ m[w];
                 my $_mode = $new_mode eq 'ro' ? O_RDONLY : O_WRONLY;
                 sysopen(my ($FH),
                         $path,

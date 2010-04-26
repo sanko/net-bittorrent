@@ -9,9 +9,10 @@ package Net::BitTorrent::Types;
     %EXPORT_TAGS = (
         infohash => [qw[Torrent::Infohash Torrent::Infohash::Packeed]],
         tracker  => [
-            qw[Torrent::Tracker Torrent::Tracker::Tier Torrent::Tracker::UDP Torrent::Tracker::HTTP]
+            qw[ Torrent::Tracker      Torrent::Tracker::Tier
+                Torrent::Tracker::UDP Torrent::Tracker::HTTP]
         ],
-        file => [qw[Torrent::Files]],
+        file  => [qw[Torrent::Files Torrent::File::Open::Permission]],
         cache => [qw[Torrent::Cache::Packet]]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
@@ -45,6 +46,7 @@ package Net::BitTorrent::Types;
         };
 
     #
+    enum 'Torrent::File::Open::Permission' => qw[ro wo rw];
     subtype 'Torrent::Files' => as 'ArrayRef[Net::BitTorrent::Storage::File]';
     coerce 'Torrent::Files' => from 'ArrayRef[HashRef]' => via {
         require Net::BitTorrent::Storage::File;
@@ -68,6 +70,7 @@ package Net::BitTorrent::Types;
          )
         ];
     };
+
     #
     subtype 'Torrent::Cache::Packet' => as 'ArrayRef[Int]' =>
         where { scalar @$_ == 2 };
