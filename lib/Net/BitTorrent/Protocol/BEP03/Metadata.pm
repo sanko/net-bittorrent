@@ -209,6 +209,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             };
             push @watchers, AE::idle($coderef);
             $cv->recv;
+            shift @watchers;
         }
         return 1;
     }
