@@ -14,8 +14,9 @@ package Net::BitTorrent::Storage;
     );
 
     sub _build_cache {
-        Net::BitTorrent::Storage::Cache->new(Storage => $_[0],
-                                             Index   => undef);
+        Net::BitTorrent::Storage::Cache->new(Storage => $_[0], Path =>
+            ['~' . substr($_[0]->torrent->infohash, 0, 7) . '.dat']
+        );
     }
     has 'torrent' => (is       => 'rw',
                       required => 1,
