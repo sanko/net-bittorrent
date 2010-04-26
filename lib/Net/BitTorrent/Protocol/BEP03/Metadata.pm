@@ -18,7 +18,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     has 'basedir' => (is       => 'ro',
                       isa      => 'Str',
                       required => 1,
-                      default  => rel2abs '.',
+                      default  => rel2abs('.'),
                       init_arg => 'BaseDir'
     );
     has 'storage' => (is         => 'ro',
