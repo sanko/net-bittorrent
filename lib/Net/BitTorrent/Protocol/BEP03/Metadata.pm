@@ -155,8 +155,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                           init_arg   => undef
     );
     sub _build_piece_count { return length(shift->pieces) / 20 }
-    has 'have' => (traits     => ['String'],
-                   is         => 'ro',
+    has 'have' => (is         => 'ro',
                    isa        => 'Str',
                    lazy_build => 1,
                    builder    => '_build_have',
