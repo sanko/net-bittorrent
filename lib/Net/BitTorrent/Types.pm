@@ -53,10 +53,11 @@ package Net::BitTorrent::Types;
         my ($offset, $index) = (0, 0);
         [map {
              my $obj =
-                 Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
-                                                     Path   => $_->{'path'},
-                                                     Offset => $offset,
-                                                     Index  => $index++
+                 Net::BitTorrent::Storage::File->new(
+                                           Index  => $index++,
+                                           Length => $_->{'length'},
+                                           Offset => $offset,
+                                           Path => [grep {$_} @{$_->{'path'}}]
                  );
              $offset += $_->{'length'};
              $obj
