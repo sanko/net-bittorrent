@@ -11,6 +11,22 @@ package Net::BitTorrent::Torrent;
                      weak_ref => 1,
                      init_arg => 'Client'
     );
+    has 'storage' => (is         => 'ro',
+                      required   => 1,
+                      isa        => 'Net::BitTorrent::Storage',
+                      lazy_build => 1,
+                      builder    => '_build_storage',
+                      init_arg   => 'Storage',
+                      handles    => {
+                                  size => 'size',
+                                  read => 'read'
+                      }
+    );
+
+    sub _build_storage {
+        Net::BitTorrent::Storage->new(Torrent => $_[0]);
+    }
+
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable
