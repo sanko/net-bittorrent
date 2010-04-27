@@ -42,6 +42,15 @@ package Net::BitTorrent;
             && $code->($self, $torrent)
             && $torrent->client($self);
     };
+    around 'torrent' => sub {
+        my ($code, $self, $index) = @_;
+        my $torrent;
+        $torrent = $self->find_torrent(sub { lc $_->infohash eq lc $index })
+            if length $index == 40;
+        $torrent = $code->($self, $index)
+            if !defined $torrent && $index =~ m[^\d$];
+        return $torrent;
+    };
 
     #
     has 'port' => (
