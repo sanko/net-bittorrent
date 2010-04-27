@@ -6,10 +6,33 @@ package Net::BitTorrent::Torrent;
 
     # Meat
     use lib '../../';
-    has 'client' => (isa      => 'Maybe[Net::BitTorrent]',
-                     is       => 'rw',
-                     weak_ref => 1,
-                     init_arg => 'Client'
+    has 'client' => (
+        isa      => 'Maybe[Net::BitTorrent]',
+        is       => 'rw',
+        weak_ref => 1,
+        init_arg => 'Client',
+        trigger  => sub {
+            my ($self, $client) = @_;
+
+            # XXX - make sure the new client knows who I am
+            $self->_status('Queued');
+            warn 'TODO: Start trackers!';
+        }
+    );
+    has 'status' => (
+        isa => enum(
+                 [qw[Start Stop Paused Queued Forced Hashchecking Standalone]]
+        ),
+        is       => 'ro',
+        default  => 'Standalone',
+        required => 1,
+        init_arg => 'Status',
+        writer   => '_status',
+        trigger  => sub {
+            my ($self, $new_status, $old_status) = @_;
+            warn sprintf 'New status: %s (old status was %s)', $new_status,
+                $old_status || 'undefined';
+        }
     );
     has 'storage' => (is         => 'ro',
                       required   => 1,
@@ -26,7 +49,6 @@ package Net::BitTorrent::Torrent;
     sub _build_storage {
         Net::BitTorrent::Storage->new(Torrent => $_[0]);
     }
-
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable
