@@ -8,23 +8,26 @@ package Net::BitTorrent;
     #
     sub timer { shift; AnyEvent->timer(@_) }
     sub run { AnyEvent->condvar->recv }
-    has 'torrents' => (
-        traits  => ['Hash'],
-        isa     => 'HashRef[Net::BitTorrent::Torrent]',    # ??? - by infohash
-        is      => 'ro',
-        reader  => '_torrents',
-        default => sub { {} },
-        coerce  => 1,
-        handles => {add_torrent     => 'set',
-                    torrent         => 'get',
-                    delete_torrent  => 'delete',
-                    find_torrent    => 'exists',
-                    has_no_torrents => 'is_empty',
-                    each            => 'kv',
-                    count_torrents  => 'count',
-                    torrents        => 'values',
-                    infohashes      => 'keys'
-        }
+    has 'torrents' => (traits  => ['Array'],
+                       isa     => 'ArrayRef[Net::BitTorrent::Torrent]',
+                       is      => 'ro',
+                       reader  => '_torrents',
+                       default => sub { [] },
+                       coerce  => 1,
+                       handles => {
+                                  add_torrent     => 'push',
+                                  clear_torrents  => 'clear',
+                                  count_torrents  => 'count',
+                                  filter_torrents => 'grep',
+                                  find_torrent    => 'first',
+                                  has_torrents    => 'count',
+                                  infohashes => ['map', sub { $_->infohash }],
+                                  map_torrents     => 'map',
+                                  no_torrents      => 'is_empty',
+                                  shuffle_torrents => 'shuffle',
+                                  sort_torrents    => 'sort',
+                                  torrent          => 'get',
+                       }
     );
     around 'add_torrent' => sub {
         my ($code, $self) = (shift, shift);
@@ -36,7 +39,7 @@ package Net::BitTorrent;
         }
         return
                blessed $torrent
-            && $code->($self, $torrent->infohash, $torrent)
+            && $code->($self, $torrent)
             && $torrent->client($self);
     };
 
@@ -65,11 +68,12 @@ package Net::BitTorrent;
 
     sub BUILD {
         my ($self, $args) = @_;
-        {   # Non-blocking socket creation
+        {    # Non-blocking socket creation
             my @sock_types = grep {
                 my ($ipv) = (m[(ipv\d)$]);
                 $args->{'_no_' . $ipv}    # !!! - Disable IPv4 or IPv6
-                    ? () : $_
+                    ? ()
+                    : $_
             } @sockets;
             my $cv = AnyEvent->condvar;
             $cv->begin;
