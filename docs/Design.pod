@@ -10,7 +10,54 @@ Blah. Blah. Blah. Initial design spec. Blah. Middle of the night. Yadda.
 
 =head1 API Specification
 
-TODO
+My overall goal is to have something like this:
+
+  use Net::BitTorrent;
+  my $client = Net::BitTorrent->new(
+      port         => [6881..6890],
+      on_hash_pass => sub { ... },
+      on_hash_fail => sub { ... },
+  );
+  $client->add_torrent( path => 'a/legal.torrent' );
+  $client->run(); # Simple wrapper around AnyEvent->condvar->recv;
+
+...or this...
+
+  use AnyEvent;
+  use Net::BitTorrent;
+  use Net::BitTorrent::Torrent;
+  my $client = Net::BitTorrent->new( );
+  my $torrent = Net::BitTorrent::Torrent->new( path => 'a/different.torrent' );
+  # ...some sort of UI stuff here, file selection, etc.
+  $client->add_torrent( $torrent );
+  $torrent->complete->recv;
+
+...or even this...
+
+  use Net::BitTorrent::Torrent;
+  my $t = Net::BitTorrent::Torrent->new( path => 'yet/another.torrent' );
+  $t->scrape; # Scrape should work even in standalone mode. ...not announce.
+  $t->hashcheck;
+  printf <<'END', $t->name, $t->infohash, $t->percent_complete, $t->nodes;
+  About %s / %s (%3.2f%% complete)
+  [...file list or something...]
+  The tracker says there are %d possible nodes in this swarm.
+   ...
+  END
+
+...and yep, even mentally retarded stuff like...
+
+  use Net::BitTorrentX::Storage::DBD::SQLite; # ...why? I blame lead paint.
+  use Net::BitTorrent;
+  my $client = Net::BitTorrent->new( );
+  $client->add_torrent(                                             # Seriously.
+      storage => Net::BitTorrentX::Storage::DBD::SQLite->new( ... ),# <- This is
+      path    => 'this/is/sparta.torrent'                           # madness.
+  );
+  $client->run;
+
+...all work. In other words, anything a nutter-- I mean user may come up with,
+Net::BitTorrent should be thin and flexible enough to allow for it.
 
 =head2 Net::BitTorrent
 
