@@ -61,9 +61,12 @@ My overall goal is to have something like this:
   use AnyEvent;
   use Net::BitTorrent::DHT;
   my $dht = Net::BitTorrent::DHT->new( nodeid => ... );
-  my $scrape = $dht->get_peers( '[infohash]' );
-  $scrape->recv; # tick, tick, tick, ding!
-  printf 'We found %d peers for [infohash] via DHT', scalar $dht->cache( '[infohash]' )->peers;
+  $dht->get_peers( $_, \&dht_cb ) for qw[infohash_a infohash_b];
+  AnyEvent->condvar->recv; # tick, tick, tick, ding!
+  sub dht_cb {
+    my ( $infohash, $peers ) = @_;
+    printf 'We found %d peers for %s via DHT', scalar( @$peers ), $infohash;
+  }
 
 ...all work. In other words, anything a nutter-- I mean user may come up with,
 Net::BitTorrent should be thin and flexible enough to allow for it.
