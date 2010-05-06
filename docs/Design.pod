@@ -520,6 +520,216 @@ This role will probably not be included in the distribution.
 
 =cut
 
+=head2 Net::BitTorrent::DHT
+
+TODO
+
+=head2 Net::BitTorrent::DHT::Standalone [Role]
+
+This role obviously extends Net::BitTorrent::DHT to function without a parent
+Net::BitTorrent client.
+
+=head2 Net::BitTorrent::Network
+
+This is the base class for Net::BitTorrent::Network::UDP and
+Net::BitTorrent::Network::TCP. See those modules for API information.
+
+Internally, this class contains the following attributes:
+
+=over
+
+=item C<ipv4>
+
+This is the AnyEvent io object related to this socket.
+
+=item C<ipv6>
+
+This is the AnyEvent io object related to this socket.
+
+=item C<ipv4_sock>
+
+This is a weak reference to the actual socket.
+
+=item C<ipv6_sock>
+
+This is a weak reference to the actual socket.
+
+=item C<ipv4_host>
+
+This is the hostname open for connections. The default value is C<0.0.0.0>.
+
+=item C<ipv6_host>
+
+This is the hostname open for connections. The default value is C<::>.
+
+=item C<ipv4_port>
+
+This is the port number open for connections. The default is C<0>.
+
+=item C<ipv6_port>
+
+This is the port number open for connections. The default is C<0>.
+
+=item C<on_data_in>
+
+This is a coderef which is called as a method whenever there is data to be
+read or a connection to process.
+
+=back
+
+=head2 Net::BitTorrent::Network::UDP [Ext]
+
+This class holds both IPv4 and IPv6 UDP sockets.
+
+=head3 Net::BitTorrent::Network::UDP->new( )
+
+Called without any arguments, this constructor open a random port on the IPv6
+hostname C<::> and then attempts to open the same port for IPv4's C<0.0.0.0>.
+
+This is the same as...
+
+    Net::BitTorrent::Network::UDP->new(
+        port         => 0,
+        ipv4_host    => '0.0.0.0',
+        ipv6_host    => '::',
+        disable_ipv4 => 0,
+        disable_ipv6 => 0
+    );
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( port => 3652 )
+
+When handed a specific port number, the constructor attempts to open this port
+on IPv6 and later IPv4.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( port => 3652 );
+
+=head3 Net::BitTorrent::Network::UDP->new( ipv4_port => 3652, ipv6_port => 3652 )
+
+This allows you to open different ports for IPv4 and IPv6. I don't see how
+this could be of any use but... there it is.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( ipv4_port => 3652, ipv6_port => 3652 );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( port => [10000 .. 10050] ) [TODO]
+
+When handed a specific list of port numbers, the constructor steps through the
+list, attempting to open matching IPv6 and IPv4 ports until it succeeds.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( port => [10000 .. 10050] );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( ipv6_host => '::1' )
+
+The IPv6 socket will bind to this hostname. The default is C<::>.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( ipv6_host => '::1' );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( ipv4_host => '127.0.0.1' )
+
+The IPv4 socket will bind to this hostname. The default is C<0.0.0.0>.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( ipv4_host => '127.0.0.1' );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( disable_ipv6 => 0 )
+
+Disables the creation of an IPv6 socket.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( disable_ipv6 => 0 );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( ipv4 => 0 )
+
+Disables the creation of an IPv4 socket.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( disable_ipv4 => 0 );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( disable_ipv6 => 0, disable_ipv4 => 0 )
+
+This makes the constructor a no-op.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( disable_ipv6 => 1, disable_ipv4 => 1 );
+
+=pod
+
+=head3 Net::BitTorrent::Network::UDP->new( on_data_in => sub { ... } )
+
+This callback will be called as a method whenever there is newly C<recv>ed
+data.
+
+When triggered, the following parameters are passed:
+C<$local_sock, $peer_paddr, $peer_ip, $peer_port, $data, $flags>.
+
+=cut
+
+use Net::BitTorrent::Network::UDP;
+my $udp = Net::BitTorrent::Network::UDP->new( on_data_in => sub { warn 'incoming!' } );
+
+=pod
+
+=head2 Net::BitTorrent::Network::TCP [Ext]
+
+This class holds both IPv4 and IPv6 TCP sockets.
+
+=pod
+
+=head3 Net::BitTorrent::Network::TCP->new( on_data_in => sub { ... } )
+
+This callback will be called as a method whenever there is a newly C<accept>ed
+connection.
+
+When triggered, the following parameters are passed:
+C<$local_sock, $peer_paddr, $peer_ip, $peer_port, $peer_sock>.
+
+=cut
+
+use Net::BitTorrent::Network::TCP;
+my $udp = Net::BitTorrent::Network::TCP->new( on_data_in => sub { warn 'incoming!' } );
+
+=pod
+
+See Net::BitTorrent::Network::UDP for more information.
+
 =head1 Silly ASCII Art
 
 A step above calculator humor.
