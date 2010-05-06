@@ -769,6 +769,58 @@ important later.
 
 =item L<Sys::Sendfile>
 
+=item Namespace plan v1.0
+
+  package                               type        progress/proiority
+  ----------------------------------------------------------------------------
+   Net::BitTorrent                       class       todo (req rethink)
+   Net::BitTorrent::DHT                  class       todo/high
+   Net::BitTorrent::DHT::Standalone      role        todo
+   Net::BitTorrent::DHT::Bucket?
+   Net::BitTorrent::DHT::Node?
+   Net::BitTorrent::Network              base class  done
+  *Net::BitTorrent::Network::TCP         ext class   done
+  *Net::BitTorrent::Network::UDP         ext class   done
+   Net::BitTorrent::Network::Utility                 done
+   Net::BitTorrent::Peer
+   Net::BitTorrent::Storage              class
+   Net::BitTorrent::Storage::Node        base class
+   Net::BitTorrent::Storage::File        ext class
+   Net::BitTorrent::Storage::Cache       ext class (subpiece cache)
+   Net::BitTorrent::Torrent              class
+   Net::BitTorrent::Torrent::Standalone  role
+   Net::BitTorrent::Torrent::Factory     role?
+   Net::BitTorrent::Types                Moose types
+
+Packages which have a reasonably complete/current implementation in git are
+marked with C<*>.
+
+These are packages I really haven't given enough thought to:
+
+   Net::BitTorrent::Protocol::BEP03            Documentation
+   Net::BitTorrent::Protocol::BEP03::Metadata
+   Net::BitTorrent::Protocol::BEP03::Packets
+   Net::BitTorrent::Protocol::BEP03::Tracker   single tier of trackers (Net::BitTorrent::Protocol::BEP03::Tracker::HTTP|Net::BitTorrent::Protocol::BEP15::Tracker::UDP)
+   Net::BitTorrent::Protocol::BEP03::Tracker::HTTP
+                                                Single url
+   Net::BitTorrent::Protocol::BEP05            Documentation
+   Net::BitTorrent::Protocol::BEP05::Packets   Builds and parses DHT protocol packets
+   Net::BitTorrent::Protocol::BEP09            Documentation
+   Net::BitTorrent::Protocol::BEP09::Packets   Builds and parses send metadata packets
+   Net::BitTorrent::Protocol::BEP10            Documentation
+   Net::BitTorrent::Protocol::BEP10::Packets   Builds and parses ext prtocol packets
+  *Net::BitTorrent::Protocol::BEP12::MultiTracker
+                                                Multitracker torrent (ArrayRef[Net::BitTorrent::Protocol::BEP12::Trackers::Tier])
+                                                extends Net::BitTorrent::Protocol::BEP03::Tracker
+  *Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier
+                                                Multitracker torrent (ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker::HTTP|Net::BitTorrent::Protocol::BEP15::Tracker::UDP])
+   Net::BitTorrent::Protocol::BEP15            Builds and parses UDP tracker packets, handles for UDP tracker communication
+  *Net::BitTorrent::Protocol::BEP15::Tracker::UDP
+                                                Single url
+   Net::BitTorrent::Protocol::BEP23            compact/uncompact peer lists (IPv4)
+  *Net::BitTorrent::Protocol::BEP27::Private::Metadata
+                                                Private metadata (uses around '...' to override BEP03::Metadata methods)
+
 =back
 
 =head1 Author
