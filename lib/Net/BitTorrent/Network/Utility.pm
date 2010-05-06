@@ -128,8 +128,7 @@ package Net::BitTorrent::Network::Utility;
         #         or return;
         # SO_REUSEPORT is undefined on Win32... Boo...
         return
-            if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR,
-            pack('l', 1);
+            if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
         return if !bind $socket, pack_sockaddr($port, $_packed_host);
         if (defined $prepare) {
             my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
@@ -142,7 +141,6 @@ package Net::BitTorrent::Network::Utility;
             $socket, 0,
             $proto eq 'udp'
             ? sub {
-                warn 'Mehhhhhhh...';
                 my $flags = 0;
                 if ($socket
                     && (my $peer = recv $socket, my ($data), 1024, $flags))
@@ -153,18 +151,12 @@ package Net::BitTorrent::Network::Utility;
                 }
                 }
             : sub {
-                warn 'EHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH';
                 while ($socket
                        && (my $peer = accept my $fh, $socket))
                 {   require AnyEvent::Util;
                     AnyEvent::Util::fh_nonblocking $fh, 1;
                     my ($service, $host) = unpack_sockaddr getsockname $peer;
                     $callback->($fh, $peer, paddr2ip($host), $service, $peer);
-
-             #if ($state->{fh} && (accept my ($peer), $state->{fh})) {
-             #    my ($service, $host) = unpack_sockaddr getsockname $peer;
-             #    $callback->($state->{fh}, paddr2ip($host), $service, $peer);
-             #}
                 }
             }
         );
