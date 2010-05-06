@@ -54,15 +54,14 @@ package Net::BitTorrent::Network;
 
     sub BUILD {
         my ($self, $args) = @_;
-        {
-            $self->_ipv4_port($args->{'port'})
-                && $self->_ipv6_port($args->{'port'})
-                if defined $args->{'port'}
+        if (defined $args->{'port'}) {
+            $self->_ipv4_port($args->{'port'});
+            $self->_ipv6_port($args->{'port'});
         }
+        if (defined $args->{'on_data_in'})
         {    # XXX - Separate callbacks are undocumented
-            $self->_ipv4_on_data_in($args->{'on_data_in'})
-                && $self->_ipv6_on_data_in($args->{'on_data_in'})
-                if defined $args->{'on_data_in'}
+            $self->_ipv4_on_data_in($args->{'on_data_in'});
+            $self->_ipv6_on_data_in($args->{'on_data_in'});
         }
         {    # Non-blocking socket creation
             my @sock_types = grep {
