@@ -805,16 +805,16 @@ important later.
 
   package                               type        progress/proiority
   ----------------------------------------------------------------------------
+   Net::BitTorrent                       class      todo (req rethink)
+  *Net::BitTorrent::DHT                  class      todo/high
   *Net::BitTorrent::DHT::Standalone      ext class  done
   *Net::BitTorrent::DHT::Callbacks       role       todo/low
-   Net::BitTorrent                       class       todo (req rethink)
-   Net::BitTorrent::DHT                  class       todo/high
    Net::BitTorrent::DHT::Bucket?
    Net::BitTorrent::DHT::Node?
-   Net::BitTorrent::Network              base class  done
-  *Net::BitTorrent::Network::TCP         ext class   done
-  *Net::BitTorrent::Network::UDP         ext class   done
-   Net::BitTorrent::Network::Utility                 done
+  *Net::BitTorrent::Network              base class todo (transfer limits?)
+  *Net::BitTorrent::Network::TCP         ext class  done
+  *Net::BitTorrent::Network::UDP         ext class  done
+   Net::BitTorrent::Network::Utility                done
    Net::BitTorrent::Peer
    Net::BitTorrent::Storage              class
    Net::BitTorrent::Storage::Node        base class
