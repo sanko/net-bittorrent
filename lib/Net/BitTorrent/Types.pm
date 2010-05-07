@@ -7,48 +7,54 @@ package Net::BitTorrent::Types;
     use Exporter qw[];
     *import = *import = *Exporter::import;
     %EXPORT_TAGS = (
-        infohash => [qw[Torrent::Infohash Torrent::Infohash::Packeed]],
+        infohash => [qw[NBTypes::Infohash NBTypes::Infohash::Packed]],
         tracker  => [
-            qw[ Torrent::Tracker      Torrent::Tracker::Tier
-                Torrent::Tracker::UDP Torrent::Tracker::HTTP]
+            qw[ NBTypes::Tracker      NBTypes::Tracker::Tier
+                NBTypes::Tracker::UDP NBTypes::Tracker::HTTP
+                                      NBTypes::Tracker::HTTP::Event]
         ],
-        file  => [qw[Torrent::Files Torrent::File::Open::Permission]],
-        cache => [qw[Torrent::Cache::Packet]]
+        file  => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
+        cache => [qw[NBTypes::Cache::Packet]],
+        client => [qw[NBTypes::Client::PeerID]]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
 
     #
-    subtype 'Torrent::Infohash' => as 'Str' =>
-        where { length $_ == 40 && /[a-f0-9]/i };
-    subtype 'Torrent::Infohash::Packed' => as 'Str' =>
-        where { length $_ == 20 };
-    coerce 'Torrent::Infohash' => from 'Torrent::Infohash::Packed' =>
+    subtype 'NBTypes::Infohash' => as 'Str' =>
+        where { length $_ == 40 && /[a-f0-9]/i } =>
+        message { 'Unpacked infohash must be 40 bytes long and contain only hex values' };
+    subtype 'NBTypes::Infohash::Packed' => as 'Str' =>
+        where { length $_ == 20 }=>
+        message { 'Unpacked infohash must be 20 bytes in length' }              ;
+    coerce 'NBTypes::Infohash' => from 'NBTypes::Infohash::Packed' =>
         via { uc unpack 'H*', $_ };
-    coerce 'Torrent::Infohash::Packed' => from 'Torrent::Infohash' =>
+    coerce 'NBTypes::Infohash::Packed' => from 'NBTypes::Infohash' =>
         via { pack 'H*', $_ };
 
     #
-    subtype 'Torrent::Tracker::HTTP' => as
+    subtype 'NBTypes::Tracker::HTTP' => as
         'Net::BitTorrent::Protocol::BEP03::Tracker::HTTP';
-    coerce 'Torrent::Tracker::HTTP' =>
+    coerce 'NBTypes::Tracker::HTTP' =>
         from subtype(as 'Str' => where {m[^http://]i}) => via {
         require Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
         return Net::BitTorrent::Protocol::BEP03::Tracker::HTTP->new(
                                                                    URL => $_);
         };
-    subtype 'Torrent::Tracker::UDP' => as
+    subtype 'NBTypes::Tracker::UDP' => as
         'Net::BitTorrent::Protocol::BEP15::Tracker::UDP';
-    coerce 'Torrent::Tracker::UDP' =>
+    coerce 'NBTypes::Tracker::UDP' =>
         from subtype(as 'Str' => where {m[^udp://]i}) => via {
         require Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
         return Net::BitTorrent::Protocol::BEP15::Tracker::UDP->new(URL => $_);
         };
 
+    enum 'NBTypes::Tracker::HTTP::Event' => qw[started stopped completed];
+
     #
-    enum 'Torrent::File::Open::Permission' => qw[ro wo rw];
-    subtype 'Torrent::Files' => as 'ArrayRef[Net::BitTorrent::Storage::File]';
-    coerce 'Torrent::Files' => from 'ArrayRef[HashRef]' => via {
+    enum 'NBTypes::File::Open::Permission' => qw[ro wo rw];
+    subtype 'NBTypes::Files' => as 'ArrayRef[Net::BitTorrent::Storage::File]';
+    coerce 'NBTypes::Files' => from 'ArrayRef[HashRef]' => via {
         require Net::BitTorrent::Storage::File;
         my ($offset, $index) = (0, 0);
         [map {
@@ -64,7 +70,7 @@ package Net::BitTorrent::Types;
              } @{$_}
         ];
     };
-    coerce 'Torrent::Files' => from 'HashRef' => via {
+    coerce 'NBTypes::Files' => from 'HashRef' => via {
         require Net::BitTorrent::Storage::File;
         [Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
                                              Path   => $_->{'path'}
@@ -73,8 +79,13 @@ package Net::BitTorrent::Types;
     };
 
     #
-    subtype 'Torrent::Cache::Packet' => as 'ArrayRef[Int]' =>
+    subtype 'NBTypes::Cache::Packet' => as 'ArrayRef[Int]' =>
         where { scalar @$_ == 2 };
+
+
+    #
+    subtype 'NBTypes::Client::PeerID' => as 'Str' => where { length $_ == 20 }
+    => message { 'PeerID is malformed: length != 20' }
 }
 1;
 
