@@ -529,6 +529,38 @@ TODO
 This class obviously extends Net::BitTorrent::DHT to function without a parent
 Net::BitTorrent client.
 
+=head2 Net::BitTorrent::DHT::Callbacks [Role]
+
+This is an easy to apply role (...as if any were difficult) that adds an old
+skool global callback system to the base DHT object. Currently supported
+callbacks include...
+
+=over
+
+=item C<on_dht_packet_in>
+
+=item C<on_dht_packet_in_okay>
+
+=item C<on_dht_packet_in_error>
+
+=item C<on_dht_packet_out>
+
+=item C<on_dht_packet_out_okay>
+
+=item C<on_dht_packet_out_error>
+
+=item C<on_dht_ping_request_out>
+
+=item C<on_dht_ping_reply_out>
+
+=item C<on_dht_ping_request_in>
+
+=item C<on_dht_ping_reply_in>
+
+=back
+
+This list will expand as the DHT system moves toward completion.
+
 =head2 Net::BitTorrent::Network
 
 This is the base class for Net::BitTorrent::Network::UDP and
@@ -774,6 +806,7 @@ important later.
   package                               type        progress/proiority
   ----------------------------------------------------------------------------
   *Net::BitTorrent::DHT::Standalone      ext class  done
+  *Net::BitTorrent::DHT::Callbacks       role       todo/low
    Net::BitTorrent                       class       todo (req rethink)
    Net::BitTorrent::DHT                  class       todo/high
    Net::BitTorrent::DHT::Bucket?
