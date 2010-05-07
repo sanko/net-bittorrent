@@ -806,7 +806,7 @@ important later.
    package                          type        progress/proiority
   ----------------------------------------------------------------------------
    Net::BitTorrent                  class       todo (req rethink)
-  *  ::DHT                          class       todo/high
+  *  ::DHT                          class       todo (BEP32)/high
   *  ::DHT::Standalone              ext class   done
   *  ::DHT::Callbacks               role        todo/low
   *  ::Protocol::BEP05              docs
