@@ -803,27 +803,30 @@ important later.
 
 =item Namespace plan v1.0
 
-  package                               type        progress/proiority
+   package                          type        progress/proiority
   ----------------------------------------------------------------------------
-   Net::BitTorrent                       class      todo (req rethink)
-  *Net::BitTorrent::DHT                  class      todo/high
-  *Net::BitTorrent::DHT::Standalone      ext class  done
-  *Net::BitTorrent::DHT::Callbacks       role       todo/low
-   Net::BitTorrent::DHT::Bucket?
-   Net::BitTorrent::DHT::Node?
-  *Net::BitTorrent::Network              base class todo (transfer limits?)
-  *Net::BitTorrent::Network::TCP         ext class  done
-  *Net::BitTorrent::Network::UDP         ext class  done
-   Net::BitTorrent::Network::Utility                done
-   Net::BitTorrent::Peer
-   Net::BitTorrent::Storage              class
-   Net::BitTorrent::Storage::Node        base class
-   Net::BitTorrent::Storage::File        ext class
-   Net::BitTorrent::Storage::Cache       ext class (subpiece cache)
-   Net::BitTorrent::Torrent              class
-   Net::BitTorrent::Torrent::Standalone  role
-   Net::BitTorrent::Torrent::Factory     role?
-   Net::BitTorrent::Types                Moose types
+   Net::BitTorrent                  class       todo (req rethink)
+  *  ::DHT                          class       todo/high
+  *  ::DHT::Standalone              ext class   done
+  *  ::DHT::Callbacks               role        todo/low
+     ::Protocol::BEP05              docs
+  *    ::Packets                    utility     done
+       ::RoutingTable?              class
+         ::Bucket?                  class
+           ::Node?                  class
+  * ::Network                       base class  todo (transfer limits?)
+  *   ::TCP                         ext class   done
+  *   ::UDP                         ext class   done
+      ::Utility                                 done
+    ::Peer
+    ::Storage                       class
+      ::Node                        base class
+      ::File                        ext class
+      ::Cache                       ext class (subpiece cache)
+    ::Torrent                       class
+      ::Standalone                  role
+      ::Factory                     role?
+    ::Types                         Moose types
 
 Packages which meet (or in rare cases exceed) their current specification as
 defined here are marked with C<*>.
@@ -836,8 +839,6 @@ These are packages I really haven't given enough thought to:
    Net::BitTorrent::Protocol::BEP03::Tracker   single tier of trackers (Net::BitTorrent::Protocol::BEP03::Tracker::HTTP|Net::BitTorrent::Protocol::BEP15::Tracker::UDP)
    Net::BitTorrent::Protocol::BEP03::Tracker::HTTP
                                                 Single url
-   Net::BitTorrent::Protocol::BEP05            Documentation
-   Net::BitTorrent::Protocol::BEP05::Packets   Builds and parses DHT protocol packets
    Net::BitTorrent::Protocol::BEP09            Documentation
    Net::BitTorrent::Protocol::BEP09::Packets   Builds and parses send metadata packets
    Net::BitTorrent::Protocol::BEP10            Documentation
