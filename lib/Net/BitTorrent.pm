@@ -5,9 +5,39 @@ package Net::BitTorrent;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use AnyEvent;
 
+    sub BUILD{1}
     #
     sub timer { shift; AnyEvent->timer(@_) }
     sub run { AnyEvent->condvar->recv }
+
+    #
+    has 'peer_id' => (isa        => 'Torrent::Client::PeerID',
+                      is         => 'ro',
+                      lazy_build => 1,
+                      builder    => '_build_peer_id',
+                      required   => 1
+    );
+
+    sub _build_peer_id {
+        return pack(
+            'a20',
+            (sprintf(
+                 'NB%03d%1s-%8s%5s',
+                 $MAJOR * 1000,
+                 ($DEV > 0 ? 'U' : 'S'),
+                 (join '',
+                  map {
+                      ['A' .. 'Z', 'a' .. 'z', 0 .. 9, qw[- . _ ~]]
+                      ->[rand(66)]
+                      } 1 .. 8
+                 ),
+                 'KaiLi'
+             )
+            )
+        );
+    }
+
+    #
     has 'torrents' => (traits  => ['Array'],
                        isa     => 'ArrayRef[Net::BitTorrent::Torrent]',
                        is      => 'ro',
