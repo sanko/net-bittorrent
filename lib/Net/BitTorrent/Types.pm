@@ -11,23 +11,24 @@ package Net::BitTorrent::Types;
         tracker  => [
             qw[ NBTypes::Tracker      NBTypes::Tracker::Tier
                 NBTypes::Tracker::UDP NBTypes::Tracker::HTTP
-                                      NBTypes::Tracker::HTTP::Event]
+                NBTypes::Tracker::HTTP::Event]
         ],
+        file   => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
+        cache  => [qw[NBTypes::Cache::Packet]],
+        client => [qw[NBTypes::Client::PeerID]],
         dht    => [qw[NBTypes::DHT::Bucket]],
-        file  => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
-        cache => [qw[NBTypes::Cache::Packet]],
-        client => [qw[NBTypes::Client::PeerID]]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
 
     #
     subtype 'NBTypes::Infohash' => as 'Str' =>
-        where { length $_ == 40 && /[a-f0-9]/i } =>
-        message { 'Unpacked infohash must be 40 bytes long and contain only hex values' };
+        where { length $_ == 40 && /[a-f0-9]/i } => message {
+        'Unpacked infohash must be 40 bytes long and contain only hex values'
+        };
     subtype 'NBTypes::Infohash::Packed' => as 'Str' =>
-        where { length $_ == 20 }=>
-        message { 'Unpacked infohash must be 20 bytes in length' }              ;
+        where { length $_ == 20 } =>
+        message {'Unpacked infohash must be 20 bytes in length'};
     coerce 'NBTypes::Infohash' => from 'NBTypes::Infohash::Packed' =>
         via { uc unpack 'H*', $_ };
     coerce 'NBTypes::Infohash::Packed' => from 'NBTypes::Infohash' =>
@@ -83,14 +84,16 @@ package Net::BitTorrent::Types;
     subtype 'NBTypes::Cache::Packet' => as 'ArrayRef[Int]' =>
         where { scalar @$_ == 2 };
 
+    #
+    subtype 'NBTypes::Client::PeerID' => as 'Str' =>
+        where { length $_ == 20 } =>
+        message {'PeerID is malformed: length != 20'};
 
     #
     subtype 'NBTypes::DHT::Bucket' => as 'ArrayRef[ArrayRef]' => where {
         use Data::Dump;
         ddx $_;
     }
-    subtype 'NBTypes::Client::PeerID' => as 'Str' => where { length $_ == 20 }
-    => message { 'PeerID is malformed: length != 20' }
 }
 1;
 
