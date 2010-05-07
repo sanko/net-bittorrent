@@ -13,6 +13,7 @@ package Net::BitTorrent::Types;
                 NBTypes::Tracker::UDP NBTypes::Tracker::HTTP
                                       NBTypes::Tracker::HTTP::Event]
         ],
+        dht    => [qw[NBTypes::DHT::Bucket]],
         file  => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
         cache => [qw[NBTypes::Cache::Packet]],
         client => [qw[NBTypes::Client::PeerID]]
@@ -84,6 +85,10 @@ package Net::BitTorrent::Types;
 
 
     #
+    subtype 'NBTypes::DHT::Bucket' => as 'ArrayRef[ArrayRef]' => where {
+        use Data::Dump;
+        ddx $_;
+    }
     subtype 'NBTypes::Client::PeerID' => as 'Str' => where { length $_ == 20 }
     => message { 'PeerID is malformed: length != 20' }
 }
