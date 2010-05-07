@@ -83,243 +83,73 @@ package Net::BitTorrent;
     };
 
     #
-    has 'port' => (
-        isa      => 'Int',
+    has 'trackers' => (
         is       => 'ro',
-        init_arg => 'Port',
-        writer   => '_port',
-        default  => 0,
-        trigger  => sub {
-            my ($self, $new, $old) = @_;
-            if (defined $old && $new && $old) {
-                warn "TODO: Re-open servers";
-            }
-        }
+        traits   => ['Hash'],
+        isa      => 'HashRef[Net::BitTorrent::Protocol::BEP03::Tracker]',
+        weak_ref => 1,
+        default => sub {{}},
+        #handles => {
+        #    _add_tracker => ''
+        #}
     );
 
-    #
-    my @sockets = qw[tcp_ipv6 tcp_ipv4 udp_ipv6 udp_ipv4];
-    has [@sockets] => (init_arg   => undef,
-                       is         => 'ro',
-                       isa        => 'Object',
-                       lazy_build => 1
+    # DHT (requires udp attribute)
+    has 'dht' => (
+        is => 'ro',
+        isa => 'Net::BitTorrent::DHT',
+        lazy_build => 1
     );
 
-    sub BUILD {
-        my ($self, $args) = @_;
-        {    # Non-blocking socket creation
-            my @sock_types = grep {
-                my ($ipv) = (m[(ipv\d)$]);
-                $args->{'_no_' . $ipv}    # !!! - Disable IPv4 or IPv6
-                    ? ()
-                    : $_
-            } @sockets;
-            my $cv = AnyEvent->condvar;
-            $cv->begin;
-            my (@watchers, $coderef);
-            $coderef = sub {
-                shift @watchers if @watchers;
-                my $sock_type = shift @sock_types;
-                $self->$sock_type();
-                push @watchers,
-                    AE::idle(@sock_types ? $coderef : sub { $cv->end });
-            };
-            push @watchers, AE::idle($coderef);
-            $cv->recv;
-            shift @watchers;
-        }
-    }
-    {
-        use Socket qw[/SOCK_/ /F_INET/ inet_aton /sockaddr_in/ inet_ntoa
-            SOL_SOCKET SO_REUSEADDR
-        ];
-
-        sub ip2paddr ($) {    # snagged from NetAddr::IP::Util
-            my ($ipv6) = @_;
-            return undef unless $ipv6;
-            return inet_aton($1) if $ipv6 =~ m[^(?:::ffff:)?([^:]+)$]i; # IPv4
-            if ($ipv6 =~ /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-            {    # mixed hex, dot-quad
-                return undef if $2 > 255 || $3 > 255 || $4 > 255 || $5 > 255;
-                $ipv6 = sprintf("%s%X%02X:%X%02X", $1, $2, $3, $4, $5)
-                    ;    # convert to pure hex
-            }
-            my $c;
-            return undef
-                if $ipv6 =~ /[^:0-9a-fA-F]/ ||    # non-hex character
-                    (($c = $ipv6) =~ s/::/x/ && $c =~ /(?:x|:):/)
-                    ||                            # double :: ::?
-                    $ipv6 =~ /[0-9a-fA-F]{5,}/;   # more than 4 digits
-            $c = $ipv6 =~ tr/:/:/;                # count the colons
-            return undef if $c < 7 && $ipv6 !~ /::/;
-            if ($c > 7) {    # strip leading or trailing ::
-                return undef
-                    unless $ipv6 =~ s/^::/:/
-                        || $ipv6 =~ s/::$/:/;
-                return undef if --$c > 7;
-            }
-            while ($c++ < 7) {    # expand compressed fields
-                $ipv6 =~ s/::/:::/;
-            }
-            $ipv6 .= 0 if $ipv6 =~ /:$/;
-            my @hex = split(/:/, $ipv6);
-            foreach (0 .. $#hex) {
-                $hex[$_] = hex($hex[$_] || 0);
-            }
-            return pack("n8", @hex);
-        }
-
-        sub paddr2ip ($) {        # snagged from NetAddr::IP::Util
-            return inet_ntoa($_[0]) if length $_[0] == 4;    # ipv4
-            return unless length($_[0]) == 16;
-            my @hex = (unpack('n8', $_[0]));
-            $hex[9] = $hex[7] & 0xff;
-            $hex[8] = $hex[7] >> 8;
-            $hex[7] = $hex[6] & 0xff;
-            $hex[6] >>= 8;
-            my $return = sprintf("%X:%X:%X:%X:%X:%X:%D:%D:%D:%D", @hex);
-            $return =~ s/(0+:)+/:/;
-            $return =~ s/^0+//;
-            $return =~ s/^:+/::/;
-            $return =~ s/::0+/::/;
-            return $return;
-        }
-
-        sub pack_sockaddr {
-            my ($port, $packed_host) = @_;
-            return length $packed_host == 4
-                ? sockaddr_in($port, $packed_host)
-                : pack('SnLa16L', PF_INET6, $port, 0, $packed_host, 0);
-        }
-
-        sub unpack_sockaddr {
-            my ($packed_host) = @_;
-            return
-                length $packed_host == 28
-                ? (unpack('SnLa16L', $packed_host))[1, 3]
-                : unpack_sockaddr_in($packed_host);
-        }
-
-        sub _server {
-            my ($host, $port, $callback, $prepare, $proto) = @_;
-            my $_packed_host = ip2paddr($host);
-            my $type = length $_packed_host == 4 ? PF_INET : PF_INET6;
-            $port ||= 0;
-            $port =~ m[^(\d+)$];
-            $port = $1;
-            socket my ($socket), $type,
-                $proto eq 'udp' ? SOCK_DGRAM : SOCK_STREAM,
-                getprotobyname($proto)
-                || return;
-
-        # - What is the difference between SO_REUSEADDR and SO_REUSEPORT?
-        #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
-        # - setsockopt - what are the options for ActivePerl under Windows NT?
-        #    [http://perlmonks.org/?node_id=63280]
-        #      setsockopt($_tcp, SOL_SOCKET, SO_REUSEADDR, pack(q[l], 1))
-        #         or return;
-        # SO_REUSEPORT is undefined on Win32... Boo...
-            return
-                if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR,
-                pack('l', 1);
-            return if !bind $socket, pack_sockaddr($port, $_packed_host);
-            if (defined $prepare) {
-                my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
-                $prepare->($socket, paddr2ip($packed_ip), $_port);
-            }
-            return if $proto ne 'udp' && !listen($socket, 8);
-            return AE::io(
-                $socket, 0,
-                $proto eq 'udp'
-                ? sub {
-                    warn 'Mehhhhhhh...';
-                    my $flags = 0;
-                    if ($socket
-                        && (my $peer = recv $socket, my ($data), 1024, $flags)
-                        )
-                    {   my ($service, $host) = unpack_sockaddr $peer;
-                        $callback->($socket, paddr2ip($host), $service, $data,
-                                    $flags
-                        );
-                    }
-                    }
-                : sub {
-                    warn 'EHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH';
-                    while ($socket
-                           && (my $peer = accept my $fh, $socket))
-                    {   fh_nonblocking $fh, 1;
-                        my ($service, $host)
-                            = unpack_sockaddr getsockname $peer;
-                        $callback->($fh, paddr2ip($host), $service, $peer);
-
-             #if ($state->{fh} && (accept my ($peer), $state->{fh})) {
-             #    my ($service, $host) = unpack_sockaddr getsockname $peer;
-             #    $callback->($state->{fh}, paddr2ip($host), $service, $peer);
-             #}
-                    }
-                }
-            );
-        }
+    sub _build_dht {
+        use Data::Dump;
+        ddx \@_;
+        Net::BitTorrent::DHT->new( client => shift )
     }
 
-    sub _build_tcp_ipv4 {
-        my $self = shift;
-        my $port = $self->port;
-        return _server(
-            '0.0.0.0',
-            $port,
-            sub { die 'Accept!'; },
-            sub {
-                my ($_fh, $_host, $_port) = @_;
-                $self->_port($_port) if $port != $_port;
-            },
-            'tcp'
+    # Sockets
+    has 'port' => (is      => 'ro',
+                   default => '0',
+                   isa     => 'Int'
+    );
+
+    has 'udp' => (init_arg   => undef,
+                  is         => 'ro',
+                  isa        => 'Net::BitTorrent::Network::UDP',
+                  lazy_build => 1
+    );
+
+    sub _build_udp {
+        my ($self) = @_;
+        require Net::BitTorrent::Network::UDP;
+        Net::BitTorrent::Network::UDP->new(
+                                  port       => $self->port,
+                                  on_data_in => sub { $self->_on_udp_in( @_) }
         );
     }
 
-    sub _build_udp_ipv4 {
-        my $self = shift;
-        my $port = $self->port;
-        return _server(
-            '0.0.0.0',
-            $port,
-            sub { die 'Accept!'; },
-            sub {
-                my ($_fh, $_host, $_port) = @_;
-                $self->_port($_port) if $port != $_port;
-            },
-            'udp'
+    sub _on_udp_in {
+        my ($self, $udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
+        use Data::Dump;
+        ddx \@_;
+    }
+
+    has 'tcp' => (init_arg   => undef,
+                  is         => 'ro',
+                  isa        => 'Net::BitTorrent::Network::TCP',
+                  lazy_build => 1
+    );
+
+    sub _build_tcp {
+        my ($self) = @_;
+        require Net::BitTorrent::Network::TCP;
+        Net::BitTorrent::Network::TCP->new(
+                                  port       => $self->port,
+                                  on_data_in => sub { $self->_on_tcp_in( @_) }
         );
     }
 
-    sub _build_tcp_ipv6 {
-        my $self = shift;
-        my $port = $self->port;
-        return _server(
-            '::', $port,
-            sub { die 'Accept!'; },
-            sub {
-                my ($_fh, $_host, $_port) = @_;
-                $self->_port($_port) if $port != $_port;
-            },
-            'tcp'
-        );
-    }
-
-    sub _build_udp_ipv6 {
-        my $self = shift;
-        my $port = $self->port;
-        return _server(
-            '::', $port,
-            sub { die 'Accept!'; },
-            sub {
-                my ($_fh, $_host, $_port) = @_;
-                $self->_port($_port) if $port != $_port;
-            },
-            ,
-            'udp'
-        );
-    }
+    sub _on_tcp_in { die }
 }
 1;
 
