@@ -43,15 +43,17 @@ package Net::BitTorrent::DHT;
     }
 
     #
-    has 'boot_nodes' => (isa        => 'ArrayRef[Str]',
+    has 'boot_nodes' => (isa        => 'ArrayRef[ArrayRef[Str]]',
                          is         => 'rw',
                          lazy_build => 1
     );
 
     sub _build_boot_nodes {    # yeah, yeah, yeah...
-        return [
-            qw[ router.bitcomet.com:7777 router.bittorrent.com:7777
-                router.utorrent.com:7777]
+        return [['router.bitcomet.com',     6881],
+                ['router.bittorrent.com',   6881],
+                ['router.utorrent.com',     6881],
+                ['2002:d503:5ed::1',        6881],
+                ['dht.wifi.pps.jussieu.fr', 6881]
         ];
     }
     after 'BUILD' => sub {
@@ -103,7 +105,7 @@ package Net::BitTorrent::DHT;
         is         => 'ro',
         traits     => ['Array'],
         lazy_build => 1,
-        handles    => {add_node => 'push'},
+        handles    => {add_node => 'push', buckets => 'elements'},
 
         #coerce=>1
     );
@@ -129,13 +131,17 @@ package Net::BitTorrent::DHT;
     );
     around 'new_query' => sub {
         my ($code, $self, $tid, $packet, $node, $cb) = @_;
-        my ($host, $port) = split ':', $node;
+        use Data::Dump;
+        ddx \@_;
+        my ($host, $port) = @$node;
         my $paddr = ip2paddr($host);
         return if !defined $paddr;    # Failed to resolve
         warn $self->udp->ipv4_sock;
         warn 'Sending ' . $packet . ' to ' . $node;
-        warn send($self->udp->ipv4_sock, $packet, 0,
-                  pack_sockaddr($port, $paddr));
+        my $sent = send($self->udp->ipv4_sock, $packet, 0,
+                        pack_sockaddr($port, $paddr));
+        warn sprintf 'sent %d bytes', $sent || 0;
+        return !$sent;
         return    # TODO - Define Moose type for outstanding queries?
             $code->($self, $tid,
                     {paddr  => $paddr,
