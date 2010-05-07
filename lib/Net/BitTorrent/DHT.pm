@@ -50,18 +50,28 @@ package Net::BitTorrent::DHT;
 
     sub _build_boot_nodes {    # yeah, yeah, yeah...
         return [
-            qw[
-            router.bitcomet.com:554
-            router.bittorrent.com:6881
-            router.utorrent.com:6881
-
-                127.0.0.1:1337
-                ]
+            qw[ router.bitcomet.com:7777 router.bittorrent.com:7777
+                router.utorrent.com:7777]
         ];
     }
     after 'BUILD' => sub {
         my ($self, $args) = @_;
-        $self->ping($_) for @{$self->boot_nodes};    # XXX - AE::timer( ... )
+        {                      # Non-blocking boot
+            $self->udp;
+            my @nodes = @{$self->boot_nodes};
+            my $cv    = AnyEvent->condvar;
+            $cv->begin;
+            my (@watchers, $coderef);
+            $coderef = sub {
+                shift @watchers if @watchers;
+                $self->ping(shift @nodes);
+                push @watchers,
+                    AE::idle(@nodes ? $coderef : sub { $cv->end });
+            };
+            push @watchers, AE::idle($coderef);
+            $cv->recv;
+            shift @watchers;
+        }
         return 1;
     };
 
