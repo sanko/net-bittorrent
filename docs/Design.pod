@@ -524,9 +524,9 @@ This role will probably not be included in the distribution.
 
 TODO
 
-=head2 Net::BitTorrent::DHT::Standalone [Role]
+=head2 Net::BitTorrent::DHT::Standalone [Ext]
 
-This role obviously extends Net::BitTorrent::DHT to function without a parent
+This class obviously extends Net::BitTorrent::DHT to function without a parent
 Net::BitTorrent client.
 
 =head2 Net::BitTorrent::Network
@@ -773,9 +773,9 @@ important later.
 
   package                               type        progress/proiority
   ----------------------------------------------------------------------------
+  *Net::BitTorrent::DHT::Standalone      ext class  done
    Net::BitTorrent                       class       todo (req rethink)
    Net::BitTorrent::DHT                  class       todo/high
-   Net::BitTorrent::DHT::Standalone      role        todo
    Net::BitTorrent::DHT::Bucket?
    Net::BitTorrent::DHT::Node?
    Net::BitTorrent::Network              base class  done
@@ -792,8 +792,8 @@ important later.
    Net::BitTorrent::Torrent::Factory     role?
    Net::BitTorrent::Types                Moose types
 
-Packages which have a reasonably complete/current implementation in git are
-marked with C<*>.
+Packages which meet (or in rare cases exceed) their current specification as
+defined here are marked with C<*>.
 
 These are packages I really haven't given enough thought to:
 
