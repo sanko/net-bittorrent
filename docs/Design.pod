@@ -809,7 +809,7 @@ important later.
   *  ::DHT                          class       todo/high
   *  ::DHT::Standalone              ext class   done
   *  ::DHT::Callbacks               role        todo/low
-     ::Protocol::BEP05              docs
+  *  ::Protocol::BEP05              docs
   *    ::Packets                    utility     done
        ::RoutingTable?              class
          ::Bucket?                  class

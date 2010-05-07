@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-BEP 5 - DHT Protocol
+Net::BitTorrent::Protocol::BEP05 - DHT Protocol
 
 =begin header
 
