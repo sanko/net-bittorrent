@@ -58,6 +58,10 @@ package Net::BitTorrent::DHT;
     sub _build_routing_table {
         Net::BitTorrent::Protocol::BEP05::RoutingTable->new(dht => shift);
     }
+    after 'BUILD' => sub {
+        my ($self, $args) = @_;
+        return if !defined $args->{'boot_nodes'};
+        $self->routing_table->add_node($_) for @{$args->{'boot_nodes'}};
     };
 
     #
