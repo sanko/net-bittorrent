@@ -43,48 +43,6 @@ package Net::BitTorrent::DHT;
 
     #
     }
-    after 'BUILD' => sub {
-        my ($self, $args) = @_;
-        {                      # Non-blocking boot
-            $self->udp;
-            my @nodes = @{$self->boot_nodes};
-            my $cv    = AnyEvent->condvar;
-            $cv->begin;
-            my (@watchers, $coderef);
-            $coderef = sub {
-                shift @watchers if @watchers;
-                $self->ping(shift @nodes);
-                push @watchers,
-                    AE::idle(@nodes ? $coderef : sub { $cv->end });
-            };
-            push @watchers, AE::idle($coderef);
-            $cv->recv;
-            shift @watchers;
-        }
-        return 1;
-    };
-
-    # Sockets
-    has 'port' => (
-        isa     => 'Int',
-        is      => 'ro',
-        writer  => '_port',
-        default => 0,
-        trigger => sub {
-            my ($self, $new, $old) = @_;
-            if (defined $old && $new && $old) {
-                warn "TODO: Re-open servers";
-            }
-        }
-    );
-
-    #
-    has 'cache' => (    # by infohash
-                     isa     => 'HashRef',
-                     is      => 'ro',
-                     traits  => ['Hash'],
-                     handles => {}
-    );
 
     #
     has 'routing_table' => (
