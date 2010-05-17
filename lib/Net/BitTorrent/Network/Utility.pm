@@ -11,7 +11,7 @@ package Net::BitTorrent::Network::Utility;
     require Exporter;
     our @ISA = qw[Exporter];
     our %EXPORT_TAGS = (socket   => [qw[client server]],
-                        paddr    => [qw[ip2paddr paddr2ip]],
+                        paddr    => [qw[sockaddr paddr2ip]],
                         sockaddr => [qw[pack_sockaddr unpack_sockaddr]],
                         vars     => [qw[%cache]]
     );
