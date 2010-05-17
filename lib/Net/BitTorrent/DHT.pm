@@ -7,6 +7,7 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Protocol::BEP05::Packets qw[:all];
     use Net::BitTorrent::Network::Utility qw[:paddr :sockaddr];
     use Net::BitTorrent::Types qw[:dht];
+    use Net::BitTorrent::Protocol::BEP05::RoutingTable;
     use 5.10.0;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
@@ -46,16 +47,17 @@ package Net::BitTorrent::DHT;
 
     #
     has 'routing_table' => (
-        isa        => 'ArrayRef[NBTypes::DHT::Bucket]',
+        isa        => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
         is         => 'ro',
-        traits     => ['Array'],
         lazy_build => 1,
-        handles    => {add_node => 'push', buckets => 'elements'},
+        handles    => {add_node => 'add_node', buckets => 'buckets'},
 
         #coerce=>1
     );
-    sub _build_routing_table { [[]]; }
-    around 'add_node' => sub {
+
+    sub _build_routing_table {
+        Net::BitTorrent::Protocol::BEP05::RoutingTable->new(dht => shift);
+    }
     };
 
     #
