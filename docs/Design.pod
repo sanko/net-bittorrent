@@ -764,11 +764,135 @@ See Net::BitTorrent::Network::UDP for more information.
 
 =head2 Net::BitTorrent::DHT
 
-=head3 Net::BitTorrent::DHT->new( )
+Net::BitTorrent's DHT functionality... blah blah...
+
+=head3 Net::BitTorrent::DHT->new( client => $client )
+
+This is how DHT is used internally. Our local nodeid is generated
+automatically.
+
+=cut
+
+use Net::BitTorrent;
+my $client = Net::BitTorrent->new( );
+my $dht = $client->dht;
+
+=pod
+
+=head3 Net::BitTorrent::DHT->new( client => $client, nodeid => 'F' x 40 )
+
+For reasons I have yet to think of, our local DHT node can be set during
+construction. This is mostly useful when creating a
+L<standalone DHT node|Net::BitTorrent::DHT::Standalone>.
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node_a = Net::BitTorrent::DHT->new( nodeid => 'F' x 40 );
+my $node_b = Net::BitTorrent::DHT->new( nodeid => pack 'H*', F' x 40 );
+
+=pod
+
+=head3 Net::BitTorrent::DHT->get_peers( $infohash, $callback )
+
+This method initiates a search for peers serving a torrent with this infohash.
+As they are found, the callback is called with the following arguments:
+
+=over
+
+=item * infohash
+
+This is the infohash related to these peers. This is useful when you've set
+the same callback for multiple, concurrent C<get_peers( )> quests.
+
+=item * node
+
+This is a blessed object. TODO.
+
+=item * peers
+
+This is an array ref of compact nodes sent to us by aforementioned remote
+node.
+
+=back
+
+The only strong reference to this 'quest' is returned by this method so, to
+stop searching for peers, simply destroy this quest in your code (end the
+scope, setting the variable used to store it to C<undef>, etc.).
+
+A single C<get_peers> quest is an array ref which contains the following data:
+
+=over
+
+=item * infohash
+
+This is the infohash related to these peers.
+
+=item * coderef
+
+This is the callback triggered as we locate new peers.
+
+=item * peers
+
+This is a compacted list of all peers found so far. This is probably more
+useful than the list passed to the callback.
+
+=item * timer
+
+This is an L<AnyEvent|AnyEvent> timer which is triggered every five minutes.
+When triggered, the node requests new peers from nodes in the bucket nearest
+to the infohash.
+
+Don't modify this.
+
+=back
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+my $quest_a = $dht->get_peers(pack('H*', 'A' x 40), \&dht_cb);
+my $quest_b = $dht->get_peers('1' x 40, \&dht_cb);
+
+sub dht_cb {
+    my ($infohash, $node, $peers) = @_;
+    say sprintf 'We found %d peers for %s from %s:%d via DHT', scalar(@$peers),
+        $infohash->to_Hex, $node->host, $node->port;
+}
+
+=pod
+
+=head2 Net::BitTorrent::DHT::Standalone (role)
+
+This role is applied automatically when the Net::BitTorrent::DHT constructor
+is called without a blessed Net::BitTorrent object in the C<client> parameter.
+For API documentation, see L<Net::BitTorrent::DHT>.
+
+Standalone DHT nodes may be useful for statistical purposes.
+
+=head2 Net::BitTorrent::DHT->new( )
 
 This creates a new standalone DHT node. Random ports will be opened to
 incoming UDP connections via IPv4 and IPv6.
 
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+
+=pod
+
+=head2 Net::BitTorrent::DHT->new( port => ... )
+
+Opens a specific UDP port number to the outside world on both IPv4 and IPv6.
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node_a = Net::BitTorrent::DHT->new( port => 1123 );
+my $node_b = Net::BitTorrent::DHT->new( port => [1235 .. 9875] );
+
+=pod
 
 =head1 Silly ASCII Art
 
@@ -833,13 +957,15 @@ important later.
   *  ::DHT::Callbacks               role        todo/low
   *  ::Protocol::BEP05              docs
   *    ::Packets                    utility     done
-       ::RoutingTable?              class
-         ::Bucket?                  class
-           ::Node?                  class
+  *    ::RoutingTable               class
+  *      ::Bucket                   class
+  *        ::Node                   class
+  *  ::Protocol::BEP23              docs        done
+  *    ::Compact                    utility     done
   * ::Network                       base class  todo (transfer limits?)
   *   ::TCP                         ext class   done
   *   ::UDP                         ext class   done
-      ::Utility                                 done
+  *   ::Utility                                 done
     ::Peer
     ::Storage                       class
       ::Node                        base class
@@ -848,7 +974,7 @@ important later.
     ::Torrent                       class
       ::Standalone                  role
       ::Factory                     role?
-    ::Types                         Moose types
+  * ::Types                         Moose types
 
 Packages which meet (or in rare cases exceed) their current specification as
 defined here are marked with C<*>.
@@ -873,7 +999,7 @@ These are packages I really haven't given enough thought to:
    Net::BitTorrent::Protocol::BEP15            Builds and parses UDP tracker packets, handles for UDP tracker communication
   *Net::BitTorrent::Protocol::BEP15::Tracker::UDP
                                                 Single url
-   Net::BitTorrent::Protocol::BEP23            compact/uncompact peer lists (IPv4)
+
   *Net::BitTorrent::Protocol::BEP27::Private::Metadata
                                                 Private metadata (uses around '...' to override BEP03::Metadata methods)
 
