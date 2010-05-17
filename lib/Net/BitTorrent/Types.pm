@@ -22,13 +22,17 @@ package Net::BitTorrent::Types;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
 
     #
-    subtype 'NBTypes::Infohash' => as 'Str' =>
-        where { length $_ == 40 && /[a-f0-9]/i } => message {
-        'Unpacked infohash must be 40 bytes long and contain only hex values'
+    subtype 'NBTypes::Infohash' => as 'Str' => where { length $_ == 40 } =>
+        message {
+        sprintf 'Unpacked infohash must be 40 bytes long not %d', length $_;
+        } => where {/[a-f\d]/i} => message {
+        sprintf 'Unpacked infohash must contain only hex chars not %s', $_;
         };
     subtype 'NBTypes::Infohash::Packed' => as 'Str' =>
-        where { length $_ == 20 } =>
-        message {'Unpacked infohash must be 20 bytes in length'};
+        where { length $_ == 20 } => message {
+        sprintf 'Unpacked infohash must be 20 bytes in length not %d (%s)',
+            length($_), $_;
+        };
     coerce 'NBTypes::Infohash' => from 'NBTypes::Infohash::Packed' =>
         via { uc unpack 'H*', $_ };
     coerce 'NBTypes::Infohash::Packed' => from 'NBTypes::Infohash' =>
