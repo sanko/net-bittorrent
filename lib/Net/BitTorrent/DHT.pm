@@ -29,17 +29,16 @@ package Net::BitTorrent::DHT;
     };
 
     #
-    has 'nodeid' => (    # uses the same 160-bit space
-                      isa        => 'NBTypes::Infohash::Packed',
-                      is         => 'ro',
-                      lazy_build => 1,
-                      coerce     => 1
+    has 'nodeid' => (isa        => 'NBTypes::DHT::NodeID',
+                     is         => 'ro',
+                     lazy_build => 1,
+                     builder    => '_build_nodeid',
+                     coerce     => 1
     );
 
     sub _build_nodeid {
         require Digest::SHA;
-        return Digest::SHA::sha1_hex(
-                                   rand(time * $^T) . $0 . 'Sanko was here.');
+        return Digest::SHA::sha1(rand(time * $^T) . $0 . 'Sanko was here.');
     }
 
     #
