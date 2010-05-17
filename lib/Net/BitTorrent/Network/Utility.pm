@@ -75,11 +75,12 @@ package Net::BitTorrent::Network::Utility;
 
     sub server {
         my ($host, $port, $callback, $prepare, $proto) = @_;
-        my $_packed_host = ip2paddr($host);
-        my $type = length $_packed_host == 4 ? PF_INET : PF_INET6;
+        my $sockaddr = sockaddr($host, $port);
+        my $type = length $sockaddr == 16 ? PF_INET : PF_INET6;
         socket my ($socket), $type,
             $proto eq 'udp' ? SOCK_DGRAM : SOCK_STREAM, getprotobyname($proto)
             || return;
+
         # - What is the difference between SO_REUSEADDR and SO_REUSEPORT?
         #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
         # - setsockopt - what are the options for ActivePerl under Windows NT?
@@ -89,7 +90,7 @@ package Net::BitTorrent::Network::Utility;
         # SO_REUSEPORT is undefined on Win32... Boo...
         return
             if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
-        return if !bind $socket, pack_sockaddr($port, $_packed_host);
+        return if !bind $socket, $sockaddr;
         if (defined $prepare) {
             my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
             $prepare->($socket, paddr2ip($packed_ip), $_port);
@@ -103,10 +104,11 @@ package Net::BitTorrent::Network::Utility;
             ? sub {
                 my $flags = 0;
                 if ($socket
-                    && (my $peer = recv $socket, my ($data), 16 * 1024, $flags))
+                    && (my $peer = recv $socket, my ($data), 16 * 1024,
+                        $flags))
                 {   my ($service, $host) = unpack_sockaddr $peer;
-                    $callback->($socket, $peer, paddr2ip($host), $service, $data,
-                                $flags
+                    $callback->($socket, $peer, paddr2ip($host), $service,
+                                $data, $flags
                     );
                 }
                 }
