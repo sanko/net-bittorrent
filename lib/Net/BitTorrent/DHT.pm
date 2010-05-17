@@ -65,44 +65,22 @@ package Net::BitTorrent::DHT;
     };
 
     #
-    has 'outstanding_queries' => (    # by tid
-        is      => 'ro',
-        isa     => 'HashRef',
-        traits  => ['Hash'],
-        default => sub { {} },
-        handles => {new_query                  => 'set',
-                    get_query                  => 'get',
-                    has_no_outstanding_queries => 'is_empty',
-                    num_outstanding_queries    => 'count',
-                    delete_query               => 'delete',
-                    expire_query               => 'delete',
-                    expecting                  => 'defined',
-                    pairs                      => 'kv'
-        }
+    has '_quests' => (isa      => 'ArrayRef[Ref]',
+                      is       => 'ro',
+                      init_arg => undef,
+                      traits   => ['Array'],
+                      handles  => {
+                                  add_quest   => 'push',
+                                  quests      => 'elements',
+                                  get_quest   => 'get',
+                                  grep_quests => 'grep',
+                                  map_quests  => 'map'
+                      },
+                      default => sub { [] }
     );
-    around 'new_query' => sub {
-        my ($code, $self, $tid, $packet, $node, $cb) = @_;
-        use Data::Dump;
-        ddx \@_;
-        my ($host, $port) = @$node;
-        my $paddr = ip2paddr($host);
-        return if !defined $paddr;    # Failed to resolve
-        warn $self->udp->ipv4_sock;
-        warn 'Sending ' . $packet . ' to ' . $node;
-        my $sent = send($self->udp->ipv4_sock, $packet, 0,
-                        pack_sockaddr($port, $paddr));
-        warn sprintf 'sent %d bytes', $sent || 0;
-        return !$sent;
-        return    # TODO - Define Moose type for outstanding queries?
-            $code->($self, $tid,
-                    {paddr  => $paddr,
-                     node   => $node,
-                     packet => $packet,
-                     timeout =>
-                         AE::timer(30, 0, sub { $self->expire_query($tid); }),
-                     (defined $cb ? (cb => $cb) : ())
-                    }
-            );
+    after 'add_quest' => sub {
+        require Scalar::Util;
+        Scalar::Util::weaken $_[0]->{'_quests'}->[-1];
     };
 
     #
