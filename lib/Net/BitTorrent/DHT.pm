@@ -43,18 +43,6 @@ package Net::BitTorrent::DHT;
     }
 
     #
-    has 'boot_nodes' => (isa        => 'ArrayRef[ArrayRef[Str]]',
-                         is         => 'rw',
-                         lazy_build => 1
-    );
-
-    sub _build_boot_nodes {    # yeah, yeah, yeah...
-        return [['router.bitcomet.com',     6881],
-                ['router.bittorrent.com',   6881],
-                ['router.utorrent.com',     6881],
-                ['2002:d503:5ed::1',        6881],
-                ['dht.wifi.pps.jussieu.fr', 6881]
-        ];
     }
     after 'BUILD' => sub {
         my ($self, $args) = @_;
