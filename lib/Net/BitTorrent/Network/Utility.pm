@@ -70,22 +70,7 @@ package Net::BitTorrent::Network::Utility;
 
     sub connect {
         my ($host, $port, $ready, $prepare) = @_;
-        my $packed_host = ip2paddr($host) || return;
-        my $type = length $packed_host == 4 ? PF_INET : PF_INET6;
-        socket(my ($socket), $type, SOCK_STREAM, getprotobyname('tcp'))
-            || return;
-        my $_inet_aton = inet_aton($host) || return;    # TODO: Cache this
-        my $pack_sockaddr_in = pack_sockaddr_in($port, $_inet_aton)
-            || return;
-        require AnyEvent::Util;
-        AnyEvent::Util::fh_nonblocking $socket, 1;
-        connect($socket, $pack_sockaddr_in);            # Nonblocking
-
-        if (defined $prepare) {
-            my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
-            $prepare->($socket, $host, $_port);
-        }
-        return AE::io($socket, 1, sub { $ready->($socket, $host, $port) });
+        AnyEvent::Socket::tcp_connect($host, $port, $ready, $prepare);
     }
 
     sub server {
