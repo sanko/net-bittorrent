@@ -63,28 +63,14 @@ package Net::BitTorrent::Network;
             $self->ipv4_on_data_in($args->{'on_data_in'});
             $self->ipv6_on_data_in($args->{'on_data_in'});
         }
-        {    # Non-blocking socket creation
-            my @sock_types = grep {
-                my ($ipv) = (m[(ipv\d)$]);
-                $args->{'disable_' . $ipv}    # !!! - Disable IPv4 or IPv6
-                    ? ()
-                    : $_
-            } keys %_sock_types;
-            my $cv = AnyEvent->condvar;
-            $cv->begin;
-            my (@watchers, $coderef);
-            $coderef = sub {
-                shift @watchers if @watchers;
-                my $sock_type = shift @sock_types;
-                $self->$sock_type();
-                push @watchers,
-                    AE::idle(@sock_types ? $coderef : sub { $cv->end });
-            };
-            push @watchers, AE::idle($coderef);
-            $cv->recv;
-            shift @watchers;
+        {    # Open up!
+            for (keys %_sock_types) {
+                $self->$_() if !defined $args->{'disable_' . $_};
+            }
         }
     }
+
+    #
     no Moose;
     __PACKAGE__->meta->make_immutable;
 }
