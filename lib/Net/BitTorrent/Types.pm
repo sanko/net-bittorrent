@@ -16,7 +16,6 @@ package Net::BitTorrent::Types;
         file   => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
         cache  => [qw[NBTypes::Cache::Packet]],
         client => [qw[NBTypes::Client::PeerID]],
-        dht    => [qw[NBTypes::DHT::Bucket]],
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
@@ -90,10 +89,6 @@ package Net::BitTorrent::Types;
         message {'PeerID is malformed: length != 20'};
 
     #
-    subtype 'NBTypes::DHT::Bucket' => as 'ArrayRef[ArrayRef]' => where {
-        use Data::Dump;
-        ddx $_;
-    }
 }
 1;
 
