@@ -762,6 +762,14 @@ my $udp = Net::BitTorrent::Network::TCP->new( on_data_in => sub { warn 'incoming
 
 See Net::BitTorrent::Network::UDP for more information.
 
+=head2 Net::BitTorrent::DHT
+
+=head3 Net::BitTorrent::DHT->new( )
+
+This creates a new standalone DHT node. Random ports will be opened to
+incoming UDP connections via IPv4 and IPv6.
+
+
 =head1 Silly ASCII Art
 
 A step above calculator humor.
@@ -770,27 +778,41 @@ A step above calculator humor.
 
 I banged my head on something hard and this popped out:
 
-       .-----.-----.-----.------[client]-----------------------------.
-      |      |     |     |         |                                 |
-      |      |     |     |         |                                 |
-      |      |     |     |         |                                 |
-      |    [url] [url] [url]   [torrent]                             |
-      |      |     |     |                                           |
-      |      |     |     |                                           |
-      |      |     |     |                                           |
-      |      `---------------[tier]--------------------------------. |
-      |                         |                                  | |
-      |`----.-----.-----.       |                              [torrent]
-      |     |     |     |       |                                  |
-      |     |     |     |       |                                  |
-    [url] [url] [url] [url]-----'                                  |
-      |     |     |     |                                          |
-      |     |     |     |                                          |
-      |     |     |     |                                          |
-       `---------------[tier]--------------------------------------'
+       .---.-----.-----.------[client]--.
+      |    |     |     |         |      |
+      |  [url] [url] [url]   [torrent]  |
+      |    |     |     |                |
+      |    '---------------[tier]-----. |
+      |                       |       | |
+      |`----.-----.-----.     |    [torrent]
+      |     |     |     |     |       |
+    [url] [url] [url] [url]--'        |
+      |     |     |     |             |
+       `---------------[tier]---------'
 
 If each url in a tier of trackers is linked to the parent client, I can avoid
 creating duplicate objects for shared urls and enable multi-infohash scrapes.
+
+=head2 RoutingTable <-> Node <-> Bucket Relationship
+
+     .--.--.--.--.-[RT]--.--.--.--.--.--.--.--.-- ...
+     |  |  |  |  |  |    |  |  |  |  |  |  |  |
+    [*][*][*][*][*] |   [*][*][*][*][*][*][*][*]
+                    |
+              .-----'---.----- ...
+              |         |
+    ... -----[B]     .-[B]
+              |     |   |
+     .--.--.--+--.  |  .+-.--.--.--.--.--.--.
+     |  |  |  |  |  |  |  |  |  |  |  |  |  |
+    [N][N][N][N][N] | [N][N][N][N][N][N][N][N]  N Assigned   max 8/bucket
+                    | [n][n][n][n][n][n][n][n]  n Backup     max 8/bucket
+                    |  |  |  |  |  |  |  |  |   * Unassigned max 30/table
+                     '-'--'--'--'--'--'--'--'
+
+Unassigned nodes are kept in a cache held by the routing table itself. These
+are nodes with outstanding queries (usually pings). When they respond, we will
+know their node id and can assign them to the correct bucket.
 
 =head1 Remnants
 
