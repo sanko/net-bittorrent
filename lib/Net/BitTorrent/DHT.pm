@@ -23,9 +23,9 @@ package Net::BitTorrent::DHT;
         my ($self, $args) = @_;
         return if $self->has_client;
         require Moose::Util;
-        return
-            Moose::Util::apply_all_roles($self,
-                                         'Net::BitTorrent::DHT::Standalone');
+        Moose::Util::apply_all_roles($self,
+                                     'Net::BitTorrent::DHT::Standalone',
+                                     {rebless_params => $args});
     };
 
     #
