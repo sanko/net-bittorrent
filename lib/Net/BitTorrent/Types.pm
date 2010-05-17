@@ -16,6 +16,7 @@ package Net::BitTorrent::Types;
         file   => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
         cache  => [qw[NBTypes::Cache::Packet]],
         client => [qw[NBTypes::Client::PeerID]],
+        dht    => [qw[NBTypes::DHT::NodeID]]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
@@ -89,6 +90,18 @@ package Net::BitTorrent::Types;
         message {'PeerID is malformed: length != 20'};
 
     #
+    subtype 'NBTypes::DHT::NodeID' => as 'Bit::Vector' =>
+        where { $_->Size == 160 } =>
+        message {'DHT NodeIDs are 160-bit integers.'};
+    coerce 'NBTypes::DHT::NodeID' =>
+        from subtype(as 'Int' => where { length $_ <= 40 } ) =>
+        via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
+        from subtype(as 'Str' => where {/^[a-f\d]$/i } ) =>
+        via { require Bit::Vector; warn $_; Bit::Vector->new_Hex(160, $_) } =>
+        from 'Str' => via {
+        require Bit::Vector;
+        Bit::Vector->new_Hex(160, unpack 'H*', $_);
+        };
 }
 1;
 
