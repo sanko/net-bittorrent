@@ -143,7 +143,7 @@ package Net::BitTorrent::Network::Utility;
             ? sub {
                 my $flags = 0;
                 if ($socket
-                    && (my $peer = recv $socket, my ($data), 1024, $flags))
+                    && (my $peer = recv $socket, my ($data), 16 * 1024, $flags))
                 {   my ($service, $host) = unpack_sockaddr $peer;
                     $callback->($socket, $peer, paddr2ip($host), $service, $data,
                                 $flags
