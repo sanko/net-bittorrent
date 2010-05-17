@@ -4,6 +4,7 @@ package Net::BitTorrent::Network::Utility;
     use warnings;
     use Moose;
     use AnyEvent;
+    use AnyEvent::Socket qw[];
     use Socket qw[/SOCK_/ /F_INET/ inet_aton /sockaddr_in/ inet_ntoa
         SOL_SOCKET SO_REUSEADDR
     ];
@@ -18,46 +19,20 @@ package Net::BitTorrent::Network::Utility;
     our @EXPORT_OK = @{$EXPORT_TAGS{'all'}}
         = sort map {@$_} values %EXPORT_TAGS;
 
-    sub ip2paddr ($) {    # snagged from NetAddr::IP::Util
-        my ($ipv6) = @_;
-        return undef unless defined $ipv6;
-        return $cache{$ipv6} if defined $cache{$ipv6};
-        if (!defined $cache{$ipv6}) {
-            if ($ipv6 =~ m[^(?:::ffff:)?([^:]+)$]i) {    # IPv4
-                $cache{$ipv6} = inet_aton($1);
-                return $cache{$ipv6};
+    sub sockaddr ($$) {
+        my $done = 0;
+        my $return;
+        AnyEvent::Socket::resolve_sockaddr(
+            $_[0],
+            $_[1],
+            0, undef, undef,
+            sub {
+                $return = $_[0]->[3];
+                $done++;
             }
-            if ($ipv6 =~ /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-            {                                            # mixed hex, dot-quad
-                return undef if $2 > 255 || $3 > 255 || $4 > 255 || $5 > 255;
-                $ipv6 = sprintf("%s%X%02X:%X%02X", $1, $2, $3, $4, $5)
-                    ;                                    # convert to pure hex
-            }
-            my $c;
-            return undef
-                if $ipv6 =~ /[^:0-9a-fA-F]/ ||           # non-hex character
-                    (($c = $ipv6) =~ s/::/x/ && $c =~ /(?:x|:):/)
-                    ||                                   # double :: ::?
-                    $ipv6 =~ /[0-9a-fA-F]{5,}/;          # more than 4 digits
-            $c = $ipv6 =~ tr/:/:/;                       # count the colons
-            return undef if $c < 7 && $ipv6 !~ /::/;
-            if ($c > 7) {    # strip leading or trailing ::
-                return undef
-                    unless $ipv6 =~ s/^::/:/
-                        || $ipv6 =~ s/::$/:/;
-                return undef if --$c > 7;
-            }
-            while ($c++ < 7) {    # expand compressed fields
-                $ipv6 =~ s/::/:::/;
-            }
-            $ipv6 .= 0 if $ipv6 =~ /:$/;
-            my @hex = split(/:/, $ipv6);
-            foreach (0 .. $#hex) {
-                $hex[$_] = hex($hex[$_] || 0);
-            }
-            $cache{$ipv6} = pack("n8", @hex);
-        }
-        return $cache{$ipv6};
+        );
+        AnyEvent->one_event while !$done;
+        return $return;
     }
 
     sub paddr2ip ($) {    # snagged from NetAddr::IP::Util
