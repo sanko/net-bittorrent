@@ -88,23 +88,19 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                          writer   => '_ping_timer',
                          clearer  => 'touch'
     );
-
-    #
     has 'prev_get_peers' =>
         (isa => 'Int', is => 'rw', default => 0, lazy => 1);
-
-    #
     sub _build_ping_timer {
         my ($self) = @_;
         require Scalar::Util;
         Scalar::Util::weaken $self;
-        AE::timer(60 * 15, 60 * 15, sub {$self->ping } );
+        AE::timer(60 * 15, 60 * 15, sub { $self->ping });
     }
     after 'BUILD' => sub {
         my ($self) = @_;
         require Scalar::Util;
         Scalar::Util::weaken $self;
-        $self->_ping_timer(AE::timer(5, 0,sub {$self->ping}));
+        $self->_ping_timer(AE::timer(5, 0, sub { $self->ping }));
     };
     has 'birth' => (
         is => 'ro',
@@ -114,28 +110,40 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     );
     sub ping {
         my ($self) = @_;
-         state $tid = 'a';
-        my $packet
-            = build_dht_query_ping('p_' . $tid, pack('H*', $self->local_node->nodeid->to_Hex));
+        state $tid = 'a';
+        my $packet =
+            build_dht_query_ping('p_' . $tid,
+                                 pack('H*', $self->local_node->nodeid->to_Hex
+                                 )
+            );
         my $sent = $self->send($packet);
         return $self->miss() if !$sent;
         $self->add_request('p_' . $tid, {type => 'ping'});
         $tid++;
     }
+
     sub _reply_ping {
         my ($self, $tid) = @_;
         warn sprintf 'Sending pong! to %s', $self->host;
-        my $packet = build_dht_reply_ping( $tid, pack('H*', $self->local_node->nodeid->to_Hex) );
+        my $packet =
+            build_dht_reply_ping($tid,
+                                 pack('H*', $self->local_node->nodeid->to_Hex
+                                 )
+            );
         my $sent = $self->send($packet);
         $self->miss() if !$sent;
-        return $sent
+        return $sent;
     }
 
     sub find_node {
         my ($self, $target) = @_;
         state $tid = 'a';
-        my $packet = build_dht_query_find_node('fn_' . $tid,
-                                          pack('H*', $self->local_node->nodeid->to_Hex), $target);
+        my $packet =
+            build_dht_query_find_node('fn_' . $tid,
+                                      pack('H*',
+                                           $self->local_node->nodeid->to_Hex),
+                                      $target
+            );
         my $sent = $self->send($packet);
         return $self->miss() if !$sent;
         $self->add_request('fn_' . $tid,
@@ -143,13 +151,16 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         $tid++;
     }
 
-    sub get_peers   {
+    sub get_peers {
         my ($self, $info_hash) = @_;
         return if $self->prev_get_peers() > time - 120;
         state $tid = 'a';
-        my $packet = build_dht_query_get_peers('gp_' . $tid,
-                                       pack('H*', $self->local_node->nodeid->to_Hex),
-                                       pack('H*', $info_hash->to_Hex));
+        my $packet =
+            build_dht_query_get_peers('gp_' . $tid,
+                                      pack('H*',
+                                           $self->local_node->nodeid->to_Hex),
+                                      pack('H*', $info_hash->to_Hex)
+            );
         my $sent = $self->send($packet);
         return $self->miss() if !$sent;
         $self->add_request('gp_' . $tid,
