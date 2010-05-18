@@ -120,6 +120,28 @@ package Net::BitTorrent::DHT;
         return $quest;
     }
 
+    sub find_node {
+        my ($self, $nodeid, $code) = @_;
+        if (!blessed $nodeid) {
+            require Bit::Vector;
+            $nodeid =
+                Bit::Vector->new_Hex(160,
+                        $nodeid =~ m[^[a-f\d]+$]i ? $nodeid : unpack 'H*',
+                        $nodeid);
+        }
+        my $quest = [
+            $nodeid, $code, '', AE::timer( 15, 60 ,
+                sub {
+                    $_->find_node($nodeid)
+                        for @{$self->routing_table->nearest_bucket($nodeid)
+                            ->nodes};
+                }
+            )
+        ];
+        $self->add_quest($quest);
+        return $quest;
+    }
+
     #
     sub _on_data_in {
         my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
