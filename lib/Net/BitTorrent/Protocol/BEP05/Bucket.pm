@@ -42,7 +42,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                         'push_' . $type . 'node'    => 'push',
                         'shift_' . $type . 'node'   => 'shift',
                         'unshift_' . $type . 'node' => 'unshift',
-                        'splice_' . $type . 'node'  => 'splice',
+                        'splice_' . $type . 'nodes' => 'splice',
                         'count_' . $type . 'nodes'  => 'count',
                         'add_' . $type . 'node'     => 'push',
                         'sort_'
