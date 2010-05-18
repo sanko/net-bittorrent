@@ -74,12 +74,12 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
          )
         ];
     }
-    has 'local_node' => (isa      => 'Net::BitTorrent::DHT',
-                         required => 1,
-                         is       => 'ro',
-                         weak_ref => 1,
-                         handles  => {send => 'send'},
-                         init_arg => 'dht'
+    has 'dht' => (isa      => 'Net::BitTorrent::DHT',
+                  required => 1,
+                  is       => 'ro',
+                  weak_ref => 1,
+                  handles  => {send => 'send'},
+                  init_arg => 'dht'
     );
 
     sub nearest_bucket {

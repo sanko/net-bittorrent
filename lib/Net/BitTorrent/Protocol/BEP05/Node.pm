@@ -43,7 +43,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                       writer    => '_routing_table',
                       required  => 1,
                       weak_ref  => 1,
-                      handles => {send => 'send', local_node => 'local_node'}
+                      handles => {send => 'send', dht => 'dht'}
     );
     around 'send' => sub {
         my ($code, $self, $packet) = @_;
@@ -126,7 +126,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         state $tid = 'a';
         my $packet =
             build_dht_query_ping('p_' . $tid,
-                                 pack('H*', $self->local_node->nodeid->to_Hex
+                                 pack('H*', $self->dht->nodeid->to_Hex
                                  )
             );
         my $sent = $self->send($packet);
@@ -139,7 +139,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         my ($self, $tid) = @_;
         my $packet =
             build_dht_reply_ping($tid,
-                                 pack('H*', $self->local_node->nodeid->to_Hex
+                                 pack('H*', $self->dht->nodeid->to_Hex
                                  )
             );
         my $sent = $self->send($packet);
@@ -157,7 +157,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         my $packet =
             build_dht_query_find_node('fn_' . $tid,
                                       pack('H*',
-                                           $self->local_node->nodeid->to_Hex),
+                                           $self->dht->nodeid->to_Hex),
                                       pack('H*', $nodeid->to_Hex)
             );
         my $sent = $self->send($packet);
@@ -178,7 +178,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         my $packet =
             build_dht_query_get_peers('gp_' . $tid,
                                       pack('H*',
-                                           $self->local_node->nodeid->to_Hex),
+                                           $self->dht->nodeid->to_Hex),
                                       pack('H*', $info_hash->to_Hex)
             );
         my $sent = $self->send($packet);
