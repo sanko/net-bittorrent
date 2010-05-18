@@ -122,7 +122,6 @@ package Net::BitTorrent::DHT;
 
     #
     sub _on_data_in {
-        use Data::Dump;
         my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
         return if !$packet;
@@ -136,9 +135,13 @@ package Net::BitTorrent::DHT;
                                         sockaddr      => $sockaddr
                 );
         }
+        # Basic identity checks
+        # TODO - if v is set, make sure it matches
+        #      - make note of changes in nodeid/sockaddr combinations
         return
             if $node->has_nodeid    # Wait, this is me!
-                && !$node->nodeid->Lexicompare($self->nodeid);
+                && $node->nodeid->Lexicompare($self->nodeid) == 0;
+        #
         if ($packet->{'y'} eq 'r') {
             if (defined $packet->{'r'}) {
                 if ($node->is_expecting($packet->{'t'})) {
@@ -247,6 +250,7 @@ package Net::BitTorrent::DHT;
             use Data::Dump;
             ddx $packet;
             ...;
+            # TODO: ID checks against $packet->{'a'}{'id'}
         }
     }
 }

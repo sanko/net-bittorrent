@@ -88,8 +88,12 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                          writer   => '_ping_timer',
                          clearer  => 'touch'
     );
-    has 'prev_get_peers' =>
-        (isa => 'Int', is => 'rw', default => 0, lazy => 1);
+    has 'prev_get_peers' => (isa => 'HashRef[Int]', is => 'rw', default => 0, lazy => 1, default => sub {{}},
+        traits =>['Hash'], handles => {
+            get_prev_get_peers => 'get',
+            set_prev_get_peers => 'set',
+            defined_prev_get_peers => 'defined'
+        });
     sub _build_ping_timer {
         my ($self) = @_;
         require Scalar::Util;
@@ -153,7 +157,9 @@ package Net::BitTorrent::Protocol::BEP05::Node;
 
     sub get_peers {
         my ($self, $info_hash) = @_;
-        return if $self->prev_get_peers() > time - 120;
+        return if
+            $self->defined_prev_get_peers($info_hash->to_Hex) &&
+            $self->get_prev_get_peers($info_hash->to_Hex) > time - 120;
         state $tid = 'a';
         my $packet =
             build_dht_query_get_peers('gp_' . $tid,
@@ -166,7 +172,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         $self->add_request('gp_' . $tid,
                            {type => 'get_peers', info_hash => $info_hash});
         $tid++;
-        $self->prev_get_peers(time);
+        $self->set_prev_get_peers($info_hash->to_Hex, time);
     }
     has 'fail' => (
         isa      => 'Int',
