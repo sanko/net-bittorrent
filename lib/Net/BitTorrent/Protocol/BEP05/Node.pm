@@ -162,9 +162,10 @@ package Net::BitTorrent::Protocol::BEP05::Node;
 
     sub get_peers {
         my ($self, $info_hash) = @_;
-        return if
-            $self->defined_prev_get_peers($info_hash->to_Hex) &&
-            $self->get_prev_get_peers($info_hash->to_Hex) > time - 120;
+        return
+            if $self->defined_prev_get_peers($info_hash->to_Hex)
+                && $self->get_prev_get_peers($info_hash->to_Hex)
+                > time - (60 * 5);
         state $tid = 'a';
         my $packet =
             build_dht_query_get_peers('gp_' . $tid,
