@@ -159,7 +159,6 @@ package Net::BitTorrent::DHT;
                             )
                         {   my ($host, $port)
                                 = ($new_node =~ m[^(.*):(\d+)$]);
-                            warn sprintf 'Adding %s port %d', $host, $port;
                             my $node = $self->add_node([$host, $port]);
                         }
                     }

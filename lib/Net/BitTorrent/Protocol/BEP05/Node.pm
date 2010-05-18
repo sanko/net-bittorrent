@@ -164,7 +164,6 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         init_arg => undef,
         trigger  => sub {
             my ($self, $new, $old) = @_;
-            warn sprintf '[quality] old: %d | new: %d', $old, $new if $new > 3;
             $self->routing_table->del_node($self) if $new == 5;
         }
     );
