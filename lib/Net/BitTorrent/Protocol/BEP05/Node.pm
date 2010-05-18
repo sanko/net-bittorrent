@@ -88,12 +88,21 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                          writer   => '_ping_timer',
                          clearer  => 'touch'
     );
-    has 'prev_get_peers' => (isa => 'HashRef[Int]', is => 'rw', default => 0, lazy => 1, default => sub {{}},
-        traits =>['Hash'], handles => {
-            get_prev_get_peers => 'get',
-            set_prev_get_peers => 'set',
-            defined_prev_get_peers => 'defined'
-        });
+    for my $type (qw[get_peers find_node]) {
+        has 'prev_'
+            . $type => (isa     => 'HashRef[Int]',
+                        is      => 'rw',
+                        default => 0,
+                        lazy    => 1,
+                        default => sub { {} },
+                        traits  => ['Hash'],
+                        handles => {'get_prev_' . $type     => 'get',
+                                    'set_prev_' . $type     => 'set',
+                                    'defined_prev_' . $type => 'defined'
+                        }
+            );
+    }
+
     sub _build_ping_timer {
         my ($self) = @_;
         require Scalar::Util;
