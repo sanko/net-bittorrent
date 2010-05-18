@@ -136,6 +136,9 @@ package Net::BitTorrent::DHT;
                                         sockaddr      => $sockaddr
                 );
         }
+        return
+            if $node->has_nodeid    # Wait, this is me!
+                && !$node->nodeid->Lexicompare($self->nodeid);
         if ($packet->{'y'} eq 'r') {
             if (defined $packet->{'r'}) {
                 if ($node->is_expecting($packet->{'t'})) {
