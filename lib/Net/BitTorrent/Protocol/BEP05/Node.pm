@@ -69,7 +69,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                    default  => sub { {} }
     );
     after 'expire_request' => sub { shift->miss };
-    around 'add_request'   => sub {
+    around 'add_request' => sub {
         my ($code, $self, $tid, $args) = @_;
         require Scalar::Util;
         Scalar::Util::weaken $self;
@@ -115,12 +115,12 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         Scalar::Util::weaken $self;
         $self->_ping_timer(AE::timer(5, 0, sub { $self->ping }));
     };
-    has 'birth' => (
-        is => 'ro',
-        isa=>'Int',
-        init_arg=>undef,
-        default => sub { time }
+    has 'birth' => (is       => 'ro',
+                    isa      => 'Int',
+                    init_arg => undef,
+                    default  => sub {time}
     );
+
     sub ping {
         my ($self) = @_;
         state $tid = 'a';
@@ -137,7 +137,6 @@ package Net::BitTorrent::Protocol::BEP05::Node;
 
     sub _reply_ping {
         my ($self, $tid) = @_;
-        warn sprintf 'Sending pong! to %s', $self->host;
         my $packet =
             build_dht_reply_ping($tid,
                                  pack('H*', $self->local_node->nodeid->to_Hex

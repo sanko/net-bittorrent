@@ -135,12 +135,14 @@ package Net::BitTorrent::DHT;
                                         sockaddr      => $sockaddr
                 );
         }
+
         # Basic identity checks
         # TODO - if v is set, make sure it matches
         #      - make note of changes in nodeid/sockaddr combinations
         return
             if $node->has_nodeid    # Wait, this is me!
                 && $node->nodeid->Lexicompare($self->nodeid) == 0;
+
         #
         if ($packet->{'y'} eq 'r') {
             if (defined $packet->{'r'}) {
@@ -154,9 +156,9 @@ package Net::BitTorrent::DHT;
                     $req->{'cb'}->($packet, $host, $port)
                         if defined $req->{'cb'};
                     my $type = $req->{'type'};
+                    $node->_nodeid($packet->{'r'}{'id'})
+                        if !$node->has_nodeid;    # Adds node to router table
                     if ($type eq 'ping') {
-                        $node->_nodeid($packet->{'r'}{'id'})
-                            if !$node->has_nodeid; # Adds node to router table
                     }
                     elsif ($type eq 'find_node') {
                         warn 'Yay find_node reply!';
@@ -223,6 +225,7 @@ package Net::BitTorrent::DHT;
   future C<announce_peer> query. The token value should be a short binary
   string.
 =cut
+
                     }
                     else {
                         ...;
