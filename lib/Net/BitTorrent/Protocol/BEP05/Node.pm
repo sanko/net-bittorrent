@@ -21,11 +21,15 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         require Net::BitTorrent::Network::Utility;
         Net::BitTorrent::Network::Utility::sockaddr($_[0]->host, $_[0]->port);
     }
-    has ipv6 => (isa        => 'Bool',
-                 is         => 'ro',
-                 lazy_build => 1
-    );
+    has 'ipv6' => (isa => 'Bool', is => 'ro', lazy_build => 1);
     sub _build_ipv6 { length shift->sockaddr == 28 }
+    has 'v' =>
+        (isa => 'Str', is => 'ro', writer => '_v', predicate => '_has_v');
+    has 'seen' => (isa       => 'Bool',
+                   is        => 'ro',
+                   writer    => '_seen',
+                   predicate => '_has_seen'
+    );
     has 'bucket' => (isa       => 'Net::BitTorrent::Protocol::BEP05::Bucket',
                      is        => 'ro',
                      writer    => 'assign_bucket',
@@ -35,11 +39,11 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     has 'routing_table' => (
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
                       is  => 'ro',
-                      predicate=> 'has_routing_table',
-                      writer => '_routing_table',
-                      required => 1,
-                      weak_ref => 1,
-                      handles  => {send => 'send', local_node => 'local_node'}
+                      predicate => 'has_routing_table',
+                      writer    => '_routing_table',
+                      required  => 1,
+                      weak_ref  => 1,
+                      handles => {send => 'send', local_node => 'local_node'}
     );
     around 'send' => sub {
         my ($code, $self, $packet) = @_;
@@ -49,13 +53,9 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                      is        => 'ro',
                      writer    => '_nodeid',
                      predicate => 'has_nodeid',
-                     coerce => 1
+                     coerce    => 1
     );
     after '_nodeid' => sub { $_[0]->routing_table->assign_node($_[0]) };
-
-
-
-
     has 'outstanding_requests' => (isa     => 'HashRef[HashRef]',
                                    is      => 'ro',
                                    traits  => ['Hash'],
@@ -107,7 +107,12 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         Scalar::Util::weaken $self;
         $self->_ping_timer(AE::timer(5, 0,sub {$self->ping}));
     };
-
+    has 'birth' => (
+        is => 'ro',
+        isa=>'Int',
+        init_arg=>undef,
+        default => sub { time }
+    );
     sub ping {
         my ($self) = @_;
          state $tid = 'a';
