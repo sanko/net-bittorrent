@@ -68,7 +68,6 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                    init_arg => undef,
                                    default  => sub { {} }
     );
-    after 'del_request'    => sub { shift->hit };
     after 'expire_request' => sub { shift->miss };
     around 'add_request'   => sub {
         my ($code, $self, $tid, $args) = @_;
@@ -158,21 +157,17 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         $tid++;
         $self->prev_get_peers(time);
     }
-    has 'quality' => (
-        isa     => 'Int',
-        traits  => ['Counter'],
-        default => 0,
-        is      => 'ro',
-        handles => {miss => 'inc',
-                    hit  => 'reset'
-        },
+    has 'fail' => (
+        isa      => 'Int',
+        traits   => ['Counter'],
+        default  => 0,
+        is       => 'ro',
+        handles  => {miss => 'inc',},
         init_arg => undef,
         trigger  => sub {
             my ($self, $new, $old) = @_;
             $self->routing_table->del_node($self) if $new == 5;
         }
     );
-
-    after 'touch' => \&hit;
 }
 1;
