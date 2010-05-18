@@ -119,7 +119,7 @@ package Net::BitTorrent::DHT;
     #
     sub _on_data_in {
         use Data::Dump;
-        my ($self, $udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
+        my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
         return if !$packet;
         if (defined $packet->{'r'}) {
