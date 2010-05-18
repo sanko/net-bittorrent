@@ -43,6 +43,16 @@ package Net::BitTorrent::DHT;
     }
 
     #
+    sub send {
+        my ($self, $node, $packet) = @_;
+        return
+            send((  $node->ipv6
+                  ? $self->udp->ipv6_sock
+                  : $self->udp->ipv4_sock
+                 ),
+                 $packet, 0,
+                 $node->sockaddr
+            );
     }
 
     #
