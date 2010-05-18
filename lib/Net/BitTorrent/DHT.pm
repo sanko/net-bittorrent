@@ -184,7 +184,6 @@ package Net::BitTorrent::DHT;
                                 my $node = $self->add_node([$host, $port]);
                                 $node->get_peers($req->{'info_hash'});
                             }
-                            return;
                         }
                         if (defined $packet->{'r'}{'values'}) {
                             my ($quest)
