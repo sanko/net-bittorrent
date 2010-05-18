@@ -30,7 +30,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
             isa => subtype(
                 as 'ArrayRef[Net::BitTorrent::Protocol::BEP05::Node]' =>
                     where { scalar @$_ <= $K } => message {
-                    sprintf 'Too many %snodes! %d with max %d', $type,
+                    sprintf 'Too many %s nodes! %d with max %d', $type,
                         scalar @$_, $K;
                 }
             ),
@@ -38,13 +38,13 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
             coerce  => 1,
             default => sub { [] },
             traits  => ['Array'],
-            handles => {'pop_' . $type . 'node'     => 'pop',
-                        'push_' . $type . 'node'    => 'push',
-                        'shift_' . $type . 'node'   => 'shift',
-                        'unshift_' . $type . 'node' => 'unshift',
-                        'splice_' . $type . 'nodes' => 'splice',
-                        'count_' . $type . 'nodes'  => 'count',
-                        'add_' . $type . 'node'     => 'push',
+            handles => {'pop_' . $type . 'nodes'     => 'pop',
+                        'push_' . $type . 'nodes'    => 'push',
+                        'shift_' . $type . 'nodes'   => 'shift',
+                        'unshift_' . $type . 'nodes' => 'unshift',
+                        'splice_' . $type . 'nodes'  => 'splice',
+                        'count_' . $type . 'nodes'   => 'count',
+                        'add_' . $type . 'node'      => 'push',
                         'sort_'
                             . $type
                             . 'nodes' => [
@@ -61,12 +61,10 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     around 'add_node' => sub {
         my ($code, $self, $node) = @_;
         if ($self->count_nodes == $K) {
-            if ($self->id eq
-                $self->routing_table->nearest_bucket($node->nodeid)->id)
+            if ($self->_id eq
+                $self->routing_table->nearest_bucket($self->dht->nodeid)->_id)
             {   return $self->add_node($node) if $self->split();
             }
-            die
-                'Adding backup node!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!';
             return $self->add_backup_node($node);
         }
         return if $self->grep_nodes(
@@ -74,16 +72,16 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                 $_->nodeid->Lexicompare($node->nodeid) == 0;
             }
         );
-        return $code->($self, $node);
+        $code->($self, $node);
+        return $node->assign_bucket($self);
     };
     after 'add_node' => sub { $_[0]->sort_nodes };
     around 'add_backup_node' => sub {
         my ($code, $self, $node) = @_;
-        return if $self->count_backup_nodes >= $K * 3;
+        return if $self->count_backup_nodes == $K;
         return
             if $self->grep_backup_nodes(
-                           sub { $_->nodeid->Lexicompare($node->nodeid) == 0 }
-            );
+                         sub { $_->nodeid->Lexicompare($node->nodeid) == 0 });
         return $code->($self, $node);
     };
     after 'add_backup_node' => sub { $_[0]->sort_backup_nodes };
@@ -91,7 +89,8 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
                       is  => 'ro',
                       required => 1,
-                      weak_ref => 1
+                      weak_ref => 1,
+                      handles  => [qw[dht]]
     );
     has 'last_changed' => (isa => 'Int', is => 'rw', default => time);
 
@@ -127,12 +126,8 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         $self->_next($new_bucket);
         $self->routing_table->add_bucket($new_bucket);
         {
-            my @nodes = @{$self->nodes};
+            my @nodes = (@{$self->nodes}, @{$self->backup_nodes});
             $self->clear_nodes;
-            $self->routing_table->assign_node($_) for @nodes;
-        }
-        {
-            my @nodes = @{$self->backup_nodes};
             $self->clear_backup_nodes;
             $self->routing_table->assign_node($_) for @nodes;
         }
@@ -142,8 +137,10 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     sub del_node {
         my ($self, $node) = @_;
         for my $i (0 .. $self->count_nodes) {
-            return $self->splice_nodes($i, 1, ());
+            last if $self->splice_nodes($i, 1, ());  # Post 'Help Wanted' sign
         }
+        return $self->add_node($self->shift_backup_nodes)
+            if $self->count_backup_nodes;            # Take sign down
     }
 }
 1;

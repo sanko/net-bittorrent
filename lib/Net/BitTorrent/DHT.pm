@@ -126,11 +126,13 @@ package Net::BitTorrent::DHT;
             require Bit::Vector;
             $nodeid =
                 Bit::Vector->new_Hex(160,
-                        $nodeid =~ m[^[a-f\d]+$]i ? $nodeid : unpack 'H*',
-                        $nodeid);
+                            $nodeid =~ m[^[a-f\d]+$]i ? $nodeid : unpack 'H*',
+                            $nodeid);
         }
         my $quest = [
-            $nodeid, $code, '', AE::timer( 15, 60 ,
+            $nodeid, $code, '',
+            AE::timer(
+                15, 60,
                 sub {
                     $_->find_node($nodeid)
                         for @{$self->routing_table->nearest_bucket($nodeid)
@@ -183,7 +185,6 @@ package Net::BitTorrent::DHT;
                     if ($type eq 'ping') {
                     }
                     elsif ($type eq 'find_node') {
-                        warn 'Yay find_node reply!';
                         require Net::BitTorrent::Protocol::BEP23::Compact;
                         for my $new_node (
                             Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
