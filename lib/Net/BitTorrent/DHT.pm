@@ -94,15 +94,6 @@ package Net::BitTorrent::DHT;
     };
 
     #
-    sub ping {
-        my ($self, $node, $code) = @_;
-        state $tid = 'aaaaaaaa';
-        $self->new_query('ping_' . $tid,
-                         build_dht_query_ping('ping_' . $tid, $self->nodeid),
-                         $node, $code);
-        $tid++;
-    }
-
     sub get_peers {
         my ($self, $infohash, $code) = @_;
         if (!blessed $infohash) {
