@@ -45,7 +45,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                         'splice_' . $type . 'nodes' => 'splice',
                         'count_' . $type . 'nodes'  => 'count',
                         'add_' . $type . 'node'     => 'push',
-                        'sort_' 
+                        'sort_'
                             . $type
                             . 'nodes' => [
                              'sort_in_place',
@@ -76,6 +76,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         );
         return $code->($self, $node);
     };
+    after 'add_node' => sub { $_[0]->sort_nodes };
     around 'add_backup_node' => sub {
         my ($code, $self, $node) = @_;
         return if $self->count_backup_nodes >= $K * 3;
@@ -85,6 +86,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
             );
         return $code->($self, $node);
     };
+    after 'add_backup_node' => sub { $_[0]->sort_backup_nodes };
     has 'routing_table' => (
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
                       is  => 'ro',
