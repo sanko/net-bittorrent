@@ -250,8 +250,43 @@ package Net::BitTorrent::DHT;
             use Data::Dump;
             ddx $packet;
             ...;
+
             # TODO: ID checks against $packet->{'a'}{'id'}
         }
+    }
+
+    sub as_string {
+        my ($self, $detail) = @_;
+        my $return = $self->nodeid;
+        if ($detail) {
+            $return = sprintf "Num buckets: %d. My DHT ID: %s\n",
+                $self->routing_table->count_buckets, $self->nodeid->to_Hex;
+            my $x = 0;
+            for my $bucket (@{$self->routing_table->buckets}) {
+                $return .= sprintf
+                    "Bucket %s: %s (replacement cache: %d)\n",
+                    $x++, $bucket->floor->to_Hex, $bucket->count_backup_nodes;
+                for my $node (@{$bucket->nodes}) {
+                    $return
+                        .= sprintf
+                        "    %s %s:%d fail:%d seen:%d age:%s ver:%s\n",
+                        $node->nodeid->to_Hex, $node->host,
+                        $node->port, $node->fail || 0, $node->seen || 0,
+                        __duration(time - $node->birth), $node->v || '?';
+                }
+            }
+        }
+        return wantarray ? $return : say $return;
+    }
+
+    sub __duration ($) {
+        my %dhms = (d => int($_[0] / (24 * 60 * 60)),
+                    h => ($_[0] / (60 * 60)) % 24,
+                    m => ($_[0] / 60) % 60,
+                    s => $_[0] % 60
+        );
+        return join ' ',
+            map { $dhms{$_} ? $dhms{$_} . $_ : () } sort keys %dhms;
     }
 }
 1;
