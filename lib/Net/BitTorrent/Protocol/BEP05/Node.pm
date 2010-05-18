@@ -140,19 +140,24 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     }
 
     sub find_node {
-        my ($self, $target) = @_;
+        my ($self, $nodeid) = @_;
+        return
+            if $self->defined_prev_find_node($nodeid->to_Hex)
+                && $self->get_prev_find_node($nodeid->to_Hex)
+                > time - (60 * 15);
         state $tid = 'a';
         my $packet =
             build_dht_query_find_node('fn_' . $tid,
                                       pack('H*',
                                            $self->local_node->nodeid->to_Hex),
-                                      $target
+                                      pack('H*', $nodeid->to_Hex)
             );
         my $sent = $self->send($packet);
         return $self->miss() if !$sent;
         $self->add_request('fn_' . $tid,
-                           {type => 'find_node', target => $target});
+                           {type => 'find_node', nodeid => $nodeid});
         $tid++;
+        $self->set_prev_find_node($nodeid->to_Hex, time);
     }
 
     sub get_peers {
