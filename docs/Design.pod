@@ -999,7 +999,6 @@ These are packages I really haven't given enough thought to:
    Net::BitTorrent::Protocol::BEP15            Builds and parses UDP tracker packets, handles for UDP tracker communication
   *Net::BitTorrent::Protocol::BEP15::Tracker::UDP
                                                 Single url
-
   *Net::BitTorrent::Protocol::BEP27::Private::Metadata
                                                 Private metadata (uses around '...' to override BEP03::Metadata methods)
 

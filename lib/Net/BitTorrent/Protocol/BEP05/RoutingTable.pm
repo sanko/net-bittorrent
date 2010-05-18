@@ -40,20 +40,30 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
         elsif (!$node->has_routing_table) { $node->_routing_table($self) }
         return $code->($self, $node->sockaddr, $node);
     };
+    around 'del_node' => sub {
+        my ($code, $self, $node) = @_;
+        return $self->defined_node($node->sockaddr)
+            ? $code->($self, $node->sockaddr)
+            : $self->nearest_bucket($node->nodeid)->del_node($node);
+    };
     has 'buckets' => (
-             isa => 'ArrayRef[Net::BitTorrent::Protocol::BEP05::Bucket]',
-             is  => 'ro',
-             lazy_build => 1,
-             init_arg   => undef,
-             traits     => ['Array'],
-             handles    => {
-                 sort_buckets =>
-                     ['sort_in_place', sub { $_[0]->floor->Lexicompare($_[1]->floor)} ],
-                 first_bucket  => 'first',
-                 grep_buckets  => 'grep',
-                 count_buckets => 'count',
-                 add_bucket    => 'push'
-             }
+        isa        => 'ArrayRef[Net::BitTorrent::Protocol::BEP05::Bucket]',
+        is         => 'ro',
+        lazy_build => 1,
+        init_arg   => undef,
+        traits     => ['Array'],
+        handles    => {
+            sort_buckets => [
+                'sort_in_place',
+                sub {
+                    $_[0]->floor->Lexicompare($_[1]->floor);
+                    }
+            ],
+            first_bucket  => 'first',
+            grep_buckets  => 'grep',
+            count_buckets => 'count',
+            add_bucket    => 'push'
+        }
     );
     after 'add_bucket' => sub { shift->sort_buckets; };
 
@@ -92,11 +102,6 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
         return if !$node->has_nodeid;
         $self->del_node($node);
         $self->nearest_bucket($node->nodeid)->add_backup_node($node);
-    }
-
-    sub del_node {
-        warn 'deleting node from routing table...';
-        $_[0]->nearest_bucket($_[1])->del_node($_[1]);
     }
 
     sub find_node_by_sockaddr {
