@@ -143,6 +143,9 @@ package Net::BitTorrent::DHT;
             if (defined $packet->{'r'}) {
                 if ($node->is_expecting($packet->{'t'})) {
                     $node->touch;
+                    $node->_v($packet->{'v'})
+                        if !$node->_has_v && defined $packet->{'v'};
+                    $node->_seen(1) if !$node->_has_seen;
                     my $req
                         = $node->del_request($packet->{'t'}); # For future ref
                     $req->{'cb'}->($packet, $host, $port)
