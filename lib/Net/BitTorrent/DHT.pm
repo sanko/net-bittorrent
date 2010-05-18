@@ -126,25 +126,123 @@ package Net::BitTorrent::DHT;
         my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
         return if !$packet;
-        if (defined $packet->{'r'}) {
-            if ($self->expecting(
-                                $packet->{'t'}) # Be sure we're expecting this
-                && $self->get_query($packet->{'t'})->{'node'} eq
-                "$host:$port"                   # from this guy
-                )
-            {   my $req = $self->get_query($packet->{'t'});   # For future ref
-                $self->delete_query($packet->{'t'});
-                $req->{'cb'}->($packet, $host, $port) if defined $req->{'cb'};
-                my ($type, undef) = split '_', $packet->{'t'}, 2;
-                if ($type eq 'ping') {
-                    warn 'Yay! Pong!'
+        my $node = $self->routing_table->find_node_by_sockaddr($sockaddr);
+        if (!defined $node) {
+            $node =
+                Net::BitTorrent::Protocol::BEP05::Node->new(
+                                        host          => $host,
+                                        port          => $port,
+                                        routing_table => $self->routing_table,
+                                        sockaddr      => $sockaddr
+                );
+        }
+        if ($packet->{'y'} eq 'r') {
+            if (defined $packet->{'r'}) {
+                if ($node->is_expecting($packet->{'t'})) {
+                    $node->touch;
+                    my $req
+                        = $node->del_request($packet->{'t'}); # For future ref
+                    $req->{'cb'}->($packet, $host, $port)
+                        if defined $req->{'cb'};
+                    my $type = $req->{'type'};
+                    if ($type eq 'ping') {
+                        $node->_nodeid($packet->{'r'}{'id'})
+                            if !$node->has_nodeid; # Adds node to router table
+                    }
+                    elsif ($type eq 'find_node') {
+                        warn 'Yay find_node reply!';
+                        require Net::BitTorrent::Protocol::BEP23::Compact;
+                        for my $new_node (
+                            Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                                                       $packet->{'r'}{'nodes'}
+                            )
+                            )
+                        {   my ($host, $port)
+                                = ($new_node =~ m[^(.*):(\d+)$]);
+                            warn sprintf 'Adding %s port %d', $host, $port;
+                            my $node = $self->add_node([$host, $port]);
+                        }
+                    }
+                    elsif ($type eq 'get_peers') {
 
-                        # Add node to router table
+                        # TODO - store token by id
+                        if (!(    defined $packet->{'r'}{'nodes'}
+                               || defined $packet->{'r'}{'values'}
+                            )
+                            )
+                        {    # Malformed packet
+                            ...;
+                        }
+                        if (defined $packet->{'r'}{'nodes'}) {
+                            require Net::BitTorrent::Protocol::BEP23::Compact;
+                            for my $new_node (
+                                Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                                                       $packet->{'r'}{'nodes'}
+                                )
+                                )
+                            {   my ($host, $port)
+                                    = ($new_node =~ m[^(.*):(\d+)$]);
+                                my $node = $self->add_node([$host, $port]);
+                                $node->get_peers($req->{'info_hash'});
+                            }
+                            return;
+                        }
+                        if (defined $packet->{'r'}{'values'}) {
+                            my ($quest)
+                                = $self->grep_quests(
+                                 sub { $req->{'info_hash'}->equal($_->[0]) });
+                            require Net::BitTorrent::Protocol::BEP23::Compact;
+                            $quest->[2]
+                                = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
+                                Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                                                   join '', $quest->[2],
+                                                   @{$packet->{'r'}{'values'}}
+                                )
+                                );
+                            $quest->[1]->($req->{'info_hash'}, $node,
+                                          $packet->{'r'}{'values'});
+                        }
+
+=begin comment
+  Get peers associated with a torrent infohash. "q" = "get_peers" A get_peers
+  query has two arguments, "id" containing the node ID of the querying node, and
+  "info_hash" containing the infohash of the torrent. If the queried node has
+  peers for the infohash, they are returned in a key "values" as a list of
+  strings. Each string containing "compact" format peer information for a single
+  peer. If the queried node has no peers for the infohash, a key "nodes" is
+  returned containing the C<K> nodes in the queried nodes routing table closest
+  to the infohash supplied in the query. In either case a C<token> key is also
+  included in the return value. The token value is a required argument for a
+  future C<announce_peer> query. The token value should be a short binary
+  string.
+=cut
+                    }
+                    else {
+                        ...;
+                    }
+                }
+                else {    # A reply we are not expecting. Strange.
+                    $node->miss;
+                    $self->add_node($node);
+
+                    #...;
                 }
             }
-            else {
-                ...;    # A reply we are not expecting. Strange.
-            }
+        }
+        elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {
+            $node->touch;
+            $node->_nodeid($packet->{'a'}{'id'})
+                if !$node->has_nodeid;    # Adds node to router table
+            my $type = $packet->{'q'};
+            return $node->_reply_ping($packet->{'t'})
+                if $type eq 'ping' && defined $packet->{'t'};
+
+            #...;
+        }
+        else {
+            use Data::Dump;
+            ddx $packet;
+            ...;
         }
     }
 }
