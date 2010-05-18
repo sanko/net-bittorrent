@@ -11,8 +11,8 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     my $K = 8;    # max nodes per-bucket
 
     #
-    has 'id' => (isa => 'Str', is => 'ro', lazy_build => 1);
-    sub _build_id { state $id = 'a'; $id++ }
+    has '_id' => (isa => 'Str', is => 'ro', lazy_build => 1);
+    sub _build__id { state $id = 'a'; $id++ }
     has 'floor' => (isa        => 'NBTypes::DHT::NodeID',
                     is         => 'ro',
                     lazy_build => 1,
