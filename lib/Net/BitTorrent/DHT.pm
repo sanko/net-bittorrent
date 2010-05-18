@@ -105,6 +105,13 @@ package Net::BitTorrent::DHT;
 
     sub get_peers {
         my ($self, $infohash, $code) = @_;
+        if (!blessed $infohash) {
+            require Bit::Vector;
+            $infohash =
+                Bit::Vector->new_Hex(160,
+                        $infohash =~ m[^[a-f\d]+$]i ? $infohash : unpack 'H*',
+                        $infohash);
+        }
         my $quest = [
             $infohash,
             $code, '',
