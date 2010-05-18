@@ -4,14 +4,14 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     use Moose::Util::TypeConstraints;
     use lib '../../../../../lib';
     use Net::BitTorrent::Types qw[NBTypes::DHT::NodeID];
-
     use 5.10.0;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+
     #
     my $K = 8;    # max nodes per-bucket
 
     #
-    has 'id' => ( isa => 'Str', is => 'ro', lazy_build => 1 );
+    has 'id' => (isa => 'Str', is => 'ro', lazy_build => 1);
     sub _build_id { state $id = 'a'; $id++ }
     has 'floor' => (isa        => 'NBTypes::DHT::NodeID',
                     is         => 'ro',
@@ -45,7 +45,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                         'splice_' . $type . 'nodes' => 'splice',
                         'count_' . $type . 'nodes'  => 'count',
                         'add_' . $type . 'node'     => 'push',
-                        'sort_'
+                        'sort_' 
                             . $type
                             . 'nodes' => [
                              'sort_in_place',
@@ -61,15 +61,18 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     around 'add_node' => sub {
         my ($code, $self, $node) = @_;
         if ($self->count_nodes == $K) {
-            if (
-            $self->id eq $self->routing_table->nearest_bucket($node->nodeid)->id) {
-                return $self->add_node($node) if $self->split();
+            if ($self->id eq
+                $self->routing_table->nearest_bucket($node->nodeid)->id)
+            {   return $self->add_node($node) if $self->split();
             }
-            die 'Adding backup node!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!';
+            die
+                'Adding backup node!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!';
             return $self->add_backup_node($node);
         }
         return if $self->grep_nodes(
-        sub { $_->nodeid->Lexicompare($node->nodeid) == 0  }
+            sub {
+                $_->nodeid->Lexicompare($node->nodeid) == 0;
+            }
         );
         return $code->($self, $node);
     };
@@ -77,7 +80,9 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         my ($code, $self, $node) = @_;
         return if $self->count_backup_nodes >= $K * 3;
         return
-            if $self->grep_backup_nodes(sub { $_->nodeid->Lexicompare($node->nodeid) == 0  });
+            if $self->grep_backup_nodes(
+                           sub { $_->nodeid->Lexicompare($node->nodeid) == 0 }
+            );
         return $code->($self, $node);
     };
     has 'routing_table' => (
@@ -91,6 +96,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     #
     sub split {
         my ($self) = @_;
+
         #return if $self->routing_table->count_buckets >= 30;
         my $ceil = Bit::Vector->new_Hex(160, 'F' x 40);
         if ($self->has_next) {
@@ -102,7 +108,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         my $range = Bit::Vector->new(160);
         $range->subtract($ceil, $floor, 0);
         my $new_floor = Bit::Vector->new(160);
-        {   # Resize for overflow
+        {    # Resize for overflow
             $_->Resize(161) for $range, $floor, $new_floor;
             my $half_range = Bit::Vector->new(161);
             $half_range->Divide($range, Bit::Vector->new_Dec(161, 2),
@@ -123,7 +129,8 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
             $self->clear_nodes;
             $self->routing_table->assign_node($_) for @nodes;
         }
-        {   my @nodes = @{$self->backup_nodes};
+        {
+            my @nodes = @{$self->backup_nodes};
             $self->clear_backup_nodes;
             $self->routing_table->assign_node($_) for @nodes;
         }
@@ -132,7 +139,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
 
     sub del_node {
         my ($self, $node) = @_;
-        for my $i (0.. $self->count_nodes) {
+        for my $i (0 .. $self->count_nodes) {
             return $self->splice_nodes($i, 1, ());
         }
     }

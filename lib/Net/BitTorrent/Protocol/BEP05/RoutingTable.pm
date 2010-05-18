@@ -17,17 +17,17 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
                      init_arg => undef,
                      traits   => ['Hash'],
                      handles  => {
-                                 add_node    => 'set',
-                                 get_node    => 'get',
-                                 _del_node   => 'delete',
-                                 count_nodes => 'count'
+                                 add_node     => 'set',
+                                 get_node     => 'get',
+                                 del_node     => 'delete',
+                                 defined_node => 'defined',
+                                 count_nodes  => 'count',
+                                 nodes        => 'keys'
                      },
                      default => sub { {} }
     );
     around 'add_node' => sub {
         my ($code, $self, $node) = @_;
-
-        #return if $self->count_nodes > 30;
         if (!blessed $node) {
             require Net::BitTorrent::Protocol::BEP05::Node;
             $node =
@@ -37,7 +37,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
                                                         routing_table => $self
                 );
         }
-        elsif(!$node->has_routing_table)  { $node->_routing_table( $self ) }
+        elsif (!$node->has_routing_table) { $node->_routing_table($self) }
         return $code->($self, $node->sockaddr, $node);
     };
     has 'buckets' => (
@@ -74,23 +74,23 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
 
     sub nearest_bucket {
         my ($self, $target) = @_;
-         for my $bucket (reverse @{$self->buckets}) {
-            return $bucket if $bucket->floor->Lexicompare($target) == -1
+        for my $bucket (reverse @{$self->buckets}) {
+            return $bucket if $bucket->floor->Lexicompare($target) == -1;
         }
-     }
+    }
 
     sub assign_node {
         my ($self, $node) = @_;
         return if !$node->has_nodeid;
-        $self->_del_node($node->sockaddr);
-        $self->nearest_bucket($node->nodeid)->add_node($node) ;
+        $self->del_node($node);
+        $self->nearest_bucket($node->nodeid)->add_node($node);
     }
 
-    sub assign_backup_node { # Unused
+    sub assign_backup_node {    # Unused
         ...;
         my ($self, $node) = @_;
         return if !$node->has_nodeid;
-        $self->_del_node($node->sockaddr);
+        $self->del_node($node);
         $self->nearest_bucket($node->nodeid)->add_backup_node($node);
     }
 
