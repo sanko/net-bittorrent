@@ -105,15 +105,21 @@ package Net::BitTorrent::DHT;
 
     sub get_peers {
         my ($self, $infohash, $code) = @_;
-        state $tid = 'aaaaaaaa';
-        $self->new_query('get_peers_' . $tid,
-                         build_dht_query_get_peers('get_peers_' . $tid,
-                                                   $self->nodeid, $infohash
-                         ),
-                         $infohash,
-                         $code
-        );
-        $tid++;
+        my $quest = [
+            $infohash,
+            $code, '',
+            AE::timer(
+                15,
+                60 * 5,
+                sub {
+                    $_->get_peers($infohash)
+                        for @{$self->routing_table->nearest_bucket($infohash)
+                            ->nodes};
+                }
+            )
+        ];
+        $self->add_quest($quest);
+        return $quest;
     }
 
     #
