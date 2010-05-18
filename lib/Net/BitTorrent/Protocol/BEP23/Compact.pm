@@ -38,7 +38,8 @@ package Net::BitTorrent::Protocol::BEP23::Compact;
 
     sub uncompact_ipv4 {
         my %peers;
-        $peers{sprintf '%d.%d.%d.%d:%d', unpack 'C4n', $1}++ while $_[0] =~ s[^(.{6})][]g ;
+        $peers{sprintf '%d.%d.%d.%d:%d', unpack 'C4n', $1}++
+            while $_[0] =~ s[^(.{6})][]g;
         return keys %peers;
     }
 }
