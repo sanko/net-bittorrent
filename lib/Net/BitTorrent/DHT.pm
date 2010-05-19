@@ -183,6 +183,8 @@ package Net::BitTorrent::DHT;
                     my $type = $req->{'type'};
                     $node->_nodeid($packet->{'r'}{'id'})
                         if !$node->has_nodeid;    # Adds node to router table
+                    $node->touch;
+
                     if ($type eq 'ping') {
                     }
                     elsif ($type eq 'find_node') {
