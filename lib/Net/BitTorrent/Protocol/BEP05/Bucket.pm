@@ -7,6 +7,9 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     use 5.10.0;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
+    # Stub
+    sub BUILD { }
+
     #
     my $K = 8;    # max nodes per-bucket
 
@@ -93,6 +96,18 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                       handles  => [qw[dht]]
     );
     has 'last_changed' => (isa => 'Int', is => 'rw', default => time);
+    has 'find_node_quest' => (isa        => 'ArrayRef',
+                              is         => 'ro',
+                              init_arg   => undef,
+                              lazy_build => 1,
+                              clearer    => '_reset_find_node_quest'
+    );
+
+    sub _build_find_node_quest {
+        my ($self) = @_;
+        $self->dht->find_node($self->floor);
+    }
+    after 'BUILD' => sub { $_[0]->find_node_quest() };
 
     #
     sub split {
