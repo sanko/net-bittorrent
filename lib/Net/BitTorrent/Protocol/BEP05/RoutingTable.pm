@@ -78,16 +78,17 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
                   required => 1,
                   is       => 'ro',
                   weak_ref => 1,
-                  handles  => {send => 'send'},
+                  handles  => [qw[send]],
                   init_arg => 'dht'
     );
 
     sub nearest_bucket {
         my ($self, $target) = @_;
         for my $bucket (reverse @{$self->buckets}) {
-            return $bucket if $bucket->floor->Lexicompare($target) == -1;
+            return $bucket if $bucket->floor->Lexicompare($target) != 1;
         }
     }
+    before 'nearest_bucket' => sub { shift->sort_buckets; };
 
     sub assign_node {
         my ($self, $node) = @_;
