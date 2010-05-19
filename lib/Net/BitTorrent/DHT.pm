@@ -71,7 +71,8 @@ package Net::BitTorrent::DHT;
     after 'BUILD' => sub {
         my ($self, $args) = @_;
         return if !defined $args->{'boot_nodes'};
-        $self->routing_table->add_node($_) for @{$args->{'boot_nodes'}};
+        $self->routing_table->add_node($_)->find_node($self->nodeid)
+            for @{$args->{'boot_nodes'}};
     };
 
     #
