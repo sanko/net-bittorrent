@@ -149,7 +149,7 @@ package Net::BitTorrent::DHT;
     sub _on_data_in {
         my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
-        return if !$packet;
+        return if !$packet || !ref $packet;
         my $node = $self->routing_table->find_node_by_sockaddr($sockaddr);
         if (!defined $node) {
             $node =
