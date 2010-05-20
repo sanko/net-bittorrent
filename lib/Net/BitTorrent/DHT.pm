@@ -87,12 +87,10 @@ package Net::BitTorrent::DHT;
 
     #
     has 'routing_table' => (
-        isa        => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
-        is         => 'ro',
-        lazy_build => 1,
-        handles    => {add_node => 'add_node', buckets => 'buckets'},
-
-        #coerce=>1
+                      isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
+                      is  => 'ro',
+                      lazy_build => 1,
+                      handles    => [qw[add_node buckets]]
     );
 
     sub _build_routing_table {
