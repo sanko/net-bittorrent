@@ -86,16 +86,25 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                       handles  => [qw[dht]]
     );
     has 'last_changed' => (isa => 'Int', is => 'rw', default => time);
-    has 'find_node_quest' => (isa        => 'ArrayRef',
+    has 'find_node_quest' => (isa        => 'ArrayRef|Maybe',
                               is         => 'ro',
                               init_arg   => undef,
                               lazy_build => 1,
+                              writer     => '_find_node_quest',
                               clearer    => '_reset_find_node_quest'
     );
 
     sub _build_find_node_quest {
         my ($self) = @_;
-        $self->dht->find_node($self->floor);
+        $self->dht->find_node(
+            $self->floor,
+            sub {
+                require Scalar::Util;
+                Scalar::Util::weaken($self) if !Scalar::Util::isweak($self);
+                $self->_find_node_quest(undef)
+                    if $self->count_backup_nodes > 4;
+            }
+        );
     }
     after 'BUILD' => sub { $_[0]->find_node_quest() };
 
