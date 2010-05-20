@@ -136,8 +136,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         my ($self, $tid) = @_;
         my $packet = build_dht_reply_ping($tid,
                                       pack('H*', $self->dht->nodeid->to_Hex));
-        my $sent = $self->send($packet);
-        $self->miss() if !$sent;
+        my $sent = $self->send($packet, 1);
+        $self->inc_fail() if !$sent;
         return $sent;
     }
 

@@ -18,8 +18,30 @@ package Net::BitTorrent::DHT;
     has 'client' => (isa       => 'Net::BitTorrent',
                      is        => 'ro',
                      predicate => 'has_client',
-                     handles   => {udp => 'udp'},
+                     handles   => ['udp']
     );
+    for my $type (qw[requests replies]) {
+        for my $var (qw[count length]) {
+            my $attr = join '_', '', 'recv_invalid', $var;
+            has $attr => (isa      => 'Int',
+                          is       => 'ro',
+                          init_arg => undef,
+                          traits   => ['Counter'],
+                          handles  => {'_inc' . $attr => 'inc'},
+                          default  => 0
+            );
+            for my $dir (qw[recv send]) {
+                my $attr = join '_', '', $dir, $type, $var;
+                has $attr => (isa      => 'Int',
+                              is       => 'ro',
+                              init_arg => undef,
+                              traits   => ['Counter'],
+                              handles  => {'_inc' . $attr => 'inc'},
+                              default  => 0
+                );
+            }
+        }
+    }
     after 'BUILD' => sub {
         my ($self, $args) = @_;
         return if $self->has_client;
@@ -44,15 +66,23 @@ package Net::BitTorrent::DHT;
 
     #
     sub send {
-        my ($self, $node, $packet) = @_;
-        return
-            send((  $node->ipv6
-                  ? $self->udp->ipv6_sock
-                  : $self->udp->ipv4_sock
-                 ),
-                 $packet, 0,
-                 $node->sockaddr
-            );
+        my ($self, $node, $packet, $reply) = @_;
+        my $sent = send((  $node->ipv6
+                         ? $self->udp->ipv6_sock
+                         : $self->udp->ipv4_sock
+                        ),
+                        $packet, 0,
+                        $node->sockaddr
+        );
+        if ($reply) {
+            $self->_inc_send_replies_count;
+            $self->_inc_send_replies_length($sent);
+        }
+        else {
+            $self->_inc_send_requests_count;
+            $self->_inc_send_requests_length($sent);
+        }
+        return $sent;
     }
 
     #
@@ -149,7 +179,11 @@ package Net::BitTorrent::DHT;
     sub _on_data_in {
         my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
-        return if !$packet || !ref $packet;
+        if (!$packet || !ref $packet) {
+            $self->_inc_recv_invalid_count;
+            $self->_inc_recv_invalid_length(length $data);
+            return;
+        }
         my $node = $self->routing_table->find_node_by_sockaddr($sockaddr);
         if (!defined $node) {
             $node =
@@ -172,6 +206,8 @@ package Net::BitTorrent::DHT;
         if ($packet->{'y'} eq 'r') {
             if (defined $packet->{'r'}) {
                 if ($node->is_expecting($packet->{'t'})) {
+                    $self->_inc_recv_replies_count;
+                    $self->_inc_recv_replies_length(length $data);
                     $node->touch;
                     $node->_v($packet->{'v'})
                         if !$node->_has_v && defined $packet->{'v'};
@@ -251,7 +287,6 @@ package Net::BitTorrent::DHT;
   future C<announce_peer> query. The token value should be a short binary
   string.
 =cut
-
                     }
                     else {
                         ...;
@@ -261,15 +296,20 @@ package Net::BitTorrent::DHT;
                     $node->miss;
                     $self->add_node($node);
 
+                    $node->inc_fail;
+                    $self->_inc_recv_invalid_count;
+                    $self->_inc_recv_invalid_length(length $data);
                     #...;
                 }
             }
         }
         elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {
-            $node->touch;
+            $self->_inc_recv_requests_count;
+            $self->_inc_recv_requests_length(length $data);
+            my $type = $packet->{'q'};
             $node->_nodeid($packet->{'a'}{'id'})
                 if !$node->has_nodeid;    # Adds node to router table
-            my $type = $packet->{'q'};
+            $node->touch;
             return $node->_reply_ping($packet->{'t'})
                 if $type eq 'ping' && defined $packet->{'t'};
 
