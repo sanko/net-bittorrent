@@ -118,6 +118,10 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
         return $node;
     }
 
+    sub outstanding_add_nodes {
+        grep { defined $_ && !$_->has_bucket} $_[0]->all_nodes
+    }
+
 =pod
 
 Every node maintains a routing table of known good nodes. The nodes in the
