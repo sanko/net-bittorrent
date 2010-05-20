@@ -75,7 +75,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         Scalar::Util::weaken $self;
         $args->{'timeout'} //= AE::timer(
             20, 0,
-            sub { $self->expire_request($tid) } # May ((poof)) $self
+            sub { $self->expire_request($tid) }    # May ((poof)) $self
         );
         $code->($self, $tid, $args);
     };
@@ -187,7 +187,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         init_arg => undef,
         trigger  => sub {
             my ($self, $new, $old) = @_;
-            $self->routing_table->del_node($self) if $new == 5;
+            $self->routing_table->del_node($self)
+                if $new == ($self->has_bucket ? 5 : 2);
         }
     );
 }

@@ -136,8 +136,7 @@ package Net::BitTorrent::DHT;
             $infohash,
             $code, '',
             AE::timer(
-                15,
-                60 * 5,
+                15, 60,
                 sub {
                     $_->get_peers($infohash)
                         for @{$self->routing_table->nearest_bucket($infohash)
@@ -163,7 +162,7 @@ package Net::BitTorrent::DHT;
             AE::timer(
                 15, 60,
                 sub {
-                    $_->find_node($nodeid)
+                    $_ && $_->find_node($nodeid)
                         for @{$self->routing_table->nearest_bucket($nodeid)
                             ->nodes};
                 }
@@ -222,6 +221,12 @@ package Net::BitTorrent::DHT;
                     if ($type eq 'ping') {
                     }
                     elsif ($type eq 'find_node') {
+                        my ($quest) = $self->grep_quests(
+                            sub {
+                                defined $_
+                                    && $req->{'nodeid'}->equal($_->[0]);
+                            }
+                        );
                         require Net::BitTorrent::Protocol::BEP23::Compact;
                         for my $new_node (
                             Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
@@ -232,6 +237,9 @@ package Net::BitTorrent::DHT;
                                 = ($new_node =~ m[^(.*):(\d+)$]);
                             my $node = $self->add_node([$host, $port]);
                         }
+                        $quest->[1]->($req->{'nodeid'}, $node,
+                                      $packet->{'r'}{'nodes'}
+                        ) if $quest->[1];
                     }
                     elsif ($type eq 'get_peers') {
 
@@ -253,13 +261,18 @@ package Net::BitTorrent::DHT;
                             {   my ($host, $port)
                                     = ($new_node =~ m[^(.*):(\d+)$]);
                                 my $node = $self->add_node([$host, $port]);
-                                $node->get_peers($req->{'info_hash'});
+                                $node->get_peers($req->{'info_hash'})
+                                    if $node;
                             }
                         }
                         if (defined $packet->{'r'}{'values'}) {
-                            my ($quest)
-                                = $self->grep_quests(
-                                 sub { $req->{'info_hash'}->equal($_->[0]) });
+                            my ($quest) = $self->grep_quests(
+                                sub {
+                                    defined $_
+                                        && $req->{'info_hash'}
+                                        ->equal($_->[0]);
+                                }
+                            );
                             require Net::BitTorrent::Protocol::BEP23::Compact;
                             $quest->[2]
                                 = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
@@ -269,7 +282,8 @@ package Net::BitTorrent::DHT;
                                 )
                                 );
                             $quest->[1]->($req->{'info_hash'}, $node,
-                                          $packet->{'r'}{'values'});
+                                          $packet->{'r'}{'values'}
+                            ) if $quest->[1];
                         }
 
 =begin comment
@@ -285,18 +299,17 @@ package Net::BitTorrent::DHT;
   future C<announce_peer> query. The token value should be a short binary
   string.
 =cut
+
                     }
                     else {
                         ...;
                     }
                 }
                 else {    # A reply we are not expecting. Strange.
-                    $node->miss;
-                    $self->add_node($node);
-
                     $node->inc_fail;
                     $self->_inc_recv_invalid_count;
                     $self->_inc_recv_invalid_length(length $data);
+
                     #...;
                 }
             }
@@ -315,9 +328,10 @@ package Net::BitTorrent::DHT;
         }
         else {
             use Data::Dump;
+            warn sprintf '%s:%d', $node->host, $node->port;
             ddx $packet;
-            ...;
 
+            #...;
             # TODO: ID checks against $packet->{'a'}{'id'}
         }
     }

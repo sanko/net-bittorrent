@@ -11,23 +11,23 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
-    has 'nodes' => (
-                     isa => 'HashRef[Net::BitTorrent::Protocol::BEP05::Node]',
-                     is  => 'ro',
-                     init_arg => undef,
-                     traits   => ['Hash'],
-                     handles  => {
-                                 add_node     => 'set',
-                                 get_node     => 'get',
-                                 del_node     => 'delete',
-                                 defined_node => 'defined',
-                                 count_nodes  => 'count',
-                                 all_nodes    => 'values'
-                     },
-                     default => sub { {} }
+    has 'nodes' => (isa => 'HashRef[Net::BitTorrent::Protocol::BEP05::Node]',
+                    is  => 'ro',
+                    init_arg => undef,
+                    traits   => ['Hash'],
+                    handles  => {
+                                add_node     => 'set',
+                                get_node     => 'get',
+                                del_node     => 'delete',
+                                defined_node => 'defined',
+                                count_nodes  => 'count',
+                                all_nodes    => 'values'
+                    },
+                    default => sub { {} }
     );
     around 'add_node' => sub {
         my ($code, $self, $node) = @_;
+        return if scalar $self->outstanding_add_nodes > 1000;    # Hard limit
         if (!blessed $node) {
             require Net::BitTorrent::Protocol::BEP05::Node;
             $node =
@@ -42,10 +42,10 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     };
     around 'del_node' => sub {
         my ($code, $self, $node) = @_;
-        return $self->defined_node($node->sockaddr)
-            ? $code->($self, $node->sockaddr)
-            : $self->nearest_bucket($node->nodeid)->del_node($node);
+        $code->($self, blessed($node) ? $node->sockaddr : $node);
     };
+    after 'del_node' =>
+        sub { $_[1]->bucket->_del_node($_[1]) if $_[1]->has_bucket };
     has 'buckets' => (
         isa        => 'ArrayRef[Net::BitTorrent::Protocol::BEP05::Bucket]',
         is         => 'ro',
@@ -92,17 +92,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
 
     sub assign_node {
         my ($self, $node) = @_;
-        return if !$node->has_nodeid;
-        $self->del_node($node);
         $self->nearest_bucket($node->nodeid)->add_node($node);
-    }
-
-    sub assign_backup_node {    # Unused
-        ...;
-        my ($self, $node) = @_;
-        return if !$node->has_nodeid;
-        $self->del_node($node);
-        $self->nearest_bucket($node->nodeid)->add_backup_node($node);
     }
 
     sub find_node_by_sockaddr {
@@ -119,7 +109,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     }
 
     sub outstanding_add_nodes {
-        grep { defined $_ && !$_->has_bucket} $_[0]->all_nodes
+        grep { defined $_ && !$_->has_bucket } $_[0]->all_nodes;
     }
 
 =pod
@@ -181,6 +171,7 @@ until it cannot find any closer. The routing table should be saved between
 invocations of the client software.
 
 =cut
+
 }
 1;
 
