@@ -68,16 +68,14 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                    init_arg => undef,
                                    default  => sub { {} }
     );
-    after 'expire_request' => sub { shift->miss };
+    after 'expire_request' => sub { shift->inc_fail };
     around 'add_request' => sub {
         my ($code, $self, $tid, $args) = @_;
         require Scalar::Util;
         Scalar::Util::weaken $self;
         $args->{'timeout'} //= AE::timer(
             20, 0,
-            sub {    #warn 'Tired of waiting for reply!';
-                $self->expire_request($tid);    # May ((poof)) $self
-            }
+            sub { $self->expire_request($tid) } # May ((poof)) $self
         );
         $code->($self, $tid, $args);
     };
@@ -127,7 +125,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         my $packet = build_dht_query_ping('p_' . $tid,
                                       pack('H*', $self->dht->nodeid->to_Hex));
         my $sent = $self->send($packet);
-        return $self->miss() if !$sent;
+        return $self->inc_fail() if !$sent;
         $self->add_request('p_' . $tid, {type => 'ping'});
         $tid++;
     }
@@ -154,7 +152,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                       pack('H*', $nodeid->to_Hex)
             );
         my $sent = $self->send($packet);
-        return $self->miss() if !$sent;
+        return $self->inc_fail() if !$sent;
         $self->add_request('fn_' . $tid,
                            {type => 'find_node', nodeid => $nodeid});
         $tid++;
@@ -174,7 +172,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                       pack('H*', $info_hash->to_Hex)
             );
         my $sent = $self->send($packet);
-        return $self->miss() if !$sent;
+        return $self->inc_fail() if !$sent;
         $self->add_request('gp_' . $tid,
                            {type => 'get_peers', info_hash => $info_hash});
         $tid++;
@@ -185,7 +183,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         traits   => ['Counter'],
         default  => 0,
         is       => 'ro',
-        handles  => {miss => 'inc',},
+        handles  => {inc_fail => 'inc'},
         init_arg => undef,
         trigger  => sub {
             my ($self, $new, $old) = @_;

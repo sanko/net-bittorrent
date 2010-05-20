@@ -11,7 +11,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
-    has 'holding_bin' => (
+    has 'nodes' => (
                      isa => 'HashRef[Net::BitTorrent::Protocol::BEP05::Node]',
                      is  => 'ro',
                      init_arg => undef,
@@ -22,7 +22,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
                                  del_node     => 'delete',
                                  defined_node => 'defined',
                                  count_nodes  => 'count',
-                                 nodes        => 'keys'
+                                 all_nodes    => 'values'
                      },
                      default => sub { {} }
     );

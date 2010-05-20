@@ -8,7 +8,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     # Stub
-    sub BUILD { }
+    sub BUILD {1}
 
     #
     my $K = 8;    # max nodes per-bucket
@@ -38,17 +38,15 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                 }
             ),
             is      => 'ro',
-            coerce  => 1,
             default => sub { [] },
             traits  => ['Array'],
             handles => {'pop_' . $type . 'nodes'     => 'pop',
-                        'push_' . $type . 'nodes'    => 'push',
+                        'add_' . $type . 'node'      => 'push',
                         'shift_' . $type . 'nodes'   => 'shift',
                         'unshift_' . $type . 'nodes' => 'unshift',
                         'splice_' . $type . 'nodes'  => 'splice',
                         'count_' . $type . 'nodes'   => 'count',
-                        'add_' . $type . 'node'      => 'push',
-                        'sort_'
+                        'sort_' 
                             . $type
                             . 'nodes' => [
                              'sort_in_place',
@@ -149,13 +147,17 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         return 1;
     }
 
-    sub del_node {
+    sub _del_node {
         my ($self, $node) = @_;
         for my $i (0 .. $self->count_nodes) {
-            last if $self->splice_nodes($i, 1, ());  # Post 'Help Wanted' sign
+            if ($node->nodeid->Lexicompare($self->nodes->[$i]->nodeid) == 0) {
+                $self->splice_nodes($i, 1, ());    # Post 'Help Wanted' sign
+                last;
+            }
         }
-        return $self->add_node($self->shift_backup_nodes)
-            if $self->count_backup_nodes;            # Take sign down
+        $self->add_node($self->shift_backup_nodes)
+            if $self->count_backup_nodes;          # Take sign down
+        $self->_reset_find_node_quest if $self->count_nodes < 8;
     }
 }
 1;
