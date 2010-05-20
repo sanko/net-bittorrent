@@ -342,6 +342,24 @@ package Net::BitTorrent::DHT;
                         __duration(time - $node->birth), $node->v || '?';
                 }
             }
+
+           #[2010-05-20 08:00:37]  Total peers: 169 (in replacement cache 160)
+            $return .= sprintf "Outstanding add nodes: %d\n",
+                scalar $self->routing_table->outstanding_add_nodes;
+            $return
+                .= sprintf
+                "Received: %d requests (%s), %d replies (%s), %d invalid (%s)\n",
+                $self->_recv_requests_count,
+                __data($self->_recv_requests_length),
+                $self->_recv_replies_count,
+                __data($self->_recv_replies_length),
+                $self->_recv_invalid_count,
+                __data($self->_recv_invalid_length);
+            $return .= sprintf "Sent: %d requests (%s), %d replies (%s)",
+                $self->_send_requests_count,
+                __data($self->_send_requests_length),
+                $self->_send_replies_count,
+                __data($self->_send_replies_length);
         }
         return wantarray ? $return : say $return;
     }
@@ -354,6 +372,13 @@ package Net::BitTorrent::DHT;
         );
         return join ' ',
             map { $dhms{$_} ? $dhms{$_} . $_ : () } sort keys %dhms;
+    }
+
+    sub __data($) {
+              $_[0] >= 1073741824 ? sprintf('%0.2f GB', $_[0] / 1073741824)
+            : $_[0] >= 1048576    ? sprintf('%0.2f MB', $_[0] / 1048576)
+            : $_[0] >= 1024       ? sprintf('%0.2f KB', $_[0] / 1024)
+            :                       $_[0] . ' bytes';
     }
 }
 1;
