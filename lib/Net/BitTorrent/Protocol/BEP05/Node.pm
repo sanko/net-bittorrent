@@ -23,6 +23,18 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     }
     has 'ipv6' => (isa => 'Bool', is => 'ro', lazy_build => 1);
     sub _build_ipv6 { length shift->sockaddr == 28 }
+    for my $dir (qw[in out]) {
+        has 'announce_token_'
+            . $dir => (isa     => 'HashRef[Str]',
+                       is      => 'ro',
+                       traits  => ['Hash'],
+                       handles => {'_set_announce_token_' . $dir => 'set',
+                                   '_get_announce_token_' . $dir => 'get',
+                                   '_del_announce_token_' . $dir => 'delete',
+                                   '_has_announce_token_' . $dir => 'defined'
+                       }
+            );
+    }
     has 'v' =>
         (isa => 'Str', is => 'ro', writer => '_v', predicate => '_has_v');
     has 'seen' => (isa       => 'Bool',
