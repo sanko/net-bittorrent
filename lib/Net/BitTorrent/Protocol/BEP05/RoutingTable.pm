@@ -27,7 +27,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     );
     around 'add_node' => sub {
         my ($code, $self, $node) = @_;
-        return if scalar $self->outstanding_add_nodes > 1000;    # Hard limit
+        #return if scalar $self->outstanding_add_nodes >= 300;    # Hard limit
         if (!blessed $node) {
             require Net::BitTorrent::Protocol::BEP05::Node;
             $node =
