@@ -958,8 +958,9 @@ important later.
   *  ::Protocol::BEP05              docs
   *    ::Packets                    utility     done
   *    ::RoutingTable               class
-  *      ::Bucket                   class
-  *        ::Node                   class
+  *    ::Bucket                     class
+  *    ::Node                       class
+  *    ::Tracker                    class
   *  ::Protocol::BEP23              docs        done
   *    ::Compact                    utility     done
   * ::Network                       base class  todo (transfer limits?)
