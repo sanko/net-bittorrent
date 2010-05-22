@@ -32,7 +32,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                    '_get_announce_token_' . $dir => 'get',
                                    '_del_announce_token_' . $dir => 'delete',
                                    '_has_announce_token_' . $dir => 'defined'
-                       }
+                       },
+                       default => sub { {} }
             );
     }
     has 'v' =>
@@ -87,7 +88,9 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         Scalar::Util::weaken $self;
         $args->{'timeout'} //= AE::timer(
             20, 0,
-            sub { $self->expire_request($tid) }    # May ((poof)) $self
+            sub {
+                $self->expire_request($tid);
+                }    # May ((poof)) $self
         );
         $code->($self, $tid, $args);
     };
@@ -98,7 +101,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                          writer   => '_ping_timer',
                          clearer  => 'touch'
     );
-    for my $type (qw[get_peers find_node]) {
+    for my $type (qw[get_peers find_node announce]) {
         has 'prev_'
             . $type => (isa     => 'HashRef[Int]',
                         is      => 'rw',
@@ -171,6 +174,24 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         $self->set_prev_find_node($nodeid->to_Hex, time);
     }
 
+    sub _reply_find_node {
+        my ($self, $tid, $target) = @_;
+        require Net::BitTorrent::Protocol::BEP23::Compact;
+        my @nodes = map {
+            Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
+                                                           sprintf '%s:%d',
+                                                           $_->host, $_->port)
+        } @{$self->routing_table->nearest_bucket($target)->nodes};
+        use Data::Dump;
+        ddx \@nodes;
+        return if !@nodes;
+        my $packet
+            = build_dht_reply_find_node($tid, $target->to_Hex, \@nodes);
+        my $sent = $self->send($packet, 1);
+        $self->inc_fail() if !$sent;
+        return $sent;
+    }
+
     sub get_peers {
         my ($self, $info_hash) = @_;
         return
@@ -189,6 +210,55 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                            {type => 'get_peers', info_hash => $info_hash});
         $tid++;
         $self->set_prev_get_peers($info_hash->to_Hex, time);
+    }
+
+    sub _reply_get_peers {
+        my ($self, $tid, $id) = @_;
+        my ($peers, $nodes);
+        if (!$self->_has_announce_token_out($id->to_Hex)) {
+            state $announce_token = 'a';
+            $self->_set_announce_token_out($id->to_Hex, $announce_token++);
+        }
+
+        # Need to gather peers from tracker
+        #($tid, $id, $nodes, $token)
+        my $packet =
+            build_dht_reply_get_peers($tid,
+                                      $id->to_Hex,
+                                      '',
+                                      $self->_get_announce_token_out(
+                                                                   $id->to_Hex
+                                      )
+            );
+        my $sent = $self->send($packet, 1);
+        $self->inc_fail() if !$sent;
+        return $sent;
+    }
+
+    sub announce {
+        my ($self, $info_hash) = @_;
+        return
+            if $self->defined_prev_announce($info_hash->to_Hex)
+                && $self->get_prev_announce($info_hash->to_Hex)
+                > time - (60 * 5);
+        state $tid = 'a';
+        return;
+
+        #my ($tid, $id, $infohash, $token, $port) = @_;
+        ...;    # Need TCP port
+        my $packet = build_dht_query_announce(
+            'a_' . $tid,
+            pack('H*', $self->dht->nodeid->to_Hex),
+            pack('H*', $info_hash->to_Hex),
+            $self->_get_announce_token_in($info_hash->to_Hex),
+            0                                                    #
+        );
+        my $sent = $self->send($packet);
+        return $self->inc_fail() if !$sent;
+        $self->add_request('a_' . $tid,
+                           {type => 'announce', info_hash => $info_hash});
+        $tid++;
+        $self->set_prev_announce($info_hash->to_Hex, time);
     }
     has 'fail' => (
         isa      => 'Int',

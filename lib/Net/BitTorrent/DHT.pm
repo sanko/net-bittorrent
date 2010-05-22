@@ -265,7 +265,7 @@ package Net::BitTorrent::DHT;
                                     if $node;
                             }
                         }
-                        if (defined $packet->{'r'}{'values'}) {
+                        if (defined $packet->{'r'}{'values'}) { # peers
                             my ($quest) = $self->grep_quests(
                                 sub {
                                     defined $_
@@ -321,10 +321,28 @@ package Net::BitTorrent::DHT;
             $node->_nodeid($packet->{'a'}{'id'})
                 if !$node->has_nodeid;    # Adds node to router table
             $node->touch;
-            return $node->_reply_ping($packet->{'t'})
-                if $type eq 'ping' && defined $packet->{'t'};
-
-            #...;
+            if ($type eq 'ping' && defined $packet->{'t'}) {
+                return $node->_reply_ping($packet->{'t'});
+            }
+            elsif ($type eq 'get_peers'
+                   && defined $packet->{'a'}{'info_hash'})
+            {   require Bit::Vector;
+                return $node->_reply_get_peers(
+                      $packet->{'t'},
+                      Bit::Vector->new_Hex(160,  unpack'H*',$packet->{'a'}{'info_hash'}));
+            }
+            elsif ($type eq 'find_node' && defined $packet->{'a'}{'target'}) {
+                require Bit::Vector;
+                return $node->_reply_find_node(
+                $packet->{'t'},
+                         Bit::Vector->new_Hex(160, unpack'H*',$packet->{'a'}{'target'}));
+            }
+            elsif ($type eq 'announce' && defined $packet->{'a'}{'info_hash'})
+            {   require Bit::Vector;
+                return $node->_reply_announce(
+                $packet->{'t'},
+                      Bit::Vector->new_Hex(160,  unpack'H*',$packet->{'a'}{'info_hash'}));
+            }
         }
         else {
             use Data::Dump;
