@@ -31,7 +31,5 @@ sub dht_cb {
     say sprintf 'We found %d peers for %s from %s:%d via DHT',
         scalar(@$peers),
         $infohash->to_Hex, $node->host, $node->port;
-    say join ', ',
-        map { Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4($_) }
-        @$peers;
+    say join ', ', @$peers;
 }

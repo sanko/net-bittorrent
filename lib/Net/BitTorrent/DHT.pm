@@ -265,7 +265,7 @@ package Net::BitTorrent::DHT;
                                     if $node;
                             }
                         }
-                        if (defined $packet->{'r'}{'values'}) { # peers
+                        if (defined $packet->{'r'}{'values'}) {    # peers
                             my ($quest) = $self->grep_quests(
                                 sub {
                                     defined $_
@@ -274,16 +274,20 @@ package Net::BitTorrent::DHT;
                                 }
                             );
                             require Net::BitTorrent::Protocol::BEP23::Compact;
+                            my @values = map {
+                                Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                                                                           $_)
+                            } @{$packet->{'r'}{'values'}};
                             $quest->[2]
                                 = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
                                 Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
-                                                   join '', $quest->[2],
-                                                   @{$packet->{'r'}{'values'}}
-                                )
+                                                         join '', $quest->[2],
+                                ),
+                                @values
                                 );
-                            $quest->[1]->($req->{'info_hash'}, $node,
-                                          $packet->{'r'}{'values'}
-                            ) if $quest->[1];
+                            $quest->[1]
+                                ->($req->{'info_hash'}, $node, \@values)
+                                if $quest->[1];
                         }
 
 =begin comment

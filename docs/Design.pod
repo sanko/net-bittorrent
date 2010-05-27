@@ -811,8 +811,7 @@ This is a blessed object. TODO.
 
 =item * peers
 
-This is an array ref of compact nodes sent to us by aforementioned remote
-node.
+This is an array ref of peers sent to us by aforementioned remote node.
 
 =back
 
