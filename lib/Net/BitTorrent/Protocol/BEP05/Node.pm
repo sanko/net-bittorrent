@@ -233,17 +233,18 @@ package Net::BitTorrent::Protocol::BEP05::Node;
 
     sub announce {
         my ($self, $info_hash) = @_;
+        warn 'Trying to announce...';
         return
             if $self->defined_prev_announce($info_hash->to_Hex)
                 && $self->get_prev_announce($info_hash->to_Hex)
                 > time - (60 * 5);
+        return if ! $self->_has_announce_token_in($info_hash->to_Hex);
+        warn 'All good so far...';
         state $tid = 'a';
-        return;
-
-        #my ($tid, $id, $infohash, $token, $port) = @_;
-        ...;    # Need TCP port
+        #my ($tid, $id, $info_hash, $token, $port) = @_;
+        #...;    # Need TCP port
         my $packet = build_dht_query_announce(
-            'a_' . $tid,
+            'an_' . $tid,
             pack('H*', $self->dht->nodeid->to_Hex),
             pack('H*', $info_hash->to_Hex),
             $self->_get_announce_token_in($info_hash->to_Hex),
@@ -251,7 +252,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         );
         my $sent = $self->send($packet);
         return $self->inc_fail() if !$sent;
-        $self->add_request('a_' . $tid,
+        $self->add_request('an_' . $tid,
                            {type => 'announce', info_hash => $info_hash});
         $tid++;
         $self->set_prev_announce($info_hash->to_Hex, time);
