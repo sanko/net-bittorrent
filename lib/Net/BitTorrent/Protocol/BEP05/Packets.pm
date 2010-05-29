@@ -106,7 +106,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
             );
     }
 
-    sub build_dht_reply_error ($\@) {
+    sub build_dht_reply_error ($@) {
         my ($tid, $error) = @_;
         return
             bencode({t => $tid,
