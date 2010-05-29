@@ -52,7 +52,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                       writer    => '_routing_table',
                       required  => 1,
                       weak_ref  => 1,
-                      handles   => {send => 'send', dht => 'dht'}
+                      handles   => [qw[send dht tracker]]
     );
     around 'send' => sub {
         my ($code, $self, $packet) = @_;
