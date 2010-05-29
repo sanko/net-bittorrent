@@ -104,23 +104,25 @@ package Net::BitTorrent::DHT;
     };
 
     #
-    has '_quests' => (isa      => 'ArrayRef[Ref]',
-                      is       => 'ro',
-                      init_arg => undef,
-                      traits   => ['Array'],
-                      handles  => {
-                                  add_quest   => 'push',
-                                  quests      => 'elements',
-                                  get_quest   => 'get',
-                                  grep_quests => 'grep',
-                                  map_quests  => 'map'
-                      },
-                      default => sub { [] }
-    );
-    after 'add_quest' => sub {
-        require Scalar::Util;
-        Scalar::Util::weaken $_[0]->{'_quests'}->[-1];
-    };
+    for my $type (qw[get_peers announce find_node]) {
+        has "_${type}_quests" => (isa      => 'ArrayRef[Ref]',
+                                  is       => 'ro',
+                                  init_arg => undef,
+                                  traits   => ['Array'],
+                                  handles  => {
+                                              "add_${type}_quest" => 'push',
+                                              "${type}_quests" => 'elements',
+                                              "get_${type}_quest"   => 'get',
+                                              "grep_${type}_quests" => 'grep',
+                                              "map_${type}_quests"  => 'map'
+                                  },
+                                  default => sub { [] }
+        );
+        after "add_${type}_quest" => sub {
+            require Scalar::Util;
+            Scalar::Util::weaken $_[0]->{"_${type}_quests"}->[-1];
+        };
+    }
 
     #
     sub get_peers {
@@ -144,7 +146,7 @@ package Net::BitTorrent::DHT;
                 }
             )
         ];
-        $self->add_quest($quest);
+        $self->add_get_peers_quest($quest);
         return $quest;
     }
 
@@ -168,7 +170,7 @@ package Net::BitTorrent::DHT;
                 }
             )
         ];
-        $self->add_quest($quest);
+        $self->add_find_node_quest($quest);
         return $quest;
     }
 
@@ -220,7 +222,7 @@ package Net::BitTorrent::DHT;
                     if ($type eq 'ping') {
                     }
                     elsif ($type eq 'find_node') {
-                        my ($quest) = $self->grep_quests(
+                        my ($quest) = $self->grep_find_node_quests(
                             sub {
                                 defined $_
                                     && $req->{'nodeid'}->equal($_->[0]);
@@ -265,7 +267,7 @@ package Net::BitTorrent::DHT;
                             }
                         }
                         if (defined $packet->{'r'}{'values'}) {    # peers
-                            my ($quest) = $self->grep_quests(
+                            my ($quest) = $self->grep_get_peers_quests(
                                 sub {
                                     defined $_
                                         && $req->{'info_hash'}
