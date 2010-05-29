@@ -32,5 +32,10 @@ share/*
 
 # incomplete stuff
 lib2/*
+Untitled*
+
+# NYTProf stuff
+*.out
+*nytprof*
 
 # $Id$
