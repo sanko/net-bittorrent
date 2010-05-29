@@ -255,6 +255,36 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         $tid++;
         $self->set_prev_announce_peer($info_hash->to_Hex, time);
     }
+
+    sub _reply_announce_peer {
+        my ($self, $tid, $info_hash, $a_ref) = @_;
+        my $packet;
+        if ((!$self->_has_announce_peer_token_out($info_hash->to_Hex))
+            || ($self->_get_announce_peer_token_out($info_hash->to_Hex) ne
+                $a_ref->{'token'})
+            )
+        {   $packet =
+                build_dht_reply_error($tid,
+                                      [203,
+                                       'Incorrect write token in announce_peer'
+                                      ]
+                );
+        }
+        elsif (!$self->tracker->_add_peer(
+                                   $info_hash, [$self->host, $a_ref->{'port'}]
+               )
+            )
+        {   $packet = build_dht_reply_error($tid,
+                                      [202, 'Failed to add peer to tracker']);
+        }
+        else {
+            $packet = build_dht_reply_announce_peer($tid,
+                                      pack('H*', $self->dht->nodeid->to_Hex));
+        }
+        my $sent = $self->send($packet, 1);
+        $self->inc_fail() if !$sent;
+        return $sent;
+    }
     has 'fail' => (
         isa      => 'Int',
         traits   => ['Counter'],

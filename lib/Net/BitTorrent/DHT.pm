@@ -412,7 +412,8 @@ package Net::BitTorrent::DHT;
                              $packet->{'t'},
                              Bit::Vector->new_Hex(
                                  160, unpack 'H*', $packet->{'a'}{'info_hash'}
-                             )
+                             ),
+                             $packet->{'a'},
                     );
             }
         }
