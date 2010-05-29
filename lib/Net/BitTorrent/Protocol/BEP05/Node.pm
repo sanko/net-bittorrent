@@ -270,7 +270,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         trigger  => sub {
             my ($self, $new, $old) = @_;
             $self->routing_table->del_node($self)
-                if $new == ($self->has_bucket ? 5 : 2);
+                if $new == ($self->has_bucket ? 5 : 1);
         }
     );
 }
