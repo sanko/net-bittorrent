@@ -8,10 +8,11 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
     our @ISA = qw[Exporter];
     our %EXPORT_TAGS;
     our @EXPORT_OK = @{$EXPORT_TAGS{'all'}} = sort qw[
-        build_dht_reply_get_peers build_dht_query_get_peers
-        build_dht_reply_values    build_dht_query_announce_peer
-        build_dht_reply_ping      build_dht_query_ping
-        build_dht_reply_find_node build_dht_query_find_node];
+        build_dht_reply_get_peers     build_dht_query_get_peers
+        build_dht_reply_announce_peer build_dht_query_announce_peer
+        build_dht_reply_ping          build_dht_query_ping
+        build_dht_reply_find_node     build_dht_query_find_node
+        build_dht_reply_error                                      ];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
@@ -74,6 +75,11 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
         return bencode({t => $tid, y => 'r', r => {id => $id}, v => 'NB00'});
     }
 
+    sub build_dht_reply_announce_peer ($$) {
+        my ($tid, $id) = @_;
+        return bencode({t => $tid, y => 'r', r => {id => $id}, v => 'NB00'});
+    }
+
     sub build_dht_reply_find_node ($$$) {
         my ($tid, $id, $nodes) = @_;
         return
@@ -85,26 +91,27 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
             );
     }
 
-    sub build_dht_reply_get_peers ($$$$) {
-        my ($tid, $id, $nodes, $token) = @_;
+    sub build_dht_reply_get_peers ($$$$$) {
+        my ($tid, $id, $values, $nodes, $token) = @_;
         return
             bencode({t => $tid,
                      y => 'r',
-                     r => {id => $id, token => $token, nodes => $nodes},
-                     v => 'NB00'
+                     r => {id    => $id,
+                           token => $token,
+                           ($values ? (values => $values) : ()),
+                           ($nodes  ? (nodes  => $nodes)  : ()),
+                           v => 'NB00'
+                     }
                     }
             );
     }
 
-    sub build_dht_reply_values ($$$$) {
-        my ($tid, $id, $values, $token) = @_;
+    sub build_dht_reply_error ($\@) {
+        my ($tid, $error) = @_;
         return
             bencode({t => $tid,
-                     y => 'r',
-                     r => {id     => $id,
-                           token  => $token,
-                           values => $values
-                     },
+                     y => 'e',
+                     e => $error,
                      v => 'NB00'
                     }
             );
