@@ -104,7 +104,7 @@ package Net::BitTorrent::DHT;
     };
 
     #
-    for my $type (qw[get_peers announce find_node]) {
+    for my $type (qw[get_peers announce_peer find_node]) {
         has "_${type}_quests" => (isa      => 'ArrayRef[Ref]',
                                   is       => 'ro',
                                   init_arg => undef,
@@ -147,6 +147,31 @@ package Net::BitTorrent::DHT;
             )
         ];
         $self->add_get_peers_quest($quest);
+        return $quest;
+    }
+
+    sub announce_peer {
+        my ($self, $infohash, $port, $code) = @_;
+        if (!blessed $infohash) {
+            require Bit::Vector;
+            $infohash =
+                Bit::Vector->new_Hex(160,
+                        $infohash =~ m[^[a-f\d]+$]i ? $infohash : unpack 'H*',
+                        $infohash);
+        }
+        my $quest = [
+            $infohash,
+            $code, $port, '',
+            AE::timer(
+                60, 60,
+                sub {
+                    $_->announce_peer($infohash, $port)
+                        for @{$self->routing_table->nearest_bucket($infohash)
+                            ->nodes};
+                }
+            )
+        ];
+        $self->add_announce_peer_quest($quest);
         return $quest;
     }
 
@@ -292,6 +317,12 @@ package Net::BitTorrent::DHT;
                             $quest->[1]
                                 ->($req->{'info_hash'}, $node, \@values);
                         }
+                        if (defined $packet->{'r'}{'token'})
+                        {    # for announce_peer
+                            $node->_set_announce_peer_token_in(
+                                                  $req->{'info_hash'}->to_Hex,
+                                                  $packet->{'r'}{'token'});
+                        }
 
 =begin comment
   Get peers associated with a torrent infohash. "q" = "get_peers" A get_peers
@@ -306,9 +337,30 @@ package Net::BitTorrent::DHT;
   future C<announce_peer> query. The token value should be a short binary
   string.
 =cut
-
+                    }
+                    elsif ($type eq 'announce_peer') {
+                        my ($quest) = $self->grep_announce_peer_quests(
+                            sub {
+                                defined $_
+                                    && $req->{'info_hash'}->equal($_->[0]);
+                            }
+                        );
+                        return if !defined $quest;
+                        $quest->[3]
+                            = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
+                            Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                                                         join '', $quest->[2],
+                            ),
+                            sprintf '%s:%s',
+                            $node->host,
+                            $node->port
+                            );
+                        $quest->[1]->($req->{'info_hash'}, $node);
                     }
                     else {
+                        use Data::Dump;
+                        warn sprintf '%s:%d', $node->host, $node->port;
+                        ddx $packet;
                         ...;
                     }
                 }
@@ -334,22 +386,40 @@ package Net::BitTorrent::DHT;
             elsif ($type eq 'get_peers'
                    && defined $packet->{'a'}{'info_hash'})
             {   require Bit::Vector;
-                return $node->_reply_get_peers(
-                      $packet->{'t'},
-                      Bit::Vector->new_Hex(160,  unpack'H*',$packet->{'a'}{'info_hash'}));
+                return
+                    $node->_reply_get_peers(
+                             $packet->{'t'},
+                             Bit::Vector->new_Hex(
+                                 160, unpack 'H*', $packet->{'a'}{'info_hash'}
+                             )
+                    );
             }
             elsif ($type eq 'find_node' && defined $packet->{'a'}{'target'}) {
                 require Bit::Vector;
-                return $node->_reply_find_node(
-                $packet->{'t'},
-                         Bit::Vector->new_Hex(160, unpack'H*',$packet->{'a'}{'target'}));
+                return
+                    $node->_reply_find_node(
+                                $packet->{'t'},
+                                Bit::Vector->new_Hex(
+                                    160, unpack 'H*', $packet->{'a'}{'target'}
+                                )
+                    );
             }
-            elsif ($type eq 'announce' && defined $packet->{'a'}{'info_hash'})
+            elsif ($type eq 'announce_peer'
+                   && defined $packet->{'a'}{'info_hash'})
             {   require Bit::Vector;
-                return $node->_reply_announce(
-                $packet->{'t'},
-                      Bit::Vector->new_Hex(160,  unpack'H*',$packet->{'a'}{'info_hash'}));
+                return
+                    $node->_reply_announce_peer(
+                             $packet->{'t'},
+                             Bit::Vector->new_Hex(
+                                 160, unpack 'H*', $packet->{'a'}{'info_hash'}
+                             )
+                    );
             }
+        }
+        elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {
+            use Data::Dump;
+            warn sprintf 'Error from %s:%d', $node->host, $node->port;
+            ddx $packet;
         }
         else {
             use Data::Dump;

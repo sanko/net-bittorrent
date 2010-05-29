@@ -24,14 +24,15 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     has 'ipv6' => (isa => 'Bool', is => 'ro', lazy_build => 1);
     sub _build_ipv6 { length shift->sockaddr == 28 }
     for my $dir (qw[in out]) {
-        has 'announce_token_'
+        has 'announce_peer_token_'
             . $dir => (isa     => 'HashRef[Str]',
                        is      => 'ro',
                        traits  => ['Hash'],
-                       handles => {'_set_announce_token_' . $dir => 'set',
-                                   '_get_announce_token_' . $dir => 'get',
-                                   '_del_announce_token_' . $dir => 'delete',
-                                   '_has_announce_token_' . $dir => 'defined'
+                       handles => {
+                               '_set_announce_peer_token_' . $dir => 'set',
+                               '_get_announce_peer_token_' . $dir => 'get',
+                               '_del_announce_peer_token_' . $dir => 'delete',
+                               '_has_announce_peer_token_' . $dir => 'defined'
                        },
                        default => sub { {} }
             );
@@ -99,7 +100,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     has '_seen' => (isa => 'Str', is => 'rw', predicate => '_has_seen');
     after '_ping_timer' => sub { shift->_seen(time) };
     sub seen { return time - shift->_seen <= 15 * 60 }
-    for my $type (qw[get_peers find_node announce]) {
+    for my $type (qw[get_peers find_node announce_peer]) {
         has 'prev_'
             . $type => (isa     => 'HashRef[Int]',
                         is      => 'rw',
@@ -211,9 +212,10 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     sub _reply_get_peers {
         my ($self, $tid, $id) = @_;
         my ($peers, $nodes);
-        if (!$self->_has_announce_token_out($id->to_Hex)) {
-            state $announce_token = 'a';
-            $self->_set_announce_token_out($id->to_Hex, $announce_token++);
+        if (!$self->_has_announce_peer_token_out($id->to_Hex)) {
+            state $announce_peer_token = 'a';
+            $self->_set_announce_peer_token_out($id->to_Hex,
+                                                $announce_peer_token++);
         }
 
         # Need to gather peers from tracker
@@ -222,7 +224,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
             build_dht_reply_get_peers($tid,
                                       $id->to_Hex,
                                       '',
-                                      $self->_get_announce_token_out(
+                                      $self->_get_announce_peer_token_out(
                                                                    $id->to_Hex
                                       )
             );
@@ -231,31 +233,28 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         return $sent;
     }
 
-    sub announce {
-        my ($self, $info_hash) = @_;
-        warn 'Trying to announce...';
+    sub announce_peer {
+        my ($self, $info_hash, $port) = @_;
         return
-            if $self->defined_prev_announce($info_hash->to_Hex)
-                && $self->get_prev_announce($info_hash->to_Hex)
+            if $self->defined_prev_announce_peer($info_hash->to_Hex)
+                && $self->get_prev_announce_peer($info_hash->to_Hex)
                 > time - (60 * 5);
-        return if ! $self->_has_announce_token_in($info_hash->to_Hex);
-        warn 'All good so far...';
+        return if !$self->_has_announce_peer_token_in($info_hash->to_Hex);
         state $tid = 'a';
-        #my ($tid, $id, $info_hash, $token, $port) = @_;
-        #...;    # Need TCP port
-        my $packet = build_dht_query_announce(
-            'an_' . $tid,
-            pack('H*', $self->dht->nodeid->to_Hex),
-            pack('H*', $info_hash->to_Hex),
-            $self->_get_announce_token_in($info_hash->to_Hex),
-            0                                                    #
-        );
+        my $packet =
+            build_dht_query_announce_peer(
+                       'an_' . $tid,
+                       pack('H*', $self->dht->nodeid->to_Hex),
+                       pack('H*', $info_hash->to_Hex),
+                       $self->_get_announce_peer_token_in($info_hash->to_Hex),
+                       $port
+            );
         my $sent = $self->send($packet);
         return $self->inc_fail() if !$sent;
         $self->add_request('an_' . $tid,
-                           {type => 'announce', info_hash => $info_hash});
+                          {type => 'announce_peer', info_hash => $info_hash});
         $tid++;
-        $self->set_prev_announce($info_hash->to_Hex, time);
+        $self->set_prev_announce_peer($info_hash->to_Hex, time);
     }
     has 'fail' => (
         isa      => 'Int',

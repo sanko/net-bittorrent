@@ -9,7 +9,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
     our %EXPORT_TAGS;
     our @EXPORT_OK = @{$EXPORT_TAGS{'all'}} = sort qw[
         build_dht_reply_get_peers build_dht_query_get_peers
-        build_dht_reply_values    build_dht_query_announce
+        build_dht_reply_values    build_dht_query_announce_peer
         build_dht_reply_ping      build_dht_query_ping
         build_dht_reply_find_node build_dht_query_find_node];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
@@ -27,7 +27,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
             );
     }
 
-    sub build_dht_query_announce ($$$$$) {
+    sub build_dht_query_announce_peer ($$$$$) {
         my ($tid, $id, $infohash, $token, $port) = @_;
         return
             bencode({t => $tid,
