@@ -38,11 +38,6 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     }
     has 'v' =>
         (isa => 'Str', is => 'ro', writer => '_v', predicate => '_has_v');
-    has 'seen' => (isa       => 'Bool',
-                   is        => 'ro',
-                   writer    => '_seen',
-                   predicate => '_has_seen'
-    );
     has 'bucket' => (isa       => 'Net::BitTorrent::Protocol::BEP05::Bucket',
                      is        => 'ro',
                      writer    => 'assign_bucket',
@@ -89,8 +84,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         $args->{'timeout'} //= AE::timer(
             20, 0,
             sub {
-                $self->expire_request($tid);
-                }    # May ((poof)) $self
+                $self->expire_request($tid);    # May ((poof)) $self
+            }
         );
         $code->($self, $tid, $args);
     };
@@ -101,6 +96,9 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                          writer   => '_ping_timer',
                          clearer  => 'touch'
     );
+    has '_seen' => (isa => 'Str', is => 'rw', predicate => '_has_seen');
+    after '_ping_timer' => sub { shift->_seen(time) };
+    sub seen { return time - shift->_seen <= 15 * 60 }
     for my $type (qw[get_peers find_node announce]) {
         has 'prev_'
             . $type => (isa     => 'HashRef[Int]',
@@ -182,8 +180,6 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                                            sprintf '%s:%d',
                                                            $_->host, $_->port)
         } @{$self->routing_table->nearest_bucket($target)->nodes};
-        use Data::Dump;
-        ddx \@nodes;
         return if !@nodes;
         my $packet
             = build_dht_reply_find_node($tid, $target->to_Hex, \@nodes);

@@ -208,7 +208,6 @@ package Net::BitTorrent::DHT;
                     $node->touch;
                     $node->_v($packet->{'v'})
                         if !$node->_has_v && defined $packet->{'v'};
-                    $node->_seen(1) if !$node->_has_seen;
                     my $req
                         = $node->del_request($packet->{'t'}); # For future ref
                     $req->{'cb'}->($packet, $host, $port)
@@ -376,7 +375,7 @@ package Net::BitTorrent::DHT;
                         .= sprintf
                         "    %s %s:%d fail:%d seen:%d age:%s ver:%s\n",
                         $node->nodeid->to_Hex, $node->host,
-                        $node->port, $node->fail || 0, $node->seen || 0,
+                        $node->port, $node->fail || 0, $node->seen,
                         __duration(time - $node->birth), $node->v || '?';
                 }
             }
