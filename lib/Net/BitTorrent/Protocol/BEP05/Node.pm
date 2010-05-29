@@ -220,14 +220,13 @@ package Net::BitTorrent::Protocol::BEP05::Node;
 
         # Need to gather peers from tracker
         #($tid, $id, $nodes, $token)
-        my $packet =
-            build_dht_reply_get_peers($tid,
-                                      $id->to_Hex,
-                                      '',
-                                      $self->_get_announce_peer_token_out(
-                                                                   $id->to_Hex
-                                      )
-            );
+        my $packet = build_dht_reply_get_peers(
+                   $tid,
+                   $id->to_Hex,
+                   '',                                                # values
+                   '',                                                # nodes
+                   $self->_get_announce_peer_token_out($id->to_Hex)
+        );
         my $sent = $self->send($packet, 1);
         $self->inc_fail() if !$sent;
         return $sent;
