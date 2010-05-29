@@ -24,6 +24,7 @@ META.yml
 commitlog.txt
 
 *.tidy
+*.tdy
 ~*
 *.spell
 .gitclean.pl
@@ -33,6 +34,7 @@ share/*
 # incomplete stuff
 lib2/*
 Untitled*
+*.rst
 
 # NYTProf stuff
 *.out
