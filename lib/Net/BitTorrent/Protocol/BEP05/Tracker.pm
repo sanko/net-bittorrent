@@ -9,13 +9,25 @@ package Net::BitTorrent::Protocol::BEP05::Tracker;
     sub BUILD {1}
 
     #
-    has 'peers' => (isa      => 'Hash[ArrayRef]',
+    has 'peers' => (isa      => 'HashRef[ArrayRef]',
                     is       => 'ro',
                     default  => sub { {} },
                     init_arg => undef,
-                    traits   => {'Hash'},
-                    handles  => [qw[get set defined delete]]
+                    traits   => ['Hash'],
+                    handles  => {
+                                get_peers => 'get',
+                                set_peers => 'set',
+                                has_peers => 'defined',
+                                del_peers => 'delete'
+                    }
     );
+
+    sub add_peer {
+        my ($self, $infohash, $peer) = @_;
+        return $self->has_peers($infohash->to_Hex)
+            ? push(@{$self->get_peers($infohash->to_Hex)}, $peer)
+            : $self->set_peers($infohash->to_Hex, [$peer]);
+    }
     has 'routing_table' => (
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
                       is  => 'ro',
@@ -23,17 +35,5 @@ package Net::BitTorrent::Protocol::BEP05::Tracker;
                       weak_ref => 1,
                       handles  => [qw[dht]]
     );
-
-    sub announce {
-        my ($self, $infohash, $node) = @_;
-        ... state $tid = 'a';
-        return 'a_' . $tid++;
-    }
-
-    sub get_peers {
-        my ($self, $infohash, $limit) = @_;
-        $limit //= 25;
-        ...;
-    }
 }
 1;
