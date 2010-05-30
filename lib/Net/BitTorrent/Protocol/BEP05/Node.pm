@@ -64,7 +64,9 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                      predicate => 'has_nodeid',
                      coerce    => 1
     );
-    after '_nodeid' => sub { $_[0]->routing_table->assign_node($_[0]) };
+    after '_nodeid' => sub { $_[0]->routing_table->assign_node($_[0]);
+        $_[0]->routing_table->del_node($_[0]) if !$_[0]->has_bucket
+    };
     has 'outstanding_requests' => (isa     => 'HashRef[HashRef]',
                                    is      => 'ro',
                                    traits  => ['Hash'],
