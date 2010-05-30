@@ -203,7 +203,7 @@ package Net::BitTorrent::DHT;
     sub _on_data_in {
         my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
-        if (!$packet || !ref $packet) {
+        if (!$packet || !ref $packet || ref $packet ne 'HASH' || !keys %$packet) {
             $self->_inc_recv_invalid_count;
             $self->_inc_recv_invalid_length(length $data);
             return;
