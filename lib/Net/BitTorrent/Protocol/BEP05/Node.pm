@@ -55,8 +55,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                       handles   => [qw[send dht tracker]]
     );
     around 'send' => sub {
-        my ($code, $self, $packet) = @_;
-        $code->($self, $self, $packet);
+        my ($code, $self, $packet, $reply) = @_;
+        $code->($self, $self, $packet, !!$reply);
     };
     has 'nodeid' => (isa       => 'NBTypes::DHT::NodeID',
                      is        => 'ro',
