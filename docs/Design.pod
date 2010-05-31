@@ -815,11 +815,8 @@ This is an array ref of peers sent to us by aforementioned remote node.
 
 =back
 
-The only strong reference to this 'quest' is returned by this method so, to
-stop searching for peers, simply destroy this quest in your code (end the
-scope, setting the variable used to store it to C<undef>, etc.).
-
-A single C<get_peers> quest is an array ref which contains the following data:
+A single C<get_peers> L<quest|/"Quests and Callbacks"> is an array ref which
+contains the following data:
 
 =over
 
@@ -892,6 +889,17 @@ my $node_a = Net::BitTorrent::DHT->new( port => 1123 );
 my $node_b = Net::BitTorrent::DHT->new( port => [1235 .. 9875] );
 
 =pod
+
+=head1 Quests and Callbacks
+
+Net::BitTorrent's new callback system differs greatly from the previous
+version. When a callback is set, the return value is an arrayref containing
+the basic information to keep the callback relevent. The only strong reference
+to this 'quest' or 'callback' is the value returned so, for example, to stop
+searching for peers, simply destroy this quest in your code (end the scope,
+setting the variable used to store it to C<undef>, etc.).
+
+TODO
 
 =head1 Silly ASCII Art
 
