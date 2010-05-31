@@ -793,6 +793,69 @@ my $node_b = Net::BitTorrent::DHT->new( nodeid => pack 'H*', F' x 40 );
 
 =pod
 
+=head3 Net::BitTorrent::DHT->find_node( $target, $callback )
+
+This method asks for remote nodes with nodeIDs closer to our target. As the
+remote nodes respond, the callback is called with the following arguments:
+
+=over
+
+=item * target
+
+This is the target nodeid. This is useful when you've set the same callback
+for multiple, concurrent C<find_node( )> L<quest|/"Quests and Callbacks"> .
+
+=item * node
+
+This is a blessed object. TODO.
+
+=item * nodes
+
+This is a list of ip:port combinations the remote node claims are close to our
+target.
+
+=back
+
+A single C<find_node> L<quest|/"Quests and Callbacks"> is an array ref which
+contains the following data:
+
+=over
+
+=item * target
+
+This is the target nodeID.
+
+=item * coderef
+
+This is the callback triggered as we locate new peers.
+
+=item * nodes
+
+This is a list of nodes we have announced to so far.
+
+=item * timer
+
+This is an L<AnyEvent|AnyEvent> timer which is triggered every few minutes.
+
+Don't modify this.
+
+=back
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+my $quest_a = $dht->find_node(pack('H*', 'A' x 40),  \&dht_cb);
+my $quest_b = $dht->find_node('1' x 40, \&dht_cb);
+
+sub dht_cb {
+    my ($target, $node, $nodes) = @_;
+    say sprintf '%s:%d handed us %d nodes they claim are close to %s',
+          $node->host, $node->port, scalar(@$nodes),  $target->to_Hex;
+}
+
+=pod
+
 =head3 Net::BitTorrent::DHT->get_peers( $infohash, $callback )
 
 This method initiates a search for peers serving a torrent with this infohash.
