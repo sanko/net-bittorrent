@@ -858,6 +858,75 @@ sub dht_cb {
 
 =pod
 
+=head3 Net::BitTorrent::DHT->announce_peer( $infohash, $port, $callback )
+
+This method announces that the peer controlling the querying node is
+downloading a torrent on a port. These outgoing queries are sent to nodes
+'close' to the target infohash. As the remote nodes respond, the callback is
+called with the following arguments:
+
+=over
+
+=item * infohash
+
+This is the infohash related to this announcment. This is useful when you've
+set the same callback for multiple, concurrent C<announce_peer( )>
+L<quest|/"Quests and Callbacks"> .
+
+=item * port
+
+This is port you defined above.
+
+=item * node
+
+This is a blessed object. TODO.
+
+=back
+
+A single C<announce_peer> L<quest|/"Quests and Callbacks"> is an array ref
+which contains the following data:
+
+=over
+
+=item * infohash
+
+This is the infohash related to these peers.
+
+=item * coderef
+
+This is the callback triggered as we locate new peers.
+
+=item * port
+
+This is port you defined above.
+
+=item * nodes
+
+This is a list of nodes we have announced to so far.
+
+=item * timer
+
+This is an L<AnyEvent|AnyEvent> timer which is triggered every few minutes.
+
+Don't modify this.
+
+=back
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+my $quest_a = $dht->announce_peer(pack('H*', 'A' x 40), 6881, \&dht_cb);
+my $quest_b = $dht->announce_peer('1' x 40, 9585, \&dht_cb);
+
+sub dht_cb {
+    my ($infohash, $port, $node) = @_;
+    say sprintf '%s:%d now knows we are serving %s on port %d',
+          $node->host, $node->port,$infohash->to_Hex, $port;
+}
+
+=pod
+
 =head2 Net::BitTorrent::DHT::Standalone (role)
 
 This role is applied automatically when the Net::BitTorrent::DHT constructor
