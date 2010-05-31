@@ -992,7 +992,7 @@ my $quest_b = $dht->announce_peer('1' x 40, 9585, \&dht_cb);
 sub dht_cb {
     my ($infohash, $port, $node) = @_;
     say sprintf '%s:%d now knows we are serving %s on port %d',
-          $node->host, $node->port,$infohash->to_Hex, $port;
+          $node->host, $node->port, $infohash->to_Hex, $port;
 }
 
 =pod
@@ -1145,7 +1145,7 @@ These are packages I really haven't given enough thought to:
                                                 extends Net::BitTorrent::Protocol::BEP03::Tracker
   *Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier
                                                 Multitracker torrent (ArrayRef[Net::BitTorrent::Protocol::BEP03::Tracker::HTTP|Net::BitTorrent::Protocol::BEP15::Tracker::UDP])
-   Net::BitTorrent::Protocol::BEP15            Builds and parses UDP tracker packets, handles for UDP tracker communication
+   Net::BitTorrent::Protocol::BEP15             Builds and parses UDP tracker packets, handles for UDP tracker communication
   *Net::BitTorrent::Protocol::BEP15::Tracker::UDP
                                                 Single url
   *Net::BitTorrent::Protocol::BEP27::Private::Metadata

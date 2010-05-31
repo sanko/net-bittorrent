@@ -16,10 +16,12 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
                     init_arg => undef,
                     lazy_build => 1
     );
+
     sub _build_tracker {
         require Net::BitTorrent::Protocol::BEP05::Tracker;
         Net::BitTorrent::Protocol::BEP05::Tracker->new(routing_table => shift);
     }
+
     has 'nodes' => (isa => 'HashRef[Net::BitTorrent::Protocol::BEP05::Node]',
                     is  => 'ro',
                     init_arg => undef,
@@ -36,7 +38,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     );
     around 'add_node' => sub {
         my ($code, $self, $node) = @_;
-        #return if scalar $self->outstanding_add_nodes >= 300;    # Hard limit
+        #return if scalar $self->outstanding_add_nodes >= 500;    # Hard limit
         if (!blessed $node) {
             require Net::BitTorrent::Protocol::BEP05::Node;
             $node =
