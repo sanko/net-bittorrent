@@ -912,6 +912,13 @@ Don't modify this.
 
 =back
 
+C<announce_peer> queries require a token sent in reply to a C<get_peers> query
+so they should be used together.
+
+=for meditation
+Should I automatically send get_peers queries before an announce if the token
+is missing?
+
 =cut
 
 use Net::BitTorrent::DHT;
