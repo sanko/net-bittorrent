@@ -355,7 +355,8 @@ package Net::BitTorrent::DHT;
                             $node->host,
                             $node->port
                             );
-                        $quest->[1]->($req->{'info_hash'}, $node);
+                        $quest->[1]
+                            ->($req->{'info_hash'}, $quest->[2], $node);
                     }
                     else {
                         use Data::Dump;
