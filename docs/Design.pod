@@ -1107,6 +1107,8 @@ important later.
   *    ::Bucket                     class
   *    ::Node                       class
   *    ::Tracker                    class
+  *  ::Protocol::BEP07              docs        done
+  *    ::Compact                    utility     done
   *  ::Protocol::BEP23              docs        done
   *    ::Compact                    utility     done
   * ::Network                       base class  todo (transfer limits?)
