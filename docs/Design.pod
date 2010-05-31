@@ -524,9 +524,9 @@ This role will probably not be included in the distribution.
 
 TODO
 
-=head2 Net::BitTorrent::DHT::Standalone [Ext]
+=head2 Net::BitTorrent::DHT::Standalone [Role]
 
-This class obviously extends Net::BitTorrent::DHT to function without a parent
+This role obviously extends Net::BitTorrent::DHT to function without a parent
 Net::BitTorrent client.
 
 =head2 Net::BitTorrent::DHT::Callbacks [Role]
