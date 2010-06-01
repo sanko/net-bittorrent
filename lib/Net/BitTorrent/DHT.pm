@@ -138,7 +138,8 @@ package Net::BitTorrent::DHT;
             $infohash,
             $code, '',
             AE::timer(
-                15, 60,
+                0,
+                2 * 60,
                 sub {
                     $_->get_peers($infohash)
                         for @{$self->routing_table->nearest_bucket($infohash)
@@ -163,7 +164,8 @@ package Net::BitTorrent::DHT;
             $infohash,
             $code, $port, '',
             AE::timer(
-                60, 60,
+                0,
+                2 * 60,
                 sub {
                     $_->announce_peer($infohash, $port)
                         for @{$self->routing_table->nearest_bucket($infohash)
@@ -187,7 +189,8 @@ package Net::BitTorrent::DHT;
         my $quest = [
             $nodeid, $code, '',
             AE::timer(
-                15, 60,
+                0,
+                1.5 * 60,
                 sub {
                     $_ && $_->find_node($nodeid)
                         for @{$self->routing_table->nearest_bucket($nodeid)
@@ -440,9 +443,9 @@ package Net::BitTorrent::DHT;
 
     sub dump_buckets {
         my ($self, $detail) = @_;
-            my $x = 0;
         my @return = sprintf 'Num buckets: %d. My DHT ID: %s',
             $self->routing_table->count_buckets, $self->nodeid->to_Hex;
+        my ($x, $t_primary, $t_backup) = (0, 0, 0);
         for my $bucket (@{$self->routing_table->buckets}) {
             push @return, sprintf 'Bucket %s: %s (replacement cache: %d)',
                 $x++, $bucket->floor->to_Hex, $bucket->count_backup_nodes;
@@ -453,8 +456,11 @@ package Net::BitTorrent::DHT;
                     $node->port, $node->fail || 0, $node->seen,
                     __duration(time - $node->birth), $node->v || '?';
             }
-           #[2010-05-20 08:00:37]  Total peers: 169 (in replacement cache 160)
+            $t_primary += $bucket->count_nodes;
+            $t_backup  += $bucket->count_backup_nodes;
         }
+        push @return, sprintf 'Total peers: %d (in replacement cache %d)',
+            $t_primary + $t_backup, $t_backup;
         push @return, sprintf 'Outstanding add nodes: %d',
             scalar $self->routing_table->outstanding_add_nodes;
         push @return,

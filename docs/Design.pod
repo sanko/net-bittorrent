@@ -997,6 +997,21 @@ sub dht_cb {
 
 =pod
 
+=head3 Net::BitTorrent::DHT->dump_buckets( )
+
+This is a quick utility method which returns or prints (depending on context)
+a list of the routing table's bucket structure.
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+# After some time has passed...
+$node->dump_buckets; # prints to STDOUT with say
+my @dump = $node->dump_buckets; # returns list of lines
+
+=pod
+
 =head2 Net::BitTorrent::DHT::Standalone (role)
 
 This role is applied automatically when the Net::BitTorrent::DHT constructor
