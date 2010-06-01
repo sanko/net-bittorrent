@@ -440,44 +440,39 @@ package Net::BitTorrent::DHT;
 
     sub dump_buckets {
         my ($self, $detail) = @_;
-        my $return = $self->nodeid;
-        if ($detail) {
-            $return = sprintf "Num buckets: %d. My DHT ID: %s\n",
-                $self->routing_table->count_buckets, $self->nodeid->to_Hex;
             my $x = 0;
-            for my $bucket (@{$self->routing_table->buckets}) {
-                $return .= sprintf
-                    "Bucket %s: %s (replacement cache: %d)\n",
-                    $x++, $bucket->floor->to_Hex, $bucket->count_backup_nodes;
-                for my $node (@{$bucket->nodes}) {
-                    $return
-                        .= sprintf
-                        "    %s %s:%d fail:%d seen:%d age:%s ver:%s\n",
-                        $node->nodeid->to_Hex, $node->host,
-                        $node->port, $node->fail || 0, $node->seen,
-                        __duration(time - $node->birth), $node->v || '?';
-                }
+        my @return = sprintf 'Num buckets: %d. My DHT ID: %s',
+            $self->routing_table->count_buckets, $self->nodeid->to_Hex;
+        for my $bucket (@{$self->routing_table->buckets}) {
+            push @return, sprintf 'Bucket %s: %s (replacement cache: %d)',
+                $x++, $bucket->floor->to_Hex, $bucket->count_backup_nodes;
+            for my $node (@{$bucket->nodes}) {
+                push @return,
+                    sprintf '    %s %s:%d fail:%d seen:%d age:%s ver:%s',
+                    $node->nodeid->to_Hex, $node->host,
+                    $node->port, $node->fail || 0, $node->seen,
+                    __duration(time - $node->birth), $node->v || '?';
             }
-
            #[2010-05-20 08:00:37]  Total peers: 169 (in replacement cache 160)
-            $return .= sprintf "Outstanding add nodes: %d\n",
-                scalar $self->routing_table->outstanding_add_nodes;
-            $return
-                .= sprintf
-                "Received: %d requests (%s), %d replies (%s), %d invalid (%s)\n",
-                $self->_recv_requests_count,
-                __data($self->_recv_requests_length),
-                $self->_recv_replies_count,
-                __data($self->_recv_replies_length),
-                $self->_recv_invalid_count,
-                __data($self->_recv_invalid_length);
-            $return .= sprintf "Sent: %d requests (%s), %d replies (%s)",
-                $self->_send_requests_count,
-                __data($self->_send_requests_length),
-                $self->_send_replies_count,
-                __data($self->_send_replies_length);
         }
-        return wantarray ? $return : say $return;
+        push @return, sprintf 'Outstanding add nodes: %d',
+            scalar $self->routing_table->outstanding_add_nodes;
+        push @return,
+            sprintf
+            'Received: %d requests (%s), %d replies (%s), %d invalid (%s)',
+            $self->_recv_requests_count,
+            __data($self->_recv_requests_length),
+            $self->_recv_replies_count,
+            __data($self->_recv_replies_length),
+            $self->_recv_invalid_count,
+            __data($self->_recv_invalid_length);
+        push @return, sprintf 'Sent: %d requests (%s), %d replies (%s)',
+            $self->_send_requests_count,
+            __data($self->_send_requests_length),
+            $self->_send_replies_count,
+            __data($self->_send_replies_length);
+        return wantarray ? @return : sub { say $_ for @_ }
+            ->(@return);
     }
 
     sub __duration ($) {
