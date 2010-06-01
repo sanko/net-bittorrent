@@ -20,8 +20,8 @@ my $quest_B
     = $dht->get_peers('a1425e0d6630336cdd9fb320f3fff1030098975a', \&dht_cb);
 
 # Let's stay up to date with what's going on in the routing table
-my $timer = AE::timer 30, 60, sub { $dht->as_string(1) };
-END { $dht->as_string(1) if $dht }
+my $timer = AE::timer 60 * 2, 60 * 10, sub { $dht->dump_buckets };
+END { $dht->dump_buckets if $dht }
 
 # tick, tick, tick, ...
 AnyEvent->condvar->recv;

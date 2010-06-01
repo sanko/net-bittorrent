@@ -438,7 +438,7 @@ package Net::BitTorrent::DHT;
         }
     }
 
-    sub as_string {
+    sub dump_buckets {
         my ($self, $detail) = @_;
         my $return = $self->nodeid;
         if ($detail) {
