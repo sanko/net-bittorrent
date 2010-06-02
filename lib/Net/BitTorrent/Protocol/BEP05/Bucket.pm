@@ -97,7 +97,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     sub _build_find_node_quest {
         my ($self) = @_;
         $self->dht->find_node(
-            $self->floor,
+            $self->middle,
             sub {
                 require Scalar::Util;
                 Scalar::Util::weaken($self) if !Scalar::Util::isweak($self);
