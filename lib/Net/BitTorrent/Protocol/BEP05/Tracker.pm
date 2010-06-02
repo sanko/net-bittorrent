@@ -21,6 +21,10 @@ package Net::BitTorrent::Protocol::BEP05::Tracker;
                                 del_peers => 'delete'
                     }
     );
+    around 'get_peers' => sub {
+        my ($code, $self, $infohash) = @_;
+        $code->($self, blessed $infohash ? $infohash->to_Hex : $infohash);
+    };
 
     sub add_peer {
         my ($self, $infohash, $peer) = @_;
