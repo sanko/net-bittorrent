@@ -54,7 +54,6 @@ package Net::BitTorrent::Types;
         require Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
         return Net::BitTorrent::Protocol::BEP15::Tracker::UDP->new(URL => $_);
         };
-
     enum 'NBTypes::Tracker::HTTP::Event' => qw[started stopped completed];
 
     #
@@ -98,10 +97,11 @@ package Net::BitTorrent::Types;
         where { $_->Size == 160 } =>
         message {'DHT NodeIDs are 160-bit integers.'};
     coerce 'NBTypes::DHT::NodeID' =>
-        from subtype(as 'Int' => where { length $_ <= 40 } ) =>
+        from subtype(as 'Int' => where { length $_ < 40 }) =>
         via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
-        from subtype(as 'Str' => where {/^[a-f\d]$/i } ) =>
-        via { require Bit::Vector; warn $_; Bit::Vector->new_Hex(160, $_) } =>
+        from subtype(as 'Str' => where { length $_ == 40 && /^[a-f\d]+$/i }
+        ) =>
+        via { require Bit::Vector; Bit::Vector->new_Hex(160, $_) } =>
         from 'Str' => via {
         require Bit::Vector;
         Bit::Vector->new_Hex(160, unpack 'H*', $_);
