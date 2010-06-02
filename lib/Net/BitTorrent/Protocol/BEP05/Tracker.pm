@@ -15,10 +15,10 @@ package Net::BitTorrent::Protocol::BEP05::Tracker;
                     init_arg => undef,
                     traits   => ['Hash'],
                     handles  => {
-                                get_peers => 'get',
-                                set_peers => 'set',
-                                has_peers => 'defined',
-                                del_peers => 'delete'
+                                get_peers  => 'get',
+                                _set_peers => 'set',
+                                has_peers  => 'defined',
+                                del_peers  => 'delete'
                     }
     );
     around 'get_peers' => sub {
@@ -30,7 +30,7 @@ package Net::BitTorrent::Protocol::BEP05::Tracker;
         my ($self, $infohash, $peer) = @_;
         return $self->has_peers($infohash->to_Hex)
             ? push(@{$self->get_peers($infohash->to_Hex)}, $peer)
-            : $self->set_peers($infohash->to_Hex, [$peer]);
+            : $self->_set_peers($infohash->to_Hex, [$peer]);
     }
     has 'routing_table' => (
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
