@@ -219,16 +219,23 @@ package Net::BitTorrent::Protocol::BEP05::Node;
             $self->_set_announce_peer_token_out($id->to_Hex,
                                                 $announce_peer_token++);
         }
-
-        # Need to gather peers from tracker
-        #($tid, $id, $nodes, $token)
-        my $packet = build_dht_reply_get_peers(
-                   $tid,
-                   $id->to_Hex,
-                   '',                                                # values
-                   '',                                                # nodes
-                   $self->_get_announce_peer_token_out($id->to_Hex)
-        );
+        require Net::BitTorrent::Protocol::BEP23::Compact;
+        my @nodes = grep { defined $_ } map {
+            Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
+                                                           sprintf '%s:%d',
+                                                           $_->host, $_->port)
+        } @{$self->routing_table->nearest_bucket($id)->nodes};
+        my $values = $self->tracker->get_peers($id);
+        return if !($values || @nodes);
+        my $packet =
+            build_dht_reply_get_peers($tid,
+                                      $id->to_Hex,
+                                      $values,
+                                      \@nodes,
+                                      $self->_get_announce_peer_token_out(
+                                                                   $id->to_Hex
+                                      )
+            );
         my $sent = $self->send($packet, 1);
         $self->inc_fail() if !$sent;
         return $sent;
