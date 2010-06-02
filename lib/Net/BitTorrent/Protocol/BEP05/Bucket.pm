@@ -109,21 +109,23 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     after 'BUILD' => sub { $_[0]->find_node_quest() };
 
     #
-    sub split {
-        my ($self) = @_;
-
-        #return if $self->routing_table->count_buckets >= 30;
+    sub ceil {
+        my $self = shift;
         my $ceil = Bit::Vector->new_Hex(160, 'F' x 40);
         if ($self->has_next) {
             $ceil->Copy($self->next->floor);
             $ceil->add($ceil, Bit::Vector->new_Dec(160, 1), 0);
         }
+        return $ceil;
+    }
+    sub middle {
+        my $self = shift;
         my $floor = Bit::Vector->new(160);
         $floor->Copy($self->floor);
         my $range = Bit::Vector->new(160);
-        $range->subtract($ceil, $floor, 0);
+        $range->subtract($self->ceil, $floor, 0);
         my $new_floor = Bit::Vector->new(160);
-        {    # Resize for overflow
+         {    # Resize for overflow
             $_->Resize(161) for $range, $floor, $new_floor;
             my $half_range = Bit::Vector->new(161);
             $half_range->Divide($range, Bit::Vector->new_Dec(161, 2),
@@ -131,6 +133,14 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
             $new_floor->add($floor, $half_range, 0);
             $_->Resize(160) for $new_floor;
         }
+        return $new_floor;
+    }
+
+    sub split {
+        my ($self) = @_;
+
+        #return if $self->routing_table->count_buckets >= 30;
+        my $new_floor = $self->middle;
         my $new_bucket =
             Net::BitTorrent::Protocol::BEP05::Bucket->new(
                                 routing_table => $self->routing_table,
