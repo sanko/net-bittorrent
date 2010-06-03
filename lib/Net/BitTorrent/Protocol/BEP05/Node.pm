@@ -226,12 +226,16 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                                            sprintf '%s:%d',
                                                            $_->host, $_->port)
         } @{$self->routing_table->nearest_bucket($id)->nodes};
-        my $values = $self->tracker->get_peers($id);
-        return if !($values || @nodes);
+        my @values = grep { defined $_ }  map {
+            Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
+                                                             sprintf '%s:%d',
+                                                             $_->[0], $_->[1])
+        } @{$self->tracker->get_peers($id)||[]};
+        return if (!@values && !@nodes);
         my $packet =
             build_dht_reply_get_peers($tid,
                                       $id->to_Hex,
-                                      $values,
+                                      \@values,
                                       \@nodes,
                                       $self->_get_announce_peer_token_out(
                                                                    $id->to_Hex
