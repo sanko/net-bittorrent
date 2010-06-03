@@ -160,9 +160,12 @@ package Net::BitTorrent::DHT;
                         $infohash =~ m[^[a-f\d]+$]i ? $infohash : unpack 'H*',
                         $infohash);
         }
+        require Scalar::Util;
+        Scalar::Util::weaken $self;
         my $quest = [
             $infohash,
-            $code, '',
+            $code,
+            [],
             AE::timer(
                 0,
                 2 * 60,
@@ -191,11 +194,14 @@ package Net::BitTorrent::DHT;
                         $infohash =~ m[^[a-f\d]+$]i ? $infohash : unpack 'H*',
                         $infohash);
         }
+        require Scalar::Util;
+        Scalar::Util::weaken $self;
         my $quest = [
             $infohash,
-            $code, $port, '',
+            $code, $port,
+            [],
             AE::timer(
-                0,
+                30,
                 2 * 60,
                 sub {
                     return if !$self;
@@ -222,8 +228,11 @@ package Net::BitTorrent::DHT;
                             $nodeid =~ m[^[a-f\d]+$]i ? $nodeid : unpack 'H*',
                             $nodeid);
         }
+        require Scalar::Util;
+        Scalar::Util::weaken $self;
         my $quest = [
-            $nodeid, $code, '',
+            $nodeid, $code,
+            [],
             AE::timer(
                 0,
                 1.5 * 60,
