@@ -86,14 +86,30 @@ package Net::BitTorrent::DHT;
     }
 
     #
-    has 'routing_table' => (
+    has 'ipv4_routing_table' => (
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
                       is  => 'ro',
                       lazy_build => 1,
-                      handles    => [qw[add_node buckets]]
+                      handles    => {
+                                  ipv4_add_node => 'add_node',
+                                  ipv4_buckets  => 'buckets'
+                      }
+    );
+    has 'ipv6_routing_table' => (
+                      isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
+                      is  => 'ro',
+                      lazy_build => 1,
+                      handles    => {
+                                  ipv6_add_node => 'add_node',
+                                  ipv6_buckets  => 'buckets'
+                      }
     );
 
-    sub _build_routing_table {
+    sub _build_ipv4_routing_table {
+        Net::BitTorrent::Protocol::BEP05::RoutingTable->new(dht => shift);
+    }
+
+    sub _build_ipv6_routing_table {
         Net::BitTorrent::Protocol::BEP05::RoutingTable->new(dht => shift);
     }
     after 'BUILD' => sub {
