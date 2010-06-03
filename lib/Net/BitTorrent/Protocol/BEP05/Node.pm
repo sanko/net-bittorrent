@@ -215,7 +215,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         my ($self, $tid, $id) = @_;
         my ($peers, $nodes);
         if (!$self->_has_announce_peer_token_out($id->to_Hex)) {
-            state $announce_peer_token = 'a';
+            state $announce_peer_token = 'aa';
+            $announce_peer_token = 'aa' if length $announce_peer_token == 3;
             $self->_set_announce_peer_token_out($id->to_Hex,
                                                 $announce_peer_token++);
         }
