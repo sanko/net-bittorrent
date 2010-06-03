@@ -183,8 +183,9 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                                            $_->host, $_->port)
         } @{$self->routing_table->nearest_bucket($target)->nodes};
         return if !@nodes;
-        my $packet
-            = build_dht_reply_find_node($tid, $target->to_Hex, \@nodes);
+        my $packet =
+            build_dht_reply_find_node($tid, pack('H*', $target->to_Hex),
+                                      \@nodes);
         my $sent = $self->send($packet, 1);
         $self->inc_fail() if !$sent;
         return $sent;
