@@ -284,7 +284,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                       ]
                 );
         }
-        elsif (!$self->tracker->_add_peer(
+        elsif (!$self->tracker->add_peer(
                                    $info_hash, [$self->host, $a_ref->{'port'}]
                )
             )

@@ -284,7 +284,7 @@ package Net::BitTorrent::DHT;
                             )
                         {   my ($host, $port)
                                 = ($new_node =~ m[^(.*):(\d+)$]);
-                            my $node = $self->add_node([$host, $port]);
+                            my $node = $self->ipv4_add_node([$host, $port]);
                         }
                         $quest->[1]->(
                             $req->{'nodeid'}, $node,
@@ -310,7 +310,8 @@ package Net::BitTorrent::DHT;
                                 )
                             {   my ($host, $port)
                                     = ($new_node =~ m[^(.*):(\d+)$]);
-                                my $node = $self->add_node([$host, $port]);
+                                my $node
+                                    = $self->ipv4_add_node([$host, $port]);
                                 $node->get_peers($req->{'info_hash'})
                                     if $node;
                             }
