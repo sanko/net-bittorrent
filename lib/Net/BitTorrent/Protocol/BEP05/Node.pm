@@ -13,8 +13,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     sub BUILD {1}
 
     #
-    has 'port'     => (isa => 'Int', is => 'ro', required   => 1);
-    has 'host'     => (isa => 'Str', is => 'ro', required   => 1);
+    has 'port' => (isa => 'Int', is => 'ro', required => 1);
+    has 'host' => (isa => 'Str', is => 'ro', required => 1);
     has 'sockaddr' => (isa => 'Str', is => 'ro', lazy_build => 1);
 
     sub _build_sockaddr {
@@ -63,8 +63,9 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                      predicate => 'has_nodeid',
                      coerce    => 1
     );
-    after '_nodeid' => sub { $_[0]->routing_table->assign_node($_[0]);
-        $_[0]->routing_table->del_node($_[0]) if !$_[0]->has_bucket
+    after '_nodeid' => sub {
+        $_[0]->routing_table->assign_node($_[0]);
+        $_[0]->routing_table->del_node($_[0]) if !$_[0]->has_bucket;
     };
     has 'outstanding_requests' => (isa     => 'HashRef[HashRef]',
                                    is      => 'ro',
@@ -86,7 +87,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         $args->{'timeout'} //= AE::timer(
             20, 0,
             sub {
-                $self->expire_request($tid);    # May ((poof)) $self
+                $self->expire_request($tid) if $self;    # May ((poof)) $self
             }
         );
         $code->($self, $tid, $args);
@@ -177,7 +178,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     sub _reply_find_node {
         my ($self, $tid, $target) = @_;
         require Net::BitTorrent::Protocol::BEP23::Compact;
-        my @nodes = map {
+        my @nodes = grep { defined && length } map {
             Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
                                                            sprintf '%s:%d',
                                                            $_->host, $_->port)
