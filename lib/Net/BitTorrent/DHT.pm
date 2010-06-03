@@ -115,8 +115,18 @@ package Net::BitTorrent::DHT;
     after 'BUILD' => sub {
         my ($self, $args) = @_;
         return if !defined $args->{'boot_nodes'};
-        $self->routing_table->add_node($_)->find_node($self->nodeid)
-            for @{$args->{'boot_nodes'}};
+        require Net::BitTorrent::Protocol::BEP05::Node;
+        for my $node (@{$args->{'boot_nodes'}}) {
+            $node =
+                Net::BitTorrent::Protocol::BEP05::Node->new(
+                                                           host => $node->[0],
+                                                           port => $node->[1]
+                );
+            (  $node->ipv6
+             ? $self->ipv6_routing_table->add_node($node)
+             : $self->ipv4_routing_table->add_node($node)
+            )->find_node($self->nodeid);
+        }
     };
 
     #
@@ -157,9 +167,14 @@ package Net::BitTorrent::DHT;
                 0,
                 2 * 60,
                 sub {
-                    $_->get_peers($infohash)
-                        for @{$self->routing_table->nearest_bucket($infohash)
-                            ->nodes};
+                    return if !$self;
+                    for my $rt ($self->ipv6_routing_table,
+                                $self->ipv4_routing_table)
+                    {   for my $node (
+                                     @{$rt->nearest_bucket($infohash)->nodes})
+                        {   $node->get_peers($infohash);
+                        }
+                    }
                 }
             )
         ];
@@ -183,9 +198,14 @@ package Net::BitTorrent::DHT;
                 0,
                 2 * 60,
                 sub {
-                    $_->announce_peer($infohash, $port)
-                        for @{$self->routing_table->nearest_bucket($infohash)
-                            ->nodes};
+                    return if !$self;
+                    for my $rt ($self->ipv6_routing_table,
+                                $self->ipv4_routing_table)
+                    {   for my $node (
+                                     @{$rt->nearest_bucket($infohash)->nodes})
+                        {   $node->announce_peer($infohash, $port);
+                        }
+                    }
                 }
             )
         ];
@@ -208,9 +228,13 @@ package Net::BitTorrent::DHT;
                 0,
                 1.5 * 60,
                 sub {
-                    $_ && $_->find_node($nodeid)
-                        for @{$self->routing_table->nearest_bucket($nodeid)
-                            ->nodes};
+                    return if !$self;
+                    for my $rt ($self->ipv6_routing_table,
+                                $self->ipv4_routing_table)
+                    {   for my $node (@{$rt->nearest_bucket($nodeid)->nodes})
+                        {   $node->find_node($nodeid);
+                        }
+                    }
                 }
             )
         ];
@@ -219,7 +243,7 @@ package Net::BitTorrent::DHT;
     }
 
     #
-    sub _on_data_in {
+    sub _ipv6_on_data_in {
         my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
         if (   !$packet
@@ -230,14 +254,39 @@ package Net::BitTorrent::DHT;
             $self->_inc_recv_invalid_length(length $data);
             return;
         }
-        my $node = $self->routing_table->find_node_by_sockaddr($sockaddr);
+        my $node
+            = $self->ipv6_routing_table->find_node_by_sockaddr($sockaddr);
         if (!defined $node) {
             $node =
                 Net::BitTorrent::Protocol::BEP05::Node->new(
-                                        host          => $host,
-                                        port          => $port,
-                                        routing_table => $self->routing_table,
-                                        sockaddr      => $sockaddr
+                                   host          => $host,
+                                   port          => $port,
+                                   routing_table => $self->ipv6_routing_table,
+                                   sockaddr      => $sockaddr
+                );
+        }
+    }
+
+    sub _ipv4_on_data_in {
+        my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
+        my $packet = bdecode $data;
+        if (   !$packet
+            || !ref $packet
+            || ref $packet ne 'HASH'
+            || !keys %$packet)
+        {   $self->_inc_recv_invalid_count;
+            $self->_inc_recv_invalid_length(length $data);
+            return;
+        }
+        my $node
+            = $self->ipv4_routing_table->find_node_by_sockaddr($sockaddr);
+        if (!defined $node) {
+            $node =
+                Net::BitTorrent::Protocol::BEP05::Node->new(
+                                   host          => $host,
+                                   port          => $port,
+                                   routing_table => $self->ipv4_routing_table,
+                                   sockaddr      => $sockaddr
                 );
         }
 
@@ -325,25 +374,20 @@ package Net::BitTorrent::DHT;
                                 }
                             );
                             return if !defined $quest;
+                            push @{$quest->[2]}, @{$packet->{'r'}{'values'}};
                             require Net::BitTorrent::Protocol::BEP23::Compact;
-                            my @values = map {
-                                Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                            $quest->[1]->(
+                                $req->{'info_hash'},
+                                $node,
+                                [map {
+                                     Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
                                                                            $_)
-                                } ref $packet->{'r'}{'values'}
-                                ? @{$packet->{'r'}{'values'}}
-                                : $packet->{'r'}{'values'};
-                            $quest->[2]    # XXX - Do not compact this list!!!
-                                = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
-                                Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
-                                                         join '', $quest->[2],
-                                ),
-                                @values
-                                );
-                            $quest->[1]
-                                ->($req->{'info_hash'}, $node, \@values);
+                                     } @{$packet->{'r'}{'values'}}
+                                ]
+                            );
                         }
                         if (defined $packet->{'r'}{'token'})
-                        {                  # for announce_peer
+                        {    # for announce_peer
                             $node->_set_announce_peer_token_in(
                                                   $req->{'info_hash'}->to_Hex,
                                                   $packet->{'r'}{'token'});
