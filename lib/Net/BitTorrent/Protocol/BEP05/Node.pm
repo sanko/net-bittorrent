@@ -50,7 +50,6 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                       is  => 'ro',
                       predicate => 'has_routing_table',
                       writer    => '_routing_table',
-                      required  => 1,
                       weak_ref  => 1,
                       handles   => [qw[send dht tracker]]
     );
