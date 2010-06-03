@@ -441,12 +441,24 @@ package Net::BitTorrent::DHT;
         }
     }
 
-    sub dump_buckets {
-        my ($self, $detail) = @_;
+    sub dump_ipv4_buckets {
+        my @return = _dump_buckets($_[0], $_[0]->ipv4_routing_table());
+        return wantarray ? @return : sub { say $_ for @_ }
+            ->(@return);
+    }
+
+    sub dump_ipv6_buckets {
+        my @return = _dump_buckets($_[0], $_[0]->ipv6_routing_table());
+        return wantarray ? @return : sub { say $_ for @_ }
+            ->(@return);
+    }
+
+    sub _dump_buckets {
+        my ($self, $routing_table) = @_;
         my @return = sprintf 'Num buckets: %d. My DHT ID: %s',
-            $self->routing_table->count_buckets, $self->nodeid->to_Hex;
+            $routing_table->count_buckets, $self->nodeid->to_Hex;
         my ($x, $t_primary, $t_backup) = (0, 0, 0);
-        for my $bucket (@{$self->routing_table->buckets}) {
+        for my $bucket (@{$routing_table->buckets}) {
             push @return, sprintf 'Bucket %s: %s (replacement cache: %d)',
                 $x++, $bucket->floor->to_Hex, $bucket->count_backup_nodes;
             for my $node (@{$bucket->nodes}) {
@@ -462,7 +474,7 @@ package Net::BitTorrent::DHT;
         push @return, sprintf 'Total peers: %d (in replacement cache %d)',
             $t_primary + $t_backup, $t_backup;
         push @return, sprintf 'Outstanding add nodes: %d',
-            scalar $self->routing_table->outstanding_add_nodes;
+            scalar $routing_table->outstanding_add_nodes;
         push @return,
             sprintf
             'Received: %d requests (%s), %d replies (%s), %d invalid (%s)',
@@ -477,8 +489,7 @@ package Net::BitTorrent::DHT;
             __data($self->_send_requests_length),
             $self->_send_replies_count,
             __data($self->_send_replies_length);
-        return wantarray ? @return : sub { say $_ for @_ }
-            ->(@return);
+        return @return;
     }
 
     sub __duration ($) {
