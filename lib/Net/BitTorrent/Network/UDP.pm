@@ -30,7 +30,7 @@ package Net::BitTorrent::Network::UDP;
         return server(
             $self->ipv6_host,
             $self->ipv6_port,
-            sub { warn 'pong!'; $self->trigger_ipv6_on_data_in(@_); },
+            sub { $self->trigger_ipv6_on_data_in(@_); },
             sub {
                 my ($sock, $host, $port) = @_;
                 if ($self->ipv6_port && $self->ipv6_port != $port) {

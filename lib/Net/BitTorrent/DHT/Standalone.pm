@@ -18,8 +18,9 @@ package Net::BitTorrent::DHT::Standalone;
     sub _build_udp {
         my ($self) = @_;
         Net::BitTorrent::Network::UDP->new(
-                                  port       => $self->port,
-                                  on_data_in => sub { $self->_on_data_in(@_) }
+            port                => $self->port,
+            ipv4_on_data_in     => sub { $self->_ipv4_on_data_in(@_) },
+                ipv6_on_data_in => sub { $self->_ipv6_on_data_in(@_) }
         );
     }
 }
