@@ -435,6 +435,10 @@ package Net::BitTorrent::DHT;
                             );
                         $quest->[1]
                             ->($req->{'info_hash'}, $quest->[2], $node);
+                        $node->get_prev_get_peers(0)
+                            if    # seek peers sooner than we should
+                            $node->defined_prev_get_peers($req->{'info_hash'}
+                            );
                     }
                     else {
                         use Data::Dump;
