@@ -28,9 +28,11 @@ package Net::BitTorrent::Protocol::BEP05::Tracker;
 
     sub add_peer {
         my ($self, $infohash, $peer) = @_;
-        return $self->has_peers($infohash->to_Hex)
-            ? push(@{$self->get_peers($infohash->to_Hex)}, $peer)
-            : $self->_set_peers($infohash->to_Hex, [$peer]);
+        return $self->_set_peers($infohash->to_Hex, [$peer])
+            if !$self->has_peers($infohash->to_Hex);
+        push(@{$self->get_peers($infohash->to_Hex)}, $peer)
+            if !grep { $_->[0] eq $peer->[0] && $_->[1] eq $peer->[1] }
+                @{$self->get_peers($infohash->to_Hex)};
     }
     has 'routing_table' => (
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
