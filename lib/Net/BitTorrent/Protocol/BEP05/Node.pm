@@ -158,37 +158,37 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     }
 
     sub find_node {
-        my ($self, $nodeid) = @_;
+        my ($self, $target) = @_;
         return
-            if $self->defined_prev_find_node($nodeid->to_Hex)
-                && $self->get_prev_find_node($nodeid->to_Hex)
+            if $self->defined_prev_find_node($target->to_Hex)
+                && $self->get_prev_find_node($target->to_Hex)
                 > time - (60 * 15);
         state $tid = 'a';
         my $packet =
             build_dht_query_find_node('fn_' . $tid,
                                       pack('H*', $self->dht->nodeid->to_Hex),
-                                      pack('H*', $nodeid->to_Hex)
+                                      pack('H*', $target->to_Hex)
             );
         my $sent = $self->send($packet);
         return $self->inc_fail() if !$sent;
         $self->add_request('fn_' . $tid,
-                           {type => 'find_node', nodeid => $nodeid});
+                           {type => 'find_node', target => $target});
         $tid++;
-        $self->set_prev_find_node($nodeid->to_Hex, time);
+        $self->set_prev_find_node($target->to_Hex, time);
     }
 
     sub _reply_find_node {
         my ($self, $tid, $target) = @_;
         require Net::BitTorrent::Protocol::BEP23::Compact;
-        my @nodes = grep { defined && length } map {
+        my $nodes = join '', grep { defined && length } map {
             Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
                                                            sprintf '%s:%d',
                                                            $_->host, $_->port)
         } @{$self->routing_table->nearest_bucket($target)->nodes};
-        return if !@nodes;
+        return if !$nodes;
         my $packet =
             build_dht_reply_find_node($tid, pack('H*', $target->to_Hex),
-                                      \@nodes);
+                                      $nodes);
         my $sent = $self->send($packet, 1);
         $self->inc_fail() if !$sent;
         return $sent;
@@ -216,7 +216,6 @@ package Net::BitTorrent::Protocol::BEP05::Node;
 
     sub _reply_get_peers {
         my ($self, $tid, $id) = @_;
-        my ($peers, $nodes);
         if (!$self->_has_announce_peer_token_out($id->to_Hex)) {
             state $announce_peer_token = 'aa';
             $announce_peer_token = 'aa' if length $announce_peer_token == 3;
@@ -224,22 +223,21 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                                 $announce_peer_token++);
         }
         require Net::BitTorrent::Protocol::BEP23::Compact;
-        my @nodes = grep { defined $_ } map {
+        my $nodes = join '', grep { defined && length } map {
             Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
                                                            sprintf '%s:%d',
                                                            $_->host, $_->port)
         } @{$self->routing_table->nearest_bucket($id)->nodes};
-        my @values = grep { defined $_ }  map {
+        my @values = grep { defined $_ } map {
             Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
                                                              sprintf '%s:%d',
                                                              $_->[0], $_->[1])
-        } @{$self->tracker->get_peers($id)||[]};
-        return if (!@values && !@nodes);
+        } @{$self->tracker->get_peers($id) || []};
+        return if (!@values && !$nodes);
         my $packet =
             build_dht_reply_get_peers($tid,
                                       $id->to_Hex,
-                                      \@values,
-                                      \@nodes,
+                                      @values, $nodes,
                                       $self->_get_announce_peer_token_out(
                                                                    $id->to_Hex
                                       )

@@ -220,18 +220,18 @@ package Net::BitTorrent::DHT;
     }
 
     sub find_node {
-        my ($self, $nodeid, $code) = @_;
-        if (!blessed $nodeid) {
+        my ($self, $target, $code) = @_;
+        if (!blessed $target) {
             require Bit::Vector;
-            $nodeid =
+            $target =
                 Bit::Vector->new_Hex(160,
-                            $nodeid =~ m[^[a-f\d]+$]i ? $nodeid : unpack 'H*',
-                            $nodeid);
+                            $target =~ m[^[a-f\d]+$]i ? $target : unpack 'H*',
+                            $target);
         }
         require Scalar::Util;
         Scalar::Util::weaken $self;
         my $quest = [
-            $nodeid, $code,
+            $target, $code,
             [],
             AE::timer(
                 0,
@@ -240,8 +240,8 @@ package Net::BitTorrent::DHT;
                     return if !$self;
                     for my $rt ($self->ipv6_routing_table,
                                 $self->ipv4_routing_table)
-                    {   for my $node (@{$rt->nearest_bucket($nodeid)->nodes})
-                        {   $node->find_node($nodeid);
+                    {   for my $node (@{$rt->nearest_bucket($target)->nodes})
+                        {   $node->find_node($target);
                         }
                     }
                 }
@@ -330,7 +330,7 @@ package Net::BitTorrent::DHT;
                         my ($quest) = $self->grep_find_node_quests(
                             sub {
                                 defined $_
-                                    && $req->{'nodeid'}->equal($_->[0]);
+                                    && $req->{'target'}->equal($_->[0]);
                             }
                         );
                         return if !defined $quest;
