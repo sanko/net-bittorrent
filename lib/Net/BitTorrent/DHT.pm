@@ -383,7 +383,11 @@ package Net::BitTorrent::DHT;
                                 }
                             );
                             return if !defined $quest;
-                            push @{$quest->[2]}, @{$packet->{'r'}{'values'}};
+                            my @values
+                                = ref $packet->{'r'}{'values'}
+                                ? @{$packet->{'r'}{'values'}}
+                                : [$packet->{'r'}{'values'}];
+                            push @{$quest->[2]}, @values;
                             require Net::BitTorrent::Protocol::BEP23::Compact;
                             $quest->[1]->(
                                 $req->{'info_hash'},
@@ -391,7 +395,7 @@ package Net::BitTorrent::DHT;
                                 [map {
                                      Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
                                                                            $_)
-                                     } @{$packet->{'r'}{'values'}}
+                                     } @values
                                 ]
                             );
                         }
