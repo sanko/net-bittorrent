@@ -346,13 +346,10 @@ package Net::BitTorrent::DHT;
                                                        $packet->{'r'}{'nodes'}
                             )
                             )
-                        {   my ($host, $port)
-                                = ($new_node =~ m[^(.*):(\d+)$]);
-                            my $node = $self->ipv4_add_node([$host, $port]);
+                        {   my $node = $self->ipv4_add_node($new_node);
                         }
-                        $quest->[1]->(
-                            $req->{'nodeid'}, $node,
-                            $packet->{'r'}{'nodes'}    # XXX - uncompact
+                        $quest->[1]->($req->{'nodeid'}, $node,
+                                      $packet->{'r'}{'nodes'}
                         ) if $quest;
                     }
                     elsif ($type eq 'get_peers') {
@@ -362,55 +359,49 @@ package Net::BitTorrent::DHT;
                                || defined $packet->{'r'}{'values'}
                             )
                             )
-                        {                              # Malformed packet
+                        {    # Malformed packet
                             ...;
                         }
                         if (defined $packet->{'r'}{'nodes'}) {
                             require Net::BitTorrent::Protocol::BEP23::Compact;
-                            for my $new_node (         # XXX - may be ipv6
+                            for my $new_node (    # XXX - may be ipv6
                                 Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
                                                        $packet->{'r'}{'nodes'}
                                 )
                                 )
-                            {   my ($host, $port)
-                                    = ($new_node =~ m[^(.*):(\d+)$]);
-                                my $node
-                                    = $self->ipv4_add_node([$host, $port]);
+                            {   my $node = $self->ipv4_add_node($new_node);
                                 $node->get_peers($req->{'info_hash'})
                                     if $node;
                             }
-                        }
-                        if (defined $packet->{'r'}{'values'}) {    # peers
-                            my ($quest) = $self->grep_get_peers_quests(
-                                sub {
-                                    defined $_
-                                        && $req->{'info_hash'}
-                                        ->equal($_->[0]);
-                                }
-                            );
-                            return if !defined $quest;
-                            my @values
-                                = ref $packet->{'r'}{'values'}
-                                ? @{$packet->{'r'}{'values'}}
-                                : [$packet->{'r'}{'values'}];
-                            push @{$quest->[2]}, @values;
-                            require Net::BitTorrent::Protocol::BEP23::Compact;
-                            $quest->[1]->(
-                                $req->{'info_hash'},
-                                $node,
-                                [map {
-                                     Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                            if (defined $packet->{'r'}{'values'}) {    # peers
+                                my ($quest) = $self->grep_get_peers_quests(
+                                    sub {
+                                        defined $_
+                                            && $req->{'info_hash'}
+                                            ->equal($_->[0]);
+                                    }
+                                );
+                                return if !defined $quest;
+                                push @{$quest->[2]},
+                                    @{$packet->{'r'}{'values'}};
+                                require
+                                    Net::BitTorrent::Protocol::BEP23::Compact;
+                                $quest->[1]->(
+                                    $req->{'info_hash'},
+                                    $node,
+                                    [map {
+                                         Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
                                                                            $_)
-                                     } @values
-                                ]
-                            );
-                        }
-                        if (defined $packet->{'r'}{'token'})
-                        {    # for announce_peer
-                            $node->_set_announce_peer_token_in(
+                                         } @{$packet->{'r'}{'values'}}
+                                    ]
+                                );
+                            }
+                            if (defined $packet->{'r'}{'token'})
+                            {    # for announce_peer
+                                $node->_set_announce_peer_token_in(
                                                   $req->{'info_hash'}->to_Hex,
                                                   $packet->{'r'}{'token'});
-                        }
+                            }
 
 =begin comment
   Get peers associated with a torrent infohash. "q" = "get_peers" A get_peers
@@ -425,6 +416,8 @@ package Net::BitTorrent::DHT;
   future C<announce_peer> query. The token value should be a short binary
   string.
 =cut
+
+                        }
                     }
                     elsif ($type eq 'announce_peer') {
                         my ($quest) = $self->grep_announce_peer_quests(
@@ -434,15 +427,7 @@ package Net::BitTorrent::DHT;
                             }
                         );
                         return if !defined $quest;
-                        $quest->[3]
-                            = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
-                            Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
-                                                         join '', $quest->[2],
-                            ),
-                            sprintf '%s:%s',
-                            $node->host,
-                            $node->port
-                            );
+                        push @{$quest->[3]}, [$node->host, $node->port];
                         $quest->[1]
                             ->($req->{'info_hash'}, $quest->[2], $node);
                         $node->get_prev_get_peers(0)
@@ -454,10 +439,11 @@ package Net::BitTorrent::DHT;
                         use Data::Dump;
                         warn sprintf '%s:%d', $node->host, $node->port;
                         ddx $packet;
+                        ddx $req;
                         ...;
                     }
                 }
-                else {    # A reply we are not expecting. Strange.
+                else {            # A reply we are not expecting. Strange.
                     $node->inc_fail;
                     $self->_inc_recv_invalid_count;
                     $self->_inc_recv_invalid_length(length $data);
@@ -487,8 +473,9 @@ package Net::BitTorrent::DHT;
                              )
                     );
             }
-            elsif ($type eq 'find_node' && defined $packet->{'a'}{'target'}) {
-                require Bit::Vector;
+            elsif ($type eq 'find_node'
+                   && defined $packet->{'a'}{'target'})
+            {   require Bit::Vector;
                 return
                     $node->_reply_find_node(
                                 $packet->{'t'},
@@ -508,6 +495,9 @@ package Net::BitTorrent::DHT;
                              ),
                              $packet->{'a'},
                     );
+            }
+            else {
+                ...;
             }
         }
         elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {

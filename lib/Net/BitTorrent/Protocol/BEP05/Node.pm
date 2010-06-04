@@ -180,11 +180,10 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     sub _reply_find_node {
         my ($self, $tid, $target) = @_;
         require Net::BitTorrent::Protocol::BEP23::Compact;
-        my $nodes = join '', grep { defined && length } map {
-            Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
-                                                           sprintf '%s:%d',
-                                                           $_->host, $_->port)
-        } @{$self->routing_table->nearest_bucket($target)->nodes};
+        my $nodes
+            = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
+                 map { [$_->host, $_->port] }
+                     @{$self->routing_table->nearest_bucket($target)->nodes});
         return if !$nodes;
         my $packet =
             build_dht_reply_find_node($tid, pack('H*', $target->to_Hex),
@@ -223,21 +222,20 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                                 $announce_peer_token++);
         }
         require Net::BitTorrent::Protocol::BEP23::Compact;
-        my $nodes = join '', grep { defined && length } map {
-            Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
-                                                           sprintf '%s:%d',
-                                                           $_->host, $_->port)
-        } @{$self->routing_table->nearest_bucket($id)->nodes};
+        my $nodes
+            = Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
+                     map { [$_->host, $_->port] }
+                         @{$self->routing_table->nearest_bucket($id)->nodes});
         my @values = grep { defined $_ } map {
             Net::BitTorrent::Protocol::BEP23::Compact::compact_ipv4(
-                                                             sprintf '%s:%d',
-                                                             $_->[0], $_->[1])
+                                                           [$_->[0], $_->[1]])
         } @{$self->tracker->get_peers($id) || []};
         return if (!@values && !$nodes);
         my $packet =
             build_dht_reply_get_peers($tid,
                                       $id->to_Hex,
-                                      @values, $nodes,
+                                      \@values,
+                                      $nodes,
                                       $self->_get_announce_peer_token_out(
                                                                    $id->to_Hex
                                       )
