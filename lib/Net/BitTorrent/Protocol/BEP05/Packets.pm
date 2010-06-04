@@ -14,6 +14,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
         build_dht_reply_find_node     build_dht_query_find_node
         build_dht_reply_error                                      ];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    my $v = 'NB' . pack 'CC', $MAJOR * 1000, $MINOR;
 
     #
     sub build_dht_query_ping ($$) {
@@ -23,7 +24,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
                      y => 'q',
                      q => 'ping',
                      a => {id => $id},
-                     v => 'NB00'
+                     v => $v
                     }
             );
     }
@@ -39,7 +40,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
                            info_hash => $infohash,
                            token     => $token
                      },
-                     v => 'NB00'
+                     v => $v
                     }
             );
     }
@@ -53,7 +54,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
                      a => {id     => $id,
                            target => $target
                      },
-                     v => 'NB00'
+                     v => $v
                     }
             );
     }
@@ -65,19 +66,19 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
                      y => 'q',
                      q => 'get_peers',
                      a => {id => $id, info_hash => $info_hash},
-                     v => 'NB00'
+                     v => $v
                     }
             );
     }
 
     sub build_dht_reply_ping ($$) {
         my ($tid, $id) = @_;
-        return bencode({t => $tid, y => 'r', r => {id => $id}, v => 'NB00'});
+        return bencode({t => $tid, y => 'r', r => {id => $id}, v => $v});
     }
 
     sub build_dht_reply_announce_peer ($$) {
         my ($tid, $id) = @_;
-        return bencode({t => $tid, y => 'r', r => {id => $id}, v => 'NB00'});
+        return bencode({t => $tid, y => 'r', r => {id => $id}, v => $v});
     }
 
     sub build_dht_reply_find_node ($$$) {
@@ -86,7 +87,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
             bencode({t => $tid,
                      y => 'r',
                      r => {id => $id, nodes => $nodes},
-                     v => 'NB00'
+                     v => $v
                     }
             );
     }
@@ -112,7 +113,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
             bencode({t => $tid,
                      y => 'e',
                      e => $error,
-                     v => 'NB00'
+                     v => $v
                     }
             );
     }
