@@ -15,7 +15,8 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     #
     has 'port' => (isa => 'Int', is => 'ro', required => 1);
     has 'host' => (isa => 'Str', is => 'ro', required => 1);
-    has 'sockaddr' => (isa => 'Str', is => 'ro', lazy_build => 1);
+    has 'sockaddr' =>
+        (isa => 'Str', is => 'ro', required => 1, lazy_build => 1);
 
     sub _build_sockaddr {
         require Net::BitTorrent::Network::Utility;
@@ -48,10 +49,11 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     has 'routing_table' => (
                       isa => 'Net::BitTorrent::Protocol::BEP05::RoutingTable',
                       is  => 'ro',
-                      predicate => 'has_routing_table',
-                      writer    => '_routing_table',
-                      weak_ref  => 1,
-                      handles   => [qw[send dht tracker]]
+                      predicate  => 'has_routing_table',
+                      writer     => '_routing_table',
+                      weak_ref   => 1,
+                      lazy_build => 1,
+                      handles    => [qw[send dht tracker]]
     );
     around 'send' => sub {
         my ($code, $self, $packet, $reply) = @_;
