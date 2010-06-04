@@ -309,9 +309,9 @@ package Net::BitTorrent::DHT;
         # Basic identity checks
         # TODO - if v is set, make sure it matches
         #      - make note of changes in nodeid/sockaddr combinations
-        return
+        return $node->routing_table->del_node($node)
             if $node->has_nodeid    # Wait, this is me!
-                && $node->nodeid->Lexicompare($self->nodeid) == 0;
+                && ($node->nodeid->Lexicompare($self->nodeid) == 0);
 
         #
         if ($packet->{'y'} eq 'r') {
