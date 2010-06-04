@@ -91,17 +91,17 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
             );
     }
 
-    sub build_dht_reply_get_peers ($$$$$) {
+    sub build_dht_reply_get_peers ($$\@$$) {
         my ($tid, $id, $values, $nodes, $token) = @_;
         return
             bencode({t => $tid,
                      y => 'r',
                      r => {id    => $id,
                            token => $token,
-                           ($values ? (values => $values) : ()),
-                           ($nodes  ? (nodes  => $nodes)  : ()),
-                           v => 'NB00'
-                     }
+                           (@$values ? (values => $values) : ()),
+                           ($nodes   ? (nodes  => $nodes)  : ())
+                     },
+                     v => $v
                     }
             );
     }
