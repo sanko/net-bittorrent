@@ -115,12 +115,19 @@ package Net::BitTorrent::DHT;
     after 'BUILD' => sub {
         my ($self, $args) = @_;
         return if !defined $args->{'boot_nodes'};
-        require Net::BitTorrent::Protocol::BEP05::Node;
         for my $node (@{$args->{'boot_nodes'}}) {
+            require Net::BitTorrent::Protocol::BEP05::Node;
+            my $sockaddr = sockaddr($node->[0], $node->[1]);
             $node =
                 Net::BitTorrent::Protocol::BEP05::Node->new(
-                                                           host => $node->[0],
-                                                           port => $node->[1]
+                                               host          => $node->[0],
+                                               port          => $node->[1],
+                                               sockaddr      => $sockaddr,
+                                               routing_table => (
+                                                   length $sockaddr == 28
+                                                   ? $self->ipv6_routing_table
+                                                   : $self->ipv4_routing_table
+                                               )
                 );
             (  $node->ipv6
              ? $self->ipv6_routing_table->add_node($node)
