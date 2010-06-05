@@ -98,11 +98,16 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                          builder  => '_build_ping_timer',
                          is       => 'ro',
                          init_arg => undef,
-                         writer   => '_ping_timer',
-                         clearer  => 'touch'
+                         writer   => '_ping_timer'
     );
+    sub _build_ping_timer {
+        my ($self) = @_;
+        require Scalar::Util;
+        Scalar::Util::weaken $self;
+        AE::timer(60 * 10, 60 * 10, sub { $self->ping if $self });
+    }
     has '_seen' => (isa => 'Str', is => 'rw', predicate => '_has_seen');
-    after '_ping_timer' => sub { shift->_seen(time) };
+    sub touch { shift->_seen(time) }
     sub seen { return time - shift->_seen <= 15 * 60 }
     for my $type (qw[get_peers find_node announce_peer]) {
         has 'prev_'
@@ -119,17 +124,12 @@ package Net::BitTorrent::Protocol::BEP05::Node;
             );
     }
 
-    sub _build_ping_timer {
-        my ($self) = @_;
-        require Scalar::Util;
-        Scalar::Util::weaken $self;
-        AE::timer(60 * 15, 60 * 15, sub { $self->ping });
-    }
+
     after 'BUILD' => sub {
         my ($self) = @_;
         require Scalar::Util;
         Scalar::Util::weaken $self;
-        $self->_ping_timer(AE::timer(5, 0, sub { $self->ping }));
+        $self->_ping_timer(AE::timer(rand(30), 0, sub { $self->ping }));
     };
     has 'birth' => (is       => 'ro',
                     isa      => 'Int',
