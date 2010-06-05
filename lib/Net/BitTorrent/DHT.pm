@@ -312,6 +312,7 @@ package Net::BitTorrent::DHT;
         return $node->routing_table->del_node($node)
             if $node->has_nodeid    # Wait, this is me!
                 && ($node->nodeid->Lexicompare($self->nodeid) == 0);
+        $node->touch;
 
         #
         if ($packet->{'y'} eq 'r') {
@@ -319,7 +320,6 @@ package Net::BitTorrent::DHT;
                 if ($node->is_expecting($packet->{'t'})) {
                     $self->_inc_recv_replies_count;
                     $self->_inc_recv_replies_length(length $data);
-                    $node->touch;
                     $node->_v($packet->{'v'})
                         if !$node->_has_v && defined $packet->{'v'};
                     my $req
@@ -329,8 +329,6 @@ package Net::BitTorrent::DHT;
                     my $type = $req->{'type'};
                     $node->_nodeid($packet->{'r'}{'id'})
                         if !$node->has_nodeid;    # Adds node to router table
-                    $node->touch;
-
                     if ($type eq 'ping') {
                     }
                     elsif ($type eq 'find_node') {
@@ -458,7 +456,6 @@ package Net::BitTorrent::DHT;
             my $type = $packet->{'q'};
             $node->_nodeid($packet->{'a'}{'id'})
                 if !$node->has_nodeid;    # Adds node to router table
-            $node->touch;
             if ($type eq 'ping' && defined $packet->{'t'}) {
                 return $node->_reply_ping($packet->{'t'});
             }
