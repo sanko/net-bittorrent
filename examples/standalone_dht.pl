@@ -32,5 +32,5 @@ sub dht_cb {
     say sprintf 'We found %d peers for %s from %s:%d via DHT',
         scalar(@$peers),
         $infohash->to_Hex, $node->host, $node->port;
-    say join ', ', @$peers;
+    say join ', ', map { sprintf '%s:%d', @$_ } @$peers;
 }
