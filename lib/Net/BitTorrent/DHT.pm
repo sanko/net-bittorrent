@@ -383,10 +383,16 @@ package Net::BitTorrent::DHT;
                                 require
                                     Net::BitTorrent::Protocol::BEP23::Compact;
                                 my @peers = map {
-                                    Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4($_)
-                                } @{$packet->{'r'}{'values'}};
-                                {   my %seen = ();
-                                    @{$quest->[2]} = grep { ! $seen{$_->[0]}{$_->[1]}++ } @{$quest->[2]}, @peers;
+                                    Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
+                                                                           $_)
+                                    } ref $packet->{'r'}{'values'}
+                                    ? @{$packet->{'r'}{'values'}}
+                                    : $packet->{'r'}{'values'};
+                                {
+                                    my %seen = ();
+                                    @{$quest->[2]}
+                                        = grep { !$seen{$_->[0]}{$_->[1]}++ }
+                                        @{$quest->[2]}, @peers;
                                 }
                                 $quest->[1]
                                     ->($req->{'info_hash'}, $node, \@peers);
