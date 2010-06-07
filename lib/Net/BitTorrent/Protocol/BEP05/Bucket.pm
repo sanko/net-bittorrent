@@ -102,7 +102,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                 require Scalar::Util;
                 Scalar::Util::weaken($self) if !Scalar::Util::isweak($self);
                 $self->_find_node_quest(undef)
-                    if $self->count_backup_nodes > 4;
+                    if $self->count_backup_nodes == $K;
             }
         );
     }
@@ -168,7 +168,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         }
         $self->add_node($self->shift_backup_nodes)
             if $self->count_backup_nodes;          # Take sign down
-        $self->_reset_find_node_quest if $self->count_nodes < 8;
+        $self->_reset_find_node_quest if $self->count_nodes < $K;
     }
 }
 1;
