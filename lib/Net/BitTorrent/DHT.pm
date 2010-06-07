@@ -118,6 +118,7 @@ package Net::BitTorrent::DHT;
         for my $node (@{$args->{'boot_nodes'}}) {
             require Net::BitTorrent::Protocol::BEP05::Node;
             my $sockaddr = sockaddr($node->[0], $node->[1]);
+            next if !$sockaddr;
             $node =
                 Net::BitTorrent::Protocol::BEP05::Node->new(
                                                host          => $node->[0],
