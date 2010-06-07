@@ -2,6 +2,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
+    use AnyEvent;
     use lib '../../../../../lib';
     use Net::BitTorrent::Types qw[NBTypes::DHT::NodeID];
     use 5.10.0;
@@ -46,10 +47,10 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                         'unshift_' . $type . 'nodes' => 'unshift',
                         'splice_' . $type . 'nodes'  => 'splice',
                         'count_' . $type . 'nodes'   => 'count',
-                        'grep_' . $type . 'nodes'  => 'grep',
-                        'map_' . $type . 'nodes'   => 'map',
-                        'first_' . $type . 'node'  => 'first',
-                        'clear_' . $type . 'nodes' => 'clear'
+                        'grep_' . $type . 'nodes'    => 'grep',
+                        'map_' . $type . 'nodes'     => 'map',
+                        'first_' . $type . 'node'    => 'first',
+                        'clear_' . $type . 'nodes'   => 'clear'
             }
         );
     }
@@ -86,6 +87,24 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                       handles  => [qw[dht]]
     );
     has 'last_changed' => (isa => 'Int', is => 'rw', default => time);
+    has 'clearing_house' =>
+        (isa => 'ArrayRef', is => 'ro', writer => '_build_clearing_house');
+    after 'BUILD' => sub {
+        my $self = shift;
+        $self->_build_clearing_house(
+            AE::timer(
+                30 * 60,
+                30 * 60,
+                sub {
+                    require Scalar::Util;
+                    Scalar::Util::weaken($self)
+                        if !Scalar::Util::isweak($self);
+                    $self->routing_table->del_node($_)
+                        for $self->grep_nodes(sub { $_->fail && !$_->seen });
+                }
+            )
+        );
+    };
     has 'find_node_quest' => (isa        => 'ArrayRef|Maybe',
                               is         => 'ro',
                               init_arg   => undef,
@@ -118,14 +137,15 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         }
         return $ceil;
     }
+
     sub middle {
-        my $self = shift;
+        my $self  = shift;
         my $floor = Bit::Vector->new(160);
         $floor->Copy($self->floor);
         my $range = Bit::Vector->new(160);
         $range->subtract($self->ceil, $floor, 0);
         my $new_floor = Bit::Vector->new(160);
-         {    # Resize for overflow
+        {    # Resize for overflow
             $_->Resize(161) for $range, $floor, $new_floor;
             my $half_range = Bit::Vector->new(161);
             $half_range->Divide($range, Bit::Vector->new_Dec(161, 2),
@@ -138,8 +158,6 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
 
     sub split {
         my ($self) = @_;
-
-        #return if $self->routing_table->count_buckets >= 30;
         my $new_floor = $self->middle;
         my $new_bucket =
             Net::BitTorrent::Protocol::BEP05::Bucket->new(
