@@ -585,3 +585,339 @@ package Net::BitTorrent::DHT;
     }
 }
 1;
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::DHT - Kademlia-like DHT Node
+
+=head1 Description
+
+BitTorrent uses a "distributed sloppy hash table" (DHT) for storing peer
+contact information for "trackerless" torrents. In effect, each peer becomes a
+tracker. The protocol is based on L<Kademila|/Kademlia> and is implemented
+over UDP.
+
+=head1 Methods
+
+L<Net::BitTorrent::DHT|Net::BitTorrent::DHT>'s API is simple but powerful.
+...well, I think so anyway.
+
+=head1 Net::BitTorrent::DHT->new( )
+
+The constructor accepts a number different arguments which all greatly affect
+the function of your DHT node. Any combination of the following arguments may
+be used during construction.
+
+Note that L<standalone|Net::BitTorrent::DHT::Standalone> DHT nodes do not
+support or require the C<client> argument but internally a
+L<Net::BitTorrent|Net::BitTorrent> client is passed and serves as the parent
+of this node. For brevity, the following examples assume you are building a
+L<standalone node|Net::BitTorrent::DHT::Standalone> (for reasearch, etc.).
+
+=head2 Net::BitTorrent::DHT->new( nodeid => 'F' x 40 )
+
+During construction, our local DHT nodeID can be set during construction. This
+is mostly useful when creating a
+L<standalone DHT node|Net::BitTorrent::DHT::Standalone>.
+
+    use Net::BitTorrent::DHT;
+    # Plain text hex string
+    my $node_a = Net::BitTorrent::DHT->new( nodeid => 'F' x 40 );
+    # Packed hex string
+    my $node_b = Net::BitTorrent::DHT->new( nodeid => pack 'H*', F' x 40 );
+    # Bit::Vector object
+    require Bit::Vector;
+    my $node_c = Net::BitTorrent::DHT->new(
+        nodeid => Bit::Vector->new_Hex(160,'ABCD' x 40)
+    );
+    # A SHA1 digest
+    require Digest::SHA;
+    my $node_d = Net::BitTorrent::DHT->new(
+        nodeid => Digest::SHA::sha1( $possibly_random_value )
+    );
+
+Note that storing and reusing DHT nodeIDs over a number of sessions may seem
+advantagious (as if you had a "reserved parking place" in the DHT network) but
+will likely not improve performance as unseen nodeIDs are removed from remote
+routing tables after a half hour.
+
+Also note that, for ease of use, the constructor can coerce many different
+forms into the L<Bit::Vector|Bit::Vector> object we're expecting. NodeIDs,
+like SHA1 digests, are 160-bit integers.
+
+=head2 Net::BitTorrent::DHT->new( port => ... )
+
+Opens a specific UDP port number to the outside world on both IPv4 and IPv6.
+
+    use Net::BitTorrent::DHT;
+    # A single possible port
+    my $node_a = Net::BitTorrent::DHT->new( port => 1123 );
+    # A list of ports
+    my $node_b = Net::BitTorrent::DHT->new( port => [1235 .. 9875] );
+
+Note that when handed a list of ports, they are each tried until we are able
+to bind to the specific port.
+
+=head1 Net::BitTorrent::DHT->find_node( $target, $callback )
+
+This method asks for remote nodes with nodeIDs closer to our target. As the
+remote nodes respond, the callback is called with the following arguments:
+
+=over
+
+=item * target
+
+This is the target nodeid. This is useful when you've set the same callback
+for multiple, concurrent C<find_node( )> L<quest|/"Quests and Callbacks"> .
+
+=item * node
+
+This is a blessed object. TODO.
+
+=item * nodes
+
+This is a list of ip:port combinations the remote node claims are close to our
+target.
+
+=back
+
+A single C<find_node> L<quest|Net::BitTorrent::Notes/"Quests and Callbacks">
+is an array ref which contains the following data:
+
+=over
+
+=item * target
+
+This is the target nodeID.
+
+=item * coderef
+
+This is the callback triggered as we locate new peers.
+
+=item * nodes
+
+This is a list of nodes we have announced to so far.
+
+=item * timer
+
+This is an L<AnyEvent|AnyEvent> timer which is triggered every few minutes.
+
+Don't modify this.
+
+=back
+
+    use Net::BitTorrent::DHT;
+    my $node = Net::BitTorrent::DHT->new( );
+    my $quest_a = $dht->find_node( pack( 'H*', 'A' x 40 ), \&dht_cb );
+    my $quest_b = $dht->find_node( '1' x 40, \&dht_cb );
+
+    sub dht_cb {
+        my ($target, $node, $nodes) = @_;
+        say sprintf '%s:%d handed us %d nodes they claim are close to %s',
+            $node->host, $node->port, scalar(@$nodes),  $target->to_Hex;
+    }
+
+=pod
+
+=head3 Net::BitTorrent::DHT->get_peers( $infohash, $callback )
+
+This method initiates a search for peers serving a torrent with this infohash.
+As they are found, the callback is called with the following arguments:
+
+=over
+
+=item * infohash
+
+This is the infohash related to these peers. This is useful when you've set
+the same callback for multiple, concurrent C<get_peers( )> quests.
+
+=item * node
+
+This is a blessed object. TODO.
+
+=item * peers
+
+This is an array ref of peers sent to us by aforementioned remote node.
+
+=back
+
+A single C<get_peers> L<quest|/"Quests and Callbacks"> is an array ref which
+contains the following data:
+
+=over
+
+=item * infohash
+
+This is the infohash related to these peers.
+
+=item * coderef
+
+This is the callback triggered as we locate new peers.
+
+=item * peers
+
+This is a compacted list of all peers found so far. This is probably more
+useful than the list passed to the callback.
+
+=item * timer
+
+This is an L<AnyEvent|AnyEvent> timer which is triggered every five minutes.
+When triggered, the node requests new peers from nodes in the bucket nearest
+to the infohash.
+
+Don't modify this.
+
+=back
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+my $quest_a = $dht->get_peers(pack('H*', 'A' x 40), \&dht_cb);
+my $quest_b = $dht->get_peers('1' x 40, \&dht_cb);
+
+sub dht_cb {
+    my ($infohash, $node, $peers) = @_;
+    say sprintf 'We found %d peers for %s from %s:%d via DHT', scalar(@$peers),
+        $infohash->to_Hex, $node->host, $node->port;
+}
+
+=pod
+
+=head3 Net::BitTorrent::DHT->announce_peer( $infohash, $port, $callback )
+
+This method announces that the peer controlling the querying node is
+downloading a torrent on a port. These outgoing queries are sent to nodes
+'close' to the target infohash. As the remote nodes respond, the callback is
+called with the following arguments:
+
+=over
+
+=item * infohash
+
+This is the infohash related to this announcment. This is useful when you've
+set the same callback for multiple, concurrent C<announce_peer( )>
+L<quest|/"Quests and Callbacks"> .
+
+=item * port
+
+This is port you defined above.
+
+=item * node
+
+This is a blessed object. TODO.
+
+=back
+
+A single C<announce_peer> L<quest|/"Quests and Callbacks"> is an array ref
+which contains the following data:
+
+=over
+
+=item * infohash
+
+This is the infohash related to these peers.
+
+=item * coderef
+
+This is the callback triggered as we locate new peers.
+
+=item * port
+
+This is port you defined above.
+
+=item * nodes
+
+This is a list of nodes we have announced to so far.
+
+=item * timer
+
+This is an L<AnyEvent|AnyEvent> timer which is triggered every few minutes.
+
+Don't modify this.
+
+=back
+
+C<announce_peer> queries require a token sent in reply to a C<get_peers> query
+so they should be used together.
+
+=for meditation
+Should I automatically send get_peers queries before an announce if the token
+is missing?
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+my $quest_a = $dht->announce_peer(pack('H*', 'A' x 40), 6881, \&dht_cb);
+my $quest_b = $dht->announce_peer('1' x 40, 9585, \&dht_cb);
+
+sub dht_cb {
+    my ($infohash, $port, $node) = @_;
+    say sprintf '%s:%d now knows we are serving %s on port %d',
+          $node->host, $node->port, $infohash->to_Hex, $port;
+}
+
+=pod
+
+=head3 Net::BitTorrent::DHT->dump_ipv4_buckets( )
+
+This is a quick utility method which returns or prints (depending on context)
+a list of the IPv4-based routing table's bucket structure.
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+# After some time has passed...
+$node->dump_ipv4_buckets; # prints to STDOUT with say
+my @dump = $node->dump_ipv4_buckets; # returns list of lines
+
+=pod
+
+=head3 Net::BitTorrent::DHT->dump_ipv6_buckets( )
+
+This is a quick utility method which returns or prints (depending on context)
+a list of the IPv6-based routing table's bucket structure.
+
+=cut
+
+use Net::BitTorrent::DHT;
+my $node = Net::BitTorrent::DHT->new( );
+# After some time has passed...
+$node->dump_ipv6_buckets; # prints to STDOUT with say
+my @dump = $node->dump_ipv6_buckets; # returns list of lines
+
+=pod
+
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of
+L<The Artistic License 2.0|http://www.perlfoundation.org/artistic_license_2_0>.
+See the F<LICENSE> file included with this distribution or
+L<notes on the Artistic License 2.0|http://www.perlfoundation.org/artistic_2_0_notes>
+for clarification.
+
+When separated from the distribution, all original POD documentation is
+covered by the
+L<Creative Commons Attribution-Share Alike 3.0 License|http://creativecommons.org/licenses/by-sa/3.0/us/legalcode>.
+See the
+L<clarification of the CCA-SA3.0|http://creativecommons.org/licenses/by-sa/3.0/us/>.
+
+Neither this module nor the L<Author|/Author> is affiliated with BitTorrent,
+Inc.
+
+=for rcs $Id$
+
+=cut
