@@ -37,6 +37,16 @@ package Net::BitTorrent::Torrent;
     sub _build_storage {
         Net::BitTorrent::Storage->new(Torrent => $_[0]);
     }
+    for my $direction (qw[up down]) {
+        has $direction
+            . 'loaded' => (
+                         is      => 'ro',
+                         isa     => 'Int',
+                         traits  => ['Counter'],
+                         handles => {'inc_' . $direction . 'loaded' => 'inc'},
+                         default => 0
+            );
+    }
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable
