@@ -12,39 +12,6 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use AnyEvent;
 
     #
-    requires 'client';
-
-    #
-    has 'basedir' => (is       => 'ro',
-                      isa      => 'Str',
-                      required => 1,
-                      default  => rel2abs('.'),
-                      init_arg => 'BaseDir'
-    );
-    has 'storage' => (is         => 'ro',
-                      required   => 1,
-                      isa        => 'Net::BitTorrent::Storage',
-                      lazy_build => 1,
-                      builder    => '_build_storage',
-                      init_arg   => 'Storage',
-                      handles    => {
-                                  size => 'size',
-                                  read => 'read'
-                      }
-    );
-
-    sub _build_storage {
-        Net::BitTorrent::Storage->new(Torrent => $_[0]);
-    }
-    has 'tracker' => (isa => 'Net::BitTorrent::Protocol::BEP03::Tracker',
-                      is  => 'rw',
-                      lazy_build => 1,
-                      builder    => '_build_tracker'
-    );
-
-    sub _build_tracker {
-        Net::BitTorrent::Protocol::BEP12::MultiTracker->new(Torrent => $_[0]);
-    }
     has 'metadata' => (
         isa      => 'NBTypes::Bdecode',
         is       => 'ro',
