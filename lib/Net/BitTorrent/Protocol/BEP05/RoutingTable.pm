@@ -11,17 +11,17 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
-    has 'tracker' => (isa => 'Net::BitTorrent::Protocol::BEP05::Tracker',
-                    is  => 'ro',
-                    init_arg => undef,
-                    lazy_build => 1
+    has 'tracker' => (isa      => 'Net::BitTorrent::Protocol::BEP05::Tracker',
+                      is       => 'ro',
+                      init_arg => undef,
+                      lazy_build => 1
     );
 
     sub _build_tracker {
         require Net::BitTorrent::Protocol::BEP05::Tracker;
-        Net::BitTorrent::Protocol::BEP05::Tracker->new(routing_table => shift);
+        Net::BitTorrent::Protocol::BEP05::Tracker->new(
+                                                      routing_table => shift);
     }
-
     has 'nodes' => (isa => 'HashRef[Net::BitTorrent::Protocol::BEP05::Node]',
                     is  => 'ro',
                     init_arg => undef,
@@ -181,7 +181,6 @@ until it cannot find any closer. The routing table should be saved between
 invocations of the client software.
 
 =cut
-
 }
 1;
 
