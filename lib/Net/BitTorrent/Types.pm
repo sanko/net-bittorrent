@@ -1,5 +1,6 @@
 package Net::BitTorrent::Types;
 {
+    use 5.010;
     use Moose;
     use Moose::Util::TypeConstraints;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
@@ -63,15 +64,23 @@ package Net::BitTorrent::Types;
         from subtype(as 'Str' => where {m[^http://]i}) => via {
         require Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
         return Net::BitTorrent::Protocol::BEP03::Tracker::HTTP->new(
-                                                                   URL => $_);
+                                                                   url => $_);
         };
     subtype 'NBTypes::Tracker::UDP' => as
         'Net::BitTorrent::Protocol::BEP15::Tracker::UDP';
     coerce 'NBTypes::Tracker::UDP' =>
         from subtype(as 'Str' => where {m[^udp://]i}) => via {
         require Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
-        return Net::BitTorrent::Protocol::BEP15::Tracker::UDP->new(URL => $_);
+        return Net::BitTorrent::Protocol::BEP15::Tracker::UDP->new(url => $_);
         };
+    subtype 'NBTypes::Tracker::Tier' => as
+        'ArrayRef[NBTypes::Tracker::UDP|NBTypes::Tracker::HTTP]';
+    coerce 'NBTypes::Tracker::Tier' => from 'ArrayRef[Str]' => via {
+        state $tracker_constraint
+            = Moose::Util::TypeConstraints::find_type_constraint(
+                              'NBTypes::Tracker::HTTP|NBTypes::Tracker::UDP');
+        [map { $tracker_constraint->coerce($_) } @$_];
+    };
     enum 'NBTypes::Tracker::HTTP::Event' => qw[started stopped completed];
 
     #
