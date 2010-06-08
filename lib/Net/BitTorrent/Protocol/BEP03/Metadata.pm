@@ -4,8 +4,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Moose::Util::TypeConstraints;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
-    use Net::BitTorrent::Types;
-    use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
+    use Net::BitTorrent::Types qw[:bencode];
     use Net::BitTorrent::Storage;
     use Fcntl ':flock';
     use File::Spec::Functions qw[rel2abs];
@@ -46,9 +45,11 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         Net::BitTorrent::Protocol::BEP12::MultiTracker->new(Torrent => $_[0]);
     }
     has 'metadata' => (
-        isa      => 'HashRef',
-        is       => 'rw',
-        init_arg => undef,       # cannot set this with new()
+        isa      => 'NBTypes::Bdecode',
+        is       => 'ro',
+        writer   => '_metadata',
+        init_arg => undef,                # cannot set this with new()
+        coerce   => 1,
         trigger  => sub {
             my ($self, $new_value, $old_value) = @_;
             if (@_ == 2) {       # parse files and trackers
@@ -103,14 +104,16 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             warn 'Someone changed the metadata!';
         }
     );
-    has '_raw' => (
-        isa        => 'Str',
+    has 'raw_data' => (
+        isa        => 'NBTypes::Bencode',
         lazy_build => 1,
-        is         => 'rw',
-        init_arg   => undef,    # cannot set this with new()
+        is         => 'ro',
+        init_arg   => undef,                # cannot set this with new()
+        writer     => '_raw_data',
+        coerce     => 1,
         trigger    => sub {
             my ($self, $new_value, $old_value) = @_;
-            return $self->metadata(scalar bdecode $new_value) if @_ == 2;
+            $self->_metadata($new_value) if @_ == 2;
 
             # XXX - set the current value back to the old value
         }
@@ -135,9 +138,12 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             # XXX - set the current value back to the old value
         }
     );
+
+    #
+    my $bdecode_constraint;
     has 'infohash' => (
         is         => 'ro',
-        isa        => 'Torrent::Infohash',
+        isa        => 'NBTypes::Infohash',
         init_arg   => undef,               # cannot set this with new()
         coerce     => 1,                   # Both ways?
         lazy_build => 1,
@@ -146,7 +152,12 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
 
     sub _build_infohash {
         require Digest::SHA;
-        return Digest::SHA::sha1(bencode $_[0]->metadata->{'info'});
+        my ($self) = @_;
+        $bdecode_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                                          'NBTypes::Bdecode');
+        return Digest::SHA::sha1(
+                      $bdecode_constraint->coerce($self->metadata->{'info'}));
     }
     has 'piece_count' => (is         => 'ro',
                           isa        => 'Int',

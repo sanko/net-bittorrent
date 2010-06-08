@@ -6,8 +6,21 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use List::Util qw[shuffle];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
-    extends 'Net::BitTorrent::Protocol::BEP03::Tracker';
-    use Net::BitTorrent::Types qw[:tracker];
+    use Net::BitTorrent::Types qw[:tracker :bencode];
+    my $bdecode_constraint;
+    after 'metadata' => sub {
+        use Data::Dump;
+        my ($self) = @_;
+        $bdecode_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                                          'NBTypes::Bdecode');
+        my $tiers
+            = $bdecode_constraint->coerce($self->raw_data)->{'announce-list'};
+        ddx $tiers;
+        die 'MultiTracker!!!!!';
+    };
+
+=old
     around 'url' => sub {    # BEP03::Tracker->url is ro but that may change
         my ($code, $self, $args) = @_;
         $code->($self->tiers->[0]->url->[0], $args ? $args : ());

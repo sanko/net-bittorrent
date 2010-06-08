@@ -13,13 +13,27 @@ package Net::BitTorrent::Types;
                 NBTypes::Tracker::UDP NBTypes::Tracker::HTTP
                 NBTypes::Tracker::HTTP::Event]
         ],
-        file   => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
-        cache  => [qw[NBTypes::Cache::Packet]],
-        client => [qw[NBTypes::Client::PeerID]],
-        dht    => [qw[NBTypes::DHT::NodeID]]
+        file    => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
+        cache   => [qw[NBTypes::Cache::Packet]],
+        client  => [qw[NBTypes::Client::PeerID]],
+        dht     => [qw[NBTypes::DHT::NodeID]],
+        basic   => [qw[NBTypes::Infohash]],
+        bencode => [qw[NBTypes::Bencode NBTypes::Bdecode]],
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
+    subtype 'NBTypes::Bencode' => as 'Defined';
+    subtype 'NBTypes::Bdecode' => as 'Ref';
+
+    coerce 'NBTypes::Bencode'  => from 'NBTypes::Bdecode' =>
+        via {
+        require Net::BitTorrent::Protocol::BEP03::Bencode;
+        Net::BitTorrent::Protocol::BEP03::Bencode::bencode($_);
+        };
+    coerce  'NBTypes::Bdecode' => from 'NBTypes::Bencode' => via {
+        require Net::BitTorrent::Protocol::BEP03::Bencode;
+        Net::BitTorrent::Protocol::BEP03::Bencode::bdecode($_);
+    };
 
     #
     subtype 'NBTypes::Infohash' => as 'Str' => where { length $_ == 40 } =>
@@ -100,8 +114,7 @@ package Net::BitTorrent::Types;
         from subtype(as 'Int' => where { length $_ < 40 }) =>
         via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
         from subtype(as 'Str' => where { length $_ == 40 && /^[a-f\d]+$/i }
-        ) =>
-        via { require Bit::Vector; Bit::Vector->new_Hex(160, $_) } =>
+        ) => via { require Bit::Vector; Bit::Vector->new_Hex(160, $_) } =>
         from 'Str' => via {
         require Bit::Vector;
         Bit::Vector->new_Hex(160, unpack 'H*', $_);
