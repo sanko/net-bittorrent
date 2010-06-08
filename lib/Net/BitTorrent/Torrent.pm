@@ -47,6 +47,13 @@ package Net::BitTorrent::Torrent;
                          default => 0
             );
     }
+
+    sub left {
+        my ($self) = @_;
+        require List::Util;
+        return $self->piece_length * List::Util::sum( split('', unpack( 'b*', ($self->wanted() || '') ) )  )
+    }
+
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable
