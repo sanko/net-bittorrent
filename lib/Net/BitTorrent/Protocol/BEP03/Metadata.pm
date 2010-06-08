@@ -174,6 +174,15 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                    writer     => '_have',
                    clearer    => '_clear_have'
     );
+    has 'wanted' => (
+        isa    => 'NBTypes::Torrent::Bitfield',
+        is     => 'ro',
+        writer => '_wanted',
+        coerce => 1,
+        builder => '_build_wanted',
+        lazy_build => 1
+    );
+    sub _build_wanted { '1' x $_[0]->piece_count }
     sub _build_have { pack 'b' . $_[0]->piece_count, '0' }
 
     # Quick accessors
