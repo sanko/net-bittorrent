@@ -167,23 +167,31 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     );
     sub _build_piece_count { return length(shift->pieces) / 20 }
     has 'have' => (is         => 'ro',
-                   isa        => 'Str',
+                   isa        => 'NBTypes::Torrent::Bitfield',
                    lazy_build => 1,
+                   coerce     => 1,
                    builder    => '_build_have',
                    init_arg   => undef,
                    writer     => '_have',
                    clearer    => '_clear_have'
     );
-    has 'wanted' => (
-        isa    => 'NBTypes::Torrent::Bitfield',
-        is     => 'ro',
-        writer => '_wanted',
-        coerce => 1,
-        builder => '_build_wanted',
-        lazy_build => 1
+    sub _build_have { '0' x $_[0]->piece_count }
+    has 'wanted' => (isa        => 'NBTypes::Torrent::Bitfield',
+                     is         => 'ro',
+                     writer     => '_wanted',
+                     coerce     => 1,
+                     builder    => '_build_wanted',
+                     lazy_build => 1
     );
     sub _build_wanted { '1' x $_[0]->piece_count }
-    sub _build_have { pack 'b' . $_[0]->piece_count, '0' }
+    {
+        has 'tracker' => (
+                      is  => 'ro',
+                      isa => 'Net::BitTorrent::Protocol::BEP12::MultiTracker',
+                      writer    => '_tracker',
+                      predicate => 'has_tracker'
+        );
+    }
 
     # Quick accessors
     sub piece_length { return shift->metadata->{'info'}{'piece length'} }
