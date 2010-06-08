@@ -4,14 +4,17 @@ package Net::BitTorrent;
     use Moose::Util::TypeConstraints;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use AnyEvent;
+    use lib '../../lib';
+    use Net::BitTorrent::Types qw[:client];
 
     sub BUILD{1}
+
     #
     sub timer { shift; AnyEvent->timer(@_) }
     sub run { AnyEvent->condvar->recv }
 
     #
-    has 'peer_id' => (isa        => 'Torrent::Client::PeerID',
+    has 'peer_id' => (isa        => 'NBTypes::Client::PeerID',
                       is         => 'ro',
                       lazy_build => 1,
                       builder    => '_build_peer_id',
@@ -51,7 +54,7 @@ package Net::BitTorrent;
                                   filter_torrents => 'grep',
                                   find_torrent    => 'first',
                                   has_torrents    => 'count',
-                                  infohashes => ['map', sub { $_->infohash }],
+                                  info_hashes => ['map', sub { $_->info_hash }],
                                   map_torrents     => 'map',
                                   no_torrents      => 'is_empty',
                                   shuffle_torrents => 'shuffle',
@@ -72,11 +75,19 @@ package Net::BitTorrent;
             && $code->($self, $torrent)
             && $torrent->client($self);
     };
+
+    my $infohash_constraint;
     around 'torrent' => sub {
         my ($code, $self, $index) = @_;
         my $torrent;
-        $torrent = $self->find_torrent(sub { lc $_->infohash eq lc $index })
-            if length $index == 40;
+        {
+            $infohash_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+            'NBTypes::Torrent::Infohash');
+            my $infohash = $infohash_constraint->coerce($index);
+            $torrent = $self->find_torrent(sub {
+                $_->info_hash->Lexicompare($infohash) == 0;});
+        }
         $torrent = $code->($self, $index)
             if !defined $torrent && $index =~ m[^\d$];
         return $torrent;
