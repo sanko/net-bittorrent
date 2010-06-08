@@ -4,7 +4,8 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Moose::Util::TypeConstraints;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
-    use Net::BitTorrent::Types qw[:bencode];
+    use Net::BitTorrent::Types qw[:bencode :torrent];
+    use Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use Net::BitTorrent::Storage;
     use Fcntl ':flock';
     use File::Spec::Functions qw[rel2abs];
@@ -52,28 +53,17 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         coerce   => 1,
         trigger  => sub {
             my ($self, $new_value, $old_value) = @_;
-            if (@_ == 2) {       # parse files and trackers
-                if (defined $new_value->{'announce-list'}) {
-                    require Net::BitTorrent::Protocol::BEP12::MultiTracker;
-                    $self->tracker(
+            if (@_ == 2) {                # parse files and trackers
+                require Net::BitTorrent::Protocol::BEP12::MultiTracker;
+                $self->_tracker(
                           Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
-                                               Torrent => $self,
-                                               URL => $new_value->{'announce'}
+                                                              torrent => $self
                           )
-                    );
+                );
+                $self->tracker->add_tier([$new_value->{'announce'}]);
+                if (defined $new_value->{'announce-list'}) {
                     $self->tracker->add_tier($_)
                         for @{$new_value->{'announce-list'}};
-                }
-                elsif (defined $new_value->{'announce'}) {
-                    require Net::BitTorrent::Protocol::BEP03::Tracker;
-                    $self->tracker(
-                               Net::BitTorrent::Protocol::BEP03::Tracker->new(
-                                               Torrent => $self,
-                                               URL => $new_value->{'announce'}
-                               )
-                    );
-                }
-                else {    # .torrent _requires_ DHT
                 }
 
                 #
