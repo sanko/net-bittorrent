@@ -28,7 +28,7 @@ package Net::BitTorrent::Storage::Node;
                          isa => 'Maybe[GlobRef]');
     has 'open' => (
         is      => 'rw',
-        isa     => 'Maybe[Torrent::File::Open::Permission]',
+        isa     => 'Maybe[NBTypes::File::Open::Permission]',
         trigger => sub {
             my ($self, $new_mode, $old_mode) = @_;
             if (defined $new_mode) {

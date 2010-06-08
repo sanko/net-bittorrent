@@ -26,7 +26,7 @@ package Net::BitTorrent::Storage;
                       init_arg => 'Torrent'
     );
     has 'files' => (is       => 'rw',
-                    isa      => 'Torrent::Files',
+                    isa      => 'NBTypes::Files',
                     init_arg => 'Files',
                     coerce   => 1,
                     traits   => ['Array'],
