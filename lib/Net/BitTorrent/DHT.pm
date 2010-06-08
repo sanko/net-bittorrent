@@ -397,21 +397,6 @@ package Net::BitTorrent::DHT;
                                                   $req->{'info_hash'}->to_Hex,
                                                   $packet->{'r'}{'token'});
                             }
-
-=begin comment
-  Get peers associated with a torrent infohash. "q" = "get_peers" A get_peers
-  query has two arguments, "id" containing the node ID of the querying node, and
-  "info_hash" containing the infohash of the torrent. If the queried node has
-  peers for the infohash, they are returned in a key "values" as a list of
-  strings. Each string containing "compact" format peer information for a single
-  peer. If the queried node has no peers for the infohash, a key "nodes" is
-  returned containing the C<K> nodes in the queried nodes routing table closest
-  to the infohash supplied in the query. In either case a C<token> key is also
-  included in the return value. The token value is a required argument for a
-  future C<announce_peer> query. The token value should be a short binary
-  string.
-=cut
-
                         }
                     }
                     elsif ($type eq 'announce_peer') {
@@ -616,11 +601,11 @@ L<standalone DHT node|Net::BitTorrent::DHT::Standalone>.
     # Plain text hex string
     my $node_a = Net::BitTorrent::DHT->new( nodeid => 'F' x 40 );
     # Packed hex string
-    my $node_b = Net::BitTorrent::DHT->new( nodeid => pack 'H*', F' x 40 );
+    my $node_b = Net::BitTorrent::DHT->new( nodeid => pack 'H*', 'F' x 40 );
     # Bit::Vector object
     require Bit::Vector;
     my $node_c = Net::BitTorrent::DHT->new(
-        nodeid => Bit::Vector->new_Hex(160,'ABCD' x 40)
+        nodeid => Bit::Vector->new_Hex( 160, 'ABCD' x 10 )
     );
     # A SHA1 digest
     require Digest::SHA;
@@ -709,9 +694,7 @@ Don't modify this.
             $node->host, $node->port, scalar(@$nodes),  $target->to_Hex;
     }
 
-=pod
-
-=head3 Net::BitTorrent::DHT->get_peers( $infohash, $callback )
+=head1 Net::BitTorrent::DHT->get_peers( $infohash, $callback )
 
 This method initiates a search for peers serving a torrent with this infohash.
 As they are found, the callback is called with the following arguments:
@@ -733,8 +716,8 @@ This is an array ref of peers sent to us by aforementioned remote node.
 
 =back
 
-A single C<get_peers> L<quest|/"Quests and Callbacks"> is an array ref which
-contains the following data:
+A single C<get_peers> L<quest|Net::BitTorrent::Notes/"Quests and Callbacks">
+is an array ref which contains the following data:
 
 =over
 
@@ -761,22 +744,18 @@ Don't modify this.
 
 =back
 
-=cut
+    use Net::BitTorrent::DHT;
+    my $node = Net::BitTorrent::DHT->new( );
+    my $quest_a = $dht->get_peers(pack('H*', 'A' x 40), \&dht_cb);
+    my $quest_b = $dht->get_peers('1' x 40, \&dht_cb);
 
-use Net::BitTorrent::DHT;
-my $node = Net::BitTorrent::DHT->new( );
-my $quest_a = $dht->get_peers(pack('H*', 'A' x 40), \&dht_cb);
-my $quest_b = $dht->get_peers('1' x 40, \&dht_cb);
+    sub dht_cb {
+        my ($infohash, $node, $peers) = @_;
+        say sprintf 'We found %d peers for %s from %s:%d via DHT', scalar(@$peers),
+            $infohash->to_Hex, $node->host, $node->port;
+    }
 
-sub dht_cb {
-    my ($infohash, $node, $peers) = @_;
-    say sprintf 'We found %d peers for %s from %s:%d via DHT', scalar(@$peers),
-        $infohash->to_Hex, $node->host, $node->port;
-}
-
-=pod
-
-=head3 Net::BitTorrent::DHT->announce_peer( $infohash, $port, $callback )
+=head1 Net::BitTorrent::DHT->announce_peer( $infohash, $port, $callback )
 
 This method announces that the peer controlling the querying node is
 downloading a torrent on a port. These outgoing queries are sent to nodes
@@ -837,50 +816,38 @@ so they should be used together.
 Should I automatically send get_peers queries before an announce if the token
 is missing?
 
-=cut
+    use Net::BitTorrent::DHT;
+    my $node = Net::BitTorrent::DHT->new( );
+    my $quest_a = $dht->announce_peer(pack('H*', 'A' x 40), 6881, \&dht_cb);
+    my $quest_b = $dht->announce_peer('1' x 40, 9585, \&dht_cb);
 
-use Net::BitTorrent::DHT;
-my $node = Net::BitTorrent::DHT->new( );
-my $quest_a = $dht->announce_peer(pack('H*', 'A' x 40), 6881, \&dht_cb);
-my $quest_b = $dht->announce_peer('1' x 40, 9585, \&dht_cb);
+    sub dht_cb {
+        my ($infohash, $port, $node) = @_;
+        say sprintf '%s:%d now knows we are serving %s on port %d',
+            $node->host, $node->port, $infohash->to_Hex, $port;
+    }
 
-sub dht_cb {
-    my ($infohash, $port, $node) = @_;
-    say sprintf '%s:%d now knows we are serving %s on port %d',
-          $node->host, $node->port, $infohash->to_Hex, $port;
-}
-
-=pod
-
-=head3 Net::BitTorrent::DHT->dump_ipv4_buckets( )
+=head1 Net::BitTorrent::DHT->dump_ipv4_buckets( )
 
 This is a quick utility method which returns or prints (depending on context)
 a list of the IPv4-based routing table's bucket structure.
 
-=cut
+    use Net::BitTorrent::DHT;
+    my $node = Net::BitTorrent::DHT->new( );
+    # After some time has passed...
+    $node->dump_ipv4_buckets; # prints to STDOUT with say
+    my @dump = $node->dump_ipv4_buckets; # returns list of lines
 
-use Net::BitTorrent::DHT;
-my $node = Net::BitTorrent::DHT->new( );
-# After some time has passed...
-$node->dump_ipv4_buckets; # prints to STDOUT with say
-my @dump = $node->dump_ipv4_buckets; # returns list of lines
-
-=pod
-
-=head3 Net::BitTorrent::DHT->dump_ipv6_buckets( )
+=head1 Net::BitTorrent::DHT->dump_ipv6_buckets( )
 
 This is a quick utility method which returns or prints (depending on context)
 a list of the IPv6-based routing table's bucket structure.
 
-=cut
-
-use Net::BitTorrent::DHT;
-my $node = Net::BitTorrent::DHT->new( );
-# After some time has passed...
-$node->dump_ipv6_buckets; # prints to STDOUT with say
-my @dump = $node->dump_ipv6_buckets; # returns list of lines
-
-=pod
+    use Net::BitTorrent::DHT;
+    my $node = Net::BitTorrent::DHT->new( );
+    # After some time has passed...
+    $node->dump_ipv6_buckets; # prints to STDOUT with say
+    my @dump = $node->dump_ipv6_buckets; # returns list of lines
 
 =head1 Author
 
