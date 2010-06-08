@@ -172,11 +172,10 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 my $piece = $self->read($index);
                 next if !$piece || !$$piece;
                 require Digest::SHA;
-                vec($bitfield, $index, 1)
-                    = Digest::SHA::sha1($$piece) eq
-                    substr($self->pieces, ($index * 20), 20);
+                $self->have->Bit_On($index)
+                    if Digest::SHA::sha1($$piece) eq
+                        substr($self->pieces, ($index * 20), 20);
             }
-            $self->_have($bitfield);
         }
         else {
             my $cv = AnyEvent->condvar;
