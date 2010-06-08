@@ -17,8 +17,11 @@ package Net::BitTorrent::Types;
         cache   => [qw[NBTypes::Cache::Packet]],
         client  => [qw[NBTypes::Client::PeerID]],
         dht     => [qw[NBTypes::DHT::NodeID]],
-        basic   => [qw[NBTypes::Infohash]],
         bencode => [qw[NBTypes::Bencode NBTypes::Bdecode]],
+        torrent => [
+            qw[NBTypes::Torrent::Status NBTypes::Torrent::Infohash
+                NBTypes::Torrent::Bitfield]
+        ]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
@@ -33,22 +36,25 @@ package Net::BitTorrent::Types;
         Net::BitTorrent::Protocol::BEP03::Bencode::bdecode($_);
     };
 
-    #
-    subtype 'NBTypes::Infohash' => as 'Str' => where { length $_ == 40 } =>
-        message {
-        sprintf 'Unpacked infohash must be 40 bytes long not %d', length $_;
-        } => where {/[a-f\d]/i} => message {
-        sprintf 'Unpacked infohash must contain only hex chars not %s', $_;
+    # Nearly the same as NBTypes::DHT::NodeID
+    subtype 'NBTypes::Torrent::Infohash' => as 'Bit::Vector' =>
+        where { $_->Size == 160 } =>
+        message {'Torrent info_hashes are 160-bit integers.'};
+    coerce 'NBTypes::Torrent::Infohash' =>
+        from subtype(as 'Int' => where { length $_ < 40 }) =>
+        via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
+        from subtype(as 'Str' => where { length $_ == 40 && /^[a-f\d]+$/i }
+        ) => via { require Bit::Vector; Bit::Vector->new_Hex(160, $_) } =>
+        from 'Str' => via {
+        require Bit::Vector;
+        Bit::Vector->new_Hex(160, unpack 'H*', $_);
         };
-    subtype 'NBTypes::Infohash::Packed' => as 'Str' =>
-        where { length $_ == 20 } => message {
-        sprintf 'Unpacked infohash must be 20 bytes in length not %d (%s)',
-            length($_), $_;
+    subtype 'NBTypes::Torrent::Bitfield' => as 'Bit::Vector';
+    coerce 'NBTypes::Torrent::Bitfield' =>
+        from subtype(as 'Str' => where { $_ =~ m[^(?:[10]*)$] }) => via {
+        require Bit::Vector;
+        Bit::Vector->new_Bin(length($_), $_);
         };
-    coerce 'NBTypes::Infohash' => from 'NBTypes::Infohash::Packed' =>
-        via { uc unpack 'H*', $_ };
-    coerce 'NBTypes::Infohash::Packed' => from 'NBTypes::Infohash' =>
-        via { pack 'H*', $_ };
 
     #
     subtype 'NBTypes::Tracker::HTTP' => as
@@ -104,7 +110,7 @@ package Net::BitTorrent::Types;
         where { length $_ == 20 } =>
         message {'PeerID is malformed: length != 20'};
 
-    #
+    # Nearly the same as NBTypes::Torrent::Infohash
     subtype 'NBTypes::DHT::NodeID' => as 'Bit::Vector' =>
         where { $_->Size == 160 } =>
         message {'DHT NodeIDs are 160-bit integers.'};
