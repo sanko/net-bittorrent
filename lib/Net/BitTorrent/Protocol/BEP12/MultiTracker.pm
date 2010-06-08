@@ -7,55 +7,62 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
     use Net::BitTorrent::Types qw[:tracker :bencode];
-    my $bdecode_constraint;
-    after 'metadata' => sub {
-        use Data::Dump;
-        my ($self) = @_;
-        $bdecode_constraint //=
-            Moose::Util::TypeConstraints::find_type_constraint(
-                                                          'NBTypes::Bdecode');
-        my $tiers
-            = $bdecode_constraint->coerce($self->raw_data)->{'announce-list'};
-        ddx $tiers;
-        die 'MultiTracker!!!!!';
-    };
-
-=old
-    around 'url' => sub {    # BEP03::Tracker->url is ro but that may change
-        my ($code, $self, $args) = @_;
-        $code->($self->tiers->[0]->url->[0], $args ? $args : ());
-    };
-    has 'tiers' => (
-         traits => ['Array'],
-         isa =>
-             'ArrayRef[Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier]',
-         is      => 'rw',
-         coerce  => 1,
-         default => sub { [] },
-         handles => {add_tier => 'push',
-                     shuffle  => 'shuffle'
-         }
+    has 'torrent' => (isa       => 'Net::BitTorrent::Torrent',
+                      is        => 'ro',
+                      weak_ref  => 1,
+                      writer    => '_torrent',
+                      predicate => 'has_torrent',
+                      handles   => {client => 'client'}
     );
-    around 'add_tier' => sub {
-        my ($code, $self, $trackers) = @_;
-        require Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier;
-        require Net::BitTorrent::Protocol::BEP03::Tracker;
-        return $code->(
-            $self,
-            Net::BitTorrent::Protocol::BEP12::MultiTracker::Tier->new(
-                Torrent  => $self->torrent,
-                Trackers => [
-                    map {
-                        Net::BitTorrent::Protocol::BEP03::Tracker->new(
-                                                     URL     => $_,
-                                                     Torrent => $self->torrent
-                            )
-                        } @$trackers
-                ]
-            )
+    has 'tiers' => (
+                traits  => ['Array'],
+                isa     => 'NBTypes::Tracker::Tier',
+                is      => 'rw',
+                coerce  => 1,
+                default => sub { [] },
+                handles => {_push_tier => 'push', _shuffle_tiers => 'shuffle'}
+    );
+    my $tier_constraint;
+
+    sub add_tier {
+        my ($self, $urls) = @_;
+        $tier_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                                    'NBTypes::Tracker::Tier');
+        $self->_push_tier($tier_constraint->coerce($urls));
+        $self->_shuffle_tiers;
+    }
+
+    has 'quests' => (
+        isa => 'ArrayRef',
+        is => 'ro',
+        traits => ['Array'],
+        default => sub {[]},
+        handles => {
+            'add_quest' => 'push'
+        }
+    );
+
+    sub announce {
+        my ($self, $event) = @_;
+        my %args = (info_hash  => $self->torrent->info_hash->to_Hex,
+                    peer_id    => $self->client->peer_id,
+                    port       => $self->client->port,
+                    uploaded   => $self->torrent->uploaded,
+                    downloaded => $self->torrent->downloaded,
+                    left       => $self->torrent->left
         );
-    };
-    after 'add_tier' => sub { $_[0]->shuffle };
+        $args{'info_hash'} =~ s|(..)|\%$1|g;
+        $self->add_quest($_->[0]->announce($event, \%args, sub {
+            use Data::Dump;
+            ddx \@_;
+        } )) for @{$self->tiers};
+    }
+
+    sub scrape {
+        my ($self) = @_;
+        $_->[0]->scrape() for @{$self->tiers};
+    }
 }
 1;
 

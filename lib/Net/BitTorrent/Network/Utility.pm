@@ -68,7 +68,7 @@ package Net::BitTorrent::Network::Utility;
             : unpack_sockaddr_in($packed_host);
     }
 
-    sub connect {
+    sub client {
         my ($host, $port, $ready, $prepare) = @_;
         AnyEvent::Socket::tcp_connect($host, $port, $ready, $prepare);
     }

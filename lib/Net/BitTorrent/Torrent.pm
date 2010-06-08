@@ -17,7 +17,9 @@ package Net::BitTorrent::Torrent;
             my ($self, $client) = @_;
 
             # XXX - make sure the new client knows who I am
+            #$self->queue;
             warn 'TODO: Start trackers!';
+            $self->tracker->announce('start');
         }
     );
     has 'error' => (is       => 'rw',
@@ -37,6 +39,7 @@ package Net::BitTorrent::Torrent;
     );
 
     sub _build_storage {
+        require Net::BitTorrent::Storage;
         Net::BitTorrent::Storage->new(Torrent => $_[0]);
     }
     for my $direction (qw[up down]) {

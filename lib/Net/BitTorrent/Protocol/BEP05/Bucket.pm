@@ -126,6 +126,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
         );
     }
     after 'BUILD' => sub { $_[0]->find_node_quest() };
+    after 'BUILD' => sub {  };
 
     #
     sub ceil {
