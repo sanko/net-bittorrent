@@ -79,7 +79,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 #
                 my @files;
                 if (defined $new_value->{'info'}{'files'})
-                {         # Multi-file .torrent
+                {    # Multi-file .torrent
                     $self->storage->files($new_value->{'info'}{'files'});
                     $self->storage->root($new_value->{'info'}{'name'});
                 }
@@ -131,7 +131,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 flock $FH, LOCK_SH;
                 sysread($FH, my ($METADATA), -s $FH) == -s $FH
                     || return !($_[0] = undef);    # destroy!
-                $self->_raw($METADATA);
+                $self->_raw_data($METADATA);
                 return close $FH;
             }
 
@@ -140,24 +140,24 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     );
 
     #
-    my $bdecode_constraint;
-    has 'infohash' => (
-        is         => 'ro',
-        isa        => 'NBTypes::Infohash',
-        init_arg   => undef,               # cannot set this with new()
-        coerce     => 1,                   # Both ways?
+    my $bencode_constraint;
+    has 'info_hash' => (
+        is       => 'ro',
+        isa      => 'NBTypes::Torrent::Infohash',
+        init_arg => undef,                        # cannot set this with new()
+        coerce   => 1,                            # Both ways?
         lazy_build => 1,
-        builder    => '_build_infohash'    # returns Torrent::Infohash::Packed
+        builder    => '_build_info_hash'   # returns Torrent::Infohash::Packed
     );
 
-    sub _build_infohash {
+    sub _build_info_hash {
         require Digest::SHA;
         my ($self) = @_;
-        $bdecode_constraint //=
+        $bencode_constraint //=
             Moose::Util::TypeConstraints::find_type_constraint(
-                                                          'NBTypes::Bdecode');
+                                                          'NBTypes::Bencode');
         return Digest::SHA::sha1(
-                      $bdecode_constraint->coerce($self->metadata->{'info'}));
+                      $bencode_constraint->coerce($self->metadata->{'info'}));
     }
     has 'piece_count' => (is         => 'ro',
                           isa        => 'Int',
@@ -209,7 +209,6 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 ? $range
                 : [$range]
             : [0 .. $self->piece_count - 1];
-        my $bitfield = $self->have;
         if (scalar @$range <= $pieces_per_hashcheck) {
             $self->_clear_have();
             for my $index (@$range) {
