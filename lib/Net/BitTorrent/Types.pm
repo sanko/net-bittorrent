@@ -22,15 +22,13 @@ package Net::BitTorrent::Types;
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
-    subtype 'NBTypes::Bencode' => as 'Defined';
+    subtype 'NBTypes::Bencode' => as 'Str';
     subtype 'NBTypes::Bdecode' => as 'Ref';
-
-    coerce 'NBTypes::Bencode'  => from 'NBTypes::Bdecode' =>
-        via {
+    coerce 'NBTypes::Bencode'  => from 'NBTypes::Bdecode' => via {
         require Net::BitTorrent::Protocol::BEP03::Bencode;
         Net::BitTorrent::Protocol::BEP03::Bencode::bencode($_);
-        };
-    coerce  'NBTypes::Bdecode' => from 'NBTypes::Bencode' => via {
+    };
+    coerce 'NBTypes::Bdecode' => from 'NBTypes::Bencode' => via {
         require Net::BitTorrent::Protocol::BEP03::Bencode;
         Net::BitTorrent::Protocol::BEP03::Bencode::bdecode($_);
     };
