@@ -15,24 +15,12 @@ package Net::BitTorrent::Torrent;
             my ($self, $client) = @_;
 
             # XXX - make sure the new client knows who I am
-            $self->_status('Queued');
             warn 'TODO: Start trackers!';
         }
     );
-    has 'status' => (
-        isa => enum(
-                 [qw[Start Stop Paused Queued Forced Hashchecking Standalone]]
-        ),
-        is       => 'ro',
-        default  => 'Standalone',
-        required => 1,
-        init_arg => 'Status',
-        writer   => '_status',
-        trigger  => sub {
-            my ($self, $new_status, $old_status) = @_;
-            warn sprintf 'New status: %s (old status was %s)', $new_status,
-                $old_status || 'undefined';
-        }
+    has 'error' => (is       => 'rw',
+                    isa      => 'Str',
+                    init_arg => undef
     );
     has 'storage' => (is         => 'ro',
                       required   => 1,
