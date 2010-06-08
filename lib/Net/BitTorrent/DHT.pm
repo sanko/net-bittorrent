@@ -159,15 +159,14 @@ package Net::BitTorrent::DHT;
     }
 
     #
+    my $onesixty_constraint;
+
     sub get_peers {
         my ($self, $infohash, $code) = @_;
-        if (!blessed $infohash) {
-            require Bit::Vector;
-            $infohash =
-                Bit::Vector->new_Hex(160,
-                        $infohash =~ m[^[a-f\d]+$]i ? $infohash : unpack 'H*',
-                        $infohash);
-        }
+        $onesixty_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                                      'NBTypes::DHT::NodeID');
+        $infohash = $onesixty_constraint->coerce($infohash);
         require Scalar::Util;
         Scalar::Util::weaken $self;
         my $quest = [
@@ -195,13 +194,10 @@ package Net::BitTorrent::DHT;
 
     sub announce_peer {
         my ($self, $infohash, $port, $code) = @_;
-        if (!blessed $infohash) {
-            require Bit::Vector;
-            $infohash =
-                Bit::Vector->new_Hex(160,
-                        $infohash =~ m[^[a-f\d]+$]i ? $infohash : unpack 'H*',
-                        $infohash);
-        }
+        $onesixty_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                                      'NBTypes::DHT::NodeID');
+        $infohash = $onesixty_constraint->coerce($infohash);
         require Scalar::Util;
         Scalar::Util::weaken $self;
         my $quest = [
@@ -229,13 +225,10 @@ package Net::BitTorrent::DHT;
 
     sub find_node {
         my ($self, $target, $code) = @_;
-        if (!blessed $target) {
-            require Bit::Vector;
-            $target =
-                Bit::Vector->new_Hex(160,
-                            $target =~ m[^[a-f\d]+$]i ? $target : unpack 'H*',
-                            $target);
-        }
+        $onesixty_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                                      'NBTypes::DHT::NodeID');
+        $target = $onesixty_constraint->coerce($target);
         require Scalar::Util;
         Scalar::Util::weaken $self;
         my $quest = [
@@ -465,36 +458,33 @@ package Net::BitTorrent::DHT;
             }
             elsif ($type eq 'get_peers'
                    && defined $packet->{'a'}{'info_hash'})
-            {   require Bit::Vector;
+            {   $onesixty_constraint //=
+                    Moose::Util::TypeConstraints::find_type_constraint(
+                                                      'NBTypes::DHT::NodeID');
                 return
-                    $node->_reply_get_peers(
-                             $packet->{'t'},
-                             Bit::Vector->new_Hex(
-                                 160, unpack 'H*', $packet->{'a'}{'info_hash'}
-                             )
+                    $node->_reply_get_peers($packet->{'t'},
+                     $onesixty_constraint->coerce($packet->{'a'}{'info_hash'})
                     );
             }
             elsif ($type eq 'find_node'
                    && defined $packet->{'a'}{'target'})
-            {   require Bit::Vector;
+            {   $onesixty_constraint //=
+                    Moose::Util::TypeConstraints::find_type_constraint(
+                                                      'NBTypes::DHT::NodeID');
                 return
-                    $node->_reply_find_node(
-                                $packet->{'t'},
-                                Bit::Vector->new_Hex(
-                                    160, unpack 'H*', $packet->{'a'}{'target'}
-                                )
-                    );
+                    $node->_reply_find_node($packet->{'t'},
+                      $onesixty_constraint->coerce($packet->{'a'}{'target'}));
             }
             elsif ($type eq 'announce_peer'
                    && defined $packet->{'a'}{'info_hash'})
-            {   require Bit::Vector;
+            {   $onesixty_constraint //=
+                    Moose::Util::TypeConstraints::find_type_constraint(
+                                                      'NBTypes::DHT::NodeID');
                 return
                     $node->_reply_announce_peer(
-                             $packet->{'t'},
-                             Bit::Vector->new_Hex(
-                                 160, unpack 'H*', $packet->{'a'}{'info_hash'}
-                             ),
-                             $packet->{'a'},
+                    $packet->{'t'},
+                    $onesixty_constraint->coerce($packet->{'a'}{'info_hash'}),
+                    $packet->{'a'},
                     );
             }
             else {
