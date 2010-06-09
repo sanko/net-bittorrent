@@ -95,11 +95,8 @@ package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
                                 $code->($bdecode_constraint->coerce($content)) if $code;
                             }
                         }
-                    );
-                },
-                sub { warn 'ready!'; shift; warn join ':', @_; }
-            );
-        return [\%query_hash, $code, [], $http];
+        $query = [\%query_hash, $code, [], $http];
+        return $query;
     }
     1;
 }
