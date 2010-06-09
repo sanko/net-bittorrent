@@ -7,7 +7,7 @@ package Net::BitTorrent::Storage::Cache;
     extends 'Net::BitTorrent::Storage::Node';
     has 'packets' => (traits  => ['Hash'],
                       is      => 'ro',
-                      isa     => 'HashRef[Torrent::Cache::Packet]',
+                      isa     => 'HashRef[NBTypes::Cache::Packet]',
                       default => sub { {} },
                       handles => {_add_packet => 'set',
                                   _get_packet => 'get',
