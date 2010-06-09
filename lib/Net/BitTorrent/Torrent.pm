@@ -56,6 +56,10 @@ package Net::BitTorrent::Torrent;
     sub left {
         my ($self) = @_;
         require List::Util;
+        return $self->piece_length
+            * List::Util::sum(
+                            split('', unpack('b*', ($self->wanted() || ''))));
+    }
     # Quick methods
     my $pieces_per_hashcheck = 10;    # Max block of pieces in single call
 
@@ -96,10 +100,10 @@ package Net::BitTorrent::Torrent;
             shift @watchers;
         }
         return 1;
-        return $self->piece_length * List::Util::sum( split('', unpack( 'b*', ($self->wanted() || '') ) )  )
     }
 
 
+    #
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable
