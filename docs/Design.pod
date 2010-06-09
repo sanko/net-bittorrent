@@ -13,10 +13,10 @@ Blah. Blah. Blah. Initial design spec. Blah. Middle of the night. Yadda.
 My overall goal is to have something like this:
 
   use Net::BitTorrent;
-  my $client = Net::BitTorrent->new(
-      port         => [6881..6890],
-      on_hash_pass => sub { ... },
-      on_hash_fail => sub { ... },
+  my $client = Net::BitTorrent->new( port => [6881..6890] );
+  my %callbacks = (
+    hash_pass => $client->on_hash_pass( sub { ... } ),
+    hash_fail => $client->on_hash_fail( sub { ... } )
   );
   $client->add_torrent( path => 'a/legal.torrent' );
   $client->run(); # Simple wrapper around AnyEvent->condvar->recv;
