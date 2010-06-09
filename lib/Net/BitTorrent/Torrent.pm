@@ -22,6 +22,14 @@ package Net::BitTorrent::Torrent;
             $self->start; # ??? - Should this be automatic?
         }
     );
+
+
+    has 'quests' => (is      => 'ro',
+                     isa     => 'ArrayRef[ArrayRef]',
+                     traits  => ['Array'],
+                     handles => {add_quest => 'push', clear_quests => 'clear' },
+                     default => sub { [] }
+    );
     has 'error' => (is       => 'rw',
                     isa      => 'Str',
                     init_arg => undef
