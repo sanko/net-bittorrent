@@ -2,6 +2,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
+    use AnyEvent;
     use Carp qw[carp];
     use List::Util qw[shuffle];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
@@ -33,18 +34,31 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
         $self->_shuffle_tiers;
     }
 
-    has 'quests' => (
-        isa => 'ArrayRef',
-        is => 'ro',
-        traits => ['Array'],
-        default => sub {[]},
-        handles => {
-            'add_quest' => 'push'
-        }
-    );
+    #
+    for my $type (qw[announce scrape]) {
+        has "_${type}_quests" => (isa      => 'ArrayRef[Ref]',
+                                  is       => 'ro',
+                                  init_arg => undef,
+                                  traits   => ['Array'],
+                                  handles  => {
+                                              "add_${type}_quest" => 'push',
+                                              "${type}_quests" => 'elements',
+                                              "get_${type}_quest"   => 'get',
+                                              "grep_${type}_quests" => 'grep',
+                                              "map_${type}_quests"  => 'map'
+                                  },
+                                  default => sub { [] }
+        );
+        after "add_${type}_quest" => sub {
+            require Scalar::Util;
+            Scalar::Util::weaken $_[0]->{"_${type}_quests"}->[-1];
+        };
+    }
 
     sub announce {
-        my ($self, $event) = @_;
+        my ($self, $event, $code) = @_;
+        require Scalar::Util;
+        Scalar::Util::weaken $self;
         my %args = (info_hash  => $self->torrent->info_hash->to_Hex,
                     peer_id    => $self->client->peer_id,
                     port       => $self->client->port,
@@ -53,15 +67,65 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
                     left       => $self->torrent->left
         );
         $args{'info_hash'} =~ s|(..)|\%$1|g;
-        $self->add_quest($_->[0]->announce($event, \%args, sub {
-            use Data::Dump;
-            ddx \@_;
-        } )) for @{$self->tiers};
+        my $quest;
+        $quest = [
+            $event, $code,
+            [],
+            AE::timer(
+                0,
+                15 * 60,
+                sub {
+                    return if !$self;
+                    #return if !$self-active;
+                    for my $tier (@{$self->tiers}) {
+                        $tier->[0]->announce(
+                            $event,
+                            \%args,
+                            sub {
+                                my ($announce) = @_;
+                                use Data::Dump;
+                                ddx \@_;
+                                ddx $quest;
+                                {
+                                    my %seen = ();
+                                    @{$quest->[2]}
+                                        = grep { !$seen{$_->[0]}{$_->[1]}++ }
+                                        @{$quest->[2]},
+                                        @{$announce->{'peers'}};
+                                }
+                            }
+                        );
+                    }
+                    $event = undef if $event;
+                }
+            )
+        ];
+        $self->add_announce_quest($quest);
+        return $quest;
     }
 
     sub scrape {
-        my ($self) = @_;
-        $_->[0]->scrape() for @{$self->tiers};
+        my ($self, $code) = @_;
+        require Scalar::Util;
+        Scalar::Util::weaken $self;
+        my %args = (info_hash => $self->torrent->info_hash->to_Hex);
+        $args{'info_hash'} =~ s|(..)|\%$1|g;
+        my $quest = [
+            0, $code,
+            [],
+            AE::timer(
+                0,
+                15 * 60,
+                sub {
+                    return if !$self;
+                    for my $tier (@{$self->tiers}) {
+                        $tier->[0]->scrape(\%args, $code);
+                    }
+                }
+            )
+        ];
+        $self->add_scrape_quest($quest);
+        return $quest;
     }
 }
 1;
