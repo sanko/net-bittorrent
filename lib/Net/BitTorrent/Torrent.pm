@@ -30,6 +30,23 @@ package Net::BitTorrent::Torrent;
                      handles => {add_quest => 'push', clear_quests => 'clear' },
                      default => sub { [] }
     );
+    has '_peers' => (
+        is      => 'HashRef[Net::BitTorrent::Peer]',    # by peerID
+        is      => 'ro',
+        traits  => ['Hash'],
+        handles => {
+               peer        => 'get',
+               add_peer    => 'set',
+               del_peer    => 'delete',
+               peer_ids    => 'keys',
+               has_peer    => 'defined',
+               peers       => 'values',
+               clear_peers      => 'clear',                     # removes all peers
+               count_peers => 'count',
+               no_peers    => 'is_empty'
+        },
+        default => sub { {} }
+    );
     has 'error' => (is       => 'rw',
                     isa      => 'Str',
                     init_arg => undef
