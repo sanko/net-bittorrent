@@ -155,47 +155,6 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     sub pieces       { return shift->metadata->{'info'}{'pieces'} }
     sub private {0}    # overridden by BEP27::Private::Metadata
 
-    # Quick methods
-    my $pieces_per_hashcheck = 10;    # Max block of pieces in single call
-
-    sub hashcheck {    # Range is split up into $pieces_per_hashcheck blocks
-        my ($self, $range) = @_;
-        $range
-            = defined $range
-            ? ref $range
-                ? $range
-                : [$range]
-            : [0 .. $self->piece_count - 1];
-        if (scalar @$range <= $pieces_per_hashcheck) {
-            $self->_clear_have();
-            for my $index (@$range) {
-                my $piece = $self->read($index);
-                next if !$piece || !$$piece;
-                require Digest::SHA;
-                $self->have->Bit_On($index)
-                    if Digest::SHA::sha1($$piece) eq
-                        substr($self->pieces, ($index * 20), 20);
-            }
-        }
-        else {
-            my $cv = AnyEvent->condvar;
-            $cv->begin;
-            my (@watchers, @ranges, @this_range, $coderef);
-            push @ranges, [splice(@$range, 0, $pieces_per_hashcheck, ())]
-                while @$range;
-            $coderef = sub {
-                shift @watchers if @watchers;
-                @this_range = shift @ranges;
-                $self->hashcheck(@this_range);
-                push @watchers,
-                    AE::idle(@ranges ? $coderef : sub { $cv->end });
-            };
-            push @watchers, AE::idle($coderef);
-            $cv->recv;
-            shift @watchers;
-        }
-        return 1;
-    }
 }
 1;
 
