@@ -19,7 +19,7 @@ package Net::BitTorrent::Torrent;
             # XXX - make sure the new client knows who I am
             #$self->queue;
             warn 'TODO: Start trackers!';
-            $self->tracker->announce('start');
+            $self->start; # ??? - Should this be automatic?
         }
     );
     has 'error' => (is       => 'rw',
@@ -60,6 +60,21 @@ package Net::BitTorrent::Torrent;
             * List::Util::sum(
                             split('', unpack('b*', ($self->wanted() || ''))));
     }
+    # Actions
+
+    sub start {
+        my ($self) = @_;
+        return if !$self->client;
+        my $quest;
+            $quest = $self->tracker->announce('start', sub {...});
+            $self->add_quest($quest);
+    }
+    sub stop  {
+        my ($self) = @_;
+        $self->clear_quests;
+        $self->clear_peers;
+    }
+
     # Quick methods
     my $pieces_per_hashcheck = 10;    # Max block of pieces in single call
 
