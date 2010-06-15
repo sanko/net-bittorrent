@@ -1,13 +1,13 @@
 package Net::BitTorrent;
 {
+    use 5.010;
     use Moose;
     use Moose::Util::TypeConstraints;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use AnyEvent;
     use lib '../../lib';
     use Net::BitTorrent::Types qw[:client];
-
-    sub BUILD{1}
+    sub BUILD {1}
 
     #
     sub timer { shift; AnyEvent->timer(@_) }
@@ -48,18 +48,18 @@ package Net::BitTorrent;
                        default => sub { [] },
                        coerce  => 1,
                        handles => {
-                                  add_torrent     => 'push',
-                                  clear_torrents  => 'clear',
-                                  count_torrents  => 'count',
-                                  filter_torrents => 'grep',
-                                  find_torrent    => 'first',
-                                  has_torrents    => 'count',
-                                  info_hashes => ['map', sub { $_->info_hash }],
-                                  map_torrents     => 'map',
-                                  no_torrents      => 'is_empty',
-                                  shuffle_torrents => 'shuffle',
-                                  sort_torrents    => 'sort',
-                                  torrent          => 'get',
+                                add_torrent     => 'push',
+                                clear_torrents  => 'clear',
+                                count_torrents  => 'count',
+                                filter_torrents => 'grep',
+                                find_torrent    => 'first',
+                                has_torrents    => 'count',
+                                info_hashes => ['map', sub { $_->info_hash }],
+                                map_torrents     => 'map',
+                                no_torrents      => 'is_empty',
+                                shuffle_torrents => 'shuffle',
+                                sort_torrents    => 'sort',
+                                torrent          => 'get',
                        }
     );
     around 'add_torrent' => sub {
@@ -75,47 +75,35 @@ package Net::BitTorrent;
             && $code->($self, $torrent)
             && $torrent->client($self);
     };
-
     my $infohash_constraint;
     around 'torrent' => sub {
         my ($code, $self, $index) = @_;
         my $torrent;
         {
             $infohash_constraint //=
-            Moose::Util::TypeConstraints::find_type_constraint(
-            'NBTypes::Torrent::Infohash');
+                Moose::Util::TypeConstraints::find_type_constraint(
+                                                'NBTypes::Torrent::Infohash');
             my $infohash = $infohash_constraint->coerce($index);
-            $torrent = $self->find_torrent(sub {
-                $_->info_hash->Lexicompare($infohash) == 0;});
+            $torrent = $self->find_torrent(
+                sub {
+                    $_->info_hash->Lexicompare($infohash) == 0;
+                }
+            );
         }
         $torrent = $code->($self, $index)
             if !defined $torrent && $index =~ m[^\d$];
         return $torrent;
     };
 
-    #
-    has 'trackers' => (
-        is       => 'ro',
-        traits   => ['Hash'],
-        isa      => 'HashRef[Net::BitTorrent::Protocol::BEP03::Tracker]',
-        weak_ref => 1,
-        default => sub {{}},
-        #handles => {
-        #    _add_tracker => ''
-        #}
-    );
-
     # DHT (requires udp attribute)
-    has 'dht' => (
-        is => 'ro',
-        isa => 'Net::BitTorrent::DHT',
-        lazy_build => 1
+    has 'dht' => (is         => 'ro',
+                  isa        => 'Net::BitTorrent::DHT',
+                  lazy_build => 1
     );
 
     sub _build_dht {
-        use Data::Dump;
-        ddx \@_;
-        Net::BitTorrent::DHT->new( client => shift )
+        require Net::BitTorrent::DHT;
+        Net::BitTorrent::DHT->new(client => shift);
     }
 
     # Sockets
