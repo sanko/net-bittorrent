@@ -155,10 +155,12 @@ package Net::BitTorrent;
         my ($self) = @_;
         require Net::BitTorrent::Network::TCP;
         Net::BitTorrent::Network::TCP->new(
-                                  port       => $self->port,
-                                  on_data_in => sub { $self->_on_tcp_in( @_) }
+                        port            => $self->port,
+                        ipv4_on_data_in => sub { $self->_ipv4_on_tcp_in(@_) },
+                        ipv6_on_data_in => sub { $self->_ipv6_on_tcp_in(@_) }
         );
     }
+    after 'BUILD' => sub { shift->tcp };
     has 'handles' => (
         is      => 'HashRef[AnyEvent::Handle]',    # by creation id
         is      => 'ro',
@@ -181,7 +183,59 @@ package Net::BitTorrent;
     };
     sub hid { state $hid = 'a'; $hid++ }    # handleID generator
 
-    sub _on_tcp_in { die }
+    sub _ipv4_on_tcp_in {
+        my ($self, $tcp, $sock, $peer, $paddr, $host, $port) = @_;
+        require AnyEvent::Handle::Throttle;
+        my $handle = AnyEvent::Handle::Throttle->new(
+            fh       => $peer,
+            on_error => sub {
+                warn "error $_[2]\n";
+                ...;
+                $_[0]->destroy;
+            },
+            on_eof => sub {
+                $self->handle->destroy;    # destroy handle
+                warn "done.\n";
+                ...;
+            },
+            on_prepare => sub { $self->set_connecting; 15 },    # timeout
+            on_connect =>
+                sub { my ($handle, $host, $port, $retry) = @_; ... },
+            on_connect_error =>
+                sub { my ($handle, $message) = @_; die $message },
+            on_error => sub {
+                my ($handle, $fatal, $message) = @_;
+                warn sprintf '%s%s', $fatal ? '[fatal] ' : '', $message;
+            },
+            on_read => sub {
+                my ($handle) = @_;
+                require Net::BitTorrent::Peer;
+                my $new_peer = # NBPeer gets first shot
+                    Net::BitTorrent::Peer->new(host   => $host,
+                                               port   => $port,
+                                               source => 'incoming',
+                                               handle => $handle
+                    );
+                return 1 if $new_peer;
+            },
+            on_eof => sub { my ($handle) = @_; ... },
+            on_drain => sub { my ($handle) = @_; },
+            rtimeout => 60 * 5,
+            wtimeout => 60 * 10,
+            on_timeout => sub { my ($handle) = @_; ... },
+            read_size  => 1024 * 16,
+            cid        => $self->hid
+        );
+        return $self->add_handle($handle);
+    }
+
+    sub _ipv6_on_tcp_in {
+        my ($self, $tcp, $peer, $paddr, $host, $port) = @_;
+
+        #use Data::Dump;
+        #ddx \@_;
+        #...;
+    }
 }
 1;
 
