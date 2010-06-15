@@ -25,6 +25,7 @@ my $mb = $class->new(
       requires      => {
                    'AnyEvent'                   => 0,
                    'AnyEvent::Handle::Throttle' => 0,
+                   'Bit::Vector'                => 0,
                    'Moose'                      => 0,
                    'Digest::SHA'                => 5.45,
                    'Exporter'                   => 0,
@@ -37,9 +38,10 @@ my $mb = $class->new(
                    'Test::More'                 => 0.80,
       },
       build_requires => {'Module::Build' => 0.30,
-                         'Test::More'    => 0.80
+                         'Test::More'    => 0.80,
+                         'perl'          => '5.10.0',
       },
-      recommends => {'perl' => '5.12.0',},
+      recommends => {'perl' => '5.12.0'},
       test_files => \@tests,
       meta_merge => {
           generated_by => 'Conversion, software version 7.0',
