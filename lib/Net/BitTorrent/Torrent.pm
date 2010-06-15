@@ -12,7 +12,6 @@ package Net::BitTorrent::Torrent;
         isa      => 'Maybe[Net::BitTorrent]',
         is       => 'rw',
         weak_ref => 1,
-        init_arg => 'Client',
         trigger  => sub {
             my ($self, $client) = @_;
 

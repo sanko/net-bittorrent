@@ -10,7 +10,6 @@ package Net::BitTorrent::Storage::Node;
     has 'path' => (is       => 'rw',
                    isa      => 'ArrayRef[Str]',
                    required => 1,
-                   init_arg => 'Path',
                    trigger  => sub { $_[0]->close },
                    traits   => ['Array'],
                    handles  => {

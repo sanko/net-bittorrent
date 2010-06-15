@@ -16,31 +16,29 @@ package Net::BitTorrent::Storage;
 
     sub _build_cache {
         Net::BitTorrent::Storage::Cache->new(
-               Storage => $_[0],
-               Path => ['~' . substr($_[0]->torrent->info_hash->to_Hex, 0, 7) . '.dat']
+            storage => $_[0],
+            path    => [
+                '~' . substr($_[0]->torrent->info_hash->to_Hex, 0, 7) . '.dat'
+            ]
         );
     }
     has 'torrent' => (is       => 'rw',
                       required => 1,
                       isa      => 'Net::BitTorrent::Torrent',
-                      init_arg => 'Torrent'
     );
-    has 'files' => (is       => 'rw',
-                    isa      => 'NBTypes::Files',
-                    init_arg => 'Files',
-                    coerce   => 1,
-                    traits   => ['Array'],
-                    handles  => {
-                                _count    => 'count',
+    has 'files' => (is      => 'rw',
+                    isa     => 'NBTypes::Files',
+                    coerce  => 1,
+                    traits  => ['Array'],
+                    handles => {_count    => 'count',
                                 _add_file => 'push',
                                 _file     => 'get'
                     },
     );
-    has 'root' => (
-        is       => 'rw',
-        isa      => 'Str',
-        init_arg => 'Root',    # ??? - Should this be BaseDir/basedir
-        trigger  => sub {
+    has 'root' => (    # ??? - Should this be BaseDir/basedir
+        is      => 'rw',
+        isa     => 'Str',
+        trigger => sub {
             my ($self, $new_root, $old_root) = @_;
             if ($self->_count) {
                 for my $file (@{$self->files}, $self->cache) {

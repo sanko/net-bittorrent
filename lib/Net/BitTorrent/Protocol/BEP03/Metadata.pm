@@ -79,7 +79,6 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         is       => 'ro',
         isa      => 'Str',
         required => 1,
-        init_arg => 'Path',
         trigger  => sub {
             my ($self, $new_value, $old_value) = @_;
             if (@_ == 2) {

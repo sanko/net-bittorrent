@@ -92,10 +92,10 @@ package Net::BitTorrent::Types;
         [map {
              my $obj =
                  Net::BitTorrent::Storage::File->new(
-                                           Index  => $index++,
-                                           Length => $_->{'length'},
-                                           Offset => $offset,
-                                           Path => [grep {$_} @{$_->{'path'}}]
+                                           index  => $index++,
+                                           length => $_->{'length'},
+                                           offset => $offset,
+                                           path => [grep {$_} @{$_->{'path'}}]
                  );
              $offset += $_->{'length'};
              $obj
@@ -104,8 +104,8 @@ package Net::BitTorrent::Types;
     };
     coerce 'NBTypes::Files' => from 'HashRef' => via {
         require Net::BitTorrent::Storage::File;
-        [Net::BitTorrent::Storage::File->new(Length => $_->{'length'},
-                                             Path   => $_->{'path'}
+        [Net::BitTorrent::Storage::File->new(length => $_->{'length'},
+                                             path   => $_->{'path'}
          )
         ];
     };

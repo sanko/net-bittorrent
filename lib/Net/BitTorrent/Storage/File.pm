@@ -6,24 +6,20 @@ package Net::BitTorrent::Storage::File;
     extends 'Net::BitTorrent::Storage::Node';
     has 'index' => (is       => 'ro',
                     isa      => 'Maybe[Int]',
-                    required => 1,
-                    init_arg => 'Index'
-    );
+                    required => 1
+     );
     has 'length' => (is       => 'ro',
                      isa      => 'Int',
-                     required => 1,
-                     init_arg => 'Length'
-    );
+                     required => 1
+     );
     has 'offset' => (is       => 'ro',
                      isa      => 'Int',
-                     default  => 0,
-                     init_arg => 'Offset'
-    );
+                     default  => 0
+     );
     has 'priority' => (is       => 'rw',
                        isa      => subtype(as 'Int' => as enum([0 .. 3])),
-                       default  => 2,
-                       init_arg => 'Priority'
-    );
+                       default  => 2
+     );
     around 'read' => sub ($;$$) {
         my ($code, $self, $offset, $length) = @_;
         $offset //= 0;
