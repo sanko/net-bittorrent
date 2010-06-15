@@ -9,28 +9,33 @@ package Net::BitTorrent::Torrent;
     # Meat
     use lib '../../';
     has 'client' => (
-        isa      => 'Maybe[Net::BitTorrent]',
-        is       => 'rw',
-        weak_ref => 1,
-        trigger  => sub {
+        isa       => 'Maybe[Net::BitTorrent]',
+        is        => 'rw',
+        weak_ref  => 1,
+        predicate => 'has_client',
+        handles   => [qw[dht]],
+        trigger   => sub {
             my ($self, $client) = @_;
 
             # XXX - make sure the new client knows who I am
             #$self->queue;
             warn 'TODO: Start trackers!';
-            $self->start; # ??? - Should this be automatic?
+            $self->start;    # ??? - Should this be automatic?
         }
     );
-
-
     has 'quests' => (is      => 'ro',
-                     isa     => 'ArrayRef[ArrayRef]',
-                     traits  => ['Array'],
-                     handles => {add_quest => 'push', clear_quests => 'clear' },
-                     default => sub { [] }
+                     isa     => 'HashRef[ArrayRef]',
+                     traits  => ['Hash'],
+                     handles => {add_quest    => 'set',
+                                 get_quest    => 'get',
+                                 has_quest    => 'defined',
+                                 delete_quest => 'delete',
+                                 clear_quests => 'clear'
+                     },
+                     default => sub { {} }
     );
     has '_peers' => (
-        is      => 'HashRef[Net::BitTorrent::Peer]',    # by peerID
+        is      => 'HashRef[Net::BitTorrent::Peer]',    # by creation id
         is      => 'ro',
         traits  => ['Hash'],
         handles => {
@@ -40,12 +45,17 @@ package Net::BitTorrent::Torrent;
                peer_ids    => 'keys',
                has_peer    => 'defined',
                peers       => 'values',
-               clear_peers      => 'clear',                     # removes all peers
+               clear_peers => 'clear',                     # removes all peers
                count_peers => 'count',
                no_peers    => 'is_empty'
         },
         default => sub { {} }
     );
+    around [qw[peer add_peer del_peer has_peer]] => sub {
+      my ($code, $self, $arg) = @_;
+      blessed $arg ? $code->( $self, $arg->_id, $arg ) : $code->($self, $arg)
+    };
+
     has 'error' => (is       => 'rw',
                     isa      => 'Str',
                     init_arg => undef
@@ -55,7 +65,6 @@ package Net::BitTorrent::Torrent;
                       isa        => 'Net::BitTorrent::Storage',
                       lazy_build => 1,
                       builder    => '_build_storage',
-                      init_arg   => 'Storage',
                       handles    => {
                                   size => 'size',
                                   read => 'read'
@@ -64,7 +73,7 @@ package Net::BitTorrent::Torrent;
 
     sub _build_storage {
         require Net::BitTorrent::Storage;
-        Net::BitTorrent::Storage->new(Torrent => $_[0]);
+        Net::BitTorrent::Storage->new(torrent => $_[0]);
     }
     for my $direction (qw[up down]) {
         has $direction
@@ -84,8 +93,8 @@ package Net::BitTorrent::Torrent;
             * List::Util::sum(
                             split('', unpack('b*', ($self->wanted() || ''))));
     }
-    # Actions
 
+    # Actions
     sub start {
         my ($self) = @_;
         return if !$self->client;
@@ -140,7 +149,6 @@ package Net::BitTorrent::Torrent;
         }
         return 1;
     }
-
 
     #
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
