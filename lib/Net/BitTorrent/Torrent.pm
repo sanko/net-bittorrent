@@ -118,6 +118,28 @@ package Net::BitTorrent::Torrent;
         $self->clear_peers;
     }
 
+    #
+    sub new_peer {
+        my ($self, $peer) = @_;
+        if ($peer) {...}
+        else {
+            my ($source) = [
+                [$self->get_quest('dht_get_peers'), 'dht'],
+                [$self->get_quest('tracker_announce'), 'tracker']
+            ]->[int rand 2];
+            use Data::Dump;
+            ddx $source;
+            return if !@{$source->[0][2]};
+            my $addr = $source->[0][2]->[int rand @{$source->[0][2]}];
+            require Net::BitTorrent::Peer;
+            $peer = Net::BitTorrent::Peer->new(torrent => $self, host=> $addr->[0], port=> $addr->[1]            , source => $source->[1]
+            );
+        }
+        use Data::Dump;
+        ddx $peer;
+        $self->add_peer($peer);
+    }
+
     # Quick methods
     my $pieces_per_hashcheck = 10;    # Max block of pieces in single call
 
