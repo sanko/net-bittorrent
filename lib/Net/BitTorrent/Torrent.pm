@@ -108,11 +108,13 @@ package Net::BitTorrent::Torrent;
                          $self->dht->announce_peer($self->info_hash, sub {...}
                          )
         );
-        my $quest;
-            $quest = $self->tracker->announce('start', sub {...});
-            $self->add_quest($quest);
+        $self->add_quest('new_peer', AE::timer(0, 3, sub {
+            return if ! $self;
+            $self->new_peer();
+        }));
     }
-    sub stop  {
+
+    sub stop {
         my ($self) = @_;
         $self->clear_quests;
         $self->clear_peers;
