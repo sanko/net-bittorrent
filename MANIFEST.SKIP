@@ -68,7 +68,8 @@
 \bBUILD.COM$
 \bbuild.com$
 ^MANIFEST\.SKIP
-
+^test.pl
+\.out$
 # Avoid archives of this distribution
 \bNet-BitTorrent-[\d\.\_]+
 
@@ -76,7 +77,17 @@
 .+\.tdy$
 \bUntitled\d.+
 ^lib2/.+
-^nytprof
+nytprof
 ^docs/BEP/bep_\d+.rst$
 ^docs/BEP/bep_\d+.pod$
 ^\.git.+
+^~
+
+# Temp/testing stuff
+\bMass
+\.html?
+\.session
+dht_test.pl
+inc/
+Ideas.pod
+docs/Design.pod
