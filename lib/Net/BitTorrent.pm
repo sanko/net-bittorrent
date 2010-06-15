@@ -159,6 +159,27 @@ package Net::BitTorrent;
                                   on_data_in => sub { $self->_on_tcp_in( @_) }
         );
     }
+    has 'handles' => (
+        is      => 'HashRef[AnyEvent::Handle]',    # by creation id
+        is      => 'ro',
+        traits  => ['Hash'],
+        handles => {handle        => 'get',
+                    add_handle    => 'set',
+                    del_handle    => 'delete',
+                    has_handle    => 'defined',
+                    clear_handles => 'clear',
+                    count_handles => 'count',
+                    no_handles    => 'is_empty'
+        },
+        default => sub { {} }
+    );
+    around [qw[handle add_handle del_handle has_handle]] => sub {
+        my ($code, $self, $arg) = @_;
+        blessed $arg
+            ? $code->($self, $arg->{'hid'}, $arg)
+            : $code->($self, $arg);
+    };
+    sub hid { state $hid = 'a'; $hid++ }    # handleID generator
 
     sub _on_tcp_in { die }
 }
