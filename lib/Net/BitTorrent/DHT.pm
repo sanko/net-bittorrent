@@ -291,6 +291,7 @@ package Net::BitTorrent::DHT;
         my $node
             = $self->ipv4_routing_table->find_node_by_sockaddr($sockaddr);
         if (!defined $node) {
+            require Net::BitTorrent::Protocol::BEP05::Node;
             $node =
                 Net::BitTorrent::Protocol::BEP05::Node->new(
                                    host          => $host,
