@@ -38,5 +38,6 @@ META.yml
 t/10000_by_class/130000_net_bittorrent_storage_file.t
 t/10000_by_class/Net/BitTorrent/DHT.t
 t/10000_by_class/Net/BitTorrent/DHT/Standalone.t
+t/10000_by_class/Net/BitTorrent/Storage/File.t
 t/90000_data/95000_torrents/credits.txt
 t/90000_data/95000_torrents/OOo_3.2.0_Win32Intel_install_en-US.exe.torrent
