@@ -134,17 +134,24 @@ package Net::BitTorrent;
         my ($self) = @_;
         require Net::BitTorrent::Network::UDP;
         Net::BitTorrent::Network::UDP->new(
-                                  port       => $self->port,
-                                  on_data_in => sub { $self->_on_udp_in( @_) }
+                        port            => $self->port,
+                        ipv4_on_data_in => sub { $self->_ipv4_on_udp_in(@_) },
+                        ipv6_on_data_in => sub { $self->_ipv6_on_udp_in(@_) }
         );
     }
+    after 'BUILD' => sub { shift->udp };
 
-    sub _on_udp_in {
-        my ($self, $udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
-        use Data::Dump;
-        ddx \@_;
+    sub _ipv4_on_udp_in {
+        my $self = shift;
+        my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
+        $self->dht->_ipv4_on_data_in(@_);
     }
 
+    sub _ipv6_on_udp_in {
+        my $self = shift;
+        my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
+        $self->dht->_ipv6_on_data_in(@_);
+    }
     has 'tcp' => (init_arg   => undef,
                   is         => 'ro',
                   isa        => 'Net::BitTorrent::Network::TCP',
