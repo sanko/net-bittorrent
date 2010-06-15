@@ -70,7 +70,7 @@ package Net::BitTorrent::Network::Utility;
 
     sub client {
         my ($host, $port, $ready, $prepare) = @_;
-        AnyEvent::Socket::tcp_connect($host, $port, $ready, $prepare);
+        &AnyEvent::Socket::tcp_connect;
     }
 
     sub server {
@@ -114,11 +114,12 @@ package Net::BitTorrent::Network::Utility;
                 }
             : sub {
                 while ($socket
-                       && (my $peer = accept my $fh, $socket))
+                       && (my $peer = accept my ($fh), $socket))
                 {   require AnyEvent::Util;
                     AnyEvent::Util::fh_nonblocking $fh, 1;
-                    my ($service, $host) = unpack_sockaddr getsockname $peer;
-                    $callback->($fh, $peer, paddr2ip($host), $service, $peer);
+                    my ($service, $host) = unpack_sockaddr $peer;
+                    $callback->($socket, $fh, $peer, paddr2ip($host), $service
+                    );
                 }
             }
         );
