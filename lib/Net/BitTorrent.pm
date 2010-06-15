@@ -120,10 +120,11 @@ package Net::BitTorrent;
 
     # Sockets
     has 'port' => (is      => 'ro',
-                   default => '0',
-                   isa     => 'Int'
+                   lazy    => 1,
+                   default => 0,
+                   isa     => 'Int',
+                   writer  => '_port'
     );
-
     has 'udp' => (init_arg   => undef,
                   is         => 'ro',
                   isa        => 'Net::BitTorrent::Network::UDP',
