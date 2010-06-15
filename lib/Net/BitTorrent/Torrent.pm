@@ -98,6 +98,12 @@ package Net::BitTorrent::Torrent;
     sub start {
         my ($self) = @_;
         return if !$self->client;
+        $self->add_quest('dht_get_peers',
+                         $self->dht->get_peers($self->info_hash, sub {...}));
+        $self->add_quest('dht_announce_peer',
+                         $self->dht->announce_peer($self->info_hash, sub {...}
+                         )
+        );
         my $quest;
             $quest = $self->tracker->announce('start', sub {...});
             $self->add_quest($quest);
