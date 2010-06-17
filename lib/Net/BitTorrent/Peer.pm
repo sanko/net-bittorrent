@@ -393,7 +393,8 @@ sub ___handle_encrypted_handshake_two {
                 return 1;
             }
         ) if !keys %_packet_dispatch;
-        $_packet_dispatch{$packet->{'type'}}->($self, $packet->{'payload'});
+        $_packet_dispatch{$packet->{'type'}}->($self, $packet->{'payload'})
+            if defined $_packet_dispatch{$packet->{'type'}};
     }
     {    ### Simple plugin system
         my @_plugins;
