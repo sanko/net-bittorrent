@@ -100,11 +100,21 @@ package Net::BitTorrent::Torrent;
         require Scalar::Util;
         Scalar::Util::weaken $self;
         $self->add_quest('tracker_announce',
-                         $self->tracker->announce('start', sub {...}));
+                         $self->tracker->announce(
+                                   'start',
+                                   sub { $self->_dht_tracker_announce_cb(@_) }
+                         )
+        );
         $self->add_quest('dht_get_peers',
-                         $self->dht->get_peers($self->info_hash, sub {...}));
+                         $self->dht->get_peers(
+                                          $self->info_hash,
+                                          sub { $self->_dht_get_peers_cb(@_) }
+                         )
+        );
         $self->add_quest('dht_announce_peer',
-                         $self->dht->announce_peer($self->info_hash, sub {...}
+                         $self->dht->announce_peer(
+                                      $self->info_hash,
+                                      sub { $self->_dht_announce_peer_cb(@_) }
                          )
         );
         $self->add_quest(
@@ -124,6 +134,9 @@ package Net::BitTorrent::Torrent;
         $self->clear_quests;
         $self->clear_peers;
     }
+    sub _tracker_announce_cb  {1}
+    sub _dht_announce_peer_cb {1}
+    sub _dht_get_peers_cb     {1}
 
     #
     sub new_peer {
