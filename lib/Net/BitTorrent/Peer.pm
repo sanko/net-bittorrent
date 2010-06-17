@@ -326,9 +326,9 @@ sub ___handle_encrypted_handshake_two {
                       default  => -1               # Unlimited
         );
     }
-    has 'peer_id' => (isa => subtype(as 'Str' => where { length $_ == 20 }),
-                      is  => 'ro',
-                      writer    => '_peer_id',
+    has 'peer_id' => (isa       => 'NBTypes::Client::PeerID',
+                      is        => 'ro',
+                      writer    => '_set_peer_id',
                       predicate => 'has_peer_id'
     );
     has 'pieces' => (is         => 'ro',
