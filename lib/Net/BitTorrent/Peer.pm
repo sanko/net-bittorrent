@@ -397,13 +397,23 @@ sub ___handle_encrypted_handshake_two {
             }
         ) if !keys %_packet_dispatch;
         $_packet_dispatch{$packet->{'type'}}->($self, $packet->{'payload'});
+    }
+    {    ### Simple plugin system
+        my @_plugins;
 
-        #$_client{refaddr $self}->_event(q[incoming_packet],
-        #                                {Payload => $packet,
-        #                                 Peer    => $self,
-        #                                 Type    => EXTPROTOCOL
-        #                                }
-        #);
+        sub _register_plugin {
+            my $s = shift;
+            return $s->meta->apply(@_) if blessed $s;
+            my %seen = ();
+            return @_plugins = grep { !$seen{$_}++ } @_plugins, @_;
+        }
+        after 'BUILD' => sub {
+            return if !@_plugins;
+            my ($s, $a) = @_;
+            require Moose::Util;
+            Moose::Util::apply_all_roles($s, @_plugins,
+                                         {rebless_params => $a});
+        };
     }
 ###
     sub DEMOLISH {1}
