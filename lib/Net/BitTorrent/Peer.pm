@@ -265,8 +265,10 @@ sub ___handle_encrypted_handshake_two {
                         Moose::Util::TypeConstraints::find_type_constraint(
                                                 'NBTypes::Torrent::Infohash');
                     $info_hash = $infohash_constraint->coerce($info_hash);
+                    return $self->disconnect('Bad info_hash')
+                        if $info_hash->Compare($self->torrent->info_hash)
+                            != 0;
                     warn $reserved;
-                    warn $info_hash->to_Hex;
                     warn $peerid;
                 }
                 else {
