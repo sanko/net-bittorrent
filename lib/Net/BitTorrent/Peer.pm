@@ -268,8 +268,9 @@ sub ___handle_encrypted_handshake_two {
                     return $self->disconnect('Bad info_hash')
                         if $info_hash->Compare($self->torrent->info_hash)
                             != 0;
+                    $self->_set_support_extensions(
+                                         ord(substr($reserved, 5, 1)) & 0x10);
                     $self->_set_peer_id($peer_id);
-                    warn $reserved;
                 }
                 else {
 
@@ -459,7 +460,7 @@ The peer has choked us.
 
 =head2 Net::BitTorrent::Peer->support_extensions( )
 
-means that this peer supports the extension protocol.
+Means that this peer supports the extension protocol.
 
 =head2 Net::BitTorrent::Peer->local_connection( )
 
