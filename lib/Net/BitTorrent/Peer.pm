@@ -83,7 +83,7 @@ package Net::BitTorrent::Peer;
                 warn 'TODO: Read handshake from incoming peers';
             }
             else {                                                  # outgoing
-                $self->set_local_connection;
+                $self->_set_local_connection;
             }
 
             # read the initial handshake/first packet
@@ -179,10 +179,10 @@ sub ___handle_encrypted_handshake_two {
                       default   => 0,
                       predicate => 'is_' . $flag,
                       handles   => {
-                                  'set_' . $flag    => 'set',
-                                  'unset_' . $flag  => 'unset',
-                                  'toggle_' . $flag => 'toggle',
-                                  'is_not_' . $flag => 'not'
+                                  '_set_' . $flag    => 'set',
+                                  '_unset_' . $flag  => 'unset',
+                                  '_toggle_' . $flag => 'toggle',
+                                  'is_not_' . $flag  => 'not'
                       }
         );
     }
