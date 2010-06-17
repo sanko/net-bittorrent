@@ -171,11 +171,15 @@ package Net::BitTorrent;
         },
         default => sub { {} }
     );
-    around [qw[handle add_handle del_handle has_handle]] => sub {
-        my ($code, $self, $arg) = @_;
-        blessed $arg
-            ? $code->($self, $arg->{'hid'}, $arg)
-            : $code->($self, $arg);
+    around [qw[handle del_handle has_handle]] => sub {
+        my ($code, $self, $handle) = @_;
+        blessed $handle
+            ? $code->($self, $handle->{'hid'})
+            : $code->($self, $handle);
+    };
+    around 'add_handle' => sub {
+        my ($code, $self, $handle) = @_;
+        $code->($self, $handle->{'hid'}, $handle);
     };
     sub hid { state $hid = 'a'; $hid++ }    # handleID generator
 
@@ -220,7 +224,7 @@ package Net::BitTorrent;
             wtimeout => 60 * 10,
             on_timeout => sub { my ($handle) = @_; ... },
             read_size  => 1024 * 16,
-            cid        => $self->hid
+            hid        => $self->hid
         );
         return $self->add_handle($handle);
     }
