@@ -268,8 +268,8 @@ sub ___handle_encrypted_handshake_two {
                     return $self->disconnect('Bad info_hash')
                         if $info_hash->Compare($self->torrent->info_hash)
                             != 0;
+                    $self->_set_peer_id($peer_id);
                     warn $reserved;
-                    warn $peerid;
                 }
                 else {
 
