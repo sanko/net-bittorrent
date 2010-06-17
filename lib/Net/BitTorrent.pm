@@ -184,7 +184,7 @@ package Net::BitTorrent;
     sub hid { state $hid = 'a'; $hid++ }    # handleID generator
 
     sub _ipv4_on_tcp_in {
-        my ($self, $tcp, $sock, $peer, $paddr, $host, $port) = @_;
+        my ($self, $tcp, $peer, $paddr, $host, $port) = @_;
         require AnyEvent::Handle::Throttle;
         my $handle = AnyEvent::Handle::Throttle->new(
             fh       => $peer,

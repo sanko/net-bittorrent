@@ -134,8 +134,7 @@ package Net::BitTorrent::Torrent;
             return if !@{$source->[0][2]};
             my $addr = $source->[0][2]->[int rand @{$source->[0][2]}];
             require Net::BitTorrent::Peer;
-            $peer = Net::BitTorrent::Peer->new(torrent => $self, host=> $addr->[0], port=> $addr->[1]            , source => $source->[1]
-            );
+            $peer = Net::BitTorrent::Peer->new(torrent => $self, connect => $addr, source => $source->[1]);
         }
         use Data::Dump;
         ddx $peer;
