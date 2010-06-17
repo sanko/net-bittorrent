@@ -5,6 +5,7 @@ package Net::BitTorrent::Peer;
     use 5.010;
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
+    use Net::BitTorrent::Protocol::BEP03::Packets qw[parse_packet :types];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
@@ -223,15 +224,8 @@ sub ___handle_encrypted_handshake_two {
             },
             on_read => sub {
                 my ($h) = @_;
-                require Net::BitTorrent::Protocol::BEP03::Packets;
-            PACKET:
-                while (
-                      my $packet =
-                      Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
-                                                                     \$h->rbuf
-                      )
-                    )
-                {   $self->_handle_packet($packet);
+            PACKET: while ( my $packet = parse_packet( \$h->rbuf ) ) {
+                    $self->_handle_packet($packet);
                     last PACKET if !$h->rbuf;
                 }
             },
@@ -373,11 +367,11 @@ sub ___handle_encrypted_handshake_two {
         use Data::Dump;
         ddx $packet;
         %_packet_dispatch = (
-            5 => sub {    # Bitfield
+            BITFIELD => sub {    # 5
                 my ($s, $bitfield) = @_;
                 return $s->_set_pieces($bitfield);
             },
-            20 => sub {    # Ext. protocol packet
+            EXTPROTOCOL => sub {    # 20
                 my ($s, $pid, $p) = @_;
                 if ($pid == 0) {    # Setup/handshake
                     if (defined $packet->{'p'} && $self->client->has_dht) {
