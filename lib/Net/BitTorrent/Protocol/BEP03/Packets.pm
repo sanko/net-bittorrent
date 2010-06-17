@@ -78,162 +78,162 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
             $reserved, $info_hash_constraint->coerce($infohash)->to_Hex,
             $peerid;
     }
-    sub build_keepalive ()      { return pack(q[N],  0); }
-    sub build_choke ()          { return pack(q[Nc], 1, 0); }
-    sub build_unchoke ()        { return pack(q[Nc], 1, 1); }
-    sub build_interested ()     { return pack(q[Nc], 1, 2); }
-    sub build_not_interested () { return pack(q[Nc], 1, 3); }
+    sub build_keepalive ()      { return pack('N',  0); }
+    sub build_choke ()          { return pack('Nc', 1, 0); }
+    sub build_unchoke ()        { return pack('Nc', 1, 1); }
+    sub build_interested ()     { return pack('Nc', 1, 2); }
+    sub build_not_interested () { return pack('Nc', 1, 3); }
 
     sub build_have ($) {
         my ($index) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_have() requires an integer index parameter];
+                'Net::BitTorrent::Protocol::build_have() requires an integer index parameter';
             return;
         }
-        return pack(q[NcN], 5, 4, $index);
+        return pack('NcN', 5, 4, $index);
     }
 
     sub build_bitfield ($) {
         my ($bitfield) = @_;
-        if ((!$bitfield) || (unpack(q[b*], $bitfield) !~ m[^[01]+$])) {
+        if ((!$bitfield) || (unpack('b*', $bitfield) !~ m[^[01]+$])) {
             carp
-                q[Malformed bitfield passed to Net::BitTorrent::Protocol::build_bitfield()];
+                'Malformed bitfield passed to Net::BitTorrent::Protocol::build_bitfield()';
             return;
         }
-        return pack(q[Nca*], (length($bitfield) + 1), 5, $bitfield);
+        return pack('Nca*', (length($bitfield) + 1), 5, $bitfield);
     }
 
     sub build_request ($$$) {
         my ($index, $offset, $length) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_request() requires an integer index parameter];
+                'Net::BitTorrent::Protocol::build_request() requires an integer index parameter';
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_request() requires an offset parameter];
+                'Net::BitTorrent::Protocol::build_request() requires an offset parameter';
             return;
         }
         if ((!defined $length) || ($length !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_request() requires an length parameter];
+                'Net::BitTorrent::Protocol::build_request() requires an length parameter';
             return;
         }
-        my $packed = pack(q[NNN], $index, $offset, $length);
-        return pack(q[Nca*], length($packed) + 1, 6, $packed);
+        my $packed = pack('NNN', $index, $offset, $length);
+        return pack('Nca*', length($packed) + 1, 6, $packed);
     }
 
     sub build_piece ($$$) {
         my ($index, $offset, $data) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_piece() requires an index parameter];
+                'Net::BitTorrent::Protocol::build_piece() requires an index parameter';
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_piece() requires an offset parameter];
+                'Net::BitTorrent::Protocol::build_piece() requires an offset parameter';
             return;
         }
         if (!$data or !$$data) {
             carp
-                q[Net::BitTorrent::Protocol::build_piece() requires data to work with];
+                'Net::BitTorrent::Protocol::build_piece() requires data to work with';
             return;
         }
-        my $packed = pack(q[N2a*], $index, $offset, $$data);
-        return pack(q[Nca*], length($packed) + 1, 7, $packed);
+        my $packed = pack('N2a*', $index, $offset, $$data);
+        return pack('Nca*', length($packed) + 1, 7, $packed);
     }
 
     sub build_cancel ($$$) {
         my ($index, $offset, $length) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_cancel() requires an integer index parameter];
+                'Net::BitTorrent::Protocol::build_cancel() requires an integer index parameter';
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_cancel() requires an offset parameter];
+                'Net::BitTorrent::Protocol::build_cancel() requires an offset parameter';
             return;
         }
         if ((!defined $length) || ($length !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_cancel() requires an length parameter];
+                'Net::BitTorrent::Protocol::build_cancel() requires an length parameter';
             return;
         }
-        my $packed = pack(q[N3], $index, $offset, $length);
-        return pack(q[Nca*], length($packed) + 1, 8, $packed);
+        my $packed = pack('N3', $index, $offset, $length);
+        return pack('Nca*', length($packed) + 1, 8, $packed);
     }
 
     sub build_port ($) {
         my ($port) = @_;
         if ((!defined $port) || ($port !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_port() requires an index parameter];
+                'Net::BitTorrent::Protocol::build_port() requires an index parameter';
             return;
         }
-        return pack(q[NcN], length($port) + 1, 9, $port);
+        return pack('NcN', length($port) + 1, 9, $port);
     }
 
     sub build_suggest ($) {
         my ($index) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_suggest() requires an index parameter];
+                'Net::BitTorrent::Protocol::build_suggest() requires an index parameter';
             return;
         }
-        return pack(q[NcN], 5, 13, $index);
+        return pack('NcN', 5, 13, $index);
     }
-    sub build_have_all ()  { return pack(q[Nc], 1, 14); }
-    sub build_have_none () { return pack(q[Nc], 1, 15); }
+    sub build_have_all ()  { return pack('Nc', 1, 14); }
+    sub build_have_none () { return pack('Nc', 1, 15); }
 
     sub build_reject ($$$) {
         my ($index, $offset, $length) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_reject() requires an index parameter];
+                'Net::BitTorrent::Protocol::build_reject() requires an index parameter';
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_reject() requires an offset parameter];
+                'Net::BitTorrent::Protocol::build_reject() requires an offset parameter';
             return;
         }
         if ((!defined $length) || ($length !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_reject() requires an length parameter];
+                'Net::BitTorrent::Protocol::build_reject() requires an length parameter';
             return;
         }
-        my $packed = pack(q[N3], $index, $offset, $length);
-        return pack(q[Nca*], length($packed) + 1, 16, $packed);
+        my $packed = pack('N3', $index, $offset, $length);
+        return pack('Nca*', length($packed) + 1, 16, $packed);
     }
 
     sub build_allowed_fast ($) {
         my ($index) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_allowed_fast() requires an index parameter];
+                'Net::BitTorrent::Protocol::build_allowed_fast() requires an index parameter';
             return;
         }
-        return pack(q[NcN], 5, 17, $index);
+        return pack('NcN', 5, 17, $index);
     }
 
     sub build_extended ($$) {
         my ($msgID, $data) = @_;
         if ((!defined $msgID) || ($msgID !~ m[^\d+$])) {
             carp
-                q[Net::BitTorrent::Protocol::build_extended() requires a message id parameter];
+                'Net::BitTorrent::Protocol::build_extended() requires a message id parameter';
             return;
         }
-        if ((!$data) || (ref($data) ne q[HASH])) {
+        if ((!$data) || (ref($data) ne 'HASH')) {
             carp
-                q[Net::BitTorrent::Protocol::build_extended() requires a payload];
+                'Net::BitTorrent::Protocol::build_extended() requires a payload';
             return;
         }
-        my $packet = pack(q[ca*], $msgID, bencode($data));
-        return pack(q[Nca*], length($packet) + 1, 20, $packet);
+        my $packet = pack('ca*', $msgID, bencode($data));
+        return pack('Nca*', length($packet) + 1, 20, $packet);
     }
     my %parse_packet_dispatch = (&KEEPALIVE      => \&_parse_keepalive,
                                  &CHOKE          => \&_parse_choke,
@@ -256,34 +256,34 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
 
     sub parse_packet ($) {
         my ($data) = @_;
-        if ((!$data) || (ref($data) ne q[SCALAR]) || (!$$data)) {
+        if ((!$data) || (ref($data) ne 'SCALAR') || (!$$data)) {
             carp
-                q[Net::BitTorrent::Protocol::parse_packet() needs data to parse];
+                'Net::BitTorrent::Protocol::parse_packet() needs data to parse';
             return;
         }
         my ($packet);
-        if (unpack(q[c], $$data) == 0x13) {
-            my @payload = _parse_handshake(substr($$data, 0, 68, q[]));
-            $packet = {Type    => HANDSHAKE,
-                       Payload => @payload
+        if (unpack('c', $$data) == 0x13) {
+            my @payload = _parse_handshake(substr($$data, 0, 68, ''));
+            $packet = {type    => HANDSHAKE,
+                       payload => @payload
                 }
                 if @payload;
         }
-        elsif (    (defined unpack(q[N], $$data))
-               and (unpack(q[N], $$data) =~ m[\d]))
-        {   if ((unpack(q[N], $$data) <= length($$data))) {
-                (my ($packet_data), $$data) = unpack(q[N/aa*], $$data);
-                (my ($type), $packet_data) = unpack(q[ca*], $packet_data);
+        elsif (    (defined unpack('N', $$data))
+               and (unpack('N', $$data) =~ m[\d]))
+        {   if ((unpack('N', $$data) <= length($$data))) {
+                (my ($packet_data), $$data) = unpack('N/aa*', $$data);
+                (my ($type), $packet_data) = unpack('ca*', $packet_data);
                 if (defined $parse_packet_dispatch{$type}) {
                     my $payload = $parse_packet_dispatch{$type}($packet_data);
-                    $packet = {Type => $type,
+                    $packet = {type => $type,
                                (defined $payload
-                                ? (Payload => $payload)
+                                ? (payload => $payload)
                                 : ()
                                )
                     };
                 }
-                elsif (eval q[require Data::Dump]) {
+                elsif (eval 'require Data::Dump') {
                     carp
                         sprintf
                         <<'END', Data::Dump::pp($type), Data::Dump::pp($packet);
@@ -301,14 +301,14 @@ END
         my ($packet) = @_;
         if (!$packet || (length($packet) < 68)) {
 
-            #carp q[Not enough data for handshake packet];
+            #carp 'Not enough data for handshake packet';
             return;
         }
         my ($protocol_name, $reserved, $infohash, $peerid)
-            = unpack(q[c/a a8 H40 a20], $packet);
-        if ($protocol_name ne q[BitTorrent protocol]) {
+            = unpack('c/a a8 H40 a20', $packet);
+        if ($protocol_name ne 'BitTorrent protocol') {
 
-            #carp sprintf(q[Improper handshake; Bad protocol name (%s)],
+            #carp sprintf('Improper handshake; Bad protocol name (%s)',
             #             $protocol_name);
             return;
         }
@@ -324,20 +324,20 @@ END
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 1)) {
 
-            #carp q[Incorrect packet length for HAVE];
+            #carp 'Incorrect packet length for HAVE';
             return;
         }
-        return unpack(q[N], $packet);
+        return unpack('N', $packet);
     }
 
     sub _parse_bitfield ($) {
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 1)) {
 
-            #carp q[Incorrect packet length for BITFIELD];
+            #carp 'Incorrect packet length for BITFIELD';
             return;
         }
-        return (pack q[b*], unpack q[B*], $packet);
+        return (pack 'b*', unpack 'B*', $packet);
     }
 
     sub _parse_request ($) {
@@ -346,11 +346,11 @@ END
 
            #carp
            #    sprintf(
-           #         q[Incorrect packet length for REQUEST (%d requires >=9)],
-           #         length($packet || q[]));
+           #         'Incorrect packet length for REQUEST (%d requires >=9)',
+           #         length($packet || ''));
             return;
         }
-        return ([unpack(q[N3], $packet)]);
+        return ([unpack('N3', $packet)]);
     }
 
     sub _parse_piece ($) {
@@ -359,11 +359,11 @@ END
 
            #carp
            #    sprintf(
-           #           q[Incorrect packet length for PIECE (%d requires >=9)],
-           #           length($packet || q[]));
+           #           'Incorrect packet length for PIECE (%d requires >=9)',
+           #           length($packet || ''));
             return;
         }
-        return ([unpack(q[N2a*], $packet)]);
+        return ([unpack('N2a*', $packet)]);
     }
 
     sub _parse_cancel ($) {
@@ -372,31 +372,31 @@ END
 
            #carp
            #    sprintf(
-           #          q[Incorrect packet length for CANCEL (%d requires >=9)],
-           #          length($packet || q[]));
+           #          'Incorrect packet length for CANCEL (%d requires >=9)',
+           #          length($packet || ''));
             return;
         }
-        return ([unpack(q[N3], $packet)]);
+        return ([unpack('N3', $packet)]);
     }
 
     sub _parse_port ($) {
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 1)) {
 
-            #carp q[Incorrect packet length for PORT];
+            #carp 'Incorrect packet length for PORT';
             return;
         }
-        return (unpack q[N], $packet);
+        return (unpack 'N', $packet);
     }
 
     sub _parse_suggest ($) {
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 1)) {
 
-            #carp q[Incorrect packet length for SUGGEST];
+            #carp 'Incorrect packet length for SUGGEST';
             return;
         }
-        return unpack(q[N], $packet);
+        return unpack('N', $packet);
     }
     sub _parse_have_all ($)  { return; }
     sub _parse_have_none ($) { return; }
@@ -407,27 +407,27 @@ END
 
            #carp
            #    sprintf(
-           #          q[Incorrect packet length for REJECT (%d requires >=9)],
-           #          length($packet || q[]));
+           #          'Incorrect packet length for REJECT (%d requires >=9)',
+           #          length($packet || ''));
             return;
         }
-        return ([unpack(q[N3], $packet)]);
+        return ([unpack('N3', $packet)]);
     }
 
     sub _parse_allowed_fast ($) {
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 1)) {
 
-            #carp q[Incorrect packet length for FASTSET];
+            #carp 'Incorrect packet length for FASTSET';
             return;
         }
-        return unpack(q[N], $packet);
+        return unpack('N', $packet);
     }
 
     sub _parse_extended ($) {
         my ($packet) = @_;
         if ((!$packet) || (!length($packet))) { return; }
-        my ($id, $payload) = unpack(q[ca*], $packet);
+        my ($id, $payload) = unpack('ca*', $packet);
         return ([$id, scalar bdecode($payload)]);
     }
 }
