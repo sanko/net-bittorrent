@@ -55,6 +55,12 @@ package Net::BitTorrent::Types;
         from subtype(as 'Str' => where { $_ =~ m[^(?:[10]*)$] }) => via {
         require Bit::Vector;
         Bit::Vector->new_Bin(length($_), $_);
+        },
+        from subtype(as 'Str' => where { unpack('b*', $_) =~ m[^(?:[10]*)$] }
+        ) => via {
+        require Bit::Vector;
+        my $unpack = unpack 'b*', $_;
+        Bit::Vector->new_Bin(length $unpack, $unpack);
         };
 
     #
