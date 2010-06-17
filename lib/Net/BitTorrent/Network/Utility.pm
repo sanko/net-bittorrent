@@ -118,8 +118,7 @@ package Net::BitTorrent::Network::Utility;
                 {   require AnyEvent::Util;
                     AnyEvent::Util::fh_nonblocking $fh, 1;
                     my ($service, $host) = unpack_sockaddr $peer;
-                    $callback->($socket, $fh, $peer, paddr2ip($host), $service
-                    );
+                    $callback->($fh, $peer, paddr2ip($host), $service);
                 }
             }
         );
