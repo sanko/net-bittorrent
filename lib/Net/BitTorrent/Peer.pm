@@ -222,13 +222,18 @@ sub ___handle_encrypted_handshake_two {
                 $self->disconnect($msg);
             },
             on_read => sub {
-                my ($handle) = @_;
-                use Data::Dump;
+                my ($h) = @_;
                 require Net::BitTorrent::Protocol::BEP03::Packets;
-                ddx Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
-                                                              \$handle->rbuf);
-                warn $handle->rbuf;
-                ...;
+            PACKET:
+                while (
+                      my $packet =
+                      Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
+                                                                     \$h->rbuf
+                      )
+                    )
+                {   $self->_handle_packet($packet);
+                    last PACKET if !$h->rbuf;
+                }
             },
             on_eof => sub {
                 ...;
@@ -317,7 +322,7 @@ sub ___handle_encrypted_handshake_two {
         has $attr => (isa      => subtype(as 'Int' => where   { $_ >= -1 }),
                       is       => 'ro',
                       init_arg => undef,
-                      writer   => '_' . $attr,
+                      writer   => '_set_' . $attr,
                       default  => -1               # Unlimited
         );
     }
@@ -331,7 +336,7 @@ sub ___handle_encrypted_handshake_two {
                      lazy_build => 1,
                      coerce     => 1,
                      init_arg   => undef,
-                     writer     => '_pieces',
+                     writer     => '_set_pieces',
                      clearer    => '_clear_pieces'
     );
     sub _build_pieces { '0' x $_[0]->torrent->piece_count }
@@ -355,6 +360,52 @@ sub ___handle_encrypted_handshake_two {
         ...;
     };
 =cut
+
+    my %_packet_dispatch;
+
+    sub _handle_packet {
+        my ($self, $packet) = @_;
+        return if !$self->has_torrent;
+        return if !$self->has_handle;
+        use Data::Dump;
+        ddx $packet;
+        %_packet_dispatch = (
+            5 => sub {
+                my ($s, $bitfield) = @_;
+                return $s->_set_pieces($bitfield);
+            },
+            20 => sub {    # Ext. protocol packet
+                my ($s, $pid, $p) = @_;
+                if ($pid == 0) {    # Setup/handshake
+                    if (defined $packet->{'p'} && $self->client->has_dht) {
+                        $self->client->dht->ipv4_add_node(
+                                [join('.', unpack 'C*', $packet->{'ipv4'}),
+                                 $packet->{'p'}
+                                ]
+                        )if defined $packet->{'ipv4'};
+                        $self->client->dht->ipv6_add_node(
+                                      [[join ':',
+                                        (unpack 'H*', $packet->{'ipv6'})
+                                            =~ m[(....)]g
+                                       ],
+                                       $packet->{'p'}
+                                      ]
+                        ) if defined $packet->{'ipv6'};
+                    }
+                }
+                return 1;
+            }
+        ) if !keys %_packet_dispatch;
+        $_packet_dispatch{$packet->{'type'}}->($self, $packet->{'payload'});
+
+        #$_client{refaddr $self}->_event(q[incoming_packet],
+        #                                {Payload => $packet,
+        #                                 Peer    => $self,
+        #                                 Type    => EXTPROTOCOL
+        #                                }
+        #);
+    }
+###
     sub DEMOLISH {1}
 
 =begin old
