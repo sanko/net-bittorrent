@@ -31,15 +31,14 @@ my $mb = $class->new(
                    'Exporter'                   => 0,
                    'File::Path'                 => 0,
                    'File::Spec'                 => 0,
-                   'Math::BigInt'               => 1.78,
                    'Module::Build'              => 0.30,
                    'perl'                       => '5.10.0',
                    'Scalar::Util'               => 1.19,
-                   'Test::More'                 => 0.80,
+                   'Test::More'                 => 0.80
       },
       build_requires => {'Module::Build' => 0.30,
                          'Test::More'    => 0.80,
-                         'perl'          => '5.10.0',
+                         'perl'          => '5.10.0'
       },
       recommends => {'perl' => '5.12.0'},
       test_files => \@tests,
