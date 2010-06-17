@@ -38,11 +38,19 @@ package Net::BitTorrent::Peer;
         default  => 'MSE_ONE',
         init_arg => undef
     );
-    {
+    {    # Handshake utils
+
+        sub _build_reserved {
+            my ($self) = @_;
+            my @reserved = qw[0 0 0 0 0 0 0 0];
+            $reserved[5] |= 0x10;    # Ext Protocol
+            $reserved[7] |= 0x04;    # Fast Ext
+            return join '', map {chr} @reserved;
+        }
         sub CRYPTO_PLAIN {0x01}
         sub CRYPTO_RC4   {0x02}
-        sub CRYPTO_XOR   {0x04}    # unimplemented
-        sub CRYPTO_AES   {0x08}    # unimplemented
+        sub CRYPTO_XOR   {0x04}      # unimplemented
+        sub CRYPTO_AES   {0x08}      # unimplemented
         has '_crypto' => (
             isa => enum([CRYPTO_PLAIN, CRYPTO_RC4, CRYPTO_XOR, CRYPTO_AES]),
             is  => 'rw',
