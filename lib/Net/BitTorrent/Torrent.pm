@@ -52,10 +52,9 @@ package Net::BitTorrent::Torrent;
         default => sub { {} }
     );
     around [qw[peer add_peer del_peer has_peer]] => sub {
-      my ($code, $self, $arg) = @_;
-      blessed $arg ? $code->( $self, $arg->_id, $arg ) : $code->($self, $arg)
+        my ($code, $self, $arg) = @_;
+        blessed $arg ? $code->($self, $arg->_id, $arg) : $code->($self, $arg);
     };
-
     has 'error' => (is       => 'rw',
                     isa      => 'Str',
                     init_arg => undef
@@ -108,10 +107,16 @@ package Net::BitTorrent::Torrent;
                          $self->dht->announce_peer($self->info_hash, sub {...}
                          )
         );
-        $self->add_quest('new_peer', AE::timer(0, 3, sub {
-            return if ! $self;
-            $self->new_peer();
-        }));
+        $self->add_quest(
+            'new_peer',
+            AE::timer(
+                0, 3,
+                sub {
+                    return if !$self;
+                    $self->new_peer();
+                }
+            )
+        );
     }
 
     sub stop {
@@ -125,19 +130,19 @@ package Net::BitTorrent::Torrent;
         my ($self, $peer) = @_;
         if ($peer) {...}
         else {
-            my ($source) = [
-                [$self->get_quest('dht_get_peers'), 'dht'],
-                [$self->get_quest('tracker_announce'), 'tracker']
-            ]->[int rand 2];
-            use Data::Dump;
-            ddx $source;
+            my ($source)
+                = [[$self->get_quest('dht_get_peers'),    'dht'],
+                   [$self->get_quest('tracker_announce'), 'tracker']
+                ]->[int rand 2];
             return if !@{$source->[0][2]};
             my $addr = $source->[0][2]->[int rand @{$source->[0][2]}];
             require Net::BitTorrent::Peer;
-            $peer = Net::BitTorrent::Peer->new(torrent => $self, connect => $addr, source => $source->[1]);
+            $peer =
+                Net::BitTorrent::Peer->new(torrent => $self,
+                                           connect => $addr,
+                                           source  => $source->[1]
+                );
         }
-        use Data::Dump;
-        ddx $peer;
         $self->add_peer($peer);
     }
 

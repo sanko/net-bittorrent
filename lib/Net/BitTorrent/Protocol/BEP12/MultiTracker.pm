@@ -83,9 +83,6 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
                             \%args,
                             sub {
                                 my ($announce) = @_;
-                                use Data::Dump;
-                                ddx \@_;
-                                ddx $quest;
                                 {
                                     my %seen = ();
                                     @{$quest->[2]}

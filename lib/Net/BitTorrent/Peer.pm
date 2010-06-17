@@ -258,7 +258,7 @@ sub ___handle_encrypted_handshake_two {
             chunk => 68,
             sub {
                 my ($h, $data) = @_;
-                if (my ($reserved, $info_hash, $peerid)
+                if (my ($reserved, $info_hash, $peer_id)
                     = $data
                     =~ m[^\23BitTorrent protocol(.{8})(.{20})(.{20})$])
                 {   $infohash_constraint //=
@@ -373,7 +373,7 @@ sub ___handle_encrypted_handshake_two {
         use Data::Dump;
         ddx $packet;
         %_packet_dispatch = (
-            5 => sub {
+            5 => sub {    # Bitfield
                 my ($s, $bitfield) = @_;
                 return $s->_set_pieces($bitfield);
             },
@@ -385,7 +385,7 @@ sub ___handle_encrypted_handshake_two {
                                 [join('.', unpack 'C*', $packet->{'ipv4'}),
                                  $packet->{'p'}
                                 ]
-                        )if defined $packet->{'ipv4'};
+                        ) if defined $packet->{'ipv4'};
                         $self->client->dht->ipv6_add_node(
                                       [[join ':',
                                         (unpack 'H*', $packet->{'ipv6'})
