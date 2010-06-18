@@ -6,8 +6,7 @@ package Net::BitTorrent::Torrent;
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
 
-    # Meat
-    use lib '../../';
+    sub BUILD {1}
     has 'client' => (
         isa       => 'Maybe[Net::BitTorrent]',
         is        => 'rw',
