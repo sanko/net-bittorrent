@@ -18,42 +18,49 @@ if (!eval "require $class") {
     exit 0;
 }
 my $mb = $class->new(
-      module_name   => 'Net::BitTorrent',
-      license       => 'artistic_2',
-      dist_author   => 'Sanko Robinson <sanko@cpan.org>',
-      dist_abstract => 'BitTorrent peer-to-peer protocol',
-      requires      => {
-                   'AnyEvent'                   => 0,
-                   'AnyEvent::Handle::Throttle' => 0.000002001,
-                   'Bit::Vector'                => 0,
-                   'Moose'                      => 0,
-                   'Digest::SHA'                => 5.45,
-                   'Exporter'                   => 0,
-                   'File::Path'                 => 0,
-                   'File::Spec'                 => 0,
-                   'Module::Build'              => 0.30,
-                   'perl'                       => '5.10.0',
-                   'Scalar::Util'               => 1.19,
-                   'Test::More'                 => 0.80
-      },
-      build_requires => {'Module::Build' => 0.30,
-                         'Test::More'    => 0.80,
-                         'perl'          => '5.10.0'
-      },
-      recommends => {'perl' => '5.12.0'},
-      test_files => \@tests,
-      meta_merge => {
-          generated_by => 'Conversion, software version 7.0',
-          keywords     => [qw[BitTorrent torrent ]],
-          resources    => {
-              bugtracker => 'http://github.com/sanko/net-bittorrent/issues',
-              ChangeLog =>
-                  'http://github.com/sanko/net-bittorrent/commits/master',
-              homepage => 'http://sankorobinson.com/net-bittorrent/',
-              license => 'http://www.perlfoundation.org/artistic_license_2_0',
-              repository => 'http://github.com/sanko/net-bittorrent/'
-          }
-      },
+     module_name   => 'Net::BitTorrent',
+     license       => 'artistic_2',
+     dist_author   => 'Sanko Robinson <sanko@cpan.org>',
+     dist_abstract => 'BitTorrent peer-to-peer protocol',
+     requires      => {
+                  'AnyEvent'                   => 0,
+                  'AnyEvent::Handle::Throttle' => '0.000002002',
+                  'Bit::Vector'                => 0,
+                  'Moose'                      => 0,
+                  'Digest::SHA'                => 5.45,
+                  'Exporter'                   => 0,
+                  'File::Path'                 => 0,
+                  'File::Spec'                 => 0,
+                  'Module::Build'              => 0.30,
+                  'perl'                       => '5.10.0',
+                  'Scalar::Util'               => 1.19,
+                  'Test::More'                 => 0.80
+     },
+     build_requires => {'Module::Build' => 0.30,
+                        'Test::More'    => 0.80,
+                        'perl'          => '5.10.0'
+     },
+     recommends => {'perl' => '5.12.0'},
+     test_files => \@tests,
+     meta_merge => {
+         generated_by => 'Conversion, software version 7.0',
+         keywords     => [qw[BitTorrent torrent ]],
+         resources    => {
+             bugtracker => {
+                       web => 'http://github.com/sanko/net-bittorrent/issues',
+                       mailto => 'sanko@cpan.org'
+             },
+             repository => {
+                           url => 'git://github.com/sanko/net-bittorrent.git',
+                           web => 'http://github.com/sanko/net-bittorrent',
+                           type => 'git'
+             },
+             ChangeLog =>
+                 'http://github.com/sanko/net-bittorrent/commits/master',
+             homepage => 'http://sankorobinson.com/net-bittorrent/',
+             license => ['http://www.perlfoundation.org/artistic_license_2_0']
+         }
+     }
 );
 $mb->notes(automated_testing => $automated_testing ? 1 : 0);
 $mb->notes(release_testing   => $is_developer);
