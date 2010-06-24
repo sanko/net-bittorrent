@@ -28,7 +28,6 @@ commitlog.txt
 ~*
 *.spell
 .gitclean.pl
-inc/*
 share/*
 
 # incomplete stuff
