@@ -288,7 +288,8 @@ package Net::BitTorrent::DHT;
         if (   !$packet
             || !ref $packet
             || ref $packet ne 'HASH'
-            || !keys %$packet)
+            || !keys %$packet
+            || !defined $packet->{'y'})
         {   $self->_inc_recv_invalid_count;
             $self->_inc_recv_invalid_length(length $data);
             return;
