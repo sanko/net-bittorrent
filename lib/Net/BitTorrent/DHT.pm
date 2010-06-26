@@ -68,8 +68,8 @@ package Net::BitTorrent::DHT;
     sub send {
         my ($self, $node, $packet, $reply) = @_;
         my $sent = send((  $node->ipv6
-                         ? $self->udp->ipv6_sock
-                         : $self->udp->ipv4_sock
+                         ? $self->udp6_sock
+                         : $self->udp4_sock
                         ),
                         $packet, 0,
                         $node->sockaddr
@@ -253,8 +253,8 @@ package Net::BitTorrent::DHT;
     }
 
     #
-    sub _ipv6_on_data_in {
-        my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
+    sub _on_udp6_in {
+        my ($self, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
         if (   !$packet
             || !ref $packet
@@ -277,8 +277,8 @@ package Net::BitTorrent::DHT;
         }
     }
 
-    sub _ipv4_on_data_in {
-        my ($self, $udp, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
+    sub _on_udp4_in {
+        my ($self, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
         my $packet = bdecode $data;
         if (   !$packet
             || !ref $packet
