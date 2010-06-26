@@ -275,11 +275,57 @@ package Net::BitTorrent;
         my ($code, $self, $arg) = @_;
         blessed $arg ? $code->($self, $arg->_id, $arg) : $code->($self, $arg);
     };
+    if (0) {                                            # Callback system
 
+        sub _build_callback_no_op {
+            sub {1}
+        }
+        has "on_$_" => (isa        => 'CodeRef',
+                        is         => 'rw',
+                        traits     => ['Code'],
+                        handles    => {"trigger_$_" => 'execute_method'},
+                        lazy_build => 1,
+                        builder    => '_build_callback_no_op',
+                        weak_ref   => 1
+            )
+            for qw[
+            peer_construction peer_destruction
+        ];
+    }
+    {    # Callback System II
+        for my $type (qw[peer_construction peer_destruction]) {
+            has "_${type}_callbacks" => (
+                                   isa      => 'ArrayRef[Ref]',
+                                   is       => 'ro',
+                                   init_arg => undef,
+                                   traits   => ['Array'],
+                                   handles  => {
+                                       "add_${type}_callback"   => 'push',
+                                       "${type}_callbacks"      => 'elements',
+                                       "get_${type}_callback"   => 'get',
+                                       "grep_${type}_callbacks" => 'grep',
+                                       "map_${type}_callbacks"  => 'map',
+                                       "trigger_${type}_callback" =>
+                                           ['grep', sub { $_->[1]->() if $_ }]
+                                   },
+                                   default => sub { [] }
+            );
+            around "add_${type}_callback" => sub {
+                my ($c, $s, $cb) = @_;
+                require Scalar::Util;
+                Scalar::Util::weaken $s;
+                $cb = ['*', $cb, [], ()];
+                $c->($s, $cb);
+                Scalar::Util::weaken $s->{"_${type}_callbacks"}->[-1];
+                return $cb;
+            };
 
-        #use Data::Dump;
-        #ddx \@_;
-        #...;
+            #my $x =  qq[sub trigger_${type} { ... }];
+            #warn $x;
+            #eval $x;
+        }
+
+        #
     }
     {    ### Simple plugin system
         my @_plugins;

@@ -362,6 +362,16 @@ package Net::BitTorrent::Peer;
         $_packet_dispatch{$packet->{'type'}}->($self, $packet->{'payload'})
             if defined $_packet_dispatch{$packet->{'type'}};
     }
+    {    # Callback system
+        after 'BUILD' => sub {
+            my $s = shift;
+            $s->trigger_peer_construction_callback($s);
+        };
+        after 'DEMOLISH' => sub {
+            my $s = shift;
+            $s->trigger_peer_destruction_callback($s);
+        };
+    }
     {    ### Simple plugin system
         my @_plugins;
 
