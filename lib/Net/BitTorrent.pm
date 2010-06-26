@@ -147,6 +147,9 @@ package Net::BitTorrent;
                   lazy_build => 1
     );
 
+    #
+    has '_peers' => (
+        is      => 'HashRef[Net::BitTorrent::Peer]',    # by creation id
     sub _build_tcp {
         my ($self) = @_;
         require Net::BitTorrent::Network::TCP;
@@ -161,6 +164,16 @@ package Net::BitTorrent;
         is      => 'HashRef[AnyEvent::Handle]',    # by creation id
         is      => 'ro',
         traits  => ['Hash'],
+        handles => {
+               peer        => 'get',
+               add_peer    => 'set',
+               del_peer    => 'delete',
+               peer_ids    => 'keys',
+               has_peer    => 'defined',
+               peers       => 'values',
+               clear_peers => 'clear',                     # removes all peers
+               count_peers => 'count',
+               no_peers    => 'is_empty'
         handles => {handle        => 'get',
                     add_handle    => 'set',
                     del_handle    => 'delete',
@@ -171,6 +184,9 @@ package Net::BitTorrent;
         },
         default => sub { {} }
     );
+    around [qw[peer add_peer del_peer has_peer]] => sub {
+        my ($code, $self, $arg) = @_;
+        blessed $arg ? $code->($self, $arg->_id, $arg) : $code->($self, $arg);
     around [qw[handle del_handle has_handle]] => sub {
         my ($code, $self, $handle) = @_;
         blessed $handle

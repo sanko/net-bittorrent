@@ -5,7 +5,6 @@ package Net::BitTorrent::Torrent;
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
-
     sub BUILD {1}
     has 'client' => (
         isa       => 'Maybe[Net::BitTorrent]',
@@ -33,27 +32,6 @@ package Net::BitTorrent::Torrent;
                      },
                      default => sub { {} }
     );
-    has '_peers' => (
-        is      => 'HashRef[Net::BitTorrent::Peer]',    # by creation id
-        is      => 'ro',
-        traits  => ['Hash'],
-        handles => {
-               peer        => 'get',
-               add_peer    => 'set',
-               del_peer    => 'delete',
-               peer_ids    => 'keys',
-               has_peer    => 'defined',
-               peers       => 'values',
-               clear_peers => 'clear',                     # removes all peers
-               count_peers => 'count',
-               no_peers    => 'is_empty'
-        },
-        default => sub { {} }
-    );
-    around [qw[peer add_peer del_peer has_peer]] => sub {
-        my ($code, $self, $arg) = @_;
-        blessed $arg ? $code->($self, $arg->_id, $arg) : $code->($self, $arg);
-    };
     has 'error' => (is       => 'rw',
                     isa      => 'Str',
                     init_arg => undef
@@ -122,7 +100,21 @@ package Net::BitTorrent::Torrent;
                 0, 3,
                 sub {
                     return if !$self;
-                    $self->new_peer();
+                    return if !$self->has_client;
+                    my ($source)
+                        = [[$self->get_quest('dht_get_peers'),    'dht'],
+                           [$self->get_quest('tracker_announce'), 'tracker']
+                        ]->[int rand 2];
+                    return if !@{$source->[0][2]};
+                    my $addr = $source->[0][2]->[int rand @{$source->[0][2]}];
+                    require Net::BitTorrent::Peer;
+                    $self->client->add_peer(Net::BitTorrent::Peer->new(
+                                                       torrent => $self,
+                                                       connect => $addr,
+                                                       source => $source->[1],
+                                                       client => $self->client
+                                            )
+                    );
                 }
             )
         );
@@ -131,32 +123,12 @@ package Net::BitTorrent::Torrent;
     sub stop {
         my ($self) = @_;
         $self->clear_quests;
-        $self->clear_peers;
+
+        #$self->clear_peers( );
     }
     sub _tracker_announce_cb  {1}
     sub _dht_announce_peer_cb {1}
     sub _dht_get_peers_cb     {1}
-
-    #
-    sub new_peer {
-        my ($self, $peer) = @_;
-        if ($peer) {...}
-        else {
-            my ($source)
-                = [[$self->get_quest('dht_get_peers'),    'dht'],
-                   [$self->get_quest('tracker_announce'), 'tracker']
-                ]->[int rand 2];
-            return if !@{$source->[0][2]};
-            my $addr = $source->[0][2]->[int rand @{$source->[0][2]}];
-            require Net::BitTorrent::Peer;
-            $peer =
-                Net::BitTorrent::Peer->new(torrent => $self,
-                                           connect => $addr,
-                                           source  => $source->[1]
-                );
-        }
-        $self->add_peer($peer);
-    }
 
     # Quick methods
     my $pieces_per_hashcheck = 10;    # Max block of pieces in single call
