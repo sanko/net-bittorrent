@@ -88,8 +88,8 @@ package Net::BitTorrent::Network::Utility;
         #      setsockopt($_tcp, SOL_SOCKET, SO_REUSEADDR, pack(q[l], 1))
         #         or return;
         # SO_REUSEPORT is undefined on Win32... Boo...
-        return
-            if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
+        #return
+        #    if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
         return if !bind $socket, $sockaddr;
         if (defined $prepare) {
             my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
