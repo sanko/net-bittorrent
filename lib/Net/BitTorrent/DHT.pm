@@ -415,7 +415,7 @@ package Net::BitTorrent::DHT;
                         return if !defined $quest;
                         push @{$quest->[3]}, [$node->host, $node->port];
                         $quest->[1]
-                            ->($req->{'info_hash'}, $quest->[2], $node);
+                            ->($req->{'info_hash'}, $node, $quest->[2]);
                         $node->get_prev_get_peers(0)
                             if    # seek peers sooner than we should
                             $node->defined_prev_get_peers($req->{'info_hash'}
