@@ -5,7 +5,6 @@ lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/DHT.pm
 lib/Net/BitTorrent/DHT/Callbacks.pm
 lib/Net/BitTorrent/DHT/Standalone.pm
-lib/Net/BitTorrent/Network.pm
 lib/Net/BitTorrent/Network/TCP.pm
 lib/Net/BitTorrent/Network/UDP.pm
 lib/Net/BitTorrent/Network/Utility.pm

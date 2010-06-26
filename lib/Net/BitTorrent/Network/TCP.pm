@@ -1,49 +1,107 @@
 package Net::BitTorrent::Network::TCP;
 {
-    use Moose;
-    our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    use Moose::Role;
+    use AnyEvent;
     use lib '../../../../lib';
-    extends 'Net::BitTorrent::Network';
     use Net::BitTorrent::Network::Utility qw[server];
+    our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
-    sub _build_ipv4 {
-        my ($self) = @_;
-        return server(
-            $self->ipv4_host,
-            $self->ipv4_port,
-            sub { $self->trigger_ipv4_on_data_in(@_); },
-            sub {
-                my ($sock, $host, $port) = @_;
-                if ($self->ipv4_port && $self->ipv4_port != $port) {
-                    ...;
-                }
-                $self->_ipv4_sock($sock);
-                $self->_ipv4_host($host);
-                $self->_ipv4_port($port);
-            },
-            'tcp'
-        );
-    }
+    #
+    my %_sock_types = (4 => '0.0.0.0', 6 => '::');
+    for my $ipv (keys %_sock_types) {
+        warn 'tcp' . $ipv;
+        has 'tcp'
+            . $ipv => (is         => 'ro',
+                       init_arg   => undef,
+                       isa        => 'Object',
+                       lazy_build => 1
+            );
+        warn 'tcp' . $ipv . '_sock';
+        has 'tcp'
+            . $ipv
+            . '_sock' => (is         => 'ro',
+                          init_arg   => undef,
+                          isa        => 'GlobRef',
+                          lazy_build => 1,
+                          weak_ref   => 1,
+                          writer     => '_tcp' . $ipv . '_sock'
+            );
+        warn 'tcp' . $ipv . '_host';
+        has 'tcp'
+            . $ipv
+            . '_host' => (is      => 'ro',
+                          isa     => 'Str',
+                          default => $_sock_types{$ipv},
+                          writer  => '_tcp' . $ipv . '_host'
+            );
+        warn 'tcp' . $ipv . '_port';
+        has 'tcp' . $ipv . '_port' => (
+            is      => 'ro',
+            isa     => 'Int',
+            writer  => '_tcp' . $ipv . '_port',
+            default => 0,                         # random
+            trigger => sub {
+                my ($self, $new, $old) = @_;
+                if (defined $old && $old != $new) {
 
-    sub _build_ipv6 {
-        my ($self) = @_;
-        return server(
-            $self->ipv6_host,
-            $self->ipv6_port,
-            sub { $self->trigger_ipv6_on_data_in(@_); },
-            sub {
-                my ($sock, $host, $port) = @_;
-                if ($self->ipv6_port && $self->ipv6_port != $port) {
-                    ...;
+                    # XXX - Something's not right.
                 }
-                $self->_ipv6_sock($sock);
-                $self->_ipv6_host($host);
-                $self->_ipv6_port($port);
-            },
-            'tcp'
+            }
         );
+        after 'BUILD' => sub {
+            my ($self, $args) = @_;
+            ...;
+            if (  !defined $args->{'tcp' . $ipv . '_port'}
+                && defined $args->{'port'})
+            {   my $call = '_tcp' . $ipv . '_port';
+                $self->$call($args->{'port'});
+            }
+            {    # Open up!
+                my $call = 'tcp' . $ipv;
+                $self->$call()
+                    if !defined $args->{'disable_tcp' . $ipv};
+            }
+        };
     }
-    no Moose;
-    __PACKAGE__->meta->make_immutable;
+    {
+
+        sub _build_tcp6 {
+            my ($self) = @_;
+            return server(
+                $self->tcp6_host,
+                $self->tcp6_port,
+                sub { $self->_on_tcp6_in(@_); },
+                sub {
+                    my ($sock, $host, $port) = @_;
+                    if ($self->tcp6_port && $self->tcp6_port != $port) {
+                        ...;
+                    }
+                    $self->_tcp6_sock($sock);
+                    $self->_tcp6_host($host);
+                    $self->_tcp6_port($port);
+                },
+                'tcp'
+            );
+        }
+
+        sub _build_tcp4 {
+            my ($self) = @_;
+            return server(
+                $self->tcp4_host,
+                $self->tcp4_port,
+                sub { $self->_on_tcp4_in(@_); },
+                sub {
+                    my ($sock, $host, $port) = @_;
+                    if ($self->tcp4_port && $self->tcp4_port != $port) {
+                        ...;
+                    }
+                    $self->_tcp4_sock($sock);
+                    $self->_tcp4_host($host);
+                    $self->_tcp4_port($port);
+                },
+                'tcp'
+            );
+        }
+    }
 }
 1;

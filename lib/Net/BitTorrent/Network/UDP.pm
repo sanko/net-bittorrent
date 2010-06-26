@@ -1,49 +1,117 @@
 package Net::BitTorrent::Network::UDP;
 {
-    use Moose;
-    our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    use Moose::Role;
+    use AnyEvent;
     use lib '../../../../lib';
-    extends 'Net::BitTorrent::Network';
     use Net::BitTorrent::Network::Utility qw[server];
+    our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
-    sub _build_ipv4 {
-        my ($self) = @_;
-        return server(
-            $self->ipv4_host,
-            $self->ipv4_port,
-            sub { $self->trigger_ipv4_on_data_in(@_); },
-            sub {
-                my ($sock, $host, $port) = @_;
-                if ($self->ipv4_port && $self->ipv4_port != $port) {
-                    ...;
+    #
+    has '_port' => (is       => 'ro',
+                    isa      => 'Int',
+                    init_arg => 'port',
+                    default  => 0         # random
+    );
+    my %_sock_types = (4 => '0.0.0.0', 6 => '::');
+    for my $ipv (keys %_sock_types) {
+
+        has 'udp'. $ipv => (
+            is => 'ro',
+            isa=> ''
+        );
+        warn 'udp' . $ipv;
+        has 'udp'
+            . $ipv => (is         => 'ro',
+                       init_arg   => undef,
+                       isa        => 'Object',
+                       lazy_build => 1,
+                       predicate  => '_has_udp' . $ipv
+            );
+        warn 'udp' . $ipv . '_sock';
+        has 'udp'
+            . $ipv
+            . '_sock' => (is         => 'ro',
+                          init_arg   => undef,
+                          isa        => 'GlobRef',
+                          lazy_build => 1,
+                          weak_ref   => 1,
+                          writer     => '_udp' . $ipv . '_sock',
+                          predicate  => '_has_udp' . $ipv . '_sock'
+            );
+        warn 'udp' . $ipv . '_host';
+        has 'udp'
+            . $ipv
+            . '_host' => (is        => 'ro',
+                          isa       => 'Str',
+                          default   => $_sock_types{$ipv},
+                          writer    => '_udp' . $ipv . '_host',
+                          predicate => '_has_udp' . $ipv . '_host'
+            );
+        warn 'udp' . $ipv . '_port';
+        has 'udp' . $ipv . '_port' => (
+            is        => 'ro',
+            isa       => 'Int',
+            writer    => '_udp' . $ipv . '_port',
+            predicate => '_has_udp' . $ipv . '_port',
+            default   => 0,
+            trigger   => sub {
+                my ($self, $new, $old) = @_;
+                if (defined $old && $old != $new) {
+
+                    # XXX - Something's not right.
                 }
-                $self->_ipv4_sock($sock);
-                $self->_ipv4_host($host);
-                $self->_ipv4_port($port);
-            },
-            'udp'
+            }
         );
     }
+    {   sub _build_udp6 {
+            my ($self) = @_;
+            my $port
+                = $self->_has_udp6_port ? $self->udp6_port
+                : $self->_has_udp4_port ? $self->udp4_port
+                :                         $self->_port;
+            warn $port;
+            return server(
+                $self->udp6_host,
+                $port,
+                sub { $self->_on_udp6_in(@_); },
+                sub {
+                    my ($sock, $host, $port) = @_;
+                    if ($self->udp6_port && $self->udp6_port != $port) {
+                        ...;
+                    }
+                    $self->_udp6_sock($sock);
+                    $self->_udp6_host($host);
+                    $self->_udp6_port($port);
+                    warn 'udp6 :' . $port;
+                },
+                'udp'
+            );
+        }
 
-    sub _build_ipv6 {
-        my ($self) = @_;
-        return server(
-            $self->ipv6_host,
-            $self->ipv6_port,
-            sub { $self->trigger_ipv6_on_data_in(@_); },
-            sub {
-                my ($sock, $host, $port) = @_;
-                if ($self->ipv6_port && $self->ipv6_port != $port) {
-                    ...;
-                }
-                $self->_ipv6_sock($sock);
-                $self->_ipv6_host($host);
-                $self->_ipv6_port($port);
-            },
-            'udp'
-        );
+        sub _build_udp4 {
+            my ($self) = @_;
+            my $port
+                = $self->_has_udp4_port ? $self->udp4_port
+                : $self->_has_udp6_port ? $self->udp6_port
+                :                         $self->_port;
+            warn $port;
+            return server(
+                $self->udp4_host,
+                $port,
+                sub { $self->_on_udp4_in(@_); },
+                sub {
+                    my ($sock, $host, $port) = @_;
+                    if ($self->udp4_port && $self->udp4_port != $port) {
+                        ...;
+                    }
+                    $self->_udp4_sock($sock);
+                    $self->_udp4_host($host);
+                    $self->_udp4_port($port);
+                    warn 'udp4 :' . $port;
+                },
+                'udp'
+            );
+        }
     }
-    no Moose;
-    __PACKAGE__->meta->make_immutable;
 }
 1;
