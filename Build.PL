@@ -38,10 +38,27 @@ my $mb = $class->new(
      },
      build_requires => {'Module::Build' => 0.30,
                         'Test::More'    => 0.80,
-                        'perl'          => '5.10.0'
+                        'perl'          => '5.10.0',
+                        'Module::Build' => 0.30,
+                        'TAP::Harness'  => 3.18
      },
-     recommends => {'perl' => '5.12.0'},
-     test_files => \@tests,
+     recommends       => {'perl' => '5.12.0'},
+     test_files       => \@tests,
+     test_file_exts   => [qw(.t .tap .txt)],
+     use_tap_harness  => 1,
+     tap_harness_args => {
+         jobs  => 9,
+         rules => {
+             par => [
+                 {seq => '/t/10000_by_class/Net/BitTorrent/DHT/*'},
+
+                 #{ seq => '../ext/IO_Compress_Zlib/t/*' },
+                 #{ seq => '../lib/CPANPLUS/*' },
+                 #{ seq => '../lib/ExtUtils/t/*' },
+                 '*'
+             ]
+         }
+     },
      meta_merge => {
          generated_by => 'Conversion, software version 7.0',
          keywords     => [qw[BitTorrent torrent ]],
