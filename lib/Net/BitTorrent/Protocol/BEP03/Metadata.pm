@@ -135,7 +135,6 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     sub piece_length { return shift->metadata->{'info'}{'piece length'} }
     sub pieces       { return shift->metadata->{'info'}{'pieces'} }
     sub private {0}    # overridden by BEP27::Private::Metadata
-
 }
 1;
 

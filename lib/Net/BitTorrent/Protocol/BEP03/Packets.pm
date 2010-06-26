@@ -87,8 +87,9 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_have ($) {
         my ($index) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_have() requires an integer index parameter';
+            carp sprintf
+                '%s::build_have() requires an integer index parameter',
+                __PACKAGE__;
             return;
         }
         return pack('NcN', 5, 4, $index);
@@ -97,8 +98,8 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_bitfield ($) {
         my ($bitfield) = @_;
         if ((!$bitfield) || (unpack('b*', $bitfield) !~ m[^[01]+$])) {
-            carp
-                'Malformed bitfield passed to Net::BitTorrent::Protocol::build_bitfield()';
+            carp sprintf 'Malformed bitfield passed to %s::build_bitfield()',
+                __PACKAGE__;
             return;
         }
         return pack('Nca*', (length($bitfield) + 1), 5, $bitfield);
@@ -107,18 +108,19 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_request ($$$) {
         my ($index, $offset, $length) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_request() requires an integer index parameter';
+            carp sprintf
+                '%s::build_request() requires an integer index parameter',
+                __PACKAGE__;
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_request() requires an offset parameter';
+            carp sprintf '%s::build_request() requires an offset parameter',
+                __PACKAGE__;
             return;
         }
         if ((!defined $length) || ($length !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_request() requires an length parameter';
+            carp sprintf '%s::build_request() requires an length parameter',
+                __PACKAGE__;
             return;
         }
         my $packed = pack('NNN', $index, $offset, $length);
@@ -128,18 +130,18 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_piece ($$$) {
         my ($index, $offset, $data) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_piece() requires an index parameter';
+            carp sprintf '%s::build_piece() requires an index parameter',
+                __PACKAGE__;
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_piece() requires an offset parameter';
+            carp sprintf '%s::build_piece() requires an offset parameter',
+                __PACKAGE__;
             return;
         }
         if (!$data or !$$data) {
-            carp
-                'Net::BitTorrent::Protocol::build_piece() requires data to work with';
+            carp sprintf '%s::build_piece() requires data to work with',
+                __PACKAGE__;
             return;
         }
         my $packed = pack('N2a*', $index, $offset, $$data);
@@ -149,18 +151,19 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_cancel ($$$) {
         my ($index, $offset, $length) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_cancel() requires an integer index parameter';
+            carp sprintf
+                '%s::build_cancel() requires an integer index parameter',
+                __PACKAGE__;
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_cancel() requires an offset parameter';
+            carp sprintf '%s::build_cancel() requires an offset parameter',
+                __PACKAGE__;
             return;
         }
         if ((!defined $length) || ($length !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_cancel() requires an length parameter';
+            carp sprintf '%s::build_cancel() requires an length parameter',
+                __PACKAGE__;
             return;
         }
         my $packed = pack('N3', $index, $offset, $length);
@@ -170,8 +173,8 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_port ($) {
         my ($port) = @_;
         if ((!defined $port) || ($port !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_port() requires an index parameter';
+            carp sprintf '%s::build_port() requires an index parameter',
+                __PACKAGE__;
             return;
         }
         return pack('NcN', length($port) + 1, 9, $port);
@@ -180,8 +183,8 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_suggest ($) {
         my ($index) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_suggest() requires an index parameter';
+            carp sprintf '%s::build_suggest() requires an index parameter',
+                __PACKAGE__;
             return;
         }
         return pack('NcN', 5, 13, $index);
@@ -192,18 +195,18 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_reject ($$$) {
         my ($index, $offset, $length) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_reject() requires an index parameter';
+            carp sprintf '%s::build_reject() requires an index parameter',
+                __PACKAGE__;
             return;
         }
         if ((!defined $offset) || ($offset !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_reject() requires an offset parameter';
+            carp sprintf '%s::build_reject() requires an offset parameter',
+                __PACKAGE__;
             return;
         }
         if ((!defined $length) || ($length !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_reject() requires an length parameter';
+            carp sprintf '%s::build_reject() requires an length parameter',
+                __PACKAGE__;
             return;
         }
         my $packed = pack('N3', $index, $offset, $length);
@@ -213,8 +216,9 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_allowed_fast ($) {
         my ($index) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_allowed_fast() requires an index parameter';
+            carp sprintf
+                '%s::build_allowed_fast() requires an index parameter',
+                __PACKAGE__;
             return;
         }
         return pack('NcN', 5, 17, $index);
@@ -223,13 +227,14 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub build_extended ($$) {
         my ($msgID, $data) = @_;
         if ((!defined $msgID) || ($msgID !~ m[^\d+$])) {
-            carp
-                'Net::BitTorrent::Protocol::build_extended() requires a message id parameter';
+            carp sprintf
+                '%s::build_extended() requires a message id parameter',
+                __PACKAGE__;
             return;
         }
         if ((!$data) || (ref($data) ne 'HASH')) {
-            carp
-                'Net::BitTorrent::Protocol::build_extended() requires a payload';
+            carp sprintf '%s::build_extended() requires a payload',
+                __PACKAGE__;
             return;
         }
         my $packet = pack('ca*', $msgID, bencode($data));
@@ -257,8 +262,8 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     sub parse_packet ($) {
         my ($data) = @_;
         if ((!$data) || (ref($data) ne 'SCALAR') || (!$$data)) {
-            carp
-                'Net::BitTorrent::Protocol::parse_packet() needs data to parse';
+            carp sprintf '%s::parse_packet() needs data to parse',
+                __PACKAGE__;
             return;
         }
         my ($packet);
@@ -323,8 +328,7 @@ END
     sub _parse_have ($) {
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 1)) {
-
-            #carp 'Incorrect packet length for HAVE';
+            carp 'Incorrect packet length for HAVE';
             return;
         }
         return unpack('N', $packet);
@@ -333,8 +337,7 @@ END
     sub _parse_bitfield ($) {
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 1)) {
-
-            #carp 'Incorrect packet length for BITFIELD';
+            carp 'Incorrect packet length for BITFIELD';
             return;
         }
         return (pack 'b*', unpack 'B*', $packet);
@@ -344,10 +347,10 @@ END
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 9)) {
 
-           #carp
-           #    sprintf(
-           #         'Incorrect packet length for REQUEST (%d requires >=9)',
-           #         length($packet || ''));
+            #carp
+            #    sprintf(
+            #         'Incorrect packet length for REQUEST (%d requires >=9)',
+            #         length($packet || ''));
             return;
         }
         return ([unpack('N3', $packet)]);
@@ -357,10 +360,10 @@ END
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 9)) {
 
-           #carp
-           #    sprintf(
-           #           'Incorrect packet length for PIECE (%d requires >=9)',
-           #           length($packet || ''));
+            #carp
+            #    sprintf(
+            #           'Incorrect packet length for PIECE (%d requires >=9)',
+            #           length($packet || ''));
             return;
         }
         return ([unpack('N2a*', $packet)]);
@@ -370,10 +373,10 @@ END
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 9)) {
 
-           #carp
-           #    sprintf(
-           #          'Incorrect packet length for CANCEL (%d requires >=9)',
-           #          length($packet || ''));
+            #carp
+            #    sprintf(
+            #          'Incorrect packet length for CANCEL (%d requires >=9)',
+            #          length($packet || ''));
             return;
         }
         return ([unpack('N3', $packet)]);
@@ -405,10 +408,10 @@ END
         my ($packet) = @_;
         if ((!$packet) || (length($packet) < 9)) {
 
-           #carp
-           #    sprintf(
-           #          'Incorrect packet length for REJECT (%d requires >=9)',
-           #          length($packet || ''));
+            #carp
+            #    sprintf(
+            #          'Incorrect packet length for REJECT (%d requires >=9)',
+            #          length($packet || ''));
             return;
         }
         return ([unpack('N3', $packet)]);

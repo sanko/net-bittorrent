@@ -7,19 +7,19 @@ package Net::BitTorrent::Storage::File;
     has 'index' => (is       => 'ro',
                     isa      => 'Maybe[Int]',
                     required => 1
-     );
+    );
     has 'length' => (is       => 'ro',
                      isa      => 'Int',
                      required => 1
-     );
-    has 'offset' => (is       => 'ro',
-                     isa      => 'Int',
-                     default  => 0
-     );
-    has 'priority' => (is       => 'rw',
-                       isa      => subtype(as 'Int' => as enum([0 .. 3])),
-                       default  => 2
-     );
+    );
+    has 'offset' => (is      => 'ro',
+                     isa     => 'Int',
+                     default => 0
+    );
+    has 'priority' => (is      => 'rw',
+                       isa     => subtype(as 'Int' => as enum([0 .. 3])),
+                       default => 2
+    );
     around 'read' => sub ($;$$) {
         my ($code, $self, $offset, $length) = @_;
         $offset //= 0;

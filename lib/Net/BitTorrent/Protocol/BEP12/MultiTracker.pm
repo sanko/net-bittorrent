@@ -76,6 +76,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
                 15 * 60,
                 sub {
                     return if !$self;
+
                     #return if !$self-active;
                     for my $tier (@{$self->tiers}) {
                         $tier->[0]->announce(

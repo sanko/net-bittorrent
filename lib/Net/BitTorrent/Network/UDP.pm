@@ -14,12 +14,6 @@ package Net::BitTorrent::Network::UDP;
     );
     my %_sock_types = (4 => '0.0.0.0', 6 => '::');
     for my $ipv (keys %_sock_types) {
-
-        has 'udp'. $ipv => (
-            is => 'ro',
-            isa=> ''
-        );
-        warn 'udp' . $ipv;
         has 'udp'
             . $ipv => (is         => 'ro',
                        init_arg   => undef,
@@ -27,8 +21,7 @@ package Net::BitTorrent::Network::UDP;
                        lazy_build => 1,
                        predicate  => '_has_udp' . $ipv
             );
-        warn 'udp' . $ipv . '_sock';
-        has 'udp'
+        has 'udp' 
             . $ipv
             . '_sock' => (is         => 'ro',
                           init_arg   => undef,
@@ -38,8 +31,7 @@ package Net::BitTorrent::Network::UDP;
                           writer     => '_udp' . $ipv . '_sock',
                           predicate  => '_has_udp' . $ipv . '_sock'
             );
-        warn 'udp' . $ipv . '_host';
-        has 'udp'
+        has 'udp' 
             . $ipv
             . '_host' => (is        => 'ro',
                           isa       => 'Str',
@@ -47,7 +39,6 @@ package Net::BitTorrent::Network::UDP;
                           writer    => '_udp' . $ipv . '_host',
                           predicate => '_has_udp' . $ipv . '_host'
             );
-        warn 'udp' . $ipv . '_port';
         has 'udp' . $ipv . '_port' => (
             is        => 'ro',
             isa       => 'Int',
@@ -63,7 +54,9 @@ package Net::BitTorrent::Network::UDP;
             }
         );
     }
-    {   sub _build_udp6 {
+    {
+
+        sub _build_udp6 {
             my ($self) = @_;
             my $port
                 = $self->_has_udp6_port ? $self->udp6_port

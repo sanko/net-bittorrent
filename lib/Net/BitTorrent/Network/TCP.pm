@@ -9,15 +9,13 @@ package Net::BitTorrent::Network::TCP;
     #
     my %_sock_types = (4 => '0.0.0.0', 6 => '::');
     for my $ipv (keys %_sock_types) {
-        warn 'tcp' . $ipv;
         has 'tcp'
             . $ipv => (is         => 'ro',
                        init_arg   => undef,
                        isa        => 'Object',
                        lazy_build => 1
             );
-        warn 'tcp' . $ipv . '_sock';
-        has 'tcp'
+        has 'tcp' 
             . $ipv
             . '_sock' => (is         => 'ro',
                           init_arg   => undef,
@@ -26,15 +24,13 @@ package Net::BitTorrent::Network::TCP;
                           weak_ref   => 1,
                           writer     => '_tcp' . $ipv . '_sock'
             );
-        warn 'tcp' . $ipv . '_host';
-        has 'tcp'
+        has 'tcp' 
             . $ipv
             . '_host' => (is      => 'ro',
                           isa     => 'Str',
                           default => $_sock_types{$ipv},
                           writer  => '_tcp' . $ipv . '_host'
             );
-        warn 'tcp' . $ipv . '_port';
         has 'tcp' . $ipv . '_port' => (
             is      => 'ro',
             isa     => 'Int',

@@ -1,6 +1,5 @@
 package Net::BitTorrent::Protocol::BEP03::Bencode;
 {
-
     use strict;
     use warnings;
     use Carp qw[carp];
@@ -10,8 +9,7 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
     *import = *import = *Exporter::import;
     @EXPORT_OK = qw[bencode bdecode];
     %EXPORT_TAGS = (all     => [@EXPORT_OK],
-                    bencode => [@EXPORT_OK],
-     );
+                    bencode => [@EXPORT_OK],);
 
     sub bencode {
         my ($ref) = @_;
@@ -23,7 +21,7 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
             );
         }
         elsif (ref $ref eq 'ARRAY') {
-            return join('', 'l', (map { bencode($_) } @{$ref}),'e');
+            return join('', 'l', (map { bencode($_) } @{$ref}), 'e');
         }
         elsif (ref $ref eq 'HASH') {
             return
@@ -46,7 +44,7 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
         {   my $size = $1;
             $return = '' if $1 =~ m[^0+$];
             $string =~ s|^$size:||s;
-            $return .= substr($string,0,$size,'');
+            $return .= substr($string, 0, $size, '');
             return if length $return < $size;
             return wantarray ? ($return, $string) : $return;    # byte string
         }
@@ -74,8 +72,8 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
         return;
     }
 }
-
 1;
+
 =pod
 
 =head1 NAME
