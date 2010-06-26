@@ -74,7 +74,7 @@
 \bNet-BitTorrent-[\d\.\_]+
 
 # Avoid misc generated and utility files
-.+\.tdy$
+.+\.ti?dy$
 \bUntitled\d.+
 ^lib2/.+
 nytprof
