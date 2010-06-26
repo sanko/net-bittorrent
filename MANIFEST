@@ -1,4 +1,5 @@
 Build.PL
+Changes
 examples/standalone_dht.pl
 lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/DHT.pm
