@@ -338,17 +338,22 @@ package Net::BitTorrent::DHT;
                                     && $req->{'target'}->equal($_->[0]);
                             }
                         );
+                        return if !defined $quest;
                         require Net::BitTorrent::Protocol::BEP23::Compact;
-                        for my $new_node (        # XXX - May be ipv6
+                        my @nodes = map {
                             Net::BitTorrent::Protocol::BEP23::Compact::uncompact_ipv4(
-                                                       $packet->{'r'}{'nodes'}
-                            )
-                            )
-                        {   $new_node = $self->ipv4_add_node($new_node);
+                                                                           $_)
+                            } ref $packet->{'r'}{'nodes'}
+                            ? @{$packet->{'r'}{'nodes'}}
+                            : $packet->{'r'}{'nodes'};
+                        {
+                            my %seen = ();
+                            @{$quest->[2]}
+                                = grep { !$seen{$_->[0]}{$_->[1]}++ }
+                                @{$quest->[2]}, @nodes;
                         }
-                        $quest->[1]->($req->{'nodeid'}, $node,
-                                      $packet->{'r'}{'nodes'}
-                        ) if $quest;
+                        $self->ipv4_add_node($_) for @nodes;
+                        $quest->[1]->($quest->[0], $node, \@nodes);
                     }
                     elsif ($type eq 'get_peers') {
 
