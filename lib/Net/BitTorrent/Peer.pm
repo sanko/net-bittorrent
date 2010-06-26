@@ -380,14 +380,16 @@ package Net::BitTorrent::Peer;
         };
     }
 ###
-    sub DEMOLISH {1}
-
-=begin old
-
-
-=end old
-
-=cut
+    sub DEMOLISH {
+        my $s = shift;
+        return if $s->handle->destroyed;
+        if (defined $s->handle->{'fh'}) {
+            shutdown($s->handle->{'fh'}, 2);
+            close($s->handle->{'fh'});
+        }
+        $s->handle->destroy;
+        1;
+    }
 }
 1;
 
