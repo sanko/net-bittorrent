@@ -269,8 +269,10 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
         my ($packet);
         if (unpack('c', $$data) == 0x13) {
             my @payload = _parse_handshake(substr($$data, 0, 68, ''));
-            $packet = {type    => HANDSHAKE,
-                       payload => @payload
+            $packet = {type           => HANDSHAKE,
+                       packet_length  => 68,
+                       payload_length => 48,
+                       payload        => @payload
                 }
                 if @payload;
         }
@@ -278,14 +280,18 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
                and (unpack('N', $$data) =~ m[\d]))
         {   if ((unpack('N', $$data) <= length($$data))) {
                 (my ($packet_data), $$data) = unpack('N/aa*', $$data);
+                my $packet_length = 4 + length $packet_data;
                 (my ($type), $packet_data) = unpack('ca*', $packet_data);
                 if (defined $parse_packet_dispatch{$type}) {
                     my $payload = $parse_packet_dispatch{$type}($packet_data);
-                    $packet = {type => $type,
+                    $packet = {type          => $type,
+                               packet_length => $packet_length,
                                (defined $payload
-                                ? (payload => $payload)
-                                : ()
-                               )
+                                ? (payload        => $payload,
+                                   payload_length => length $packet_data
+                                    )
+                                : (payload_length => 0)
+                               ),
                     };
                 }
                 elsif (eval 'require Data::Dump') {
