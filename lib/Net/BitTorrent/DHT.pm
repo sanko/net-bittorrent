@@ -180,7 +180,7 @@ package Net::BitTorrent::DHT;
             [],
             AE::timer(
                 0,
-                2 * 60,
+                0.25 * 60,
                 sub {
                     return if !$self;
                     for my $rt ($self->ipv6_routing_table,
@@ -210,8 +210,8 @@ package Net::BitTorrent::DHT;
             $code, $port,
             [],
             AE::timer(
-                30,
-                2 * 60,
+                10,
+                0.25 * 60,
                 sub {
                     return if !$self;
                     for my $rt ($self->ipv6_routing_table,
@@ -241,7 +241,7 @@ package Net::BitTorrent::DHT;
             [],
             AE::timer(
                 0,
-                1.5 * 60,
+                0.25 * 60,
                 sub {
                     return if !$self;
                     for my $rt ($self->ipv6_routing_table,
