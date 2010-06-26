@@ -115,9 +115,7 @@ package Net::BitTorrent::Network::Utility;
             : sub {
                 while ($socket
                        && (my $peer = accept my ($fh), $socket))
-                {   require AnyEvent::Util;
-                    AnyEvent::Util::fh_nonblocking $fh, 1;
-                    my ($service, $host) = unpack_sockaddr $peer;
+                {   my ($service, $host) = unpack_sockaddr $peer;
                     $callback->($fh, $peer, paddr2ip($host), $service);
                 }
             }
