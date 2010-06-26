@@ -17,9 +17,24 @@ package Net::BitTorrent::DHT;
     #
     has 'client' => (isa       => 'Net::BitTorrent',
                      is        => 'ro',
-                     predicate => 'has_client',
-                     handles   => ['udp']
+                     predicate => 'has_client'
     );
+
+    # Standalone?
+    after 'BUILD' => sub {
+        my ($s, $a) = @_;
+        return has '+client' => (handles => qr[^udp.*]) if $s->has_client;
+        require Moose::Util;
+        Moose::Util::apply_all_roles($s,
+                                     'Net::BitTorrent::DHT::Standalone',
+                                     {rebless_params => $a});
+
+        # Hey! Open up!
+        $s->udp6;
+        $s->udp4;
+    };
+
+    #
     for my $type (qw[requests replies]) {
         for my $var (qw[count length]) {
             my $attr = join '_', '', 'recv_invalid', $var;
@@ -42,16 +57,6 @@ package Net::BitTorrent::DHT;
             }
         }
     }
-    after 'BUILD' => sub {
-        my ($self, $args) = @_;
-        return if $self->has_client;
-        require Moose::Util;
-        Moose::Util::apply_all_roles($self,
-                                     'Net::BitTorrent::DHT::Standalone',
-                                     {rebless_params => $args});
-    };
-
-    #
     has 'nodeid' => (isa        => 'NBTypes::DHT::NodeID',
                      is         => 'ro',
                      lazy_build => 1,

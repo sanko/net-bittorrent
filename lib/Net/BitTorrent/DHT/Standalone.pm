@@ -1,26 +1,83 @@
 package Net::BitTorrent::DHT::Standalone;
 {
     use Moose::Role;
-    use Net::BitTorrent::Network::UDP;
+    use lib '../../../../lib';
+    use Net::BitTorrent::Protocol::BEP03::Bencode qw[bdecode];
     our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has 'port' => (is      => 'ro',
-                   lazy    => 1,
-                   default => 0,
                    isa     => 'Int',
-                   writer  => '_port'
-    );
-    has 'udp' => (init_arg   => undef,
-                  is         => 'ro',
-                  isa        => 'Net::BitTorrent::Network::UDP',
-                  lazy_build => 1
+                   builder => '_build_port',
+                   writer  => '_set_port'
     );
 
-    sub _build_udp {
+    sub _build_port {
+        my $s = shift;
+        $s->has_client ? $s->client->port : 0;
+    }
+    my %_sock_types = (4 => '0.0.0.0', 6 => '::');
+    for my $ipv (keys %_sock_types) {
+        has 'udp'
+            . $ipv => (is         => 'ro',
+                       init_arg   => undef,
+                       isa        => 'Object',
+                       lazy_build => 1,
+                       writer     => '_set_udp' . $ipv,
+                       predicate  => '_has_udp' . $ipv
+            );
+        has 'udp' 
+            . $ipv
+            . '_sock' => (is         => 'ro',
+                          init_arg   => undef,
+                          isa        => 'GlobRef',
+                          lazy_build => 1,
+                          weak_ref   => 1,
+                          writer     => '_set_udp' . $ipv . '_sock',
+                          predicate  => '_has_udp' . $ipv . '_sock'
+            );
+        has 'udp' 
+            . $ipv
+            . '_host' => (is        => 'ro',
+                          isa       => 'Str',
+                          default   => $_sock_types{$ipv},
+                          writer    => '_set_udp' . $ipv . '_host',
+                          predicate => '_has_udp' . $ipv . '_host'
+            );
+    }
+
+    sub _build_udp6 {
         my ($self) = @_;
-        Net::BitTorrent::Network::UDP->new(
-            port                => $self->port,
-            ipv4_on_data_in     => sub { $self->_ipv4_on_data_in(@_) },
-                ipv6_on_data_in => sub { $self->_ipv6_on_data_in(@_) }
+        require Net::BitTorrent::Network::Utility;
+        return Net::BitTorrent::Network::Utility::server(
+            $self->udp6_host,
+            $self->port,
+            sub { $self->_on_udp6_in(@_); },
+            sub {
+                my ($sock, $host, $port) = @_;
+
+                #if ($self->port != $port) { ...; }
+                $self->_set_udp6_sock($sock);
+                $self->_set_udp6_host($host);
+                $self->_set_port($port);
+            },
+            'udp'
+        );
+    }
+
+    sub _build_udp4 {
+        my ($self) = @_;
+        require Net::BitTorrent::Network::Utility;
+        return Net::BitTorrent::Network::Utility::server(
+            $self->udp4_host,
+            $self->port,
+            sub { $self->_on_udp4_in(@_); },
+            sub {
+                my ($sock, $host, $port) = @_;
+                if ($self->port != $port) { ...; }
+                $self->_set_udp4_sock($sock);
+                $self->_set_udp4_host($host);
+                $self->_set_port($port);
+            },
+            'udp'
         );
     }
 }
@@ -83,4 +140,3 @@ Inc.
 =for rcs $Id$
 
 =cut
-
