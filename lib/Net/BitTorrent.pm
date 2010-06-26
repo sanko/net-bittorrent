@@ -107,61 +107,155 @@ package Net::BitTorrent;
     }
 
     # Sockets
-    has 'port' => (is      => 'ro',
-                   lazy    => 1,
-                   default => 0,
-                   isa     => 'Int',
-                   writer  => '_port'
-    );
-    has 'udp' => (init_arg   => undef,
-                  is         => 'ro',
-                  isa        => 'Net::BitTorrent::Network::UDP',
-                  lazy_build => 1
-    );
+    has 'port' => (
+        is      => 'ro',
+        isa     => 'Int',
+        default => 0,
+        writer  => '_set_port',
 
-    sub _build_udp {
+        #trigger => sub {...}
+    );
+    {
+        my %_sock_types = (4 => '0.0.0.0', 6 => '::');
+        for my $prot (qw[tcp udp]) {
+            for my $ipv (keys %_sock_types) {
+                has $prot
+                    . $ipv => (is         => 'ro',
+                               init_arg   => undef,
+                               isa        => 'Object',
+                               lazy_build => 1,
+                               writer     => '_set_' . $prot . $ipv,
+                               predicate  => '_has_' . $prot . $ipv
+                    );
+                has $prot 
+                    . $ipv
+                    . '_sock' => (
+                                 is         => 'ro',
+                                 init_arg   => undef,
+                                 isa        => 'GlobRef',
+                                 lazy_build => 1,
+                                 weak_ref   => 1,
+                                 writer => '_set_' . $prot . $ipv . '_sock',
+                                 predicate => '_has_' . $prot . $ipv . '_sock'
+                    );
+                has $prot 
+                    . $ipv
+                    . '_host' => (
+                                 is      => 'ro',
+                                 isa     => 'Str',
+                                 default => $_sock_types{$ipv},
+                                 writer  => '_set_' . $prot . $ipv . '_host',
+                                 predicate => '_has_' . $prot . $ipv . '_host'
+                    );
+            }
+        }
+    }
+    after 'BUILD' => sub { $_[0]->$_() for qw[udp6 tcp6 udp4 tcp4] };
+
+    sub _build_tcp6 {
         my ($self) = @_;
-        require Net::BitTorrent::Network::UDP;
-        Net::BitTorrent::Network::UDP->new(
-                        port            => $self->port,
-                        ipv4_on_data_in => sub { $self->_ipv4_on_udp_in(@_) },
-                        ipv6_on_data_in => sub { $self->_ipv6_on_udp_in(@_) }
+        require Net::BitTorrent::Network::Utility;
+        return Net::BitTorrent::Network::Utility::server(
+            $self->tcp6_host,
+            $self->port,
+            sub { $self->_on_tcp6_in(@_); },
+            sub {
+                my ($sock, $host, $port) = @_;
+
+                #if ($self->port != $port) { ...; }
+                $self->_set_tcp6_sock($sock);
+                $self->_set_tcp6_host($host);
+                $self->_set_port($port);
+            },
+            'tcp'
         );
     }
-    after 'BUILD' => sub { shift->udp };
 
-    sub _ipv4_on_udp_in {
-        my $self = shift;
-        my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
-        $self->dht->_ipv4_on_data_in(@_);
+    sub _build_tcp4 {
+        my ($self) = @_;
+        require Net::BitTorrent::Network::Utility;
+        return Net::BitTorrent::Network::Utility::server(
+            $self->tcp4_host,
+            $self->port,
+            sub { $self->_on_tcp4_in(@_); },
+            sub {
+                my ($sock, $host, $port) = @_;
+                if ($self->port != $port) { ...; }
+                $self->_set_tcp4_sock($sock);
+                $self->_set_tcp4_host($host);
+                $self->_set_port($port);
+            },
+            'tcp'
+        );
     }
 
-    sub _ipv6_on_udp_in {
+    sub _build_udp6 {
+        my ($self) = @_;
+        require Net::BitTorrent::Network::Utility;
+        return Net::BitTorrent::Network::Utility::server(
+            $self->udp6_host,
+            $self->port,
+            sub { $self->_on_udp6_in(@_); },
+            sub {
+                my ($sock, $host, $port) = @_;
+
+                #if ($self->port != $port) { ...; }
+                $self->_set_udp6_sock($sock);
+                $self->_set_udp6_host($host);
+                $self->_set_port($port);
+            },
+            'udp'
+        );
+    }
+
+    sub _build_udp4 {
+        my ($self) = @_;
+        require Net::BitTorrent::Network::Utility;
+        return Net::BitTorrent::Network::Utility::server(
+            $self->udp4_host,
+            $self->port,
+            sub { $self->_on_udp4_in(@_); },
+            sub {
+                my ($sock, $host, $port) = @_;
+                if ($self->port != $port) { ...; }
+                $self->_set_udp4_sock($sock);
+                $self->_set_udp4_host($host);
+                $self->_set_port($port);
+            },
+            'udp'
+        );
+    }
+
+    sub _on_tcp4_in {
+        my ($self, $peer, $paddr, $host, $port) = @_;
+        require Net::BitTorrent::Peer;
+        $self->add_peer(
+                    Net::BitTorrent::Peer->new(fh => $peer, client => $self));
+    }
+
+    sub _on_tcp6_in {
+        my ($self, $peer, $paddr, $host, $port) = @_;
+
+        #use Data::Dump;
+        #ddx \@_;
+        #...;
+    }
+
+    sub _on_udp4_in {
         my $self = shift;
         my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
-        $self->dht->_ipv6_on_data_in(@_);
+        $self->dht->_on_udp4_in(@_);
     }
-    has 'tcp' => (init_arg   => undef,
-                  is         => 'ro',
-                  isa        => 'Net::BitTorrent::Network::TCP',
-                  lazy_build => 1
-    );
+
+    sub _on_upd6_in {
+        my $self = shift;
+        my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
+        $self->dht->_on_udp6_in(@_);
+    }
 
     #
     has '_peers' => (
         is      => 'HashRef[Net::BitTorrent::Peer]',    # by creation id
-    sub _build_tcp {
-        my ($self) = @_;
-        require Net::BitTorrent::Network::TCP;
-        Net::BitTorrent::Network::TCP->new(
-                        port            => $self->port,
-                        ipv4_on_data_in => sub { $self->_ipv4_on_tcp_in(@_) },
-                        ipv6_on_data_in => sub { $self->_ipv6_on_tcp_in(@_) }
-        );
-    }
-    after 'BUILD' => sub { shift->tcp };
-    has 'handles' => (
-        is      => 'HashRef[AnyEvent::Handle]',    # by creation id
         is      => 'ro',
         traits  => ['Hash'],
         handles => {
@@ -174,79 +268,14 @@ package Net::BitTorrent;
                clear_peers => 'clear',                     # removes all peers
                count_peers => 'count',
                no_peers    => 'is_empty'
-        handles => {handle        => 'get',
-                    add_handle    => 'set',
-                    del_handle    => 'delete',
-                    has_handle    => 'defined',
-                    clear_handles => 'clear',
-                    count_handles => 'count',
-                    no_handles    => 'is_empty'
         },
         default => sub { {} }
     );
     around [qw[peer add_peer del_peer has_peer]] => sub {
         my ($code, $self, $arg) = @_;
         blessed $arg ? $code->($self, $arg->_id, $arg) : $code->($self, $arg);
-    around [qw[handle del_handle has_handle]] => sub {
-        my ($code, $self, $handle) = @_;
-        blessed $handle
-            ? $code->($self, $handle->{'hid'})
-            : $code->($self, $handle);
     };
-    around 'add_handle' => sub {
-        my ($code, $self, $handle) = @_;
-        $code->($self, $handle->{'hid'}, $handle);
-    };
-    sub hid { state $hid = 'a'; $hid++ }    # handleID generator
 
-    sub _ipv4_on_tcp_in {
-        my ($self, $tcp, $peer, $paddr, $host, $port) = @_;
-        require AnyEvent::Handle::Throttle;
-        my $handle = AnyEvent::Handle::Throttle->new(
-            fh       => $peer,
-            on_error => sub {
-                warn "error $_[2]\n";
-                ...;
-                $_[0]->destroy;
-            },
-            on_eof => sub {
-                $self->handle->destroy;    # destroy handle
-                warn "done.\n";
-                ...;
-            },
-            on_prepare => sub { $self->set_connecting; 15 },    # timeout
-            on_connect =>
-                sub { my ($handle, $host, $port, $retry) = @_; ... },
-            on_connect_error =>
-                sub { my ($handle, $message) = @_; die $message },
-            on_error => sub {
-                my ($handle, $fatal, $message) = @_;
-                warn sprintf '%s%s', $fatal ? '[fatal] ' : '', $message;
-            },
-            on_read => sub {
-                my ($handle) = @_;
-                require Net::BitTorrent::Peer;
-                my $new_peer = # NBPeer gets first shot
-                    Net::BitTorrent::Peer->new(host   => $host,
-                                               port   => $port,
-                                               source => 'incoming',
-                                               handle => $handle
-                    );
-                return 1 if $new_peer;
-            },
-            on_eof => sub { my ($handle) = @_; ... },
-            on_drain => sub { my ($handle) = @_; },
-            rtimeout => 60 * 5,
-            wtimeout => 60 * 10,
-            on_timeout => sub { my ($handle) = @_; ... },
-            read_size  => 1024 * 16,
-            hid        => $self->hid
-        );
-        return $self->add_handle($handle);
-    }
-
-    sub _ipv6_on_tcp_in {
-        my ($self, $tcp, $peer, $paddr, $host, $port) = @_;
 
         #use Data::Dump;
         #ddx \@_;
