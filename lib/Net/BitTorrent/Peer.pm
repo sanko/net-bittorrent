@@ -15,10 +15,40 @@ package Net::BitTorrent::Peer;
     has 'torrent' => (is        => 'ro',
                       isa       => 'Net::BitTorrent::Torrent',
                       predicate => 'has_torrent',
-                      writer    => '_torrent',
+                      writer    => '_set_torrent',
                       weak_ref  => 1,
-                      handles   => [qw[client has_client]]
     );
+    has 'connect' => (is => 'ro', isa => 'ArrayRef');
+    has 'client' => (is       => 'ro',
+                     isa      => 'Net::BitTorrent',
+                     required => 1,
+                     weak_ref => 1,
+                     handles  => qr[^trigger_peer_.+_callback$]
+    );
+    has 'fh' => (is         => 'ro',
+                 isa        => 'GlobRef',
+                 predicate  => 'has_fh',
+                 lazy_build => 1
+    );
+    sub _build_fh { shift->handle->{'fh'}; }
+    has 'handle' => (is         => 'ro',
+                     isa        => 'AnyEvent::Handle::Throttle',
+                     predicate  => 'has_handle',
+                     writer     => '_set_handle',
+                     lazy_build => 1,
+                     handles    => {
+                                 rbuf       => 'rbuf',
+                                 push_read  => 'push_read',
+                                 push_write => 'push_write'
+                     }
+    );
+
+    sub _build_handle {
+        my ($s) = @_;
+        require AnyEvent::Handle::Throttle;
+        AnyEvent::Handle::Throttle->new(
+                      $s->has_fh ? (fh => $s->fh) : (connect => $s->connect));
+    }
     has 'source' => (
              is  => 'ro',
              isa => enum([qw[tracker dht pex lsd resume_data incoming user]]),
@@ -78,93 +108,13 @@ package Net::BitTorrent::Peer;
         }
         after 'BUILD' => sub {
             my ($self, $args) = @_;
-            if ($self->has_handle || defined $args->{'handle'}) {   # incoming
-                use Data::Dump;
-                ddx $self->handle;
-                warn $self->handle->rbuf;
-                warn 'TODO: Read handshake from incoming peers';
-            }
-            else {                                                  # outgoing
+            if (defined $args->{'connect'}) {    # outgoing
                 $self->_set_local_connection;
             }
+            else {
 
-            # read the initial handshake/first packet
-
-=old
-
- if ($data =~ s[^\23BitTorrent protocol(.{8})(.{20})(.{20}$)][]s)
-                {    # plaintext handshake
-                    my ($bits, $info_hash, $peerid) = ($1, $2, $3);
-                    my $torrent = $self->torrent($info_hash);
-                    return $handle->disconnect(
-                                           'Unknown info_hash: ' . $info_hash)
-                        if !$torrent;
-
-                }
-                else {           # encrypted handshake or other wire protocol
-
-
-
-
-sub ___handle_encrypted_handshake_two {
-
-        # warn((caller(0))[3]);
-        my ($self) = @_;
-        $self->client->_add_connection($self, q[rw]);
-        if ($self->handle->rbuf =~ m[^\x13BitTorrent protocol.{48}$]s) {
-
-            #warn q[Switching to plaintext handshake];
-            $self->set_state REG_TWO;
-            return;
-        }
-
-        # Step 2B:
-        #  - Read Ya from A
-        #  - Generate Yb, PadB
-        #  - Generate S
-        #  - Send Yb, PadB to A
-        if (length($self->handle->rbuf) < 96) {
-
-            #warn sprintf
-            #    q[Not enough data for Step 2B (req: 96, have: %d)],
-            #    length($self->handle->rbuf);
-            $self->client->_add_connection($self, q[rw]);
-            return 1;
-        }
-        $_Ya{  $self} = Math::BigInt->new(
-            join q[],    # Read Ya from A
-            q[0x],
-            map { sprintf q[%02x], ord $_ } split //,
-            substr($self->handle->rbuf, 0, 96, q[])
-        );
-        $_Xb{  $self} = int rand(9999999999999999);    # Random Xb
-        $_Yb{  $self}
-            = Math::BigInt->new(DH_G)->bmodpow($_Xb{  $self}, DH_P);
-        my @bits
-            = map { chr hex $_ }
-            ($_Ya{  $self}->bmodpow($_Xb{  $self}, DH_P)->as_hex
-             =~ m[(..)]g);
-        shift @bits;
-        $_S{  $self} = join q[], @bits;
-        my @_bits
-            = map { chr hex $_ } ($_Yb{  $self}->as_hex =~ m[(..)]g);
-        shift @_bits;
-        $self->_syswrite(
-                  join(q[], @_bits)
-                . join(q[], map { chr int rand(255) } 1 .. (rand(1024) % 512))
-        );
-
-        #warn sprintf q[Step 2B Complete: %s | %d bytes in cache],
-        #    $self->as_string,
-        $self->_syswrite(
-                  join(q[], @_bits)
-                . join(q[], map { chr int rand(255) } 1 .. (rand(1024) % 512))
-        );
-        $self->set_state MSE_FOUR;
-        return 1;
-    }
-=cut
-
+                # incoming
+            }
         };
     }
     for my $flag (qw[
@@ -190,99 +140,116 @@ sub ___handle_encrypted_handshake_two {
     }
 
     #
-    #has 'port' => (isa => 'Int', is => 'ro', required => 1);
-    #has 'host' => (isa => 'Str', is => 'ro', required => 1);
-    has 'handle' => (
-        isa        => 'AnyEvent::Handle',
-        is         => 'ro',
-        lazy_build => 1,
-        predicate  => 'has_handle',
-
-        #weak_ref   => 1
-    );
     my $infohash_constraint;
-
-    sub _build_handle {
-        my ($self) = @_;
-        require AnyEvent::Handle::Throttle;
+    after 'BUILD' => sub {
+        my ($s, $a) = @_;
         require Scalar::Util;
-        Scalar::Util::weaken $self;
-        my $handle = AnyEvent::Handle::Throttle->new(
-            #upload_rate   => 200,
-            #download_rate => 500,
-            connect => ['127.0.0.1', 1337],
-            connect => $self->connect,
-            #on_prepare => sub { $self->set_connecting;
-            #    30 },    # timeout
-            on_connect => sub {    # outgoing. Send handshake
-                my ($handle, $host, $port, $retry) = @_;
-            },
-            on_error => sub {
-                my ($handle, $fatal, $msg) = @_;
-                warn $msg;
-                return if !$fatal;
-                $self->disconnect($msg);
-            },
-            on_read => sub {
-                my ($h) = @_;
-            PACKET: while ( my $packet = parse_packet( \$h->rbuf ) ) {
-                    $self->_handle_packet($packet);
-                    last PACKET if !$h->rbuf;
-                }
-            },
-            on_eof => sub {
-                ...;
-                $self->disconnect('Connection closed');
-            },
-            on_drain   => sub { warn 'empty' },
-            on_timeout => sub { my ($handle) = @_; ... },
-
-            #rtimeout   => 60 * 5,
-            #wtimeout   => 60 * 10,
-            #read_size  => 1024 * 16,
-            hid => $self->client->hid
-        );
-        require Net::BitTorrent::Protocol::BEP03::Packets;
-        my $packet =
-            Net::BitTorrent::Protocol::BEP03::Packets::build_handshake(
-                            $self->_build_reserved, $self->torrent->info_hash,
-                            $self->client->peer_id);
-        warn $packet;
-        $handle->push_write($packet);
-        $handle->push_read(
-            chunk => 68,
-            sub {
-                my ($h, $data) = @_;
-                if (my ($reserved, $info_hash, $peer_id)
-                    = $data
-                    =~ m[^\23BitTorrent protocol(.{8})(.{20})(.{20})$])
-                {   $infohash_constraint //=
-                        Moose::Util::TypeConstraints::find_type_constraint(
+        Scalar::Util::weaken $s;
+        my $hand_shake_writer = sub {
+            my $packet =
+                Net::BitTorrent::Protocol::BEP03::Packets::build_handshake(
+                                  $s->_build_reserved, $s->torrent->info_hash,
+                                  $s->client->peer_id);
+            $s->push_write($packet);
+        };
+        my $hand_shake_reader = sub {
+            my (undef, $data) = @_;
+            if (my ($reserved, $info_hash, $peer_id)
+                = $data =~ m[^\23BitTorrent protocol(.{8})(.{20})(.{20})$])
+            {   $infohash_constraint //=
+                    Moose::Util::TypeConstraints::find_type_constraint(
                                                 'NBTypes::Torrent::Infohash');
-                    $info_hash = $infohash_constraint->coerce($info_hash);
-                    return $self->disconnect('Bad info_hash')
-                        if $info_hash->Compare($self->torrent->info_hash)
-                            != 0;
-                    $self->_set_support_extensions(
+                $info_hash = $infohash_constraint->coerce($info_hash);
+                $s->_set_support_extensions(
                                          ord(substr($reserved, 5, 1)) & 0x10);
-                    $self->_set_peer_id($peer_id);
+                $s->_set_peer_id($peer_id);
+                if ($s->local_connection) {
+                    return $s->disconnect(
+                        'Bad info_hash (Does not match the torrent we were seeking)'
+                    ) if $info_hash->Compare($s->torrent->info_hash) != 0;
                 }
                 else {
-
-                    # XXX - apply encrypted peer role
+                    my $torrent = $a->{'client'}->torrent($info_hash);
+                    return $s->disconnect(
+                            'Bad info_hash (We are not serving this torrent)')
+                        if !$torrent;
+                    $s->_set_torrent($torrent);
+                    $hand_shake_writer->();
                 }
-                1;
+            }
+            else {
+
+                # XXX - apply encrypted peer role
+            }
+            1;
+        };
+        $s->handle->on_read(
+            sub {
+            PACKET: while (my $packet = parse_packet(\$s->handle->rbuf)) {
+                    $s->_handle_packet($packet);
+                    last PACKET if !$s->rbuf;
+                }
+                warn $s->rbuf if $s->rbuf;
             }
         );
-        $self->client->add_handle($handle);
-        $handle;
-    }
-    after 'BUILD' => sub { shift->handle };
+        $s->handle->on_eof(
+            sub {
+                $s->disconnect('Connection closed by remote peer');
+            }
+        );
+        $s->handle->on_error(
+            sub {
+                my ($h, $fatal, $msg) = @_;
+                warn $msg;
+                return if !$fatal;
+                $s->disconnect('Error: ' . $msg);
+            }
+        );
+
+        #$s->handle->on_prepare(sub { $s->set_connecting; 30 });
+        #$s->handle->on_connect(
+        #    sub {    # outgoing. Send handshake
+        #        my ($handle, $host, $port, $retry) = @_;
+        #    }
+        #);
+        $s->handle->on_error(
+            sub {
+                my ($h, $fatal, $msg) = @_;
+                return if !$fatal;
+                $s->disconnect($msg);
+            }
+        );
+        $s->handle->on_eof(
+            sub {
+                $s->disconnect('Connection closed by remote peer');
+            }
+        );
+        $s->handle->on_drain(sub {1});
+        $s->handle->on_timeout(sub { my ($handle) = @_; ... });
+        $s->handle->rtimeout(60 * 5);
+        $s->handle->wtimeout(60 * 10);
+
+        #$s->handle->read_size(1024 * 16);
+        #$s->handle->upload_rate(200);
+        #$s->handle->download_rate(500);
+        #
+        $hand_shake_writer->($s->handle) if $s->local_connection;
+        $s->push_read(chunk => 68, $hand_shake_reader);
+
+        #$hand_shake_reader->($s->handle, substr($s->handle->rbuf, 0, 68) );
+    };
 
     sub disconnect {
-        my ($self, $reason) = @_;
-        warn $reason;
-        $self->client->del_handle($self->handle);
+        my ($s, $reason) = @_;
+        warn sprintf '%20s | %s', $s->peer_id || '[unknown peer]', $reason;
+        if (!$s->handle->destroyed) {
+            if (defined $s->handle->{'fh'}) {
+                shutdown($s->handle->{'fh'}, 2);
+                close($s->handle->{'fh'});
+            }
+            $s->handle->destroy;
+        }
+        $s->client->del_peer($s);
         $_[0] = undef;
     }
 
@@ -290,8 +257,6 @@ sub ___handle_encrypted_handshake_two {
         require Net::BitTorrent::Network::Utility;
         Net::BitTorrent::Network::Utility::sockaddr($_[0]->host, $_[0]->port);
     }
-    has 'ipv6' => (isa => 'Bool', is => 'ro', lazy_build => 1);
-    sub _build_ipv6 { length shift->sockaddr == 28 }
     for my $flag (qw[up_speed down_speed payload_up_speed payload_downspeed])
     {   has $flag => (isa     => 'Int',
                       is      => 'rw',
