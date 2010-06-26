@@ -60,7 +60,6 @@ my $mb = $class->new(
          }
      },
      meta_merge => {
-         generated_by => 'Conversion, software version 7.0',
          keywords     => [qw[BitTorrent torrent ]],
          resources    => {
              bugtracker => {
