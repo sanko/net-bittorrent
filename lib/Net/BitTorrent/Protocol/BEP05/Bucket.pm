@@ -131,6 +131,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     #
     sub ceil {
         my $self = shift;
+        require Bit::Vector;
         my $ceil = Bit::Vector->new_Hex(160, 'F' x 40);
         if ($self->has_next) {
             $ceil->Copy($self->next->floor);
@@ -140,7 +141,8 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     }
 
     sub middle {
-        my $self  = shift;
+        my $self = shift;
+        require Bit::Vector;
         my $floor = Bit::Vector->new(160);
         $floor->Copy($self->floor);
         my $range = Bit::Vector->new(160);
