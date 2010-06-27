@@ -60,7 +60,22 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         $s->{'quest'}{'find_node'} = $s->{'dht'}->find_node(
             $l,
             sub {
-                &cb_find_node;
+                my ($tar, $nd, $pr) = @_;
+                subtest 'find_node callback' => sub {
+                    plan tests => 3;
+                    isa_ok($tar, 'Bit::Vector',
+                           'Target isa a Bit::Vector object');
+                    isa_ok($nd,
+                           'Net::BitTorrent::Protocol::BEP05::Node',
+                           'Node is a ...::Node');
+                    is ref $pr, 'ARRAY',
+                        'List of close nodes is... a list... of addrs?';
+                    note sprintf
+                        'We found %d nodes near %s from [\'%s\', %d] via DHT',
+                        scalar(@$pr),
+                        $tar->to_Hex, $nd->host, $nd->port;
+                    note join ', ', map { sprintf '[\'%s\', %d]', @$_ } @$pr;
+                };
                 state $done = 0;
                 $s->{'cv'}->end if !$done++;
             }
@@ -68,14 +83,6 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         ok($s->{'quest'}{'find_node'});
         is ref $s->{'quest'}{'find_node'}, 'ARRAY',
             'find_node quest is an array reference';
-    }
-
-    sub cb_find_node {
-        my ($ih, $nd, $pr) = @_;
-        diag sprintf 'We found %d nodes near %s from [\'%s\', %d] via DHT',
-            scalar(@$pr),
-            $ih->to_Hex, $nd->host, $nd->port;
-        diag join ', ', map { sprintf '[\'%s\', %d]', @$_ } @$pr;
     }
 
     sub quest_announce_peer : Test( no_plan ) {
@@ -92,7 +99,20 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
             $s->{'ih'},
             $s->{'po'},
             sub {
-                &cb_announce_peer;
+                my ($infohash, $node, $port) = @_;
+                subtest 'announce_peer_callback' => sub {
+                    plan tests => 3;
+                    isa_ok($infohash, 'Bit::Vector',
+                           'Infohash isa a Bit::Vector object');
+                    isa_ok($node,
+                           'Net::BitTorrent::Protocol::BEP05::Node',
+                           'Node is a ...::Node');
+                    ok $port =~ m[^\d+$], 'Port is... a number';
+                    note sprintf
+                        'Announced %s on port %d with [\'%s\', %d] (%s)',
+                        $infohash->to_Hex, $port, $node->host, $node->port,
+                        $node->nodeid->to_Hex;
+                };
                 state $done = 0;
                 $s->{'cv'}->end if !$done++;
             }
@@ -102,13 +122,6 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
             'announce_peer quest is an array reference';
     }
 
-    sub cb_announce_peer {
-        my ($infohash, $node, $port) = @_;
-        diag sprintf 'Announced %s on port %d with [\'%s\', %d] (%s)',
-            $infohash->to_Hex, $port, $node->host, $node->port,
-            $node->nodeid->to_Hex;
-    }
-
     sub quest_get_peers : Test( no_plan ) {
         my $s = shift;
         $s->{'cv'}->begin;
@@ -116,7 +129,22 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         $s->{'quest'}{'get_peers'} = $s->{'dht'}->get_peers(
             $s->{'ih'},
             sub {
-                &cb_get_peers;
+                my ($ih, $nd, $pr) = @_;
+                subtest 'get_peers callback' => sub {
+                    plan tests => 3;
+                    isa_ok($ih, 'Bit::Vector',
+                           'Infohash isa a Bit::Vector object');
+                    isa_ok($nd,
+                           'Net::BitTorrent::Protocol::BEP05::Node',
+                           'Node is a ...::Node');
+                    is ref $pr, 'ARRAY',
+                        'List of peers is... a list... of peers?';
+                    note sprintf
+                        'We found %d peers for %s from [\'%s\', %d] via DHT',
+                        scalar(@$pr),
+                        $ih->to_Hex, $nd->host, $nd->port;
+                    note join ', ', map { sprintf '[\'%s\', %d]', @$_ } @$pr;
+                };
                 state $done = 0;
                 $s->{'cv'}->end if !$done++;
             }
@@ -124,14 +152,6 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         ok($s->{'quest'}{'get_peers'});
         is ref $s->{'quest'}{'get_peers'}, 'ARRAY',
             'get_peers quest is an array reference';
-    }
-
-    sub cb_get_peers {
-        my ($ih, $nd, $pr) = @_;
-        diag sprintf 'We found %d peers for %s from [\'%s\', %d] via DHT',
-            scalar(@$pr),
-            $ih->to_Hex, $nd->host, $nd->port;
-        diag join ', ', map { sprintf '[\'%s\', %d]', @$_ } @$pr;
     }
 
     #
