@@ -31,16 +31,16 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
 
     sub init : Test( startup ) {
         my $s = shift;
-        diag 'Adding condvar for later use...';
+        note 'Adding condvar for later use...';
         $s->{'cv'} = AE::cv();
         $s->{'cv'}->begin(sub { $s->{'cv'}->send });
-        diag '...which will timeout in 2m.';
+        note '...which will timeout in 2m.';
         $s->{'to'}
-            = AE::timer(60 * 2, 0, sub { diag 'Timeout!'; $s->{'cv'}->send });
+            = AE::timer(60 * 2, 0, sub { note 'Timeout!'; $s->{'cv'}->send });
 
         #for my $addr ()
         #{   my $node = $s->{'dht'}->ipv4_add_node($addr);
-        #    diag sprintf 'Booting with [\'%s\', %d]', @$addr;
+        #    note sprintf 'Booting with [\'%s\', %d]', @$addr;
         #    meta_ok $node;
         #    isa_ok $node, 'Net::BitTorrent::Protocol::BEP05::Node';
         #}
@@ -56,7 +56,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         my $s = shift;
         $s->{'cv'}->begin;
         my $l = join '', map { [0 .. 9, 'a' .. 'f']->[int rand(16)] } 1 .. 40;
-        diag 'Seeking nodes near ' . $l;
+        note 'Seeking nodes near ' . $l;
         $s->{'quest'}{'find_node'} = $s->{'dht'}->find_node(
             $l,
             sub {
@@ -86,7 +86,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         #    map { [0 .. 9, 'a' .. 'f']->[int rand(16)] } 1 .. 40;
         $s->{'ih'} = '6d0f88e9646c0f3a01bc35d0b0845db3247e6260';
         $s->{'po'} = int rand(65000);
-        diag sprintf 'Pretending we are serving %s on port %d', $s->{'ih'},
+        note sprintf 'Pretending we are serving %s on port %d', $s->{'ih'},
             $s->{'po'};
         $s->{'quest'}{'announce_peer'} = $s->{'dht'}->announce_peer(
             $s->{'ih'},
@@ -112,7 +112,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
     sub quest_get_peers : Test( no_plan ) {
         my $s = shift;
         $s->{'cv'}->begin;
-        diag 'Seeking peers with ', $s->{'ih'};
+        note 'Seeking peers with ', $s->{'ih'};
         $s->{'quest'}{'get_peers'} = $s->{'dht'}->get_peers(
             $s->{'ih'},
             sub {
