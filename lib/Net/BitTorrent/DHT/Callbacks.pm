@@ -3,7 +3,7 @@ package Net::BitTorrent::DHT::Callbacks;
     use Moose::Role;
     use lib '../../../../lib';
     use Net::BitTorrent::Protocol::BEP03::Bencode qw[bdecode];
-    our $MAJOR = 0.075; our $MINOR = 0; our $DEV = -1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     sub _build_callback_no_op {
         sub {1}

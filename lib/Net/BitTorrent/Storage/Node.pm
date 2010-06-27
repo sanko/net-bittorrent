@@ -3,7 +3,7 @@ package Net::BitTorrent::Storage::Node;
     use Moose;
     use Moose::Util::TypeConstraints;
     use Net::BitTorrent::Types qw[:file];
-    our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use File::Spec::Functions qw[splitpath catpath canonpath catfile];
     use File::Path qw[make_path];
     use Fcntl qw[/O_/ /SEEK/ :flock];

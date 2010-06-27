@@ -3,7 +3,7 @@ package Net::BitTorrent::Storage::Cache;
     use Moose;
     use Moose::Util::TypeConstraints;
     use File::Spec::Functions qw[catfile splitpath];
-    our $MAJOR = 0.075; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     extends 'Net::BitTorrent::Storage::Node';
     has 'packets' => (traits  => ['Hash'],
                       is      => 'ro',
