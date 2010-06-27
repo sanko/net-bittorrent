@@ -46,7 +46,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         #}
     }
 
-    sub wait : Test( shutdown ) {
+    sub wait : Test( shutdown => no_plan ) {
         my $s = shift;
         $s->{'cv'}->end;
         $s->{'cv'}->recv;
