@@ -1,0 +1,60 @@
+NAME
+    Net::BitTorrent - Wheeeeeeee!!!
+
+Synopsis
+      use Net::BitTorrent;
+      use AnyEvent;
+
+      my $c = Net::BitTorrent->new();
+
+      # XXX - callback system is incomplete
+
+      my $t = $c->add_torrent( path => 'a/legal.torrent' )
+          || die 'Cannot load .torrent';
+
+      $c->run; # Simple wrapper around AnyEvent->condvar->recv
+
+Description
+    Net::BitTorrent is a class based implementation of the BitTorrent
+    Protocol for distributed data exchange.
+
+******************************************************************************
+    Note that this distribution is being rewritten from scratch and will
+    eventually use Moose and AnyEvent. If you see this notice, I am probably
+    trying out some new thing I'd like to have some CPAN tester data on.
+
+    You are invited to test but please DO NOT ATTEMPT TO USE THIS IN
+    PRODUCTION as everything from the API to basic internal functionality is
+    subject to change. For more, see the module's repository on
+    github.com/sanko/net-bittorrent
+    <http://github.com/sanko/net-bittorrent>.
+
+    All bugs and feature requests should be made on the issue tracker found
+    at github.com/sanko/net-bittorrent/issues
+    <http://github.com/sanko/net-bittorrent/isues> or via IRC at
+    <irc://freenode.net/#net-bittorrent>.
+
+******************************************************************************
+Author
+    Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+    CPAN ID: SANKO
+
+License and Legal
+    Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of The Artistic License 2.0
+    <http://www.perlfoundation.org/artistic_license_2_0>. See the LICENSE
+    file included with this distribution or notes on the Artistic License
+    2.0 <http://www.perlfoundation.org/artistic_2_0_notes> for
+    clarification.
+
+    When separated from the distribution, all original POD documentation is
+    covered by the Creative Commons Attribution-Share Alike 3.0 License
+    <http://creativecommons.org/licenses/by-sa/3.0/us/legalcode>. See the
+    clarification of the CCA-SA3.0
+    <http://creativecommons.org/licenses/by-sa/3.0/us/>.
+
+    Neither this module nor the Author is affiliated with BitTorrent, Inc.
+
