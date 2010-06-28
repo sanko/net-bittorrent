@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use File::Find;
 use Module::Build;
-use Config;
 $|++;
 my $automated_testing = $ENV{'AUTOMATED_TESTING'}
     || $ENV{'PERL_MM_USE_DEFAULT'};
