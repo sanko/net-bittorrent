@@ -1,21 +1,23 @@
-Version 0.XXXXX | In the not too distant future | 3b1b744
+Version 0.XXXXX | In the not too distant future | e450fc8
 
     API Changes/Compatibility Information:
-     * NA
+     * Rewrite!
 
     Resolved Issues/Bug Fixes:
-     * NA
+     * Rewrite!
 
     Protocol/Behavioral Changes:
-     * NA
+     * Rewrite!
 
     Documentation/Sample Code/Test Suite:
-     * NA
+     * You know.
 
     Notes:
      * Meanwhile...
-         - NA
+         - This distribution is going through a rewrite. You know, ...fyi.
+         - This particular dist is being uploaded to test the DHT code so far.
 
+---
 Version 0.0052 | 2010-06-18 00:24:58Z (Fri, 18 Jun 2010) | d08d622
 
     Documentation/Sample Code/Test Suite:
@@ -30,6 +32,7 @@ Version 0.0052 | 2010-06-18 00:24:58Z (Fri, 18 Jun 2010) | d08d622
      * This will probably be the last 'stable' version before Net::BitTorrent
         is rewritten. Stuff in TODO.pod will be expanded and used as a roadmap
 
+---
 Version 0.051 | 2009-09-12 04:52:06Z (Sat, 12 Sep 2009) | 694da26
 
     API Changes/Compatibility Information:

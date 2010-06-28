@@ -349,6 +349,54 @@ package Net::BitTorrent;
 
 =pod
 
+=head1 NAME
+
+Net::BitTorrent - Wheeeeeeee!!!
+
+=head1 Synopsis
+
+  use Net::BitTorrent;
+  use AnyEvent;
+
+  my $c = Net::BitTorrent->new();
+
+  # XXX - callback system is incomplete
+
+  my $t = $c->add_torrent( path => 'a/legal.torrent' )
+      || die 'Cannot load .torrent';
+
+  $c->run; # Simple wrapper around AnyEvent->condvar->recv
+
+=head1 Description
+
+L<Net::BitTorrent|Net::BitTorrent> is a class based implementation of the
+BitTorrent Protocol for distributed data exchange.
+
+=for html <span style="color:#F00;font-weight:700">
+
+=for text
+******************************************************************************
+
+Note that this distribution is being rewritten from scratch and will
+eventually use L<Moose|Moose> and L<AnyEvent|AnyEvent>. If you see this
+notice, I am probably trying out some new thing I'd like to have some CPAN
+tester data on.
+
+You are invited to test but please B<DO NOT ATTEMPT TO USE THIS IN PRODUCTION>
+as everything from the API to basic internal functionality is subject to
+change. For more, see the module's repository on
+L<github.com/sanko/net-bittorrent|http://github.com/sanko/net-bittorrent>.
+
+All bugs and feature requests should be made on the issue tracker found at
+L<github.com/sanko/net-bittorrent/issues|http://github.com/sanko/net-bittorrent/isues>
+or via IRC at
+L<irc://freenode.net/#net-bittorrent|irc://freenode.net/#net-bittorrent>.
+
+=for text
+******************************************************************************
+
+=for html </span>
+
 =head1 Author
 
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
