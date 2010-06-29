@@ -1,4 +1,4 @@
-Version 0.XXXXX | In the not too distant future | 5801a81
+Version 0.XXXXX | In the not too distant future | be4f2da
 
     API Changes/Compatibility Information:
      * Rewrite!
@@ -16,6 +16,7 @@ Version 0.XXXXX | In the not too distant future | 5801a81
      * Meanwhile...
          - This distribution is going through a rewrite. You know, ...fyi.
          - This particular dist is being uploaded to test the DHT code so far.
+         - See http://github.com/sanko/net-bittorrent/tree/summer-2010-moose-anyevent
 
 ---
 Version 0.0052 | 2010-06-18 00:24:58Z (Fri, 18 Jun 2010) | d08d622
@@ -431,7 +432,7 @@ Version 0.008 | 2008-04-01 19:46:20 -0400 (Tue, 01 Apr 2008)
 
 _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
-    http://github.com/sanko/net-bittorrent/commits/master
+    http://github.com/sanko/net-bittorrent/commits/summer-2010-moose-anyevent/
 
 $Ver$ from git $Rev$
 $Date$

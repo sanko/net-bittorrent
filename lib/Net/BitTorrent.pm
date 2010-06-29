@@ -384,8 +384,8 @@ tester data on.
 
 You are invited to test but please B<DO NOT ATTEMPT TO USE THIS IN PRODUCTION>
 as everything from the API to basic internal functionality is subject to
-change. For more, see the module's repository on
-L<github.com/sanko/net-bittorrent|http://github.com/sanko/net-bittorrent>.
+change. For more, see this new
+L<branch in the public repository|http://github.com/sanko/net-bittorrent/tree/summer-2010-moose-anyevent>.
 
 All bugs and feature requests should be made on the issue tracker found at
 L<github.com/sanko/net-bittorrent/issues|http://github.com/sanko/net-bittorrent/isues>
