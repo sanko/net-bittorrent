@@ -6,7 +6,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     use lib '../../../../../lib';
     use Net::BitTorrent::Types qw[NBTypes::DHT::NodeID];
     use 5.10.0;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 3; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     # Stub
     sub BUILD {1}
@@ -88,7 +88,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     );
     has 'last_changed' => (isa => 'Int', is => 'rw', default => time);
     has 'clearing_house' =>
-        (isa => 'ArrayRef', is => 'ro', writer => '_build_clearing_house');
+        (isa => 'Ref', is => 'ro', writer => '_build_clearing_house');
     after 'BUILD' => sub {
         my $self = shift;
         $self->_build_clearing_house(
