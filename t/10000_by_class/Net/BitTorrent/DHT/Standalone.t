@@ -3,7 +3,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
     use strict;
     use warnings;
     use lib '../', '../../../../../', '../../../../../lib', 'lib';
-    require 't/10000_by_class/Net/BitTorrent/DHT.t';
+    BEGIN { require 't/10000_by_class/Net/BitTorrent/DHT.t'; }
     use parent-norequire, 't::10000_by_class::Net::BitTorrent::DHT';
     use parent 'Test::Class';
     use Test::Moose;
