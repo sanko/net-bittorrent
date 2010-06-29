@@ -8,7 +8,7 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     use Net::BitTorrent::Network::Utility qw[:paddr :sockaddr];
     use Net::BitTorrent::Types;
     use 5.10.0;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     has 'tracker' => (isa      => 'Net::BitTorrent::Protocol::BEP05::Tracker',
@@ -121,78 +121,45 @@ package Net::BitTorrent::Protocol::BEP05::RoutingTable;
     sub outstanding_add_nodes {
         grep { defined $_ && !$_->has_bucket } $_[0]->all_nodes;
     }
-
-=pod
-
-Every node maintains a routing table of known good nodes. The nodes in the
-routing table are used as starting points for queries in the DHT. Nodes from
-the routing table are returned in response to queries from other nodes.
-
-Not all nodes that we learn about are equal. Some are "good" and some are not.
-Many nodes using the DHT are able to send queries and receive responses, but
-are not able to respond to queries from other nodes. It is important that each
-node's routing table must contain only known good nodes. A good node is a node
-has responded to one of our queries within the last 15 minutes. A node is also
-good if it has ever responded to one of our queries and has sent us a query
-within the last 15 minutes. After 15 minutes of inactivity, a node becomes
-questionable. Nodes become bad when they fail to respond to multiple queries
-in a row. Nodes that we know are good are given priority over nodes with
-unknown status.
-
-The routing table covers the entire node ID space from C<0> to C<2**160>. The
-routing table is subdivided into "buckets" that each cover a portion of the
-space. An empty table has one bucket with an ID space range of
-C<min=0, max=2**160>. When a node with ID "C<N>" is inserted into the table,
-it is placed within the bucket that has C<min <= N < max>. An empty table has
-only one bucket so any node must fit within it. Each bucket can only hold C<K>
-nodes, currently eight, before becoming "full." When a bucket is full of known
-good nodes, no more nodes may be added unless our own node ID falls within the
-range of the bucket. In that case, the bucket is replaced by two new buckets
-each with half the range of the old bucket and the nodes from the old bucket
-are distributed among the two new ones. For a new table with only one bucket,
-the full bucket is always split into two new buckets covering the ranges
-C<0..2**159> and C<2**159..2**160>.
-
-When the bucket is full of good nodes, the new node is simply discarded. If
-any nodes in the bucket are known to have become bad, then one is replaced by
-the new node. If there are any questionable nodes in the bucket have not been
-seen in the last 15 minutes, the least recently seen node is pinged. If the
-pinged node responds then the next least recently seen questionable node is
-pinged until one fails to respond or all of the nodes in the bucket are known
-to be good. If a node in the bucket fails to respond to a ping, it is
-suggested to try once more before discarding the node and replacing it with a
-new good node. In this way, the table fills with stable long running nodes.
-
-Each bucket should maintain a "last changed" property to indicate how "fresh"
-the contents are. When a node in a bucket is pinged and it responds, or a node
-is added to a bucket, or a node in a bucket is replaced with another node, the
-bucket's last changed property should be updated. Buckets that have not been
-changed in 15 minutes should be "refreshed." This is done by picking a random
-ID in the range of the bucket and performing a find_nodes search on it. Nodes
-that are able to receive queries from other nodes usually do not need to
-refresh buckets often. Nodes that are not able to receive queries from other
-nodes usually will need to refresh all buckets periodically to ensure there
-are good nodes in their table when the DHT is needed.
-
-Upon inserting the first node into its routing table and when starting up
-thereafter, the node should attempt to find the closest nodes in the DHT to
-itself. It does this by issuing find_node messages to closer and closer nodes
-until it cannot find any closer. The routing table should be saved between
-invocations of the client software.
-
-=cut
-
 }
 1;
 
-=begin comment use strict;
-  use warnings;
-  $|++;
-  use Net::BitTorrent::DHT;
-  my $table = __PACKAGE__->new(node => Net::BitTorrent::DHT->new());
-  use Data::Dump;
-  ddx $table->buckets;
-  $table->add_node(pack 'H40', 'AAAAAAAAAA' . $_) for reverse 1..19;
-  $table->sort_buckets;
-  ddx $table;
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Protocol::BEP05::RoutingTable - A DHT routing table
+
+=head1 Description
+
+TODO
+
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of
+L<The Artistic License 2.0|http://www.perlfoundation.org/artistic_license_2_0>.
+See the F<LICENSE> file included with this distribution or
+L<notes on the Artistic License 2.0|http://www.perlfoundation.org/artistic_2_0_notes>
+for clarification.
+
+When separated from the distribution, all original POD documentation is
+covered by the
+L<Creative Commons Attribution-Share Alike 3.0 License|http://creativecommons.org/licenses/by-sa/3.0/us/legalcode>.
+See the
+L<clarification of the CCA-SA3.0|http://creativecommons.org/licenses/by-sa/3.0/us/>.
+
+Neither this module nor the L<Author|/Author> is affiliated with BitTorrent,
+Inc.
+
+=for rcs $Id$
+
 =cut
