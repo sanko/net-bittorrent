@@ -7,7 +7,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     use Net::BitTorrent::Types qw[NBTypes::DHT::NodeID];
     use Net::BitTorrent::Protocol::BEP05::Packets qw[:all];
     use 5.10.0;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     sub BUILD {1}
@@ -94,11 +94,12 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         );
         $code->($self, $tid, $args);
     };
-    has 'ping_timer' => (isa      => 'ArrayRef',
-                         builder  => '_build_ping_timer',
-                         is       => 'ro',
-                         init_arg => undef,
-                         writer   => '_ping_timer'
+    has 'ping_timer' => (
+         isa      => 'Ref',                               # ArrayRef|EV::Timer
+         builder  => '_build_ping_timer',
+         is       => 'ro',
+         init_arg => undef,
+         writer   => '_ping_timer'
     );
 
     sub _build_ping_timer {
