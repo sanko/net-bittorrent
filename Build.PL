@@ -39,7 +39,8 @@ my $mb = $class->new(
                        'Test::More'    => 0.80,
                        'perl'          => '5.10.0',
                        'Module::Build' => 0.30,
-                       'TAP::Harness'  => 3.18
+                       'TAP::Harness'  => 3.18,
+                       'Test::Class'   => 0.35
     },
     recommends       => {'perl' => '5.12.0'},
     test_files       => \@tests,
