@@ -46,17 +46,9 @@ my $mb = $class->new(
     test_file_exts   => [qw(.t .tap .txt)],
     use_tap_harness  => 1,
     tap_harness_args => {
-        jobs  => 9,
-        rules => {
-            par => [
-                {seq => '/t/10000_by_class/Net/BitTorrent/DHT/*'},
-
-                #{ seq => '../ext/IO_Compress_Zlib/t/*' },
-                #{ seq => '../lib/CPANPLUS/*' },
-                #{ seq => '../lib/ExtUtils/t/*' },
-                '*'
-            ]
-        }
+         jobs => 9,
+         rules =>
+             {par => [{seq => '/t/10000_by_class/Net/BitTorrent/DHT/*'}, '*']}
     },
     meta_merge => {
         keywords  => [qw[BitTorrent torrent client DHT UDP]],
