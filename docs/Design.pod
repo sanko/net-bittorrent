@@ -841,6 +841,27 @@ specifically, return values from callbacks do not affect behavior.
 
 =over
 
+=item C<listen_failed>
+
+This alert is generated when none of the ports given in the prot range to
+C<new>[<1|Net::BitTorrent/"new">, L<2|Net::BitTorrent::Standalone/"new">] can
+be opened for listening. This is a C<fatal> error.
+
+In addition to the <basic attributes|alert_basic_attributes>, this alert has
+the following attributes:
+
+=over
+
+=item C<protocol>
+
+This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
+
+=back
+
+This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
+
+
+=back
 
 =back
 
