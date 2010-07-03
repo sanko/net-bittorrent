@@ -70,8 +70,7 @@ package Net::BitTorrent::Network::IPFilter;
         return close $IPFilter;
     }
 
-    #
-    sub ip_filter {
+    sub is_banned {
         my ($s, $ip) = @_;
         return $s->first_range(
             sub {

@@ -53,8 +53,8 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter_path;
     sub check_filter : Test( 2 ) {
         my $s = shift;
         my $f = $s->{'ip_filter'};
-        ok !$f->ip_filter('127.0.0.1'), '127.0.0.1 is not filtered';
-        isa_ok($f->ip_filter('4.18.55.148'),
+        ok !$f->is_banned('127.0.0.1'), '127.0.0.1 is not filtered';
+        isa_ok($f->is_banned('4.18.55.148'),
                'Net::BitTorrent::Network::IPFilter::Range',
                'EMI is banned');    # EMI Music Publishing
     }
