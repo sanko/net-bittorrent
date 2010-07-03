@@ -858,7 +858,37 @@ This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
 
 =back
 
+=item C<ip_filter>
+
+This alert is generated when a connection is declined because the remote host
+was L<banned|Net::BitTorrent::Network::IPFilter/"is_banned"> by our local
+L<ipfilter|Net::BitTorrent::Network::IPFilter>. This is a C<debug>ging event.
+
+In addition to the <basic attributes|alert_basic_attributes>, this alert has
+the following attributes:
+
+=over
+
+=item C<protocol>
+
 This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
+
+=item C<ip>
+
+This is the IPv4 or IPv6 address of the banned peer.
+
+=item C<range>
+
+This is the L<Net::BitTorrent::Network::IPFilter::Range> object which caused
+this peer to result in a banned state.
+
+=back
+
+=back
+
+=back
+
+=back
 
 
 =back
