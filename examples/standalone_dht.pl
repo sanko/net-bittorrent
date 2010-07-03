@@ -9,7 +9,7 @@ our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 4; our $VERSION = sprintf('%1.3f%
 
 # Standalone node with user-defined port and boot_nodes
 my $dht = Net::BitTorrent::DHT->new(
-          port => 1338,
+          port => [1338, 0],
           boot_nodes =>
               [['router.bittorrent.com', 6881], ['router.utorrent.com', 6881]]
 );
