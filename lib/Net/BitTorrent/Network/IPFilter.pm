@@ -45,12 +45,10 @@ package Net::BitTorrent::Network::IPFilter;
             ->();
         return $c->($s, $l) ? $l : ();
     };
-    has 'path' => (isa => 'Str', is => 'rw', default => 'ipfilter.dat');
-    after 'BUILD' => sub {
-        my $s = shift;
-        open(my $IPFilter, '<', $s->path)
-            || return !warn sprintf 'Failed to open %s: %s', $s->path,
-            $!;    # ??? - carp
+
+    sub load {
+        my ($s, $path) = @_;
+        open(my $IPFilter, '<', $path) || return;
         for my $line (<$IPFilter>) {
             next if $line =~ m[(?:^#|^$)];
             my ($range, $access_level, $desc)
@@ -61,7 +59,16 @@ package Net::BitTorrent::Network::IPFilter;
             $s->add_range($start, $end, $access_level, $desc);
         }
         1;
-    };
+    }
+
+    sub save {
+        my ($s, $path) = @_;
+        open(my $IPFilter, '>', $path) || return;
+        for my $range ($s->sort_ranges(sub { $_[0]->lower cmp $_[1]->lower }))
+        {   syswrite $IPFilter, $range->_as_string . "\n";
+        }
+        return close $IPFilter;
+    }
 
     #
     sub ip_filter {
