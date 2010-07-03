@@ -85,11 +85,101 @@ package Net::BitTorrent::Network::IPFilter;
 
 =head1 NAME
 
-Net::BitTorrent::Network::IPFilter -
+Net::BitTorrent::Network::IPFilter - Simple, range-based IP filter
 
 =head1 Description
 
-Nothing to see here.
+    # Example of a "ipfilter.dat" file
+    #
+    # All entered IP ranges will be blocked in both directions. Be careful
+    # what you enter here. Wrong entries may totally block access to the
+    # network.
+    #
+    # Format:
+    # IP-Range , Access Level , Description
+    #
+    # Access Levels:
+    # 127 blocked
+    # >=127 permitted
+
+    064.094.089.000 - 064.094.089.255 , 000 , Gator.com
+
+This entry will block the IPs from 064.094.089.000 to 064.094.089.255, i.e.
+L<Net::BitTorrent> will not connect to any IP in this range.
+
+Warning:
+
+The example above will block any connection to the specified IP-range. This
+may reduce the number of sources for downloads.
+
+At the moment only one access levels are implemented. A value below 127 means
+that any connection-attempt is denied.
+
+=head2 Notes
+
+Remember...
+
+=over
+
+=item * Filtering will prevent up and downloading to the banned clients
+
+=item * Filtering is done at the protocol level so no connection to banned
+clients is ever established
+
+=back
+
+=head1 my $filter = Net::BitTorrent::Network::IPFilter->B<new>( )
+
+This constructs a new, empty object. There are currently no accepted
+arguments.
+
+=head1 $filter->B<add_range>( $range )
+
+This method adds a new L<range|Net::BitTorrent::Network::IPFilter::Range> to
+the in-memory ipfilter.
+
+=head1 $filter->B<add_range>( $lower, $upper, $access_level, $description )
+
+This method coerces the arguments into a new
+L<range|Net::BitTorrent::Network::IPFilter::Range> which is the added to the
+in-memory ipfilter.
+
+=head1 $filter->B<count_ranges>( )
+
+Returns how many L<range|Net::BitTorrent::Network::IPFilter::Range>s are
+loaded.
+
+=head1 $filter->B<is_empty>( )
+
+Returns a boolean value indicating whether or not there are any
+L<range|Net::BitTorrent::Network::IPFilter::Range>s loaded in the ipfilter.
+
+=head1 $filter->B<clear_ranges>( )
+
+Deletes all L<range|Net::BitTorrent::Network::IPFilter::Range>s from the
+ipfilter.
+
+=head1 $filter->B<load>( $path )
+
+Slurps an ipfilter.dat-like file and adds the
+L<range|Net::BitTorrent::Network::IPFilter::Range>s found inside to the
+ipfilter.
+
+=head1 $filter->B<save>( $path )
+
+Stores the in-memory ipfilter to disk.
+
+=head1 $filter->B<is_banned>( $ip )
+
+Indicates whether or not C<$ip> is banned. If so, the
+L<range|Net::BitTorrent::Network::IPFilter::Range> in which it was found is
+returned. If not, a false value is returned.
+
+=head1 IPv6 Support
+
+The standard ipfilter.dat only supports IPv4 addresses but
+L<Net::BitTorrent>'s current implementation supports IPv6 as well. Keep this
+in mind when L<storing|/save> an ipfilter.dat file to disk.
 
 =head1 See Also
 
