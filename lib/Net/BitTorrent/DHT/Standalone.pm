@@ -44,6 +44,18 @@ package Net::BitTorrent::DHT::Standalone;
             );
     }
 
+    #
+    has 'ip_filter' => (is       => 'ro',
+                        isa      => 'Net::BitTorrent::Network::IPFilter',
+                        init_arg => undef,
+                        builder  => '_build_ip_filter'
+    );
+
+    sub _build_ip_filter {
+        require Net::BitTorrent::Network::IPFilter;
+        Net::BitTorrent::Network::IPFilter->new();
+    }
+
     sub _build_udp6 {
         my $s = shift;
         my $server;

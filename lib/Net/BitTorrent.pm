@@ -95,6 +95,17 @@ package Net::BitTorrent;
         return $torrent;
     };
 
+    #
+    has 'ip_filter' => (is       => 'ro',
+                        isa      => 'Net::BitTorrent::Network::IPFilter',
+                        init_arg => undef
+    );
+
+    sub _build_ip_filter {
+        require Net::BitTorrent::Network::IPFilter;
+        Net::BitTorrent::Network::IPFilter->new();
+    }
+
     # DHT (requires udp attribute)
     has 'dht' => (is         => 'ro',
                   isa        => 'Net::BitTorrent::DHT',
