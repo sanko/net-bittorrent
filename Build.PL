@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use File::Find;
 use Module::Build;
+our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 5; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 $|++;
 my $automated_testing = $ENV{'AUTOMATED_TESTING'}
     || $ENV{'PERL_MM_USE_DEFAULT'};
@@ -21,6 +22,7 @@ my $mb = $class->new(
     license       => 'artistic_2',
     dist_author   => 'Sanko Robinson <sanko@cpan.org>',
     dist_abstract => 'BitTorrent peer-to-peer protocol',
+    dist_version  => $VERSION,
     requires      => {
                  AnyEvent                     => 0,
                  'AnyEvent::Handle::Throttle' => '0.000002002',
