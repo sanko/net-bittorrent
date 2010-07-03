@@ -10,8 +10,13 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter_path;
         't::10000_by_class::Net::BitTorrent::Network::IPFilter';
 
     #
-    sub new_args { [path => path()] }
-    sub path {'t/90000_data/96000_data/96010_ipfilter.dat'}
+    sub path {'./t/90000_data/96000_data/96010_ipfilter.dat'}
+
+    sub startup_add_path : Tests(startup => 1) {
+        my $s = shift;
+        my $f = $s->{'ip_filter'};
+        ok $f->load($s->path), sprintf '->load( \'%s\' )', $s->path;
+    }
 
     sub test_ranges : Test( no_plan ) {
         my $s = shift;
@@ -55,6 +60,7 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter_path;
     }
 
     #
-    chdir '../../../../..' && __PACKAGE__->runtests() if !caller;
+    chdir '../../../../..' if !-f path();
+    __PACKAGE__->runtests() if !caller;
 }
 1;

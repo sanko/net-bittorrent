@@ -9,7 +9,6 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter;
     #
     sub class    {'Net::BitTorrent::Network::IPFilter'}
     sub new_args { [] }
-    sub path     {'ipfilter.dat'}
 
     #
     sub startup : Tests(startup => 3) {
@@ -21,12 +20,6 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter;
 
     sub setup : Test(setup) {
         my $self = shift;
-    }
-
-    sub test_path : Test( 1 ) {
-        my $s = shift;
-        my $f = $s->{'ip_filter'};
-        is $f->path, $s->path, sprintf '...->path is "%s"', $s->path;
     }
 
     sub test_ranges : Test( no_plan ) {
