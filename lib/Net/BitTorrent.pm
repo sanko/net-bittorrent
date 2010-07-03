@@ -293,6 +293,20 @@ package Net::BitTorrent;
 
     sub _on_tcp4_in {
         my ($self, $peer, $paddr, $host, $port) = @_;
+        my $range = $self->ip_filter->is_banned($host);
+        if (defined $range) {
+            $self->trigger_ip_filter(
+                     {protocol => 'tcp4',
+                      severity => 'debug',
+                      event    => 'ip_filter',
+                      ip       => $host,
+                      range    => $range,
+                      message => 'Incoming connection was blocked by ipfilter'
+                     }
+            );
+            shutdown $peer, 2;
+            return close $peer;
+        }
         require Net::BitTorrent::Peer;
         $self->add_peer(
                     Net::BitTorrent::Peer->new(fh => $peer, client => $self));
@@ -300,22 +314,61 @@ package Net::BitTorrent;
 
     sub _on_tcp6_in {
         my ($self, $peer, $paddr, $host, $port) = @_;
-
-        #use Data::Dump;
-        #ddx \@_;
-        #...;
+        my $range = $self->ip_filter->is_banned($host);
+        if (defined $range) {
+            $self->trigger_ip_filter(
+                     {protocol => 'tcp4',
+                      severity => 'debug',
+                      event    => 'ip_filter',
+                      ip       => $host,
+                      range    => $range,
+                      message => 'Incoming connection was blocked by ipfilter'
+                     }
+            );
+            shutdown $peer, 2;
+            return close $peer;
+        }
+        require Net::BitTorrent::Peer;
+        $self->add_peer(
+                    Net::BitTorrent::Peer->new(fh => $peer, client => $self));
     }
 
     sub _on_udp4_in {
-        my $self = shift;
+        my $s = shift;
         my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
-        $self->dht->_on_udp4_in(@_);
+        my $range = $s->ip_filter->is_banned($host);
+        if (defined $range) {
+            $s->trigger_ip_filter(
+                           {protocol => 'udp4',
+                            severity => 'debug',
+                            event    => 'ip_filter',
+                            ip       => $host,
+                            range    => $range,
+                            message => 'Incoming data was blocked by ipfilter'
+                           }
+            );
+            return;
+        }
+        $s->dht->_on_udp4_in(@_);
     }
 
     sub _on_upd6_in {
-        my $self = shift;
+        my $s = shift;
         my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
-        $self->dht->_on_udp6_in(@_);
+        my $range = $s->ip_filter->is_banned($host);
+        if (defined $range) {
+            $s->trigger_ip_filter(
+                           {protocol => 'upd6',
+                            severity => 'debug',
+                            event    => 'ip_filter',
+                            ip       => $host,
+                            range    => $range,
+                            message => 'Incoming data was blocked by ipfilter'
+                           }
+            );
+            return;
+        }
+        $s->dht->_on_udp6_in(@_);
     }
 
     #
