@@ -38,7 +38,8 @@ package Net::BitTorrent::Network::Utility;
 
     sub paddr2ip ($) {    # snagged from NetAddr::IP::Util
         return inet_ntoa($_[0]) if length $_[0] == 4;    # ipv4
-        return inet_ntoa($1) if length $_[0] == 16 && $_[0] =~ m[^\0{12}(.{4})$];  # ipv4
+        return inet_ntoa($1)
+            if length $_[0] == 16 && $_[0] =~ m[^\0{12}(.{4})$];    # ipv4
         return unless length($_[0]) == 16;
         my @hex = (unpack('n8', $_[0]));
         $hex[9] = $hex[7] & 0xff;
