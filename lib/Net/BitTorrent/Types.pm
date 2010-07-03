@@ -22,7 +22,8 @@ package Net::BitTorrent::Types;
         torrent => [
             qw[NBTypes::Torrent::Status NBTypes::Torrent::Infohash
                 NBTypes::Torrent::Bitfield]
-        ]
+        ],
+        paddr => [qw[NBTypes::Network::Paddr]]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
@@ -138,6 +139,15 @@ package Net::BitTorrent::Types;
         require Bit::Vector;
         Bit::Vector->new_Hex(160, unpack 'H*', $_);
         };
+
+    # IPv6 packed address
+    subtype 'NBTypes::Network::Paddr' => as 'Str' =>
+        where { length $_ == 16 } =>
+        message { sprintf '%s is not 16 bytes', $_ };
+    coerce 'NBTypes::Network::Paddr' => from 'Str' => via {
+        require Net::BitTorrent::Network::Utility;
+        Net::BitTorrent::Network::Utility::ip2paddr($_);
+    };
 }
 1;
 
