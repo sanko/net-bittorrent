@@ -777,6 +777,73 @@ use Net::BitTorrent;
 my $client = Net::BitTorrent->new( );
 my $dht = $client->dht;
 
+=head1 Callbacks
+
+When triggered, callbacks receive a hashref containing at least the following
+key/value pairs: X<alert_basic_attributes>
+
+=over
+
+=item B<message> => string
+
+This is a (often simple) description (in English) of the event suitable for
+display to the user.
+
+=item B<event> => string
+
+This is the kind of event which was triggered. This is useful if you use a
+single callback coderef for many types of events (by category, etc.).
+
+=item B<severity> => debug|info|warning|critical|fatal
+
+This is an enum value which may be one of the following:
+
+=over
+
+=item debug
+
+This will include a lot of debug events that can be used both for debugging
+Net::BitTorrent itself but also when debugging other clients that are
+connected to Net::BitTorrent. It will report strange behaviors among the
+connected peers.
+
+=item info
+
+Events that can be considered normal, but still deserves an event. This could
+be a piece hash that fails.
+
+=item warning
+
+Messages with the warning severity can be a tracker that times out or responds
+with invalid data. It will be retried automatically, and the possible next
+tracker in a multitracker sequence will be tried. It does not require any user
+interaction.
+
+=item critical
+
+Signals errors which require user interaction or messages that almost never
+should be ignored.
+
+=item fatal
+
+Fatal errors will have this severity level. Examples can be disk full or
+something else that will make it impossible to continue normal execution. Do
+not assume fatal errors lead to total client failure (exit/die/croak) because
+that's annoying.
+
+=back
+
+=back
+
+This is the current list of callback triggering events and the information
+passed to them. Note that this list is subject to change. Unless mentioned
+specifically, return values from callbacks do not affect behavior.
+
+=over
+
+
+=back
+
 =head1 Silly ASCII Art
 
 A step above calculator humor.
