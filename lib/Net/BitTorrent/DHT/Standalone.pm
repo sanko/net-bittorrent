@@ -19,12 +19,12 @@ package Net::BitTorrent::DHT::Standalone;
         has 'udp'
             . $ipv => (is         => 'ro',
                        init_arg   => undef,
-                       isa        => 'Object',
+                       isa        => 'Maybe[Object]',
                        lazy_build => 1,
                        writer     => '_set_udp' . $ipv,
                        predicate  => '_has_udp' . $ipv
             );
-        has 'udp' 
+        has 'udp'
             . $ipv
             . '_sock' => (is         => 'ro',
                           init_arg   => undef,
@@ -34,7 +34,7 @@ package Net::BitTorrent::DHT::Standalone;
                           writer     => '_set_udp' . $ipv . '_sock',
                           predicate  => '_has_udp' . $ipv . '_sock'
             );
-        has 'udp' 
+        has 'udp'
             . $ipv
             . '_host' => (is        => 'ro',
                           isa       => 'Str',

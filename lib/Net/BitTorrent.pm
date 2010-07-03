@@ -133,7 +133,7 @@ package Net::BitTorrent;
                 has $prot
                     . $ipv => (is         => 'ro',
                                init_arg   => undef,
-                               isa        => 'Object',
+                               isa        => 'Maybe[Object]',
                                lazy_build => 1,
                                writer     => '_set_' . $prot . $ipv,
                                predicate  => '_has_' . $prot . $ipv
