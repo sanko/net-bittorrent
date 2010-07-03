@@ -119,6 +119,40 @@ package Net::BitTorrent::DHT::Standalone;
         );
         return;
     }
+    around '_on_udp4_in' => sub {
+        my ($c, $s, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
+        my $range = $s->ip_filter->is_banned($host);
+        if (defined $range) {
+            $s->trigger_ip_filter(
+                     {protocol => 'udp4',
+                      severity => 'debug',
+                      event    => 'ip_filter',
+                      ip       => $host,
+                      range    => $range,
+                      message => 'Incoming connection was blocked by ipfilter'
+                     }
+            );
+            return;
+        }
+        $c->($s, $sock, $sockaddr, $host, $port, $data, $flags);
+    };
+    around '_on_udp6_in' => sub {
+        my ($c, $s, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
+        my $range = $s->ip_filter->is_banned($host);
+        if (defined $range) {
+            $s->trigger_ip_filter(
+                     {protocol => 'udp6',
+                      severity => 'debug',
+                      event    => 'ip_filter',
+                      ip       => $host,
+                      range    => $range,
+                      message => 'Incoming connection was blocked by ipfilter'
+                     }
+            );
+            return;
+        }
+        $c->($s, $sock, $sockaddr, $host, $port, $data, $flags);
+    };
 }
 1;
 
