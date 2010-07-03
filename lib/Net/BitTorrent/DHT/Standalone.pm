@@ -5,7 +5,7 @@ package Net::BitTorrent::DHT::Standalone;
     use Net::BitTorrent::Protocol::BEP03::Bencode qw[bdecode];
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has 'port' => (is      => 'ro',
-                   isa     => 'Int',
+                   isa     => 'Int|ArrayRef[Int]',
                    builder => '_build_port',
                    writer  => '_set_port'
     );
@@ -45,40 +45,67 @@ package Net::BitTorrent::DHT::Standalone;
     }
 
     sub _build_udp6 {
-        my ($self) = @_;
-        require Net::BitTorrent::Network::Utility;
-        return Net::BitTorrent::Network::Utility::server(
-            $self->udp6_host,
-            $self->port,
-            sub { $self->_on_udp6_in(@_); },
-            sub {
-                my ($sock, $host, $port) = @_;
+        my $s = shift;
+        my $server;
+        for my $port (ref $s->port ? @{$s->port} : $s->port) {
+            require Net::BitTorrent::Network::Utility;
+            $server = Net::BitTorrent::Network::Utility::server(
+                $s->udp6_host,
+                $port,
+                sub { $s->_on_udp6_in(@_); },
+                sub {
+                    my ($actual_socket, $actual_host, $actual_port) = @_;
 
-                #if ($self->port != $port) { ...; }
-                $self->_set_udp6_sock($sock);
-                $self->_set_udp6_host($host);
-                $self->_set_port($port);
-            },
-            'udp'
+                    #if ($self->port != $port) { ...; }
+                    $s->_set_udp6_sock($actual_socket);
+                    $s->_set_udp6_host($actual_host);
+                    $s->_set_port($actual_port);
+                },
+                'udp'
+            );
+            last if defined $server;
+        }
+        return $server if $server;
+        $s->trigger_listen_failed(
+            {protocol => 'udp6',
+             severity => 'fatal',
+             event    => 'listen_failed',
+             message => 'Failed to open IPv6 port to the outside world: ' . $!
+            }
         );
+        return;
     }
 
     sub _build_udp4 {
-        my ($self) = @_;
-        require Net::BitTorrent::Network::Utility;
-        return Net::BitTorrent::Network::Utility::server(
-            $self->udp4_host,
-            $self->port,
-            sub { $self->_on_udp4_in(@_); },
-            sub {
-                my ($sock, $host, $port) = @_;
-                if ($self->port != $port) { ...; }
-                $self->_set_udp4_sock($sock);
-                $self->_set_udp4_host($host);
-                $self->_set_port($port);
-            },
-            'udp'
+        my $s = shift;
+        my $server;
+        for my $port (ref $s->port ? @{$s->port} : $s->port) {
+            require Net::BitTorrent::Network::Utility;
+            $server = Net::BitTorrent::Network::Utility::server(
+                $s->udp4_host,
+                $port,
+                sub { $s->_on_udp4_in(@_); },
+                sub {
+                    my ($actual_socket, $actual_host, $actual_port) = @_;
+
+                    #if ($self->port != $port) { ...; }
+                    $s->_set_udp4_sock($actual_socket);
+                    $s->_set_udp4_host($actual_host);
+                    $s->_set_port($actual_port);
+                },
+                'udp'
+            );
+            last if defined $server;
+        }
+        return $server if $server;
+        $s->trigger_listen_failed(
+            {protocol => 'udp4',
+             severity => 'fatal',
+             event    => 'listen_failed',
+             message => 'Failed to open IPv4 port to the outside world: ' . $!
+            }
         );
+        return;
     }
 }
 1;
