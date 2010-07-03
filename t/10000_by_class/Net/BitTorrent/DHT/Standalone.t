@@ -13,7 +13,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
 
     #
     sub new_args {
-        [port => 1338,
+        [port => [1338, 0],
          boot_nodes =>
              [['router.utorrent.com', 6881], ['router.bittorrent.com', 6881]]
         ];
