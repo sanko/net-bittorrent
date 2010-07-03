@@ -5,6 +5,7 @@ lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/DHT.pm
 lib/Net/BitTorrent/DHT/Callbacks.pm
 lib/Net/BitTorrent/DHT/Standalone.pm
+lib/Net/BitTorrent/Network/IPFilter.pm
 lib/Net/BitTorrent/Network/TCP.pm
 lib/Net/BitTorrent/Network/UDP.pm
 lib/Net/BitTorrent/Network/Utility.pm
@@ -39,6 +40,10 @@ META.json
 README
 t/10000_by_class/Net/BitTorrent/DHT.t
 t/10000_by_class/Net/BitTorrent/DHT/Standalone.t
+t/10000_by_class/Net/BitTorrent/Network/IPFilter.t
+t/10000_by_class/Net/BitTorrent/Network/IPFilter_path.t
 t/10000_by_class/Net/BitTorrent/Storage/File.t
 t/90000_data/95000_torrents/credits.txt
 t/90000_data/95000_torrents/OOo_3.2.0_Win32Intel_install_en-US.exe.torrent
+t/90000_data/96000_data/96010_ipfilter.dat
+t/90000_data/96000_data/credits.txt

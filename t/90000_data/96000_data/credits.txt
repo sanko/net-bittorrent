@@ -1,0 +1,5 @@
+filename            description
+------------------------------------------------------------------------------
+96010_ipfilter.dat  Random snippet of
+                    http://emulepawcio.sourceforge.net/ipfilter.dat gathered
+                    on July 3, 2010
