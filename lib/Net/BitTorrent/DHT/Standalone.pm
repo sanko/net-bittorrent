@@ -24,7 +24,7 @@ package Net::BitTorrent::DHT::Standalone;
                        writer     => '_set_udp' . $ipv,
                        predicate  => '_has_udp' . $ipv
             );
-        has 'udp'
+        has 'udp' 
             . $ipv
             . '_sock' => (is         => 'ro',
                           init_arg   => undef,
@@ -34,7 +34,7 @@ package Net::BitTorrent::DHT::Standalone;
                           writer     => '_set_udp' . $ipv . '_sock',
                           predicate  => '_has_udp' . $ipv . '_sock'
             );
-        has 'udp'
+        has 'udp' 
             . $ipv
             . '_host' => (is        => 'ro',
                           isa       => 'Str',
@@ -124,13 +124,13 @@ package Net::BitTorrent::DHT::Standalone;
         my $range = $s->ip_filter->is_banned($host);
         if (defined $range) {
             $s->trigger_ip_filter(
-                     {protocol => 'udp4',
-                      severity => 'debug',
-                      event    => 'ip_filter',
-                      ip       => $host,
-                      range    => $range,
-                      message => 'Incoming connection was blocked by ipfilter'
-                     }
+                           {protocol => 'udp4',
+                            severity => 'debug',
+                            event    => 'ip_filter',
+                            ip       => $host,
+                            range    => $range,
+                            message => 'Incoming data was blocked by ipfilter'
+                           }
             );
             return;
         }
@@ -141,13 +141,13 @@ package Net::BitTorrent::DHT::Standalone;
         my $range = $s->ip_filter->is_banned($host);
         if (defined $range) {
             $s->trigger_ip_filter(
-                     {protocol => 'udp6',
-                      severity => 'debug',
-                      event    => 'ip_filter',
-                      ip       => $host,
-                      range    => $range,
-                      message => 'Incoming connection was blocked by ipfilter'
-                     }
+                           {protocol => 'udp6',
+                            severity => 'debug',
+                            event    => 'ip_filter',
+                            ip       => $host,
+                            range    => $range,
+                            message => 'Incoming data was blocked by ipfilter'
+                           }
             );
             return;
         }
