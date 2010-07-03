@@ -36,6 +36,7 @@ lib/Net/BitTorrent/Torrent.pm
 lib/Net/BitTorrent/Types.pm
 MANIFEST			This list of files
 META.json
+README
 t/10000_by_class/Net/BitTorrent/DHT.t
 t/10000_by_class/Net/BitTorrent/DHT/Standalone.t
 t/10000_by_class/Net/BitTorrent/Storage/File.t
