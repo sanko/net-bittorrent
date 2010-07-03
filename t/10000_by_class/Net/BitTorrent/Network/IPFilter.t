@@ -33,14 +33,14 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter;
             'Net::BitTorrent::Network::IPFilter::Range', 'new range B';
         is $f->count_ranges, 2, 'There are now two ranges';
         is_deeply $f->ranges,
-            [bless({access_level => 0,
+            [bless({access_level => 44,
                     description  => 'Test A',
                     lower        => "\0\0\0\0\0\0\0\0\0\0\0\0\x7F\0\0\1",
                     upper        => "\0\0\0\0\0\0\0\0\0\0\0\0\x80 \xEC\xE2",
                    },
                    'Net::BitTorrent::Network::IPFilter::Range'
              ),
-             bless({access_level => 0,
+             bless({access_level => 21,
                     description  => 'Test B',
                     lower        => "\0\0\0\0\0\0\0\0\0\0\0\0\x7F\0\0\1",
                     upper        => "\0\0\0\0\0\0\0\0\0\0\0\0\x80 \xEC\xE2",
