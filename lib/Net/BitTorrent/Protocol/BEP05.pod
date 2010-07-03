@@ -343,6 +343,8 @@ http://www.cs.rice.edu/Conferences/IPTPS02/109.pdf
 
 =item X<entropy> Use SHA1 and plenty of entropy to ensure a unique ID.
 
+=back
+
 =head1 Copyright
 
 This document has been placed in the public domain.
