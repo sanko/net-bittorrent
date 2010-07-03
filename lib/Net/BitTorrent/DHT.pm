@@ -72,21 +72,34 @@ package Net::BitTorrent::DHT;
 
     #
     sub send {
-        my ($self, $node, $packet, $reply) = @_;
+        my ($s, $node, $packet, $reply) = @_;
+        my $range = $s->ip_filter->is_banned($node->host);
+        if (defined $range) {
+            $s->trigger_ip_filter(
+                           {protocol => ($node->ipv6 ? 'udp6' : 'udp4'),
+                            severity => 'debug',
+                            event    => 'ip_filter',
+                            ip       => $node->host,
+                            range    => $range,
+                            message => 'Outgoing data was blocked by ipfilter'
+                           }
+            );
+            return $s->routing_table->del_node($node);
+        }
         my $sent = send((  $node->ipv6
-                         ? $self->udp6_sock
-                         : $self->udp4_sock
+                         ? $s->udp6_sock
+                         : $s->udp4_sock
                         ),
                         $packet, 0,
                         $node->sockaddr
         );
         if ($reply) {
-            $self->_inc_send_replies_count;
-            $self->_inc_send_replies_length($sent);
+            $s->_inc_send_replies_count;
+            $s->_inc_send_replies_length($sent);
         }
         else {
-            $self->_inc_send_requests_count;
-            $self->_inc_send_requests_length($sent);
+            $s->_inc_send_requests_count;
+            $s->_inc_send_requests_length($sent);
         }
         return $sent;
     }
@@ -768,7 +781,7 @@ Don't modify this.
             $infohash->to_Hex, $node->host, $node->port;
     }
 
-=head1 Net::BitTorrent::DHT->announce_peer( $infohash, $port, $callback )
+=head1 Net::BitTorrent::DHT->B<announce_peer>( $infohash, $port, $callback )
 
 This method announces that the peer controlling the querying node is
 downloading a torrent on a port. These outgoing queries are sent to nodes
