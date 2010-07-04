@@ -22,8 +22,8 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter_path;
         my $s = shift;
         my $f = $s->{'ip_filter'};
         is $f->count_ranges, 24, 'IPFilter parsed 34 ranges from ' . $s->path;
-        use Data::Dump;
-        ddx $f;
+        #use Data::Dump;
+        #ddx $f;
 
         #isa_ok $f->add_range('127.0.0.1', '128.32.236.226', 44, 'Test A'),
         #    'Net::BitTorrent::Network::IPFilter::Range', 'new range A';
@@ -60,7 +60,7 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter_path;
     }
 
     #
-    chdir '../../../../..' if !-f path();
+    chdir '../../../../..'  if !-f path();
     __PACKAGE__->runtests() if !caller;
 }
 1;

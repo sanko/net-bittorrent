@@ -16,18 +16,16 @@ package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
 
     sub scrape {
         my ($self, @infohash) = @_;
-        use Data::Dump;
-        ddx \@infohash;
-        ddx $self;
-        warn $self->torrent->infohash;
+        #use Data::Dump;
+        #ddx \@infohash;
+        #ddx $self;
+        #warn $self->torrent->infohash;
         return if $self->url !~ m[^(.+)/announce(\b(?:[^/])*)$];
-        warn sprintf '%s/scrape%s', $1, $2 || '';
-        die 'scrape! ' . $self->url;
+        #warn sprintf '%s/scrape%s', $1, $2 || '';
+        #die 'scrape! ' . $self->url;
         my $url = $self->url;
-
         if ($url =~ m[(.+)/announce(\b(?:[^/])*)]) {
         }
-        use Data::Dump;
     }
 
     sub announce {

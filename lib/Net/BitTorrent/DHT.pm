@@ -442,11 +442,11 @@ package Net::BitTorrent::DHT;
                             );
                     }
                     else {
-                        use Data::Dump;
+                        #use Data::Dump;
                         warn sprintf '%s:%d', $node->host, $node->port;
-                        ddx $packet;
-                        ddx $req;
-                        ...;
+                        #ddx $packet;
+                        #ddx $req;
+                        #...;
                     }
                 }
                 else {            # A reply we are not expecting. Strange.
@@ -503,14 +503,15 @@ package Net::BitTorrent::DHT;
             }
         }
         elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {
-            use Data::Dump;
+            #use Data::Dump;
             warn sprintf 'Error from %s:%d', $node->host, $node->port;
-            ddx $packet;
+            #ddx $packet;
         }
         else {
-            use Data::Dump;
+            #use Data::Dump;
             warn sprintf '%s:%d', $node->host, $node->port;
-            ddx $packet;
+            #ddx $packet;
+            #ddx $data;
 
             #...;
             # TODO: ID checks against $packet->{'a'}{'id'}

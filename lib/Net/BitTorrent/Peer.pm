@@ -342,8 +342,8 @@ package Net::BitTorrent::Peer;
         my ($self, $packet) = @_;
         return if !$self->has_torrent;
         return if !$self->has_handle;
-        use Data::Dump;
-        ddx $packet;
+        #use Data::Dump;
+        #ddx $packet;
         %_packet_dispatch = (
             BITFIELD => sub {    # 5
                 my ($s, $bitfield) = @_;
