@@ -172,6 +172,36 @@ print $client->port;
 If both C<disable_ipv4> and C<disable_ipv6> or both C<disable_tcp> and
 C<disable_udp> are defined and true, a non-fatal error is thrown.
 
+
+
+=head2 Net::BitTorrent::Peer
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 =head2 Net::BitTorrent::Torrent
 
 Net::BitTorrent::Torrent is the base class for all .torrent-related objects.
@@ -777,211 +807,6 @@ use Net::BitTorrent;
 my $client = Net::BitTorrent->new( );
 my $dht = $client->dht;
 
-=head1 Callbacks
-
-When triggered, callbacks receive a hashref containing at least the following
-key/value pairs: X<alert_basic_attributes>
-
-=over
-
-=item B<message> => string
-
-This is a (often simple) description (in English) of the event suitable for
-display to the user.
-
-=item B<event> => string
-
-This is the kind of event which was triggered. This is useful if you use a
-single callback coderef for many types of events (by category, etc.).
-
-=item B<severity> => debug|info|warning|critical|fatal
-
-This is an enum value which may be one of the following:
-
-=over
-
-=item debug
-
-This will include a lot of debug events that can be used both for debugging
-Net::BitTorrent itself but also when debugging other clients that are
-connected to Net::BitTorrent. It will report strange behaviors among the
-connected peers.
-
-=item info
-
-Events that can be considered normal, but still deserves an event. This could
-be a piece hash that fails.
-
-=item warning
-
-Messages with the warning severity can be a tracker that times out or responds
-with invalid data. It will be retried automatically, and the possible next
-tracker in a multitracker sequence will be tried. It does not require any user
-interaction.
-
-=item critical
-
-Signals errors which require user interaction or messages that almost never
-should be ignored.
-
-=item fatal
-
-Fatal errors will have this severity level. Examples can be disk full or
-something else that will make it impossible to continue normal execution. Do
-not assume fatal errors lead to total client failure (exit/die/croak) because
-that's annoying.
-
-=back
-
-=back
-
-This is the current list of callback triggering events and the information
-passed to them. Note that this list is subject to change. Unless mentioned
-specifically, return values from callbacks do not affect behavior.
-
-=over
-
-=item C<listen_failed>
-
-This alert is generated when none of the ports given in the prot range to
-C<new>[<1|Net::BitTorrent/"new">, L<2|Net::BitTorrent::Standalone/"new">] can
-be opened for listening. This is a C<fatal> error.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<protocol>
-
-This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
-
-=back
-
-=item C<ip_filter>
-
-This alert is generated when a connection is declined because the remote host
-was L<banned|Net::BitTorrent::Network::IPFilter/"is_banned"> by our local
-L<ipfilter|Net::BitTorrent::Network::IPFilter>. This is a C<debug>ging event.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<protocol>
-
-This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
-
-=item C<ip>
-
-This is the IPv4 or IPv6 address of the banned peer.
-
-=item C<range>
-
-This is the L<Net::BitTorrent::Network::IPFilter::Range> object which caused
-this peer to result in a banned state.
-
-=back
-
-=item C<file_error>
-
-If the storage fails to read or write files that it needs access to, this
-alert is generated and the torrent is paused. This is a C<fatal> error.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the related L<Net::BitTorrent::Torrent> object.
-
-=back
-
-=item C<tracker_announce>
-
-This alert is generated each time a tracker announce is sent (or attempted to
-be sent). This is an C<info> alert.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the related L<Net::BitTorrent::Torrent> object.
-
-=back
-
-=item C<tracker>
-
-This alert is generated on tracker time outs, premature disconnects, invalid
-response or a HTTP response other than C<200 OK>. From the alert you can get
-the handle to the torrent the tracker belongs to. This alert is generated as
-severity level C<warning>.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the related L<Net::BitTorrent::Torrent> object.
-
-=item C<times_in_row>
-
-This is the number of times in a row this tracker has failed.
-
-=item C<status_code>
-
-This is the code returned from the HTTP server. C<401> means the tracker needs
-authentication, C<404> means not found, etc. If the tracker timed out, the
-code will be set to C<0>.
-
-=back
-
-=item C<tracker_reply>
-
-This is an C<info>rmational alert generated when a tracker announce succeeds.
-
-=item C<tracker_warning>
-
-This alert is triggered if the tracker reply contains a warning field. Usually
-this means that the tracker announce was successful but the tracker has a
-message to the client. It is generated with severity level C<warning>.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the related L<Net::BitTorrent::Torrent> object.
-
-=back
-
-=item C<url_seed>
-
-This alert is generated when a HTTP seed name lookup fails. This alert is
-generated as severity level C<warning>.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<url>
-
-This is the url of the HTTP seed that failed.
-
-=back
-
-=back
 
 =head1 Silly ASCII Art
 
@@ -1093,151 +918,6 @@ These are packages I really haven't given enough thought to:
                                                 Single url
   *Net::BitTorrent::Protocol::BEP27::Private::Metadata
                                                 Private metadata (uses around '...' to override BEP03::Metadata methods)
-
-=item C<hash_failed>
-
-This alert is generated when a finished piece fails its hash check. You can
-get the handle to the torrent which got the failed piece and the index of the
-piece itself from this alert. This alert is generated as severity level
-C<info>.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the related L<Net::BitTorrent::Torrent> object.
-
-=item C<index>
-
-This is the zero based index for this piece.
-
-=back
-
-=item C<hash_passed>
-
-This alert is generated when a finished piece passes its hash check. You can
-get the handle to the torrent which got the valid piece and the index of the
-piece itself from this alert. This alert is generated as severity level
-C<info>.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the related L<Net::BitTorrent::Torrent> object.
-
-=item C<index>
-
-This is the zero based index for this piece.
-
-=back
-
-=item C<peer_ban>
-
-This alert is generated when a peer is banned because it has been involved
-with too many corrupt pieces. It is generated at severity level C<info>.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the L<Net::BitTorrent::Torrent> that this peer was a swarm member of.
-
-=item C<ip>
-
-This is the IPv4 or IPv6 address of the newly banned peer.
-
-=back
-
-=item C<peer_error_alert>
-
-This alert is generated when a peer sends invalid data over the peer-to-peer
-protocol. The peer will be disconnected but this alert also contains
-identification information for future reference. This is a C<debug> level
-alert.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<peer_id>
-
-If we have this peer's peer_id, you'll find it here. If not, this will be an
-C<undef>ined value.
-
-=item C<ip>
-
-This is the IPv4 or IPv6 address of the newly disconnected peer.
-
-=back
-
-=item C<invalid_request>
-
-This is a C<debug> alert that is generated by an incoming invalid piece
-request.
-
-In addition to the <basic attributes|alert_basic_attributes>, this alert has
-the following attributes:
-
-=over
-
-=item C<torrent>
-
-This is the L<Net::BitTorrent::Torrent> that this peer was a swarm member of.
-
-=item C<ip>
-
-This is the IPv4 or IPv6 address of the newly banned peer.
-
-=back
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
-
-=item C<>
 
 =back
 
