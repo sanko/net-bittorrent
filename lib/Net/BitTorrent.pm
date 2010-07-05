@@ -199,7 +199,8 @@ package Net::BitTorrent;
         }
         else {
             $s->trigger_listen_failure(
-                 {protocol => 'tcp6',
+                 {port     => $s->port,
+                  protocol => 'tcp6',
                   severity => 'fatal',
                   event    => 'listen_failure',
                   message => 'Failed to open IPv6 port to the outside world: '
@@ -245,7 +246,8 @@ package Net::BitTorrent;
         }
         else {
             $s->trigger_listen_failure(
-                 {protocol => 'tcp4',
+                 {port     => $s->port,
+                  protocol => 'tcp4',
                   severity => 'fatal',
                   event    => 'listen_failure',
                   message => 'Failed to open IPv4 port to the outside world: '
@@ -291,7 +293,8 @@ package Net::BitTorrent;
         }
         else {
             $s->trigger_listen_failure(
-                 {protocol => 'udp6',
+                 {port     => $s->port,
+                  protocol => 'udp6',
                   severity => 'fatal',
                   event    => 'listen_failure',
                   message => 'Failed to open IPv6 port to the outside world: '
@@ -337,7 +340,8 @@ package Net::BitTorrent;
         }
         else {
             $s->trigger_listen_failure(
-                 {protocol => 'udp4',
+                 {port     => $s->port,
+                  protocol => 'udp4',
                   severity => 'fatal',
                   event    => 'listen_failure',
                   message => 'Failed to open IPv4 port to the outside world: '
