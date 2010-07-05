@@ -360,8 +360,7 @@ package Net::BitTorrent;
                      {protocol => 'tcp4',
                       severity => 'debug',
                       event    => 'ip_filter',
-                      ip       => $host,
-                      port     => $port,
+                      address  => [$host, $port],
                       rule     => $rule,
                       message => 'Incoming connection was blocked by ipfilter'
                      }
@@ -382,7 +381,7 @@ package Net::BitTorrent;
                      {protocol => 'tcp4',
                       severity => 'debug',
                       event    => 'ip_filter',
-                      ip       => $host,
+                      address  => [$host, $port],
                       rule     => $rule,
                       message => 'Incoming connection was blocked by ipfilter'
                      }
@@ -404,7 +403,7 @@ package Net::BitTorrent;
                            {protocol => 'udp4',
                             severity => 'debug',
                             event    => 'ip_filter',
-                            ip       => $host,
+                            address  => [$host, $port],
                             rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
@@ -423,7 +422,7 @@ package Net::BitTorrent;
                            {protocol => 'upd6',
                             severity => 'debug',
                             event    => 'ip_filter',
-                            ip       => $host,
+                            address  => [$host, $port],
                             rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }

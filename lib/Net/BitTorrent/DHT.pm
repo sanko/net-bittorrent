@@ -79,8 +79,8 @@ package Net::BitTorrent::DHT;
                            {protocol => ($node->ipv6 ? 'udp6' : 'udp4'),
                             severity => 'debug',
                             event    => 'ip_filter',
-                            ip       => $node->host,
-                            rule     => $rule,
+                            address => [$node->host, $node->port],
+                            rule    => $rule,
                             message => 'Outgoing data was blocked by ipfilter'
                            }
             );

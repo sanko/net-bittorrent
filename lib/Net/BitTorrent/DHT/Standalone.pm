@@ -157,7 +157,7 @@ package Net::BitTorrent::DHT::Standalone;
                            {protocol => 'udp4',
                             severity => 'debug',
                             event    => 'ip_filter',
-                            ip       => $host,
+                            address  => [$host, $port],
                             rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
@@ -174,7 +174,7 @@ package Net::BitTorrent::DHT::Standalone;
                            {protocol => 'udp6',
                             severity => 'debug',
                             event    => 'ip_filter',
-                            ip       => $host,
+                            address  => [$host, $port],
                             rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }

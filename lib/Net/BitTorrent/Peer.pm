@@ -149,8 +149,8 @@ package Net::BitTorrent::Peer;
                                {protocol => ($s->ipv6 ? 'udp6' : 'udp4'),
                                 severity => 'debug',
                                 event    => 'ip_filter',
-                                ip       => $s->host,
-                                rule     => $rule,
+                                address => [$s->host, $s->port],
+                                rule    => $rule,
                                 message => 'Connection terminated by ipfilter'
                                }
             );
@@ -336,6 +336,7 @@ package Net::BitTorrent::Peer;
         ...;
     };
 =cut
+
     my %_packet_dispatch;
 
     sub _handle_packet {

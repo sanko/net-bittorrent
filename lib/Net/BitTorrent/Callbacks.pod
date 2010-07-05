@@ -107,13 +107,10 @@ passed the following attributes:
 
 =over
 
-=item C<ip>
+=item C<address>
 
-This is the IPv4 or IPv6 address of the banned peer.
-
-=item C<port>
-
-This is an integer.
+This is the IPv4 or IPv6 address and the remote port number of the banned
+peer.
 
 =item C<protocol>
 
