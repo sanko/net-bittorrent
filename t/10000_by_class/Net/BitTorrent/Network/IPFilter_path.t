@@ -21,33 +21,15 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter_path;
     sub test_rules : Test( no_plan ) {
         my $s = shift;
         my $f = $s->{'ip_filter'};
-        is $f->count_rules, 24, 'IPFilter parsed 34 rules from ' . $s->path;
-
-        #use Data::Dump;
-        #ddx $f;
-        #isa_ok $f->add_rule('127.0.0.1', '128.32.236.226', 44, 'Test A'),
-        #    'Net::BitTorrent::Network::IPFilter::Rule', 'new rule A';
-        #is $f->count_rules, 1, 'There is now one rulee';
-        #isa_ok $f->add_rule('127.0.0.1', '128.32.236.226', 21, 'Test B'),
-        #    'Net::BitTorrent::Network::IPFilter::Rule', 'new rule B';
-        #is $f->count_rules, 2, 'There are now two rules';
-        #is_deeply $f->rules,
-        #    [bless({access_level => 0,
-        #            description  => 'Test A',
-        #            lower        => "\0\0\0\0\0\0\0\0\0\0\0\0\x7F\0\0\1",
-        #            upper        => "\0\0\0\0\0\0\0\0\0\0\0\0\x80 \xEC\xE2",
-        #           },
-        #           'Net::BitTorrent::Network::IPFilter::Rule'
-        #     ),
-        #     bless({access_level => 0,
-        #            description  => 'Test B',
-        #            lower        => "\0\0\0\0\0\0\0\0\0\0\0\0\x7F\0\0\1",
-        #            upper        => "\0\0\0\0\0\0\0\0\0\0\0\0\x80 \xEC\xE2",
-        #           },
-        #           'Net::BitTorrent::Network::IPFilter::Rule'
-        #     )
-        #    ],
-        #    'rules were loaded correctly';
+        is $f->count_rules, 24, 'IPFilter parsed 24 rules from ' . $s->path;
+        require File::Temp;
+        my $file = File::Temp->new(TEMPLATE => 'ipfilter_XXXX',
+                                   SUFFIX   => '.dat');
+        ok $f->save($file->filename), 'saving rules to ' . $file->filename;
+        my $r = new_ok $s->class, [],
+            'empty instance which will slurp rules from ' . $file->filename;
+        ok $r->load($file->filename), 'reading rules from ' . $file->filename;
+        is_deeply $r, $f, 'rules were loaded correctly';
     }
 
     sub check_filter : Test( 2 ) {
