@@ -172,8 +172,6 @@ This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
 These may soon show up but I'm lazy. All of the original callbacks will be
 brought over soon.
 
-=over
-
 =head2  C<peer_handshake_complete>
 
 This event indicates we have both sent and received a valid handshake with a
@@ -244,33 +242,44 @@ The amount of data, in bytes, read from the peer.
 
 =back
 
+=head2 C<peer_packet_out>
 
+Triggered when we queue a packet for sending to a remote peer.
 
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
 
+=over
 
+=item C<peer>
 
+This is the related L<Net::BitTorrent::Peer> object.
 
+=item C<packet>
 
+The actual packet.
 
+=back
 
+=head2 C<peer_packet_in>
 
+Triggered when we parse a complete packet from data sent to us from a remote
+peer.
 
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
 
+=over
 
+=item C<peer>
 
+This is the related L<Net::BitTorrent::Peer> object.
 
+=item C<packet>
 
+The actual packet.
 
-
-
-
-
-
-
-
-
-
-
+=back
 
 =head2  C<file_error>
 
@@ -282,9 +291,78 @@ passed the following attributes:
 
 =over
 
-=item C<torrent>
+=item C<file>
 
-This is the related L<Net::BitTorrent::Torrent> object.
+This is the related L<Net::BitTorrent::File> object.
+
+=back
+
+=head2  C<file_open>
+
+Whenever a file is opened for read or write, this event is triggered. This is
+a C<debug> alert.
+
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
+
+=over
+
+=item C<file>
+
+This is the related L<Net::BitTorrent::File> object.
+
+=back
+
+=head2  C<file_close>
+
+Whenever a file is closed, this event is triggered. This is a C<debug> alert.
+
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
+
+=over
+
+=item C<file>
+
+This is the related L<Net::BitTorrent::File> object.
+
+=back
+
+=head2  C<file_write>
+
+Whenever a file written to, this event is triggered. This is a C<debug> alert.
+
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
+
+=over
+
+=item C<file>
+
+This is the related L<Net::BitTorrent::File> object.
+
+=item C<length>
+
+The amount of data (in bytes) written to the file.
+
+=back
+
+=head2  C<file_read>
+
+Whenever a file read, this event is triggered. This is a C<debug> alert.
+
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
+
+=over
+
+=item C<file>
+
+This is the related L<Net::BitTorrent::File> object.
+
+=item C<length>
+
+The amount of data (in bytes) read from the file.
 
 =back
 
@@ -304,7 +382,7 @@ This is the related L<Net::BitTorrent::Torrent> object.
 
 =back
 
-=head2 C<tracker_error>
+=head2 C<tracker_failure>
 
 This alert is generated on tracker time outs, premature disconnects, invalid
 response or a HTTP response other than C<200 OK>. From the alert you can get
@@ -332,9 +410,20 @@ code will be set to C<0>.
 
 =back
 
-=head2 C<tracker_reply>
+=head2 C<tracker_success>
 
 This is an C<info>rmational alert generated when a tracker announce succeeds.
+
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
+
+=over
+
+=item C<torrent>
+
+This is the related L<Net::BitTorrent::Torrent> object.
+
+=back
 
 =head2 C<tracker_warning>
 
@@ -369,7 +458,7 @@ This is the url of the HTTP seed that failed.
 
 =back
 
-=head2 C<hash_failed>
+=head2 C<piece_hash_failed>
 
 This alert is generated when a finished piece fails its hash check. You can
 get the handle to the torrent which got the failed piece and the index of the
@@ -391,7 +480,7 @@ This is the zero based index for this piece.
 
 =back
 
-=head2 C<hash_passed>
+=head2 C<piece_hash_passed>
 
 This alert is generated when a finished piece passes its hash check. You can
 get the handle to the torrent which got the valid piece and the index of the
@@ -445,7 +534,7 @@ passed the following attributes:
 
 =over
 
-=head2 C<peer_id>
+=item C<peer_id>
 
 If we have this peer's peer_id, you'll find it here. If not, this will be an
 C<undef>ined value.
@@ -473,6 +562,18 @@ This is the L<Net::BitTorrent::Torrent> that this peer was a swarm member of.
 =item C<ip>
 
 This is the IPv4 or IPv6 address of the newly banned peer.
+
+=back
+
+=head1 Plotting
+
+I may or may not keep these callbacks because I'm unsure how useful they are:
+
+=over
+
+=item C<tracker_write>
+
+=item C<tracker_read>
 
 =back
 
