@@ -98,7 +98,8 @@ package Net::BitTorrent;
     #
     has 'ip_filter' => (is       => 'ro',
                         isa      => 'Net::BitTorrent::Network::IPFilter',
-                        init_arg => undef
+                        init_arg => undef,
+                        builder  => '_build_ip_filter'
     );
 
     sub _build_ip_filter {
@@ -349,14 +350,15 @@ package Net::BitTorrent;
 
     sub _on_tcp4_in {
         my ($self, $peer, $paddr, $host, $port) = @_;
-        my $range = $self->ip_filter->is_banned($host);
-        if (defined $range) {
+        my $rule = $self->ip_filter->is_banned($host);
+        if (defined $rule) {
             $self->trigger_ip_filter(
                      {protocol => 'tcp4',
                       severity => 'debug',
                       event    => 'ip_filter',
                       ip       => $host,
-                      range    => $range,
+                      port     => $port,
+                      rule     => $rule,
                       message => 'Incoming connection was blocked by ipfilter'
                      }
             );
@@ -370,14 +372,14 @@ package Net::BitTorrent;
 
     sub _on_tcp6_in {
         my ($self, $peer, $paddr, $host, $port) = @_;
-        my $range = $self->ip_filter->is_banned($host);
-        if (defined $range) {
+        my $rule = $self->ip_filter->is_banned($host);
+        if (defined $rule) {
             $self->trigger_ip_filter(
                      {protocol => 'tcp4',
                       severity => 'debug',
                       event    => 'ip_filter',
                       ip       => $host,
-                      range    => $range,
+                      rule     => $rule,
                       message => 'Incoming connection was blocked by ipfilter'
                      }
             );
@@ -392,14 +394,14 @@ package Net::BitTorrent;
     sub _on_udp4_in {
         my $s = shift;
         my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
-        my $range = $s->ip_filter->is_banned($host);
-        if (defined $range) {
+        my $rule = $s->ip_filter->is_banned($host);
+        if (defined $rule) {
             $s->trigger_ip_filter(
                            {protocol => 'udp4',
                             severity => 'debug',
                             event    => 'ip_filter',
                             ip       => $host,
-                            range    => $range,
+                            rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
             );
@@ -411,14 +413,14 @@ package Net::BitTorrent;
     sub _on_upd6_in {
         my $s = shift;
         my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
-        my $range = $s->ip_filter->is_banned($host);
-        if (defined $range) {
+        my $rule = $s->ip_filter->is_banned($host);
+        if (defined $rule) {
             $s->trigger_ip_filter(
                            {protocol => 'upd6',
                             severity => 'debug',
                             event    => 'ip_filter',
                             ip       => $host,
-                            range    => $range,
+                            rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
             );
