@@ -19,7 +19,7 @@ Version 0.XXXXX | In the not too distant future | be4f2da
          - See http://github.com/sanko/net-bittorrent/tree/summer-2010-moose-anyevent
 
 ---
-Version 0.0052 | 2010-06-18 00:24:58Z (Fri, 18 Jun 2010) | d08d622
+Version 0.052 | 2010-04-02 18:31:29Z (Fri, 02 Apr 2010) | 07f0c35
 
     Documentation/Sample Code/Test Suite:
      * miniswarm tests are given less time before giving up
