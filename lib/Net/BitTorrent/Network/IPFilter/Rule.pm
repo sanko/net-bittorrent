@@ -43,9 +43,9 @@ package Net::BitTorrent::Network::IPFilter::Rule;
 
     sub _as_string {
         my $s = shift;
-        return join ', ', $s->lower_as_string, $s->upper_as_string,
-            $s->access_level,
-            $s->description;
+        return sprintf '%s - %s, %d, %s', $s->lower_as_string,
+            $s->upper_as_string,
+            $s->access_level, $s->description;
     }
 }
 1;
