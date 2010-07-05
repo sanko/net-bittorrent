@@ -29,8 +29,8 @@ For example:
 
 =head2 Arguments Passed to Callbacks
 
-When triggered, callbacks receive a hashref containing at least the following
-key/value pairs: X<basic_arguments>
+When triggered, callbacks receive the original object and a hashref containing
+at least the following key/value pairs: X<basic_arguments>
 
 =over
 
@@ -83,8 +83,6 @@ total client failure (exit/die/croak) because that's annoying.
 =back
 
 =back
-
-Note that the object is not returned
 
 Other, event-specific arguments are documented below.
 
