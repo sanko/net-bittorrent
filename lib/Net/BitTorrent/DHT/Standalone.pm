@@ -24,7 +24,7 @@ package Net::BitTorrent::DHT::Standalone;
                        writer     => '_set_udp' . $ipv,
                        predicate  => '_has_udp' . $ipv
             );
-        has 'udp'
+        has 'udp' 
             . $ipv
             . '_sock' => (is         => 'ro',
                           init_arg   => undef,
@@ -34,7 +34,7 @@ package Net::BitTorrent::DHT::Standalone;
                           writer     => '_set_udp' . $ipv . '_sock',
                           predicate  => '_has_udp' . $ipv . '_sock'
             );
-        has 'udp'
+        has 'udp' 
             . $ipv
             . '_host' => (is        => 'ro',
                           isa       => 'Str',
@@ -59,7 +59,6 @@ package Net::BitTorrent::DHT::Standalone;
     sub _build_udp6 {
         my $s = shift;
         my ($server, $actual_socket, $actual_host, $actual_port);
-
         for my $port (ref $s->port ? @{$s->port} : $s->port) {
             require Net::BitTorrent::Network::Utility;
             $server = Net::BitTorrent::Network::Utility::server(
@@ -67,7 +66,7 @@ package Net::BitTorrent::DHT::Standalone;
                 $port,
                 sub { $s->_on_udp6_in(@_); },
                 sub {
-                      ($actual_socket, $actual_host, $actual_port) = @_;
+                    ($actual_socket, $actual_host, $actual_port) = @_;
 
                     #if ($self->port != $port) { ...; }
                     $s->_set_udp6_sock($actual_socket);
@@ -80,21 +79,25 @@ package Net::BitTorrent::DHT::Standalone;
         }
         if ($server) {
             $s->trigger_listen_success(
-            {port => $actual_port,
-                protocol => 'udp6',
-             severity => 'debug',
-             event    => 'listen_success',
-             message => sprintf 'Opened IPv6 port %d to the outside world', $actual_port
-            }
-        )}
-        else{
+                              {port     => $actual_port,
+                               protocol => 'udp6',
+                               severity => 'debug',
+                               event    => 'listen_success',
+                               message  => sprintf
+                                   'Opened IPv6 port %d to the outside world',
+                               $actual_port
+                              }
+            );
+        }
+        else {
             $s->trigger_listen_failure(
-            {protocol => 'udp6',
-             severity => 'fatal',
-             event    => 'listen_failure',
-             message => 'Failed to open IPv6 port to the outside world: ' . $!
-            }
-        )
+                 {protocol => 'udp6',
+                  severity => 'fatal',
+                  event    => 'listen_failure',
+                  message => 'Failed to open IPv6 port to the outside world: '
+                      . $!
+                 }
+            );
         }
         return $server;
     }
@@ -109,7 +112,8 @@ package Net::BitTorrent::DHT::Standalone;
                 $port,
                 sub { $s->_on_udp4_in(@_); },
                 sub {
-                   ($actual_socket, $actual_host, $actual_port) = @_;
+                    ($actual_socket, $actual_host, $actual_port) = @_;
+
                     #if ($self->port != $port) { ...; }
                     $s->_set_udp4_sock($actual_socket);
                     $s->_set_udp4_host($actual_host);
@@ -121,20 +125,25 @@ package Net::BitTorrent::DHT::Standalone;
         }
         if ($server) {
             $s->trigger_listen_success(
-            {port => $actual_port,protocol => 'udp4',
-             severity => 'debug',
-             event    => 'listen_success',
-             message => sprintf 'Opened IPv4 port %d to the outside world', $actual_port
-            }
-        )}
-        else{
+                              {port     => $actual_port,
+                               protocol => 'udp4',
+                               severity => 'debug',
+                               event    => 'listen_success',
+                               message  => sprintf
+                                   'Opened IPv4 port %d to the outside world',
+                               $actual_port
+                              }
+            );
+        }
+        else {
             $s->trigger_listen_failure(
-            {protocol => 'udp4',
-             severity => 'fatal',
-             event    => 'listen_failure',
-             message => 'Failed to open IPv4 port to the outside world: ' . $!
-            }
-        )
+                 {protocol => 'udp4',
+                  severity => 'fatal',
+                  event    => 'listen_failure',
+                  message => 'Failed to open IPv4 port to the outside world: '
+                      . $!
+                 }
+            );
         }
         return $server;
     }
@@ -147,7 +156,7 @@ package Net::BitTorrent::DHT::Standalone;
                             severity => 'debug',
                             event    => 'ip_filter',
                             ip       => $host,
-                            rule    => $rule,
+                            rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
             );
@@ -164,7 +173,7 @@ package Net::BitTorrent::DHT::Standalone;
                             severity => 'debug',
                             event    => 'ip_filter',
                             ip       => $host,
-                            rule    => $rule,
+                            rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
             );
@@ -174,21 +183,21 @@ package Net::BitTorrent::DHT::Standalone;
     };
 
     # Callback system
-     sub _build_callback_no_op {
-            sub {1}
-        }
-        has "on_$_" => (isa        => 'CodeRef',
-                        is         => 'rw',
-                        traits     => ['Code'],
-                        handles    => {"trigger_$_" => 'execute_method'},
-                        lazy_build => 1,
-                        builder    => '_build_callback_no_op',
-                        clearer    => "_no_$_",
-                        weak_ref   => 1
-            )
-            for qw[
-            listen_failure listen_success
-        ];
+    sub _build_callback_no_op {
+        sub {1}
+    }
+    has "on_$_" => (isa        => 'CodeRef',
+                    is         => 'rw',
+                    traits     => ['Code'],
+                    handles    => {"trigger_$_" => 'execute_method'},
+                    lazy_build => 1,
+                    builder    => '_build_callback_no_op',
+                    clearer    => "_no_$_",
+                    weak_ref   => 1
+        )
+        for qw[
+        listen_failure listen_success
+    ];
 }
 1;
 

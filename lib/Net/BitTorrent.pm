@@ -139,7 +139,7 @@ package Net::BitTorrent;
                                writer     => '_set_' . $prot . $ipv,
                                predicate  => '_has_' . $prot . $ipv
                     );
-                has $prot
+                has $prot 
                     . $ipv
                     . '_sock' => (
                                  is         => 'ro',
@@ -150,7 +150,7 @@ package Net::BitTorrent;
                                  writer => '_set_' . $prot . $ipv . '_sock',
                                  predicate => '_has_' . $prot . $ipv . '_sock'
                     );
-                has $prot
+                has $prot 
                     . $ipv
                     . '_host' => (
                                  is      => 'ro',
