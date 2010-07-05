@@ -377,11 +377,13 @@ package Net::BitTorrent::Peer;
     {    # Callback system
         after 'BUILD' => sub {
             my $s = shift;
-            $s->trigger_peer_construction_callback($s);
+
+            #$s->trigger_peer_construction($s);
         };
         after 'DEMOLISH' => sub {
             my $s = shift;
-            $s->trigger_peer_destruction_callback($s);
+
+            #$s->trigger_peer_destruction($s);
         };
     }
     {    ### Simple plugin system
