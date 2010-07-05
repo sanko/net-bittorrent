@@ -6,7 +6,7 @@ package Net::BitTorrent::Peer;
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
     use Net::BitTorrent::Protocol::BEP03::Packets qw[parse_packet :types];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     sub BUILD {1}
@@ -342,6 +342,7 @@ package Net::BitTorrent::Peer;
         my ($self, $packet) = @_;
         return if !$self->has_torrent;
         return if !$self->has_handle;
+
         #use Data::Dump;
         #ddx $packet;
         %_packet_dispatch = (

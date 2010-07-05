@@ -9,7 +9,7 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Types qw[:dht];
     use Net::BitTorrent::Protocol::BEP05::RoutingTable;
     use 5.10.0;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     # Stub
     sub BUILD {1}
@@ -442,14 +442,16 @@ package Net::BitTorrent::DHT;
                             );
                     }
                     else {
+
                         #use Data::Dump;
                         warn sprintf '%s:%d', $node->host, $node->port;
+
                         #ddx $packet;
                         #ddx $req;
                         #...;
                     }
                 }
-                else {            # A reply we are not expecting. Strange.
+                else {    # A reply we are not expecting. Strange.
                     $node->inc_fail;
                     $self->_inc_recv_invalid_count;
                     $self->_inc_recv_invalid_length(length $data);
@@ -503,16 +505,19 @@ package Net::BitTorrent::DHT;
             }
         }
         elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {
+
             #use Data::Dump;
             warn sprintf 'Error from %s:%d', $node->host, $node->port;
+
             #ddx $packet;
         }
         else {
+
             #use Data::Dump;
             warn sprintf '%s:%d', $node->host, $node->port;
+
             #ddx $packet;
             #ddx $data;
-
             #...;
             # TODO: ID checks against $packet->{'a'}{'id'}
         }
