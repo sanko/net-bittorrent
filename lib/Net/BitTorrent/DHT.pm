@@ -73,14 +73,14 @@ package Net::BitTorrent::DHT;
     #
     sub send {
         my ($s, $node, $packet, $reply) = @_;
-        my $range = $s->ip_filter->is_banned($node->host);
-        if (defined $range) {
+        my $rule = $s->ip_filter->is_banned($node->host);
+        if (defined $rule) {
             $s->trigger_ip_filter(
                            {protocol => ($node->ipv6 ? 'udp6' : 'udp4'),
                             severity => 'debug',
                             event    => 'ip_filter',
                             ip       => $node->host,
-                            range    => $range,
+                            rule     => $rule,
                             message => 'Outgoing data was blocked by ipfilter'
                            }
             );

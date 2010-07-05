@@ -121,14 +121,14 @@ package Net::BitTorrent::DHT::Standalone;
     }
     around '_on_udp4_in' => sub {
         my ($c, $s, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
-        my $range = $s->ip_filter->is_banned($host);
-        if (defined $range) {
+        my $rule = $s->ip_filter->is_banned($host);
+        if (defined $rule) {
             $s->trigger_ip_filter(
                            {protocol => 'udp4',
                             severity => 'debug',
                             event    => 'ip_filter',
                             ip       => $host,
-                            range    => $range,
+                            rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
             );
@@ -138,14 +138,14 @@ package Net::BitTorrent::DHT::Standalone;
     };
     around '_on_udp6_in' => sub {
         my ($c, $s, $sock, $sockaddr, $host, $port, $data, $flags) = @_;
-        my $range = $s->ip_filter->is_banned($host);
-        if (defined $range) {
+        my $rule = $s->ip_filter->is_banned($host);
+        if (defined $rule) {
             $s->trigger_ip_filter(
                            {protocol => 'udp6',
                             severity => 'debug',
                             event    => 'ip_filter',
                             ip       => $host,
-                            range    => $range,
+                            rule     => $rule,
                             message => 'Incoming data was blocked by ipfilter'
                            }
             );

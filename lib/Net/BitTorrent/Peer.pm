@@ -143,14 +143,14 @@ package Net::BitTorrent::Peer;
     my $infohash_constraint;
     after 'BUILD' => sub {
         my ($s, $a) = @_;
-        my $range = $s->client->ip_filter->is_banned($s->host);
-        if (defined $range) {
+        my $rule = $s->client->ip_filter->is_banned($s->handle->{'peername'});
+        if (defined $rule) {
             $s->trigger_ip_filter(
                                {protocol => ($s->ipv6 ? 'udp6' : 'udp4'),
                                 severity => 'debug',
                                 event    => 'ip_filter',
                                 ip       => $s->host,
-                                range    => $range,
+                                rule     => $rule,
                                 message => 'Connection terminated by ipfilter'
                                }
             );

@@ -1,4 +1,4 @@
-package Net::BitTorrent::Network::IPFilter::Range;
+package Net::BitTorrent::Network::IPFilter::Rule;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
@@ -54,7 +54,7 @@ package Net::BitTorrent::Network::IPFilter::Range;
 
 =head1 NAME
 
-Net::BitTorrent::Network::IPFilter::Range -
+Net::BitTorrent::Network::IPFilter::Rule -
 
 =head1 Description
 

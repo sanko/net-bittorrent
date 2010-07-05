@@ -7,39 +7,39 @@ package Net::BitTorrent::Network::IPFilter;
     use lib '../../../';
     use Net::BitTorrent::Network::Utility qw[:paddr];
     sub BUILD { 1; }
-    has 'ranges' => (
-         isa => 'ArrayRef[Net::BitTorrent::Network::IPFilter::Range]' => is =>
-             'ro',
-         traits   => ['Array'],
-         coerce   => 1,
-         init_arg => undef,
-         default  => sub { [] },
-         handles  => {
-                     add_range            => 'push',
-                     count_ranges         => 'count',
-                     is_empty             => 'is_empty',
-                     get_range            => 'get',
-                     first_range          => 'first',
-                     grep_ranges          => 'grep',
-                     map_ranges           => 'map',
-                     sort_ranges          => 'sort',
-                     sort_ranges_in_place => 'sort_in_place',
-                     shuffle_ranges       => 'shuffle',
-                     clear_ranges         => 'clear',
-                     insert_range         => 'insert',
-                     delete_range         => 'delete',
-                     push_range           => 'push',
-                     pop_range            => 'pop'
-         }
+    has 'rules' => (
+          isa => 'ArrayRef[Net::BitTorrent::Network::IPFilter::Rule]' => is =>
+              'ro',
+          traits   => ['Array'],
+          coerce   => 1,
+          init_arg => undef,
+          default  => sub { [] },
+          handles  => {
+                      add_rule            => 'push',
+                      count_rules         => 'count',
+                      is_empty            => 'is_empty',
+                      get_rule            => 'get',
+                      first_rule          => 'first',
+                      grep_rules          => 'grep',
+                      map_rules           => 'map',
+                      sort_rules          => 'sort',
+                      sort_rules_in_place => 'sort_in_place',
+                      shuffle_rules       => 'shuffle',
+                      clear_rules         => 'clear',
+                      insert_rule         => 'insert',
+                      delete_rule         => 'delete',
+                      push_rule           => 'push',
+                      pop_rule            => 'pop'
+          }
     );
-    around 'add_range' => sub {
+    around 'add_rule' => sub {
         my ($c, $s, $l, $u, $a, $d) = @_;
         $l = blessed $l? $l : sub {
-            require Net::BitTorrent::Network::IPFilter::Range;
-            Net::BitTorrent::Network::IPFilter::Range->new(lower        => $l,
-                                                           upper        => $u,
-                                                           access_level => $a,
-                                                           description  => $d
+            require Net::BitTorrent::Network::IPFilter::Rule;
+            Net::BitTorrent::Network::IPFilter::Rule->new(lower        => $l,
+                                                          upper        => $u,
+                                                          access_level => $a,
+                                                          description  => $d
             );
             }
             ->();
@@ -56,7 +56,7 @@ package Net::BitTorrent::Network::IPFilter;
             next if !$range;
             my ($start, $end) = ($range =~ m[^(.+)\s*-\s*(.+)\s+$]);
             $_ =~ s[\s][]g for $start, $end;
-            $s->add_range($start, $end, $access_level, $desc);
+            $s->add_rule($start, $end, $access_level, $desc);
         }
         1;
     }
@@ -64,15 +64,22 @@ package Net::BitTorrent::Network::IPFilter;
     sub save {
         my ($s, $path) = @_;
         open(my $IPFilter, '>', $path) || return;
-        for my $range ($s->sort_ranges(sub { $_[0]->lower cmp $_[1]->lower }))
-        {   syswrite $IPFilter, $range->_as_string . "\n";
+        for my $rule (
+            $s->sort_rules(
+                sub {
+                    $_[0]->lower cmp $_[1]->lower
+                        || $_[0]->upper cmp $_[1]->upper;
+                }
+            )
+            )
+        {   syswrite $IPFilter, $rule->_as_string . "\n";
         }
         return close $IPFilter;
     }
 
     sub is_banned {
         my ($s, $ip) = @_;
-        return $s->first_range(
+        return $s->first_rule(
             sub {
                 $_->in_range($ip) && $_->access_level < 127;
             }
@@ -85,7 +92,7 @@ package Net::BitTorrent::Network::IPFilter;
 
 =head1 NAME
 
-Net::BitTorrent::Network::IPFilter - Simple, range-based IP filter
+Net::BitTorrent::Network::IPFilter - Simple, rule-based IP filter
 
 =head1 Description
 
@@ -133,36 +140,35 @@ clients is ever established
 This constructs a new, empty object. There are currently no accepted
 arguments.
 
-=head1 $filter->B<add_range>( $range )
+=head1 $filter->B<add_rule>( $rule )
 
-This method adds a new L<range|Net::BitTorrent::Network::IPFilter::Range> to
+This method adds a new L<range|Net::BitTorrent::Network::IPFilter::Rule> to
 the in-memory ipfilter.
 
-=head1 $filter->B<add_range>( $lower, $upper, $access_level, $description )
+=head1 $filter->B<add_rule>( $lower, $upper, $access_level, $description )
 
 This method coerces the arguments into a new
-L<range|Net::BitTorrent::Network::IPFilter::Range> which is the added to the
+L<range|Net::BitTorrent::Network::IPFilter::Rule> which is the added to the
 in-memory ipfilter.
 
-=head1 $filter->B<count_ranges>( )
+=head1 $filter->B<count_rules>( )
 
-Returns how many L<range|Net::BitTorrent::Network::IPFilter::Range>s are
-loaded.
+Returns how many L<rule|Net::BitTorrent::Network::IPFilter::Rule>s are loaded.
 
 =head1 $filter->B<is_empty>( )
 
 Returns a boolean value indicating whether or not there are any
-L<range|Net::BitTorrent::Network::IPFilter::Range>s loaded in the ipfilter.
+L<rule|Net::BitTorrent::Network::IPFilter::Rule>s loaded in the ipfilter.
 
-=head1 $filter->B<clear_ranges>( )
+=head1 $filter->B<clear_rules>( )
 
-Deletes all L<range|Net::BitTorrent::Network::IPFilter::Range>s from the
+Deletes all L<rule|Net::BitTorrent::Network::IPFilter::Rule>s from the
 ipfilter.
 
 =head1 $filter->B<load>( $path )
 
 Slurps an ipfilter.dat-like file and adds the
-L<range|Net::BitTorrent::Network::IPFilter::Range>s found inside to the
+L<rule|Net::BitTorrent::Network::IPFilter::Rule>s found inside to the
 ipfilter.
 
 =head1 $filter->B<save>( $path )
@@ -172,7 +178,7 @@ Stores the in-memory ipfilter to disk.
 =head1 $filter->B<is_banned>( $ip )
 
 Indicates whether or not C<$ip> is banned. If so, the
-L<range|Net::BitTorrent::Network::IPFilter::Range> in which it was found is
+L<rule|Net::BitTorrent::Network::IPFilter::Rule> in which it was found is
 returned. If not, a false value is returned.
 
 =head1 IPv6 Support

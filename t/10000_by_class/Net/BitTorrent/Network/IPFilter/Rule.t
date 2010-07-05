@@ -1,4 +1,4 @@
-package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Range;
+package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Rule;
 {
     use strict;
     use warnings;
@@ -7,7 +7,7 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Range;
     use lib '../../../../../../lib', 'lib';
 
     #
-    sub class {'Net::BitTorrent::Network::IPFilter::Range'}
+    sub class {'Net::BitTorrent::Network::IPFilter::Rule'}
 
     sub new_args {
         lower            => '127.0.0.1',
@@ -29,7 +29,7 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Range;
         my $self = shift;
         use_ok $self->class;
         can_ok $self->class, 'new';
-        $self->{'range'} = new_ok $self->class, [$self->new_args];
+        $self->{'rule'} = new_ok $self->class, [$self->new_args];
     }
 
     sub setup : Test( setup ) {
@@ -38,13 +38,13 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Range;
 
     sub test_deeply : Test( 1 ) {
         my $s = shift;
-        my $r = $s->{'range'};
+        my $r = $s->{'rule'};
         is_deeply $r, $s->deeply, 'internals check out';
     }
 
     sub attributes : Test( 6 ) {
         my $s = shift;
-        my $r = $s->{'range'};
+        my $r = $s->{'rule'};
         require Net::BitTorrent::Network::Utility;
         is $r->$_(),
             Net::BitTorrent::Network::Utility::ip2paddr({$s->new_args}->{$_}),
@@ -60,14 +60,14 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Range;
 
     sub in_range : Test( 2 ) {
         my $s = shift;
-        my $r = $s->{'range'};
+        my $r = $s->{'rule'};
         ok $r->in_range('127.0.0.2'), '127.0.0.2 is in range';
         ok !$r->in_range('127.0.0.9'), '127.0.0.9 is beyond range';
     }
 
     sub z_access_level : Test( 4 ) {
         my $s       = shift;
-        my $r       = $s->{'range'};
+        my $r       = $s->{'rule'};
         my $initial = $r->access_level;
         $r->increase_access_level();
         is $r->access_level, $initial + 1,
@@ -85,7 +85,7 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Range;
 
     sub _as_string : Test( 1 ) {
         my $s = shift;
-        my $r = $s->{'range'};
+        my $r = $s->{'rule'};
         is $r->_as_string, '127.0.0.1, 127.0.0.5, 559, Testing',
             '->_as_string is as okay';
     }
