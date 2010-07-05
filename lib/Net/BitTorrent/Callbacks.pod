@@ -166,6 +166,15 @@ this peer to result in a banned state.
 
 =back
 
+=back
+
+=head1 TODO
+
+These may soon show up but I'm lazy. All of the original callbacks will be
+brought over soon.
+
+=over
+
 =item C<file_error>
 
 If the storage fails to read or write files that it needs access to, this
