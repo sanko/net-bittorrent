@@ -11,7 +11,15 @@ package t::10000_by_class::Net::BitTorrent::DHT;
 
     sub new_args {
         require Net::BitTorrent;
-        [client => Net::BitTorrent->new()];
+        [client => Net::BitTorrent->new(
+             on_listen_failed => sub {
+                 my $s = shift;
+                 my $a = shift;
+                 diag $a->{'message'};
+                 $s->{'cv'}->send if $a->{'protocol'} =~ m[udp];
+             }
+         )
+        ];
     }
 
     #

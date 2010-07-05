@@ -15,7 +15,13 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
     sub new_args {
         [port => [1338, 0],
          boot_nodes =>
-             [['router.utorrent.com', 6881], ['router.bittorrent.com', 6881]]
+             [['router.utorrent.com', 6881], ['router.bittorrent.com', 6881]],
+         on_listen_failed => sub {
+             my $s = shift;
+             my $a = shift;
+             diag $a->{'message'};
+             $s->{'cv'}->send;
+             }
         ];
     }
 
@@ -36,7 +42,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         $s->{'cv'}->begin(sub { $s->{'cv'}->send });
         note '...which will timeout in 2m.';
         $s->{'to'}
-            = AE::timer(60 * 2, 0, sub { note 'Timeout!'; $s->{'cv'}->send });
+            = AE::timer(60 * 2, 0, sub { diag 'Timeout!'; $s->{'cv'}->send });
 
         #for my $addr ()
         #{   my $node = $s->{'dht'}->ipv4_add_node($addr);
