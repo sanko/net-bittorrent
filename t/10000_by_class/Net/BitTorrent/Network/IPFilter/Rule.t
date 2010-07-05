@@ -86,7 +86,8 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Rule;
     sub _as_string : Test( 1 ) {
         my $s = shift;
         my $r = $s->{'rule'};
-        is $r->_as_string, '127.0.0.1, 127.0.0.5, 559, Testing',
+        like $r->_as_string,
+            qr[^127\.0\.0\.1\s+-\s+127\.0\.0\.5\s*,\s+559\s*,\s+Testing$],
             '->_as_string is as okay';
     }
 
