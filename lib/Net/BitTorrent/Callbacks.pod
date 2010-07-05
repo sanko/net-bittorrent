@@ -6,12 +6,28 @@ Net::BitTorrent::Callbacks - Callback API documentation
 
 =head1 Description
 
-If kept up to date, this file will list and describe all callbacks supported
-by the L<Net::BitTorrent> distribution. Currently, only a few callbacks are
-implemented and they're all subject to chagne but until I get a stable version
-from this branch, consider this the official specification.
+Note: If kept up to date, this file will list and describe all callbacks
+supported by the L<Net::BitTorrent> distribution. Currently, only a few
+callbacks are implemented and they're all subject to chagne but until I get a
+stable version from this branch, consider this the official specification.
 
-=head1 Arguments
+TMTOWTDI. The first (and probably the least troublesome) is to set callbacks
+in the object's constructor:
+
+    use Net::BitTorrent;
+    my $client = Net::BitTorrent->new(
+        on_file_error => sub { ... }
+    );
+
+You can also register a callback with C<< $obj->on_[event]( &coderef ) >>.
+For example:
+
+    $client->on_file_error( \&cb_file_error );
+    sub cb_file_error {
+        ...;
+    }
+
+=head2 Arguments Passed to Callbacks
 
 When triggered, callbacks receive a hashref containing at least the following
 key/value pairs: X<basic_arguments>
@@ -37,49 +53,56 @@ This is an enum value which may be one of the following:
 =item debug
 
 This will include a lot of debug events that can be used both for debugging
-Net::BitTorrent itself but also when debugging other clients that are
-connected to Net::BitTorrent. It will report strange behaviors among the
+L<Net::BitTorrent> itself but also when debugging other clients that are
+connected to L<Net::BitTorrent>. It will report strange behaviors among the
 connected peers.
 
 =item info
 
-Events that can be considered normal, but still deserves an event. This could
-be a piece hash that fails.
+Events that can be considered normal, but still deserve an event. Something
+like a new piece passing a hash check.
 
 =item warning
 
 Messages with the warning severity can be a tracker that times out or responds
-with invalid data. It will be retried automatically, and the possible next
-tracker in a multitracker sequence will be tried. It does not require any user
-interaction.
+with invalid data. The failing event will likely be retried automatically
+(in this example, the next tracker in a multitracker sequence will be tried).
+Warnings do not require user interaction.
 
 =item critical
 
-Signals errors which require user interaction or messages that almost never
-should be ignored.
+Errors which require user interaction or have an important message should
+never ignored.
 
 =item fatal
 
-Fatal errors will have this severity level. Examples can be disk full or
-something else that will make it impossible to continue normal execution. Do
-not assume fatal errors lead to total client failure (exit/die/croak) because
-that's annoying.
+Examples of fatal errors can be disk full or something else that will make it
+impossible to continue normal execution. Do not assume fatal errors lead to
+total client failure (exit/die/croak) because that's annoying.
 
 =back
 
 =back
+
+Note that the object is not returned
+
+Other, event-specific arguments are documented below.
+
+=head2 Callback Return Values
+
+Unless mentioned specifically, return values from callbacks do not affect
+behavior.
 
 =head1 The Callbacks
 
 This is the current list of callback triggering events and the information
-passed to them. Note that this list is subject to change. Unless mentioned
-specifically, return values from callbacks do not affect behavior.
+passed to them. Note that this list is subject to change.
 
 =over
 
-=item C<listen_failed>
+=item C<listen_failure>
 
-This alert is generated when none of the ports given in the prot range to
+This alert is generated when none of the ports given in the port range to
 C<new>[<1|Net::BitTorrent/"new">, L<2|Net::BitTorrent::Standalone/"new">] can
 be opened for listening. This is a C<fatal> error.
 
@@ -87,6 +110,27 @@ In addition to the L<basic attributes|basic_arguments>, this callback is
 passed the following attributes:
 
 =over
+
+=item C<protocol>
+
+This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
+
+=back
+
+=item C<listen_success>
+
+This alert is generated when one of the ports given in the port range to
+C<new>[<1|Net::BitTorrent/"new">, L<2|Net::BitTorrent::Standalone/"new">] was
+opened for listening. This is a C<debug> event.
+
+In addition to the L<basic attributes|basic_arguments>, this callback is
+passed the following attributes:
+
+=over
+
+=item C<port>
+
+This is an integer.
 
 =item C<protocol>
 
@@ -105,17 +149,21 @@ passed the following attributes:
 
 =over
 
-=item C<protocol>
-
-This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
-
 =item C<ip>
 
 This is the IPv4 or IPv6 address of the banned peer.
 
-=item C<range>
+=item C<port>
 
-This is the L<Net::BitTorrent::Network::IPFilter::Range> object which caused
+This is an integer.
+
+=item C<protocol>
+
+This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
+
+=item C<rule>
+
+This is the L<Net::BitTorrent::Network::IPFilter::Rule> object which caused
 this peer to result in a banned state.
 
 =back

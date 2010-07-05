@@ -2,8 +2,8 @@ Build.PL
 Changes
 examples/standalone_dht.pl
 lib/Net/BitTorrent.pm
+lib/Net/BitTorrent/Callbacks.pod
 lib/Net/BitTorrent/DHT.pm
-lib/Net/BitTorrent/DHT/Callbacks.pm
 lib/Net/BitTorrent/DHT/Standalone.pm
 lib/Net/BitTorrent/Network/IPFilter.pm
 lib/Net/BitTorrent/Network/IPFilter/Rule.pm
