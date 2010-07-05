@@ -4,6 +4,15 @@
 
 Net::BitTorrent::Todo - TODO list for Perl module Net::BitTorrent
 
+=head1 Description
+
+L<Net::BitTorrent> is a complex distribution with a lot of-- think of a 1000
+piece puzzle. Now, imagine instead of a nice seascape or fuzzy kittens, this
+puzzle is completly offwhite. No image to reference, I mean. That's
+L<Net::BitTorrent>.
+
+Check individual modules as they may have TODO lists as well.
+
 =head1 High priorities
 
 =over

@@ -84,7 +84,7 @@ total client failure (exit/die/croak) because that's annoying.
 
 =back
 
-Other, event-specific arguments are documented below.
+Other, event-specific arguments are L<documented below|/"The Callbacks">.
 
 =head2 Callback Return Values
 
