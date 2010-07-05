@@ -23,7 +23,7 @@ package Net::BitTorrent::Peer;
                      isa      => 'Net::BitTorrent',
                      required => 1,
                      weak_ref => 1,
-                     handles  => qr[^trigger_peer_.+_callback$]
+                     handles  => qr[^trigger_.+$]
     );
     has 'fh' => (is         => 'ro',
                  isa        => 'GlobRef',
