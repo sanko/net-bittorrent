@@ -54,7 +54,7 @@ package Net::BitTorrent::Network::IPFilter;
             my ($range, $access_level, $desc)
                 = ($line =~ m[^(.+-.+)\s*,\s*(\d+)\s*,\s*(.+)\s*$]);
             next if !$range;
-            my ($start, $end) = ($range =~ m[^(.+)\s*-\s*(.+)\s+$]);
+            my ($start, $end) = ($range =~ m[^(.+)\s*-\s*(.+)\s*$]);
             $_ =~ s[\s][]g for $start, $end;
             $s->add_rule($start, $end, $access_level, $desc);
         }
