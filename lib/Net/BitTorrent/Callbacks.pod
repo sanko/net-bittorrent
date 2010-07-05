@@ -36,17 +36,17 @@ at least the following key/value pairs: X<basic_arguments>
 
 =item B<message> => string
 
-This is a (often simple) description (in English) of the event suitable for
-display to the user.
+This is a simple description (in English) of the event suitable for display to
+the user.
 
 =item B<event> => string
 
 This is the kind of event which was triggered. This is useful if you use a
 single callback coderef for many types of events (by category, etc.).
 
-=item B<severity> => debug|info|warning|critical|fatal
+=item B<severity> => string
 
-This is an enum value which may be one of the following:
+One of the following:
 
 =over
 
