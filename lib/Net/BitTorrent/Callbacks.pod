@@ -98,8 +98,9 @@ passed to them. Note that this list is subject to change.
 
 =head2 C<ip_filter>
 
-This alert is generated when a connection is declined because the remote host
-was L<banned|Net::BitTorrent::Network::IPFilter/"is_banned"> by our local
+This alert is generated when an incoming connection is declined or an outgoing
+connection attempt is aborted because the remote host was
+L<banned|Net::BitTorrent::Network::IPFilter/"is_banned"> by our local
 L<ipfilter|Net::BitTorrent::Network::IPFilter>. This is a C<debug>ging event.
 
 In addition to the L<basic arguments|/basic_arguments>, this callback is
