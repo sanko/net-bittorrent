@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter;
 {
     use strict;
     use warnings;
-    use Test::Most;
+    use Test::More;
     use parent 'Test::Class';
     use lib '../../../../../lib', 'lib';
 

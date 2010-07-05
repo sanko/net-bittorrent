@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter_path;
 {
     use strict;
     use warnings;
-    use Test::Most;
+    use Test::More;
     use File::Spec;
     use lib '../', '../../../../../', '../../../../../lib', 'lib';
     BEGIN { require 't/10000_by_class/Net/BitTorrent/Network/IPFilter.t'; }
