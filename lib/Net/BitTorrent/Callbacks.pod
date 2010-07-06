@@ -72,13 +72,13 @@ Warnings do not require user interaction.
 =item critical
 
 Errors which require user interaction or have an important message should
-never ignored.
+never be ignored.
 
 =item fatal
 
-Examples of fatal errors can be disk full or something else that will make it
-impossible to continue normal execution. Do not assume fatal errors lead to
-total client failure (exit/die/croak) because that's annoying.
+Fatal errors include any error which makes normal execution impossible but do
+not assume fatal errors lead to total client failure (exit/die/croak) because
+that's annoying. A full disk is an example of a fatal error.
 
 =back
 
@@ -115,7 +115,7 @@ peer.
 
 =item C<protocol>
 
-This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
+This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp6>.
 
 =item C<rule>
 
