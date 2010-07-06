@@ -478,6 +478,12 @@ This is the related L<Net::BitTorrent::Torrent> object.
 
 This is the zero based index for this piece.
 
+=item C<peers>
+
+A list of L<peer|Net::BitTorrent::Peer>s who were involved with this piece.
+This value will be an empty list if the callback is triggered by a check on
+data already on disk.
+
 =back
 
 =head2 C<piece_hash_passed>
@@ -499,6 +505,12 @@ This is the related L<Net::BitTorrent::Torrent> object.
 =item C<index>
 
 This is the zero based index for this piece.
+
+=item C<peers>
+
+A list of L<peer|Net::BitTorrent::Peer>s who were involved with this piece.
+This value will be an empty list if the callback is triggered by a check on
+data already on disk.
 
 =back
 
