@@ -190,8 +190,8 @@ This is the related L<Net::BitTorrent::Peer> object.
 
 =head2  C<peer_disconnect>
 
-This callback is triggered when an established connection to the remote peer
-is lost or terminated.
+This callback is triggered when an established connection is lost or
+terminated.
 
 In addition to the L<basic arguments|/basic_arguments>, this callback is
 passed the following attributes:
@@ -238,7 +238,7 @@ This is the related L<Net::BitTorrent::Peer> object.
 
 =item C<length>
 
-The amount of data, in bytes, read from the peer.
+The amount of data, in bytes, sent to the peer.
 
 =back
 
