@@ -9,21 +9,29 @@ package t::10000_by_class::Net::BitTorrent::DHT;
     #
     sub class {'Net::BitTorrent::DHT'}
 
-    sub new_args {
+    sub new_args : Tests( 1 ) {
+        my $t = shift;
         require Net::BitTorrent;
-        [client => Net::BitTorrent->new(
-             on_listen_failed => sub {
-                 my $s = shift;
-                 my $a = shift;
-                 diag $a->{'message'};
-                 $s->{'cv'}->send if $a->{'protocol'} =~ m[udp];
-             }
+        [client => new_ok(
+             'Net::BitTorrent',
+             [port             => [1338, 1339, 0],
+              on_listen_failed => sub {
+                  my ($s, $a) = @_;
+                  diag $a->{'message'};
+                  $t->{'cv'}->send if $a->{'protocol'} =~ m[udp];
+              },
+              on_listen_success => sub {
+                  my ($s, $a) = @_;
+                  diag $a->{'message'};
+                  }
+             ],
+             'decoy NB client'
          )
         ];
     }
 
     #
-    sub startup : Tests(startup => 3) {
+    sub startup : Tests(startup => no_plan) {
         my $self = shift;
         use_ok $self->class;
         can_ok $self->class, 'new';

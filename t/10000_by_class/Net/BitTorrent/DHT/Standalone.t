@@ -12,15 +12,19 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
     require AnyEvent;
 
     #
-    sub new_args {
-        [port => [1338, 0],
+    sub new_args : Test( 0 ) {
+        my $t = shift;
+        [port => [1338, 3339, 0],
          boot_nodes =>
              [['router.utorrent.com', 6881], ['router.bittorrent.com', 6881]],
          on_listen_failed => sub {
-             my $s = shift;
-             my $a = shift;
+             my ($s, $a) = @_;
              diag $a->{'message'};
-             $s->{'cv'}->send;
+             $t->{'cv'}->send;
+         },
+         on_listen_success => sub {
+             my ($s, $a) = @_;
+             diag $a->{'message'};
              }
         ];
     }
