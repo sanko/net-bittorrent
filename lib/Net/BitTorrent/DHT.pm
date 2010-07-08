@@ -9,7 +9,7 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Types qw[:dht];
     use Net::BitTorrent::Protocol::BEP05::RoutingTable;
     use 5.10.0;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 3; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     # Stub
     sub BUILD {1}
@@ -136,16 +136,16 @@ package Net::BitTorrent::DHT;
         require Net::BitTorrent::Protocol::BEP05::Node;
         my $sockaddr = sockaddr($n->[0], $n->[1]);
         next if !$sockaddr;
-        $n = blessed $n ? $n :
-            Net::BitTorrent::Protocol::BEP05::Node->new(
-                                                  host          => $n->[0],
-                                                  port          => $n->[1],
-                                                  sockaddr      => $sockaddr,
-                                                  routing_table => (
-                                                      length $sockaddr == 28
-                                                      ? $s->ipv6_routing_table
-                                                      : $s->ipv4_routing_table
-                                                  )
+        $n
+            = blessed $n ? $n
+            : Net::BitTorrent::Protocol::BEP05::Node->new(
+                           host          => $n->[0],
+                           port          => $n->[1],
+                           sockaddr      => $sockaddr,
+                           routing_table => (
+                               length $sockaddr == 28 ? $s->ipv6_routing_table
+                               : $s->ipv4_routing_table
+                           )
             );
         (  $n->ipv6
          ? $s->ipv6_routing_table->add_node($n)
