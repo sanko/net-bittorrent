@@ -3,7 +3,7 @@ package Net::BitTorrent::DHT::Standalone;
     use Moose::Role;
     use lib '../../../../lib';
     use Net::BitTorrent::Protocol::BEP03::Bencode qw[bdecode];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 3; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has 'port' => (is      => 'ro',
                    isa     => 'Int|ArrayRef[Int]',
                    builder => '_build_port',
@@ -24,7 +24,7 @@ package Net::BitTorrent::DHT::Standalone;
                        writer     => '_set_udp' . $ipv,
                        predicate  => '_has_udp' . $ipv
             );
-        has 'udp' 
+        has 'udp'
             . $ipv
             . '_sock' => (is         => 'ro',
                           init_arg   => undef,
@@ -34,7 +34,7 @@ package Net::BitTorrent::DHT::Standalone;
                           writer     => '_set_udp' . $ipv . '_sock',
                           predicate  => '_has_udp' . $ipv . '_sock'
             );
-        has 'udp' 
+        has 'udp'
             . $ipv
             . '_host' => (is        => 'ro',
                           isa       => 'Str',
@@ -79,25 +79,25 @@ package Net::BitTorrent::DHT::Standalone;
         }
         if ($server) {
             $s->trigger_listen_success(
-                              {port     => $actual_port,
-                               protocol => 'udp6',
-                               severity => 'debug',
-                               event    => 'listen_success',
-                               message  => sprintf
-                                   'Opened IPv6 port %d to the outside world',
-                               $actual_port
-                              }
+                      {port     => $actual_port,
+                       protocol => 'udp6',
+                       severity => 'debug',
+                       event    => 'listen_success',
+                       message  => sprintf
+                           'Bound UDP port %d to the outside world over IPv6',
+                       $actual_port
+                      }
             );
         }
         else {
             $s->trigger_listen_failure(
-                 {port     => $s->port,
-                  protocol => 'udp6',
-                  severity => 'fatal',
-                  event    => 'listen_failure',
-                  message => 'Failed to open IPv6 port to the outside world: '
-                      . $!
-                 }
+                {port     => $s->port,
+                 protocol => 'udp6',
+                 severity => 'fatal',
+                 event    => 'listen_failure',
+                 message =>
+                     'Failed to bind UDP port for the outside world over IPv6'
+                }
             );
         }
         return $server;
@@ -126,25 +126,25 @@ package Net::BitTorrent::DHT::Standalone;
         }
         if ($server) {
             $s->trigger_listen_success(
-                              {port     => $actual_port,
-                               protocol => 'udp4',
-                               severity => 'debug',
-                               event    => 'listen_success',
-                               message  => sprintf
-                                   'Opened IPv4 port %d to the outside world',
-                               $actual_port
-                              }
+                      {port     => $actual_port,
+                       protocol => 'udp4',
+                       severity => 'debug',
+                       event    => 'listen_success',
+                       message  => sprintf
+                           'Bound UDP port %d to the outside world over IPv4',
+                       $actual_port
+                      }
             );
         }
         else {
             $s->trigger_listen_failure(
-                 {port     => $s->port,
-                  protocol => 'udp4',
-                  severity => 'fatal',
-                  event    => 'listen_failure',
-                  message => 'Failed to open IPv4 port to the outside world: '
-                      . $!
-                 }
+                {port     => $s->port,
+                 protocol => 'udp4',
+                 severity => 'fatal',
+                 event    => 'listen_failure',
+                 message =>
+                     'Failed to bind UDP port for the outside world over IPv4'
+                }
             );
         }
         return $server;
