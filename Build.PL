@@ -46,7 +46,8 @@ my $mb = $class->new(
                        'Test::More'    => 0.80,
                        ($is_developer
                         ? ('CPAN::Meta::Converter' => 0,
-                           'CPAN::Meta::Validator' => 0
+                           'CPAN::Meta::Validator' => 0,
+                           JSON                    => 0
                             )
                         : ()
                        )

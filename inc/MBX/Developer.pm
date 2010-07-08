@@ -14,9 +14,9 @@ package inc::MBX::Developer;
 
     sub write_metafile {
         my $s = shift;
-        return
-            if map { !eval "require $_" }
-                qw[CPAN::Meta::Converter CPAN::Meta::Validator JSON];
+        return if !eval 'require CPAN::Meta::Converter';
+        return if !eval 'require CPAN::Meta::Validator';
+        return if !eval 'require JSON';
         JSON->VERSION(2);
         my $data = {};
         $s->prepare_metadata($data);
