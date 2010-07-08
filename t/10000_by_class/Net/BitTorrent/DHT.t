@@ -5,28 +5,27 @@ package t::10000_by_class::Net::BitTorrent::DHT;
     use Test::More;
     use parent 'Test::Class';
     use lib '../../../../lib', 'lib';
+    use 5.010;
+    use Test::Moose;
+    use Test::More;
+    use AnyEvent;
 
     #
     sub class {'Net::BitTorrent::DHT'}
 
-    sub new_args : Tests( 1 ) {
+    sub new_args {
         my $t = shift;
         require Net::BitTorrent;
-        [client => new_ok(
-             'Net::BitTorrent',
-             [port             => [1338, 1339, 0],
-              on_listen_failed => sub {
-                  my ($s, $a) = @_;
-                  diag $a->{'message'};
-                  $t->{'cv'}->send if $a->{'protocol'} =~ m[udp];
-              },
-              on_listen_success => sub {
-                  my ($s, $a) = @_;
-                  diag $a->{'message'};
-                  }
-             ],
-             'decoy NB client'
-         )
+        [port              => [1337 .. 1339, 0],
+         on_listen_failure => sub {
+             my ($s, $a) = @_;
+             diag $a->{'message'};
+             $t->{'cv'}->send if $a->{'protocol'} =~ m[udp];
+         },
+         on_listen_success => sub {
+             my ($s, $a) = @_;
+             diag $a->{'message'};
+             }
         ];
     }
 
@@ -35,7 +34,13 @@ package t::10000_by_class::Net::BitTorrent::DHT;
         my $self = shift;
         use_ok $self->class;
         can_ok $self->class, 'new';
-        $self->{'dht'} = new_ok $self->class, $self->new_args;
+        explain $self->new_args;
+        $self->{'dht'}
+            = new_ok('Net::BitTorrent', $self->new_args, 'decoy NB client')
+            ->dht;
+        $self->{'dht'}->add_node($_)
+            for ['router.utorrent.com', 6881],
+            ['router.bittorrent.com', 6881];
     }
 
     sub setup : Test(setup) {

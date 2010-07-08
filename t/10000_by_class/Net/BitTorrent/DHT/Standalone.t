@@ -26,6 +26,14 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
         ];
     }
 
+    sub startup : Tests(startup => no_plan) {
+        my $self = shift;
+        use_ok $self->class;
+        can_ok $self->class, 'new';
+        explain $self->new_args;
+        $self->{'dht'} = new_ok $self->class, $self->new_args;
+    }
+
     sub check_role : Test( 9 ) {
         my $self = shift;
         does_ok $self->{'dht'}, 'Net::BitTorrent::DHT::Standalone';
