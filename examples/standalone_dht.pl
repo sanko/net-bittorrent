@@ -5,11 +5,11 @@ use AnyEvent;
 use lib '../lib';
 use Net::BitTorrent::DHT;
 $|++;
-our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 4; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 5; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
 # Standalone node with user-defined port and boot_nodes
 my $dht = Net::BitTorrent::DHT->new(
-          port => [1338, 0],
+          port => [1337 .. 1340, 0],
           boot_nodes =>
               [['router.bittorrent.com', 6881], ['router.utorrent.com', 6881]]
 );
