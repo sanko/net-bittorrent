@@ -130,29 +130,32 @@ package Net::BitTorrent::DHT;
     sub _build_ipv6_routing_table {
         Net::BitTorrent::Protocol::BEP05::RoutingTable->new(dht => shift);
     }
+
+    sub add_node {
+        my ($s, $n) = @_;
+        require Net::BitTorrent::Protocol::BEP05::Node;
+        my $sockaddr = sockaddr($n->[0], $n->[1]);
+        next if !$sockaddr;
+        $n = blessed $n ? $n :
+            Net::BitTorrent::Protocol::BEP05::Node->new(
+                                                  host          => $n->[0],
+                                                  port          => $n->[1],
+                                                  sockaddr      => $sockaddr,
+                                                  routing_table => (
+                                                      length $sockaddr == 28
+                                                      ? $s->ipv6_routing_table
+                                                      : $s->ipv4_routing_table
+                                                  )
+            );
+        (  $n->ipv6
+         ? $s->ipv6_routing_table->add_node($n)
+         : $s->ipv4_routing_table->add_node($n)
+        )->find_node($s->nodeid);
+    }
     after 'BUILD' => sub {
         my ($self, $args) = @_;
         return if !defined $args->{'boot_nodes'};
-        for my $node (@{$args->{'boot_nodes'}}) {
-            require Net::BitTorrent::Protocol::BEP05::Node;
-            my $sockaddr = sockaddr($node->[0], $node->[1]);
-            next if !$sockaddr;
-            $node =
-                Net::BitTorrent::Protocol::BEP05::Node->new(
-                                               host          => $node->[0],
-                                               port          => $node->[1],
-                                               sockaddr      => $sockaddr,
-                                               routing_table => (
-                                                   length $sockaddr == 28
-                                                   ? $self->ipv6_routing_table
-                                                   : $self->ipv4_routing_table
-                                               )
-                );
-            (  $node->ipv6
-             ? $self->ipv6_routing_table->add_node($node)
-             : $self->ipv4_routing_table->add_node($node)
-            )->find_node($self->nodeid);
-        }
+        $self->add_node($_) for @{$args->{'boot_nodes'}};
     };
 
     #
