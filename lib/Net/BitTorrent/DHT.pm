@@ -23,7 +23,8 @@ package Net::BitTorrent::DHT;
     # Standalone?
     after 'BUILD' => sub {
         my ($s, $a) = @_;
-        return has '+client' => (handles => qr[^(?:udp.*|ip_filter)])
+        return has '+client' =>
+            (handles => qr[^(?:(?:_has_)?udp\d.*?|ip_filter|port)])
             if $s->has_client;
         require Moose::Util;
         Moose::Util::apply_all_roles($s,
