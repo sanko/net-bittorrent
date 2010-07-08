@@ -43,7 +43,13 @@ my $mb = $class->new(
                        perl            => '5.12.0',
                        'TAP::Harness'  => 3.18,
                        'Test::Class'   => 0.35,
-                       'Test::More'    => 0.80
+                       'Test::More'    => 0.80,
+                       ($is_developer
+                        ? ('CPAN::Meta::Converter' => 0,
+                           'CPAN::Meta::Validator' => 0
+                            )
+                        : ()
+                       )
     },
     recommends       => {perl => '5.13.0'},
     test_files       => \@tests,
