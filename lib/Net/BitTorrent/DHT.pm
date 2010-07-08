@@ -86,13 +86,11 @@ package Net::BitTorrent::DHT;
             );
             return $s->routing_table->del_node($node);
         }
-        my $sent = send((  $node->ipv6
-                         ? $s->udp6_sock
-                         : $s->udp4_sock
-                        ),
-                        $packet, 0,
-                        $node->sockaddr
-        );
+        my $sock
+            = $node->ipv6 && $s->_has_udp6_sock ? $s->udp6_sock
+            : $s->_has_udp4_sock ? $s->udp4_sock
+            :                      ();
+        my $sent = $sock ? send $sock, $packet, 0, $node->sockaddr : return;
         if ($reply) {
             $s->_inc_send_replies_count;
             $s->_inc_send_replies_length($sent);
