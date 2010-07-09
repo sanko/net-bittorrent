@@ -23,7 +23,7 @@ package t::10000_by_class::Net::BitTorrent;
         my $s = shift;
     }
 
-    sub _check_public_methods : Test( no_plan ) {
+    sub _check_public_methods : Test( 25 ) {
         my $s = shift;
         can_ok $s->{'nb'}, $_ for sort qw[
             timer        run
@@ -37,7 +37,7 @@ package t::10000_by_class::Net::BitTorrent;
         ];
     }
 
-    sub _check_private_methods : Test( no_plan ) {
+    sub _check_private_methods : Test( 4 ) {
         my $s = shift;
         can_ok $s->{'nb'}, $_ for sort qw[
             _on_tcp4_in _on_udp4_in
@@ -45,7 +45,7 @@ package t::10000_by_class::Net::BitTorrent;
         ];
     }
 
-    sub _check_attributes : Test( no_plan ) {
+    sub _check_attributes : Test( 19 ) {
         my $s = shift;
         has_attribute_ok $s->{'nb'}, $_ for sort qw[
             port
@@ -63,14 +63,14 @@ package t::10000_by_class::Net::BitTorrent;
         ];
     }
 
-    sub _check_private_attributes : Test( no_plan ) {
+    sub _check_private_attributes : Test( 1 ) {
         my $s = shift;
         has_attribute_ok $s->{'nb'}, $_ for sort qw[
             _peers
         ];
     }
 
-    sub _check_builder_methods : Test( no_plan ) {
+    sub _check_builder_methods : Test( 8 ) {
         my $s = shift;
         can_ok $s->{'nb'}, $_ for sort qw[
             _build_peer_id
@@ -82,7 +82,7 @@ package t::10000_by_class::Net::BitTorrent;
         ];
     }
 
-    sub _check_attribute_private_methods : Test( no_plan ) {
+    sub _check_attribute_private_methods : Test( 27 ) {
         my $s = shift;
         can_ok $s->{'nb'}, $_ for sort qw[
             _set_port
