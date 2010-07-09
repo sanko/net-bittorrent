@@ -10,10 +10,11 @@ package t::10000_by_class::Net::BitTorrent::Network::IPFilter::Rule;
     sub class {'Net::BitTorrent::Network::IPFilter::Rule'}
 
     sub new_args {
-        lower            => '127.0.0.1',
-            upper        => '127.0.0.5',
-            description  => 'Testing',
-            access_level => 559;
+        (lower        => '127.0.0.1',
+         upper        => '127.0.0.5',
+         description  => 'Testing',
+         access_level => 559
+        );
     }
 
     sub deeply {

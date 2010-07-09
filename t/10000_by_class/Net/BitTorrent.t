@@ -102,19 +102,19 @@ package t::10000_by_class::Net::BitTorrent;
         ];
     }
 
-    sub validate_peer_id : Test(1) {
+    sub validate_peer_id : Test( 1 ) {
         my $s = shift;
         like $s->{'nb'}->peer_id, qr[^NB\d\d\d[SU]-([a-zA-Z\d\-._~]){8}.{5}$],
             sprintf '...->peer_id( ) matches spec [%s]', $s->{'nb'}->peer_id;
     }
 
-    sub validate_ip_filter : Test( 1) {
+    sub validate_ip_filter : Test( 1 ) {
         my $s = shift;
         isa_ok $s->{'nb'}->ip_filter, 'Net::BitTorrent::Network::IPFilter',
             '...->ip_filter( )';
     }
 
-    sub validate_dht : Test( 1) {
+    sub validate_dht : Test( 1 ) {
         my $s = shift;
         isa_ok $s->{'nb'}->dht, 'Net::BitTorrent::DHT', '...->dht( )';
     }
