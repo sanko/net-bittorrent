@@ -44,7 +44,6 @@ package Net::BitTorrent;
     has 'torrents' => (traits  => ['Array'],
                        isa     => 'ArrayRef[Net::BitTorrent::Torrent]',
                        is      => 'ro',
-                       reader  => '_torrents',
                        default => sub { [] },
                        coerce  => 1,
                        handles => {
