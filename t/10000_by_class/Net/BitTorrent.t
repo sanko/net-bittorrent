@@ -125,6 +125,18 @@ package t::10000_by_class::Net::BitTorrent;
             sprintf '...->port( ) is an integer [%d]', $s->{'nb'}->port;
     }
 
+    sub validate_peers : Test( 2 ) {
+        my $s = shift;
+        is ref $s->{'nb'}->_peers, 'HASH',
+            '...->_peers( ) are stored as a hash';
+        is $s->{'nb'}->count_peers, 0, '...->count_peers( ) is initially 0';
+    }
+
+    sub validate_torrents : Test( 1 ) {
+        my $s = shift;
+        is ref $s->{'nb'}->torrents, 'ARRAY', '...->torrents( ) is an array';
+    }
+
     #
     __PACKAGE__->runtests() if !caller;
 }
