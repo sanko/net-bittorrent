@@ -413,7 +413,7 @@ package Net::BitTorrent;
         $s->dht->_on_udp4_in(@_);
     }
 
-    sub _on_upd6_in {
+    sub _on_udp6_in {
         my $s = shift;
         my ($udp, $sock, $paddr, $host, $port, $data, $flags) = @_;
         my $rule = $s->ip_filter->is_banned($host);
