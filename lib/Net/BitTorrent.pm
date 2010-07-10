@@ -73,7 +73,8 @@ package Net::BitTorrent;
         return
                blessed $torrent
             && $code->($self, $torrent)
-            && $torrent->client($self);
+            && $torrent->client($self)
+            ? $torrent : ();
     };
     my $infohash_constraint;
     around 'torrent' => sub {
