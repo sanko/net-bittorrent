@@ -10,7 +10,6 @@ my $automated_testing = $ENV{'AUTOMATED_TESTING'}
 my $is_developer = ((-d '.git') ? 1 : 0) or ($ENV{'RELEASE_TESTING'} ? 1 : 0);
 my @tests;
 find \&find_cb, qw[t/10000_by_class/];
-@tests = reverse sort @tests;
 my $class = $is_developer ? 'inc::MBX::Developer' : 'Module::Build';
 
 if (!eval "require $class") {
@@ -57,9 +56,14 @@ my $mb = $class->new(
     test_file_exts   => [qw(.t .tap .txt)],
     use_tap_harness  => 1,
     tap_harness_args => {
-         jobs => 9,
-         rules =>
-             {par => [{seq => '/t/10000_by_class/Net/BitTorrent/DHT/*'}, '*']}
+                    jobs  => 9,
+                    rules => {
+                        par => [
+                            {seq => '/t/10000_by_class/Net/BitTorrent[\._]'},
+                            {seq => '/t/10000_by_class/Net/BitTorrent/DHT/*'},
+                            '*'
+                        ]
+                    }
     },
     meta_merge => {
         keywords  => [qw[BitTorrent torrent client DHT UDP]],
