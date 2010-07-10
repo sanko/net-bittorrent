@@ -86,7 +86,7 @@ package Net::BitTorrent::Network::Utility;
         return pack 'n8', @hex;
     }
 
-    sub pack_sockaddr {
+    sub pack_sockaddr ($$) {
         my ($port, $packed_host) = @_;
         my $return
             = length $packed_host == 4
@@ -95,7 +95,7 @@ package Net::BitTorrent::Network::Utility;
         return $return;
     }
 
-    sub unpack_sockaddr {
+    sub unpack_sockaddr ($) {
         my ($packed_host) = @_;
         return
             length $packed_host == 28
@@ -103,12 +103,12 @@ package Net::BitTorrent::Network::Utility;
             : unpack_sockaddr_in($packed_host);
     }
 
-    sub client {
+    sub client ($$&;&) {
         my ($host, $port, $ready, $prepare) = @_;
         &AnyEvent::Socket::tcp_connect;
     }
 
-    sub server {
+    sub server ($$&;&$) {
         my ($host, $port, $callback, $prepare, $proto) = @_;
         my $sockaddr = sockaddr($host, $port) or return;
         my $type = length $sockaddr == 16 ? PF_INET : PF_INET6;
