@@ -40,7 +40,7 @@ package Net::BitTorrent::Network::Utility;
         return inet_ntoa($_[0]) if length $_[0] == 4;    # ipv4
         return inet_ntoa($1)
             if length $_[0] == 16
-                && $_[0] =~ m[^\0{10}\xff\xff(.{4})$];    # ipv4
+                && $_[0] =~ m[^\0{10}\xff{2}(.{4})$];    # ipv4
         return unless length($_[0]) == 16;
         my @hex = (unpack('n8', $_[0]));
         $hex[9] = $hex[7] & 0xff;
@@ -48,10 +48,11 @@ package Net::BitTorrent::Network::Utility;
         $hex[7] = $hex[6] & 0xff;
         $hex[6] >>= 8;
         my $return = sprintf '%X:%X:%X:%X:%X:%X:%D:%D:%D:%D', @hex;
-        $return =~ s|(0+:)+ |:|x;
-        $return =~ s|^0+     ||x;
-        $return =~ s|^:+   |::|x;
-        $return =~ s|::0+  |::|x;
+        $return =~ s|(0+:)+|:|x;
+        $return =~ s|^0+    ||x;
+        $return =~ s|^:+    |::|x;
+        $return =~ s|::0+   |::|x;
+        $return =~ s|^::(\d+):(\d+):(\d+):(\d+)|$1.$2.$3.$4|x;
         return $return;
     }
 
