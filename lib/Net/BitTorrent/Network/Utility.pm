@@ -110,6 +110,7 @@ package Net::BitTorrent::Network::Utility;
 
     sub server ($$&;&$) {
         my ($host, $port, $callback, $prepare, $proto) = @_;
+        $proto //= 'tcp';
         my $sockaddr = sockaddr($host, $port) or return;
         my $type = length $sockaddr == 16 ? PF_INET : PF_INET6;
         socket my ($socket), $type,
