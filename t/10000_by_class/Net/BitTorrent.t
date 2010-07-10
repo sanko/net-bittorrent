@@ -30,6 +30,88 @@ package t::10000_by_class::Net::BitTorrent;
         my $s = shift;
     }
 
+    sub shutdown : Test( shutdown ) {
+    }
+    {
+        use Net::BitTorrent::Network::Utility qw[unpack_sockaddr];
+
+        sub check_udp4 : Test( 4 ) {
+            my $s = shift;
+            return $s->{'listen_failure'}{'udp4'}
+                if $s->{'listen_failure'}{'udp4'};
+            ok $s->{'nb'}->udp4, '...->udp4() is okay';
+            is ref $s->{'nb'}->udp4_sock, 'GLOB',
+                '...->udp4_sock() is a GlobRef';
+            my ($port, $packed_ip)
+                = unpack_sockaddr(getsockname $s->{'nb'}->udp4_sock);
+            is $port, $s->{'nb'}->port,
+                sprintf
+                '...->udp4_sock() is opened on the correct port [a:%d|e:%d]',
+                $port, $s->{'nb'}->port;
+            is $s->{'nb'}->udp4_host, '0.0.0.0',
+                sprintf
+                '...->udp_host() is opened on the correct host [a:%s|e:0.0.0.0]',
+                $s->{'nb'}->udp4_host;
+        }
+
+        sub check_udp6 : Test( 4 ) {
+            my $s = shift;
+            return $s->{'listen_failure'}{'udp6'}
+                if $s->{'listen_failure'}{'udp6'};
+            ok $s->{'nb'}->udp6, '...->udp6() is okay';
+            is ref $s->{'nb'}->udp6_sock, 'GLOB',
+                '...->udp6_sock() is a GlobRef';
+            my ($port, $packed_ip)
+                = unpack_sockaddr(getsockname $s->{'nb'}->udp6_sock);
+            is $port, $s->{'nb'}->port,
+                sprintf
+                '...->udp6_sock() is opened on the correct port [a:%d|e:%d]',
+                $port, $s->{'nb'}->port;
+            is $s->{'nb'}->udp6_host, '::',
+                sprintf
+                '...->udp_host() is opened on the correct host [a:%s|e:::]',
+                $s->{'nb'}->udp6_host;
+        }
+
+        sub check_tcp4 : Test( 4 ) {
+            my $s = shift;
+            return $s->{'listen_failure'}{'tcp4'}
+                if $s->{'listen_failure'}{'tcp4'};
+            ok $s->{'nb'}->tcp4, '...->tcp4() is okay';
+            is ref $s->{'nb'}->tcp4_sock, 'GLOB',
+                '...->tcp4_sock() is a GlobRef';
+            my ($port, $packed_ip)
+                = unpack_sockaddr(getsockname $s->{'nb'}->tcp4_sock);
+            is $port, $s->{'nb'}->port,
+                sprintf
+                '...->tcp4_sock() is opened on the correct port [a:%d|e:%d]',
+                $port, $s->{'nb'}->port;
+            is $s->{'nb'}->tcp4_host, '0.0.0.0',
+                sprintf
+                '...->tcp_host() is opened on the correct host [a:%s|e:0.0.0.0]',
+                $s->{'nb'}->tcp4_host;
+        }
+
+        sub check_tcp6 : Test( 4 ) {
+            my $s = shift;
+            return $s->{'listen_failure'}{'tcp6'}
+                if $s->{'listen_failure'}{'tcp6'};
+            ok $s->{'nb'}->tcp6, '...->tcp6() is okay';
+            is ref $s->{'nb'}->tcp6_sock, 'GLOB',
+                '...->tcp6_sock() is a GlobRef';
+            my ($port, $packed_ip)
+                = unpack_sockaddr(getsockname $s->{'nb'}->tcp6_sock);
+            is $port, $s->{'nb'}->port,
+                sprintf
+                '...->tcp6_sock() is opened on the correct port [a:%d|e:%d]',
+                $port, $s->{'nb'}->port;
+            is $s->{'nb'}->tcp6_host, '::',
+                sprintf
+                '...->tcp_host() is opened on the correct host [a:%s|e:::]',
+                $s->{'nb'}->tcp6_host;
+        }
+    }
+
     sub _check_public_methods : Test( 25 ) {
         my $s = shift;
         can_ok $s->{'nb'}, $_ for sort qw[
