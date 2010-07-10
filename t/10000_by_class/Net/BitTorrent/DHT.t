@@ -70,8 +70,8 @@ package t::10000_by_class::Net::BitTorrent::DHT;
         $s->{'cv'} = AE::cv();
         $s->{'cv'}->begin(sub { $s->{'cv'}->send });
         note '...which will timeout in 2m.';
-        $s->{'to'}
-            = AE::timer(60 * 2, 0, sub { diag 'Timeout!'; $s->{'cv'}->send });
+        $s->{'to'} = AE::timer(
+            60 * 2,
 
         #for my $addr ()
         #{   my $node = $s->{'dht'}->ipv4_add_node($addr);
@@ -79,6 +79,13 @@ package t::10000_by_class::Net::BitTorrent::DHT;
         #    meta_ok $node;
         #    isa_ok $node, 'Net::BitTorrent::Protocol::BEP05::Node';
         #}
+            0,
+            sub {
+                diag sprintf 'Timeout waiting for %s!', join ', ',
+                    keys %{$s->{'todo'}};
+                $s->{'cv'}->send;
+            }
+        );
     }
 
     sub wait : Test( shutdown => no_plan ) {
@@ -89,6 +96,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
 
     sub quest_find_node : Test( no_plan ) {
         my $s = shift;
+        $s->{'todo'}{'find_node'}++;
         $s->{'cv'}->begin;
         my $l = join '', map { [0 .. 9, 'a' .. 'f']->[int rand(16)] } 1 .. 40;
         note 'Seeking nodes near ' . $l;
@@ -110,6 +118,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
                         scalar(@$pr),
                         $tar->to_Hex, $nd->host, $nd->port;
                     note join ', ', map { sprintf '[\'%s\', %d]', @$_ } @$pr;
+                    delete $s->{'todo'}{'find_node'};
                 };
                 state $done = 0;
                 $s->{'cv'}->end if !$done++;
@@ -122,6 +131,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
 
     sub quest_announce_peer : Test( no_plan ) {
         my $s = shift;
+        $s->{'todo'}{'announce_peer'}++;
         $s->{'cv'}->begin;
 
         #$s->{'ih'} = join '',
@@ -147,6 +157,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
                         'Announced %s on port %d with [\'%s\', %d] (%s)',
                         $infohash->to_Hex, $port, $node->host, $node->port,
                         $node->nodeid->to_Hex;
+                    delete $s->{'todo'}{'announce_peer'};
                 };
                 state $done = 0;
                 $s->{'cv'}->end if !$done++;
@@ -159,6 +170,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
 
     sub quest_get_peers : Test( no_plan ) {
         my $s = shift;
+        $s->{'todo'}{'get_peers'}++;
         $s->{'cv'}->begin;
         note 'Seeking peers with ', $s->{'ih'};
         $s->{'quest'}{'get_peers'} = $s->{'dht'}->get_peers(
@@ -179,6 +191,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
                         scalar(@$pr),
                         $ih->to_Hex, $nd->host, $nd->port;
                     note join ', ', map { sprintf '[\'%s\', %d]', @$_ } @$pr;
+                    delete $s->{'todo'}{'get_peers'};
                 };
                 state $done = 0;
                 $s->{'cv'}->end if !$done++;
