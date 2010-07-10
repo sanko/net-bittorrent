@@ -52,8 +52,10 @@ package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
                   : ()
                  )
         );
-        my $url = $self->url . '?' . join '&',
-            map { $_ . '=' . $query_hash{$_} } keys %query_hash;
+        my $url
+            = $self->url
+            . ($self->url =~ qr[\?] ? $self->url =~ qr[&$] ? '' : '&' : '?')
+            . join '&', map { $_ . '=' . $query_hash{$_} } keys %query_hash;
         my ($host, $port, $path)
             = $url =~ m{^https?://([^/:]*)(?::(\d+))?(/.*)$};
         $port //= 80;
