@@ -72,13 +72,6 @@ package t::10000_by_class::Net::BitTorrent::DHT;
         note '...which will timeout in 2m.';
         $s->{'to'} = AE::timer(
             60 * 2,
-
-        #for my $addr ()
-        #{   my $node = $s->{'dht'}->ipv4_add_node($addr);
-        #    note sprintf 'Booting with [\'%s\', %d]', @$addr;
-        #    meta_ok $node;
-        #    isa_ok $node, 'Net::BitTorrent::Protocol::BEP05::Node';
-        #}
             0,
             sub {
                 diag sprintf 'Timeout waiting for %s!', join ', ',
@@ -133,9 +126,6 @@ package t::10000_by_class::Net::BitTorrent::DHT;
         my $s = shift;
         $s->{'todo'}{'announce_peer'}++;
         $s->{'cv'}->begin;
-
-        #$s->{'ih'} = join '',
-        #    map { [0 .. 9, 'a' .. 'f']->[int rand(16)] } 1 .. 40;
         $s->{'ih'} = '6d0f88e9646c0f3a01bc35d0b0845db3247e6260';
         $s->{'po'} = $s->{'dht'}->port;
         note sprintf 'Pretending we are serving %s on port %d', $s->{'ih'},
