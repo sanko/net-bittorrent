@@ -210,10 +210,14 @@ package t::10000_by_class::Net::BitTorrent;
         isa_ok $s->{'nb'}->dht, 'Net::BitTorrent::DHT', '...->dht( )';
     }
 
-    sub validate_port : Test( 1 ) {
+    sub validate_port : Test( 2 ) {
         my $s = shift;
         like $s->{'nb'}->port, qr[^\d+$],
             sprintf '...->port( ) is an integer [%d]', $s->{'nb'}->port;
+        my $port = ref $s->port ? $s->port : [$s->port];
+        return 'expecting a random port' if grep { $_ == 0 } @$port;
+        ok((grep { $_ == $s->{'nb'}->port } @$port),
+            '...->port( ) is one of the ports we wanted to open');
     }
 
     sub validate_peers : Test( 2 ) {
