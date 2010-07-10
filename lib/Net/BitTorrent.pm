@@ -68,7 +68,7 @@ package Net::BitTorrent;
         if (blessed $_[0]) { $torrent = $_[0]; }
         else {
             require Net::BitTorrent::Torrent;
-            $torrent = Net::BitTorrent::Torrent->new(@_);
+            $torrent = Net::BitTorrent::Torrent->new(@_) or return;
         }
         return
                blessed $torrent
