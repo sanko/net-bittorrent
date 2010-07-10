@@ -9,10 +9,12 @@ package t::10000_by_class::Net::BitTorrent;
 
     #
     sub class {'Net::BitTorrent'}
+    sub port { [1337 .. 1340, 10000 .. 10030] }
 
     sub new_args {
         my $s = shift;
-        (on_listen_failure => sub {
+        (port              => $s->port,
+         on_listen_failure => sub {
              $s->{'listen_failure'}{$_[1]->{'protocol'}} = $_[1]->{'message'};
          }
         );
