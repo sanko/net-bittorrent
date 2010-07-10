@@ -46,11 +46,11 @@ package t::10000_by_class::Net::BitTorrent;
                 = unpack_sockaddr(getsockname $s->{'nb'}->udp4_sock);
             is $port, $s->{'nb'}->port,
                 sprintf
-                '...->udp4_sock() is opened on the correct port [a:%d|e:%d]',
+                '...->udp4_sock() is opened on the correct port [%d|%d]',
                 $port, $s->{'nb'}->port;
             is $s->{'nb'}->udp4_host, '0.0.0.0',
                 sprintf
-                '...->udp_host() is opened on the correct host [a:%s|e:0.0.0.0]',
+                '...->udp_host() is opened on the correct host [%s|0.0.0.0]',
                 $s->{'nb'}->udp4_host;
         }
 
@@ -65,11 +65,11 @@ package t::10000_by_class::Net::BitTorrent;
                 = unpack_sockaddr(getsockname $s->{'nb'}->udp6_sock);
             is $port, $s->{'nb'}->port,
                 sprintf
-                '...->udp6_sock() is opened on the correct port [a:%d|e:%d]',
+                '...->udp6_sock() is opened on the correct port [%d|%d]',
                 $port, $s->{'nb'}->port;
             is $s->{'nb'}->udp6_host, '::',
                 sprintf
-                '...->udp_host() is opened on the correct host [a:%s|e:::]',
+                '...->udp_host() is opened on the correct host [%s|::]',
                 $s->{'nb'}->udp6_host;
         }
 
@@ -84,11 +84,11 @@ package t::10000_by_class::Net::BitTorrent;
                 = unpack_sockaddr(getsockname $s->{'nb'}->tcp4_sock);
             is $port, $s->{'nb'}->port,
                 sprintf
-                '...->tcp4_sock() is opened on the correct port [a:%d|e:%d]',
+                '...->tcp4_sock() is opened on the correct port [%d|%d]',
                 $port, $s->{'nb'}->port;
             is $s->{'nb'}->tcp4_host, '0.0.0.0',
                 sprintf
-                '...->tcp_host() is opened on the correct host [a:%s|e:0.0.0.0]',
+                '...->tcp_host() is opened on the correct host [%s|0.0.0.0]',
                 $s->{'nb'}->tcp4_host;
         }
 
@@ -103,11 +103,11 @@ package t::10000_by_class::Net::BitTorrent;
                 = unpack_sockaddr(getsockname $s->{'nb'}->tcp6_sock);
             is $port, $s->{'nb'}->port,
                 sprintf
-                '...->tcp6_sock() is opened on the correct port [a:%d|e:%d]',
+                '...->tcp6_sock() is opened on the correct port [%d|%d]',
                 $port, $s->{'nb'}->port;
             is $s->{'nb'}->tcp6_host, '::',
                 sprintf
-                '...->tcp_host() is opened on the correct host [a:%s|e:::]',
+                '...->tcp_host() is opened on the correct host [%s|::]',
                 $s->{'nb'}->tcp6_host;
         }
     }
