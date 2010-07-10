@@ -27,7 +27,8 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                                                               torrent => $self
                           )
                 );
-                $self->tracker->add_tier([$new_value->{'announce'}]);
+                $self->tracker->add_tier([$new_value->{'announce'}])
+                    if $new_value->{'announce'};
                 if (defined $new_value->{'announce-list'}) {
                     $self->tracker->add_tier($_)
                         for @{$new_value->{'announce-list'}};
