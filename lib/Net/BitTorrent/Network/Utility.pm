@@ -108,11 +108,11 @@ package Net::BitTorrent::Network::Utility;
 
     sub server {
         my ($host, $port, $callback, $prepare, $proto) = @_;
-        my $sockaddr = sockaddr($host, $port);
+        my $sockaddr = sockaddr($host, $port) or return;
         my $type = length $sockaddr == 16 ? PF_INET : PF_INET6;
         socket my ($socket), $type,
             $proto eq 'udp' ? SOCK_DGRAM : SOCK_STREAM, getprotobyname($proto)
-            || return;
+            or return;
 
         # - What is the difference between SO_REUSEADDR and SO_REUSEPORT?
         #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
@@ -123,14 +123,14 @@ package Net::BitTorrent::Network::Utility;
         # SO_REUSEPORT is undefined on Win32... Boo...
         #return
         #    if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
-        return if !bind $socket, $sockaddr;
+        bind $socket, $sockaddr or return;
         if (defined $prepare) {
             my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
             $prepare->($socket, paddr2ip($packed_ip), $_port);
         }
         require AnyEvent::Util;
         AnyEvent::Util::fh_nonblocking $socket, 1;
-        return if $proto ne 'udp' && !listen($socket, 8);
+        listen $socket, 8 or return if $proto ne 'udp';
         return AE::io(
             $socket, 0,
             $proto eq 'udp'
