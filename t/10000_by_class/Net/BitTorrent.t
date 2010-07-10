@@ -216,8 +216,14 @@ package t::10000_by_class::Net::BitTorrent;
             sprintf '...->port( ) is an integer [%d]', $s->{'nb'}->port;
         my $port = ref $s->port ? $s->port : [$s->port];
         return 'expecting a random port' if grep { $_ == 0 } @$port;
-        ok((grep { $_ == $s->{'nb'}->port } @$port),
-            '...->port( ) is one of the ports we wanted to open');
+        my $range = join ',', @$port;
+        $range =~ s[(?<!\d)(\d+)(?:,((??{$++1}))(?!\d))+][$1..$+]g;
+        ok( (grep { $_ == $s->{'nb'}->port } @$port),
+            sprintf
+                '...->port( ) is one of the ports we wanted to open [%d|[%s]]',
+            $s->{'nb'}->port,
+            $range
+        );
     }
 
     sub validate_peers : Test( 2 ) {
