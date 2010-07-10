@@ -8,11 +8,18 @@ package t::10000_by_class::Net::BitTorrent;
     use lib '../../../lib', 'lib';
 
     #
-    sub class    {'Net::BitTorrent'}
-    sub new_args { }
+    sub class {'Net::BitTorrent'}
+
+    sub new_args {
+        my $s = shift;
+        (on_listen_failure => sub {
+             $s->{'listen_failure'}{$_[1]->{'protocol'}} = $_[1]->{'message'};
+         }
+        );
+    }
 
     #
-    sub startup : Tests( startup => 3 ) {
+    sub startup : Test( startup => 3 ) {
         my $s = shift;
         use_ok $s->class;
         can_ok $s->class, 'new';
