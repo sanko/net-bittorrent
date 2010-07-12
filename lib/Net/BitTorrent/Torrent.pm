@@ -5,7 +5,8 @@ package Net::BitTorrent::Torrent;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
-    sub BUILD {1}
+
+    #sub BUILD {1}
     has 'client' => (
         isa       => 'Maybe[Net::BitTorrent]',
         is        => 'rw',
@@ -17,7 +18,6 @@ package Net::BitTorrent::Torrent;
 
             # XXX - make sure the new client knows who I am
             #$self->queue;
-            warn 'TODO: Start trackers!';
             $self->start;    # ??? - Should this be automatic?
         }
     );
@@ -189,24 +189,23 @@ package Net::BitTorrent::Torrent;
                      lazy_build => 1
     );
     sub _build_wanted { '1' x $_[0]->piece_count }
-    {    ### Simple plugin system
-        my @_plugins;
 
-        sub _register_plugin {
-            my $s = shift;
-            return $s->meta->apply(@_) if blessed $s;
-            my %seen = ();
-            return @_plugins = grep { !$seen{$_}++ } @_plugins, @_;
-        }
-        after 'BUILD' => sub {
-            return if !@_plugins;
-            my ($s, $a) = @_;
-            require Moose::Util;
-            Moose::Util::apply_all_roles($s, @_plugins,
-                                         {rebless_params => $a});
-        };
-    }
-
+    #{    ### Simple plugin system
+    #    my @_plugins;
+    #    sub _register_plugin {
+    #        my $s = shift;
+    #        return $s->meta->apply(@_) if blessed $s;
+    #        my %seen = ();
+    #        return @_plugins = grep { !$seen{$_}++ } @_plugins, @_;
+    #    }
+    #    after 'BUILD' => sub {
+    #        return if !@_plugins;
+    #        my ($s, $a) = @_;
+    #        require Moose::Util;
+    #        Moose::Util::apply_all_roles($s, @_plugins,
+    #                                     {rebless_params => $a});
+    #    };
+    #}
     #
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
