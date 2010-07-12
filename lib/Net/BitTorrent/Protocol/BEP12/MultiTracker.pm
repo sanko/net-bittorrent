@@ -30,8 +30,10 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
         $tier_constraint //=
             Moose::Util::TypeConstraints::find_type_constraint(
                                                     'NBTypes::Tracker::Tier');
-        $self->_push_tier($tier_constraint->coerce($urls));
+        my $tier = $tier_constraint->coerce($urls);
+        $self->_push_tier($tier) or return;
         $self->_shuffle_tiers;
+        return $tier;
     }
 
     #
