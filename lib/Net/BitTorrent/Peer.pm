@@ -307,19 +307,29 @@ package Net::BitTorrent::Peer;
                       writer    => '_set_peer_id',
                       predicate => 'has_peer_id'
     );
-    has 'pieces' => (is         => 'ro',
-                     isa        => 'NBTypes::Torrent::Bitfield',
-                     lazy_build => 1,
-                     coerce     => 1,
-                     init_arg   => undef,
-                     writer     => '_set_pieces',
-                     clearer    => '_clear_pieces'
+    has 'pieces' => (
+        is         => 'ro',
+        isa        => 'NBTypes::Torrent::Bitfield',
+        lazy_build => 1,
+        coerce     => 1,
+        init_arg   => undef,
+        writer     => '_set_pieces',
+        clearer    => '_clear_pieces',
+        handles    => {_set_piece => 'Bit_On'},
+        trigger    => sub {
+            my ($s, $n, $o) = @_;
+            $s->pieces->Resize($s->torrent->have->Size);
+        }
     );
     sub _build_pieces { '0' x $_[0]->torrent->piece_count }
+    after qr[^_set_pieces?] => sub {
+        my $s = shift;
+        $s->check_interest;
+    };
 
-    sub _XXX_set_seed {
-        $_[0]->set_seed($_[0]->pieces->to_Bin =~ m[0] ? 0 : 1);
-    }
+    #sub _XXX_set_seed {
+    #    $_[0]->set_seed($_[0]->pieces->to_Bin =~ m[0] ? 0 : 1);
+    #}
     for my $action (qw[request active]) {
         has 'last_'
             . $action => (
