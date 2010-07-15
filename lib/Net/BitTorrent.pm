@@ -479,6 +479,7 @@ package Net::BitTorrent;
             )
             for qw[
             listen_failure listen_success
+            peer_id
         ];
     }
     else {    # Callback System II

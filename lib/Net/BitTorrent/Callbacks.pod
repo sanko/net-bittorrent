@@ -167,6 +167,26 @@ This is either C<tcp4>, C<tcp6>, C<udp4>, or C<udp>.
 
 =back
 
+=head2 C<peer_id>
+
+When the remote peer sends us their peer_id, this event is triggered. This is
+a C<debug> event.
+
+In addition to the L<basic arguments|/basic_arguments>, this callback is
+passed the following attributes:
+
+=over
+
+=item C<peer>
+
+This is the related L<Net::BitTorrent::Peer> object.
+
+=item C<peer_id>
+
+This is the peer_id.
+
+=back
+
 =head1 TODO
 
 These may soon show up but I'm lazy. All of the original callbacks will be

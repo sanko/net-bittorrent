@@ -307,6 +307,18 @@ package Net::BitTorrent::Peer;
                       writer    => '_set_peer_id',
                       predicate => 'has_peer_id'
     );
+    after '_set_peer_id' => sub {
+        my $s = shift;
+        $s->trigger_peer_id({peer    => $s,
+                             peer_id => $s->peer_id,
+                             message =>
+                                 sprintf('%s:%d sent peer_id %s',
+                                         $s->host, $s->port, $s->peer_id
+                                 ),
+                             severity => 'debug'
+                            }
+        );
+    };
     has 'pieces' => (
         is         => 'ro',
         isa        => 'NBTypes::Torrent::Bitfield',
