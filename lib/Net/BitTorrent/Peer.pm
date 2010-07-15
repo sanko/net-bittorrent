@@ -388,23 +388,23 @@ package Net::BitTorrent::Peer;
             #$s->trigger_peer_destruction($s);
         };
     }
-    {    ### Simple plugin system
-        my @_plugins;
 
-        sub _register_plugin {
-            my $s = shift;
-            return $s->meta->apply(@_) if blessed $s;
-            my %seen = ();
-            return @_plugins = grep { !$seen{$_}++ } @_plugins, @_;
-        }
-        after 'BUILD' => sub {
-            return if !@_plugins;
-            my ($s, $a) = @_;
-            require Moose::Util;
-            Moose::Util::apply_all_roles($s, @_plugins,
-                                         {rebless_params => $a});
-        };
-    }
+    # {    ### Simple plugin system
+    # my @_plugins;
+    # sub _register_plugin {
+    # my $s = shift;
+    # return $s->meta->apply(@_) if blessed $s;
+    # my %seen = ();
+    # return @_plugins = grep { !$seen{$_}++ } @_plugins, @_;
+    # }
+    # after 'BUILD' => sub {
+    # return if !@_plugins;
+    # my ($s, $a) = @_;
+    # require Moose::Util;
+    # Moose::Util::apply_all_roles($s, @_plugins,
+    # {rebless_params => $a});
+    # };
+    # }
 ###
     sub DEMOLISH {
         my $s = shift;
