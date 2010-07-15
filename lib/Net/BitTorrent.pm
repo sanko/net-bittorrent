@@ -73,8 +73,7 @@ package Net::BitTorrent;
         return
                blessed $torrent
             && $code->($self, $torrent)
-            && $torrent->client($self)
-            ? $torrent : ();
+            && $torrent->client($self) ? $torrent : ();
     };
     my $infohash_constraint;
     around 'torrent' => sub {
@@ -480,6 +479,7 @@ package Net::BitTorrent;
             for qw[
             listen_failure listen_success
             peer_id
+            peer_packet_in
         ];
     }
     else {    # Callback System II

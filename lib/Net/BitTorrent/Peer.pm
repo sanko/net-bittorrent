@@ -5,7 +5,8 @@ package Net::BitTorrent::Peer;
     use 5.010;
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
-    use Net::BitTorrent::Protocol::BEP03::Packets qw[parse_packet :types];
+    use Net::BitTorrent::Protocol::BEP03::Packets
+        qw[parse_packet :build :types];
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
@@ -18,37 +19,52 @@ package Net::BitTorrent::Peer;
                       writer    => '_set_torrent',
                       weak_ref  => 1,
     );
-    has 'connect' => (is => 'ro', isa => 'ArrayRef');
+    after '_set_torrent' => sub { shift->pieces };
+    has 'connect' =>
+        (is => 'ro', isa => 'ArrayRef', writer => '_set_connect');
     has 'client' => (is       => 'ro',
                      isa      => 'Net::BitTorrent',
                      required => 1,
                      weak_ref => 1,
                      handles  => qr[^trigger_.+$]
     );
-    has 'fh' => (is         => 'ro',
-                 isa        => 'GlobRef',
-                 predicate  => 'has_fh',
-                 lazy_build => 1
+    has 'handle' => (
+        is        => 'ro',
+        isa       => 'AnyEvent::Handle::Throttle',
+        predicate => 'has_handle',
+        writer    => '_set_handle',
+        init_arg  => undef,
+        handles   => {
+            rbuf       => 'rbuf',
+            push_read  => 'push_read',
+            push_write => 'push_write',
+            fh         => sub { shift->handle->{'fh'} },
+            host       => sub {
+                require Socket;
+                use Data::Dump;
+                ddx \@_;
+                my (undef, $addr)
+                    = Socket::sockaddr_in(getpeername(shift->fh));
+                require Net::BitTorrent::Network::Utility;
+                Net::BitTorrent::Network::Utility::paddr2ip($addr);
+            },
+            port => sub {
+                require Socket;
+                my ($port, undef)
+                    = Socket::sockaddr_in(getpeername(shift->fh));
+                $port;
+                }
+        }
     );
-    sub _build_fh { shift->handle->{'fh'}; }
-    has 'handle' => (is         => 'ro',
-                     isa        => 'AnyEvent::Handle::Throttle',
-                     predicate  => 'has_handle',
-                     writer     => '_set_handle',
-                     lazy_build => 1,
-                     handles    => {
-                                 rbuf       => 'rbuf',
-                                 push_read  => 'push_read',
-                                 push_write => 'push_write'
-                     }
-    );
-
-    sub _build_handle {
-        my ($s) = @_;
+    after 'BUILD' => sub {
+        my ($s, $a) = @_;
         require AnyEvent::Handle::Throttle;
-        AnyEvent::Handle::Throttle->new(
-                      $s->has_fh ? (fh => $s->fh) : (connect => $s->connect));
-    }
+        $s->_set_handle(
+            AnyEvent::Handle::Throttle->new(
+                $a->{'fh'} ? (fh => $a->{'fh'}) : (connect => $a->{'connect'})
+            )
+        );
+    };
     has 'source' => (
              is  => 'ro',
              isa => enum([qw[tracker dht pex lsd resume_data incoming user]]),
@@ -59,64 +75,44 @@ package Net::BitTorrent::Peer;
                   init_arg => undef,
                   default  => sub { state $id = 'aa'; $id++ }
     );
-    has '_handshake_step' => (
-        isa =>
-            enum(
-            [qw[MSE_ONE MSE_TWO MSE_THREE MSE_FOUR MSE_FIVE REG_ONE REG_TWO REG_THREE REG_OKAY]
-            ]
-            ),
-        is       => 'rw',
-        default  => 'MSE_ONE',
-        init_arg => undef
+    has 'handshake_step' => (
+        isa        => enum([qw[REG_ONE REG_TWO REG_THREE REG_OKAY]]),
+        is         => 'ro',
+        writer     => '_set_handshake_step',
+        lazy_build => 1,
+        init_arg   => undef,
+        trigger    => sub {
+            my $s = shift;
+            require Carp;
+            Carp::cluck(join ', ', @_);
+            warn $s->handshake_step;
+            $s->send_bitfield if $s->handshake_step eq 'REG_OKAY';
+        }
     );
-    {    # Handshake utils
 
-        sub _build_reserved {
-            my ($self) = @_;
-            my @reserved = qw[0 0 0 0 0 0 0 0];
-            $reserved[5] |= 0x10;    # Ext Protocol
-            $reserved[7] |= 0x04;    # Fast Ext
-            return join '', map {chr} @reserved;
-        }
-        sub CRYPTO_PLAIN {0x01}
-        sub CRYPTO_RC4   {0x02}
-        sub CRYPTO_XOR   {0x04}      # unimplemented
-        sub CRYPTO_AES   {0x08}      # unimplemented
-        has '_crypto' => (
-            isa => enum([CRYPTO_PLAIN, CRYPTO_RC4, CRYPTO_XOR, CRYPTO_AES]),
-            is  => 'rw',
-            default  => CRYPTO_PLAIN,
-            init_arg => undef
-        );
-
-        #
-        sub DH_P {
-            require Bit::Vector;
-            state $DH_P
-                = Bit::Vector->new_Hex('FFFFFFFFFFFFFFFFC90FDAA22168C234C4C66'
-                . '28B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404D'
-                . 'DEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B5766'
-                . '25E7EC6F44C42E9A63A36210000000000090563');
-            $DH_P;
-        }
-        sub DH_G {2}
-        sub VC   { "\0" x 8 }
-
-        sub crypto_provide {
-            return pack q[N],
-                CRYPTO_PLAIN    # | CRYPTO_RC4    #| CRYPTO_XOR | CRYPTO_AES;
-        }
-        after 'BUILD' => sub {
-            my ($self, $args) = @_;
-            if (defined $args->{'connect'}) {    # outgoing
-                $self->_set_local_connection;
-            }
-            else {
-
-                # incoming
-            }
-        };
+    sub _build_handshake_step {
+        my $s = shift;
+        $s->local_connection ? 'REG_ONE' : 'REG_TWO';
     }
+
+    sub _build_reserved {
+        my ($self) = @_;
+        my @reserved = qw[0 0 0 0 0 0 0 0];
+        $reserved[5] |= 0x10;    # Ext Protocol
+        $reserved[7] |= 0x04;    # Fast Ext
+        return join '', map {chr} @reserved;
+    }
+    after 'BUILD' => sub {
+        my ($s, $a) = @_;
+        if (defined $a->{'connect'}) {    # outgoing
+            $s->_set_local_connection;
+        }
+        else {
+
+            # incoming
+        }
+        $s->handshake_step;
+    };
     for my $flag (qw[
                   interesting remote_interested
                   choked      remote_choked
@@ -160,13 +156,19 @@ package Net::BitTorrent::Peer;
         Scalar::Util::weaken $s;
         my $hand_shake_writer = sub {
             my $packet =
-                Net::BitTorrent::Protocol::BEP03::Packets::build_handshake(
-                                  $s->_build_reserved, $s->torrent->info_hash,
-                                  $s->client->peer_id);
+                build_handshake($s->_build_reserved, $s->torrent->info_hash,
+                                $s->client->peer_id);
             $s->push_write($packet);
+            $s->_set_handshake_step(
+                             $s->local_connection ? 'REG_THREE' : 'REG_OKAY');
+            1;
         };
         my $hand_shake_reader = sub {
             my (undef, $data) = @_;
+            use Data::Dump;
+            ddx $s->rbuf;
+            ddx $data;
+            ddx \@_;
             if (my ($reserved, $info_hash, $peer_id)
                 = $data =~ m[^\23BitTorrent protocol(.{8})(.{20})(.{20})$])
             {   $infohash_constraint //=
@@ -176,18 +178,23 @@ package Net::BitTorrent::Peer;
                 $s->_set_support_extensions(
                                          ord(substr($reserved, 5, 1)) & 0x10);
                 $s->_set_peer_id($peer_id);
-                if ($s->local_connection) {
+                if ($s->handshake_step eq 'REG_THREE') {
                     return $s->disconnect(
                         'Bad info_hash (Does not match the torrent we were seeking)'
                     ) if $info_hash->Compare($s->torrent->info_hash) != 0;
+                    $s->_set_handshake_step('REG_OKAY');
                 }
-                else {
+                elsif ($s->handshake_step eq 'REG_TWO') {
+                    warn 'Incoming connection!';
                     my $torrent = $a->{'client'}->torrent($info_hash);
                     return $s->disconnect(
                             'Bad info_hash (We are not serving this torrent)')
                         if !$torrent;
                     $s->_set_torrent($torrent);
                     $hand_shake_writer->();
+                }
+                else {
+                    ...;
                 }
             }
             else {
@@ -198,9 +205,10 @@ package Net::BitTorrent::Peer;
         };
         $s->handle->on_read(
             sub {
+                warn $s->handle->rbuf;
             PACKET: while (my $packet = parse_packet(\$s->handle->rbuf)) {
                     $s->_handle_packet($packet);
-                    last PACKET if !$s->rbuf;
+                    last PACKET if !$s->rbuf || !$packet;
                 }
                 warn $s->rbuf if $s->rbuf;
             }
@@ -254,7 +262,19 @@ package Net::BitTorrent::Peer;
 
     sub disconnect {
         my ($s, $reason) = @_;
-        warn sprintf '%20s | %s', $s->peer_id || '[unknown peer]', $reason;
+        use Data::Dump;
+        ddx $s;
+        $s->trigger_peer_disconnect(
+                                 {peer => $s,
+                                  message =>
+                                      sprintf(
+                                      '%s:%d (%s) disconnect: ',
+                                      $s->host, $s->port,
+                                      $s->peer_id || '[unknown peer]', $reason
+                                      ),
+                                  severity => 'info'
+                                 }
+        );
         if (!$s->handle->destroyed) {
             if (defined $s->handle->{'fh'}) {
                 shutdown($s->handle->{'fh'}, 2);
@@ -384,38 +404,62 @@ package Net::BitTorrent::Peer;
         my ($self, $packet) = @_;
         return if !$self->has_torrent;
         return if !$self->has_handle;
-
-        #use Data::Dump;
-        #ddx $packet;
+        use Data::Dump;
+        ddx $packet;
         %_packet_dispatch = (
-            BITFIELD => sub {    # 5
-                my ($s, $bitfield) = @_;
-                return $s->_set_pieces($bitfield);
-            },
-            EXTPROTOCOL => sub {    # 20
-                my ($s, $pid, $p) = @_;
-                if ($pid == 0) {    # Setup/handshake
-                    if (defined $packet->{'p'} && $self->client->has_dht) {
-                        $self->client->dht->ipv4_add_node(
-                                [join('.', unpack 'C*', $packet->{'ipv4'}),
-                                 $packet->{'p'}
+            $BITFIELD => [
+                'bitfield',
+                sub {
+                    my ($s, $b) = @_;
+                    $s->_set_pieces($b);
+                    }
+            ],
+            $EXTPROTOCOL => [
+                'ext. protocol',
+                sub {
+                    my ($s, $pid, $p) = @_;
+                    if ($pid == 0) {    # Setup/handshake
+                        if (defined $packet->{'p'} && $self->client->has_dht)
+                        {   $self->client->dht->ipv4_add_node(
+                                [   join('.', unpack 'C*', $packet->{'ipv4'}),
+                                    $packet->{'p'}
                                 ]
-                        ) if defined $packet->{'ipv4'};
-                        $self->client->dht->ipv6_add_node(
+                            ) if defined $packet->{'ipv4'};
+                            $self->client->dht->ipv6_add_node(
                                       [[join ':',
                                         (unpack 'H*', $packet->{'ipv6'})
                                             =~ m[(....)]g
                                        ],
                                        $packet->{'p'}
                                       ]
-                        ) if defined $packet->{'ipv6'};
+                            ) if defined $packet->{'ipv6'};
+                        }
                     }
-                }
-                return 1;
-            }
+                    return 1;
+                    }
+            ]
         ) if !keys %_packet_dispatch;
-        $_packet_dispatch{$packet->{'type'}}->($self, $packet->{'payload'})
+        $self->trigger_peer_packet_in(
+                       {peer     => $self,
+                        packet   => $packet,
+                        severity => 'debug',
+                        message  => sprintf 'Recieved %s packet from %s',
+                        $_packet_dispatch{$packet->{'type'}}
+                        ? $_packet_dispatch{$packet->{'type'}}->[0]
+                        : 'unknown packet',
+                        $self->has_peer_id ? $self->peer_id : '[Unknown peer]'
+                       }
+        );
+        return $_packet_dispatch{$packet->{'type'}}->[1]
+            ->($self, $packet->{'payload'})
             if defined $_packet_dispatch{$packet->{'type'}};
+        ...;
+    }
+
+    # Outgoing packets
+    sub send_bitfield {
+        my $s = shift;
+        $s->push_write(build_bitfield($s->torrent->have));
     }
     {    # Callback system
         after 'BUILD' => sub {
