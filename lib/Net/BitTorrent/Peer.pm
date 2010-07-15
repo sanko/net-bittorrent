@@ -41,8 +41,6 @@ package Net::BitTorrent::Peer;
             fh         => sub { shift->handle->{'fh'} },
             host       => sub {
                 require Socket;
-                use Data::Dump;
-                ddx \@_;
                 my (undef, $addr)
                     = Socket::sockaddr_in(getpeername(shift->fh));
                 require Net::BitTorrent::Network::Utility;
@@ -83,9 +81,6 @@ package Net::BitTorrent::Peer;
         init_arg   => undef,
         trigger    => sub {
             my $s = shift;
-            require Carp;
-            Carp::cluck(join ', ', @_);
-            warn $s->handshake_step;
             $s->send_bitfield if $s->handshake_step eq 'REG_OKAY';
         }
     );
