@@ -38,11 +38,11 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 my @files;
                 if (defined $new_value->{'info'}{'files'})
                 {    # Multi-file .torrent
-                    $self->storage->files($new_value->{'info'}{'files'});
-                    $self->storage->root($new_value->{'info'}{'name'});
+                    $self->storage->_set_files($new_value->{'info'}{'files'});
+                    $self->storage->_set_root($new_value->{'info'}{'name'});
                 }
                 else {    # single file torrent; use the name
-                    $self->storage->files(
+                    $self->storage->_set_files(
                               [{path   => [$new_value->{'info'}{'name'}],
                                 length => $new_value->{'info'}{'length'}
                                }

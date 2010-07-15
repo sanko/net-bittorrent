@@ -6,41 +6,49 @@ package Net::BitTorrent::Storage;
     use lib '../../';
     use Net::BitTorrent::Storage::File;
     use Net::BitTorrent::Storage::Cache;
-    use File::Spec::Functions qw[rel2abs];
+    use File::Spec::Functions qw[rel2abs catdir];
     has 'cache' => (is         => 'rw',
                     isa        => 'Net::BitTorrent::Storage::Cache',
                     init_arg   => undef,
                     lazy_build => 1,
-                    builder    => '_build_cache'
+                    builder    => '_build_cache',
+                    clearer    => '_clear_cache'
     );
 
     sub _build_cache {
+        my $s = shift;
         Net::BitTorrent::Storage::Cache->new(
-            storage => $_[0],
-            path    => [
-                '~' . substr($_[0]->torrent->info_hash->to_Hex, 0, 7) . '.dat'
-            ]
+                storage => $s,
+                path    => [
+                         catdir $s->root,
+                         '~'
+                             . substr($s->torrent->info_hash->to_Hex, 0, 7)
+                             . '.dat'
+                ]
         );
     }
-    has 'torrent' => (is       => 'rw',
+    has 'torrent' => (is       => 'ro',
                       required => 1,
-                      isa      => 'Net::BitTorrent::Torrent',
+                      isa      => 'Net::BitTorrent::Torrent'
     );
-    has 'files' => (is      => 'rw',
+    has 'files' => (is      => 'ro',
                     isa     => 'NBTypes::Files',
                     coerce  => 1,
                     traits  => ['Array'],
-                    handles => {_count    => 'count',
-                                _add_file => 'push',
-                                _file     => 'get'
-                    },
+                    writer => '_set_files',
+                    handles => {_count_files => 'count',
+                                _add_file    => 'push',
+                                _file        => 'get'
+                    }
     );
     has 'root' => (    # ??? - Should this be BaseDir/basedir
-        is      => 'rw',
+        is      => 'ro',
         isa     => 'Str',
+        writer  => '_set_root',
         trigger => sub {
             my ($self, $new_root, $old_root) = @_;
-            if ($self->_count) {
+            $self->_clear_cache;
+            if ($self->_count_files) {
                 for my $file (@{$self->files}, $self->cache) {
                     $file->_shift if defined $old_root;
                     $file->_unshift(rel2abs $new_root);
@@ -52,7 +60,7 @@ package Net::BitTorrent::Storage;
     #
     has 'size' => (is         => 'ro',
                    isa        => 'Int',
-                   writer     => '_size',
+                   writer     => '_set_size',
                    lazy_build => 1,
                    builder    => '_build_size'
     );
