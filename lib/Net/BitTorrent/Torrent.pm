@@ -5,6 +5,7 @@ package Net::BitTorrent::Torrent;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
+    use 5.012;
 
     #sub BUILD {1}
     has 'client' => (
@@ -12,8 +13,18 @@ package Net::BitTorrent::Torrent;
         is        => 'rw',
         weak_ref  => 1,
         predicate => 'has_client',
-        handles   => [qw[dht]],
-        trigger   => sub {
+        handles   => {
+            dht       => 'dht',
+            max_peers => 'max_peers_per_torrent',
+            peers     => sub {
+                my $s = shift;
+                grep {
+                           $_->has_torrent
+                        && $_->torrent->info_hash eq $s->info_hash
+                } $s->client->peers;
+                }
+        },
+        trigger => sub {
             my ($self, $client) = @_;
 
             # XXX - make sure the new client knows who I am
@@ -101,6 +112,7 @@ package Net::BitTorrent::Torrent;
                 sub {
                     return if !$self;
                     return if !$self->has_client;
+                    return if scalar($self->peers) >= $self->max_peers;
                     my ($source)
                         = [[$self->get_quest('dht_get_peers'),    'dht'],
                            [$self->get_quest('tracker_announce'), 'tracker']
