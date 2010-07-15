@@ -51,7 +51,8 @@ is_deeply(
          'http://openoffice.virginmedia.com/stable/3.2.0/OOo_3.2.0_Win32Intel_install_en-US.exe',
          'ftp://ftp.kr.freebsd.org/pub/openoffice/stable/3.2.0/OOo_3.2.0_Win32Intel_install_en-US.exe'
      ]
-    }
+    },
+    'Metadata was parsed correctly'
 );
 
 #use Data::Dumper;
