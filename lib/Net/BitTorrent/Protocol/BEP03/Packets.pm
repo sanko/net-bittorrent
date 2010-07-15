@@ -11,29 +11,16 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     use vars qw[@EXPORT_OK %EXPORT_TAGS];
     use Exporter qw[];
     *import = *import = *Exporter::import;
-    @EXPORT_OK = qw[build_handshake build_keepalive build_choke build_unchoke
-        build_interested  build_not_interested build_have build_bitfield
-        build_request build_piece build_cancel build_port build_suggest
-        build_allowed_fast build_reject build_have_all build_have_none
-        build_extended parse_packet _parse_handshake _parse_keepalive
-        _parse_choke _parse_unchoke _parse_interested _parse_not_interested
-        _parse_have _parse_bitfield _parse_request _parse_piece _parse_cancel
-        _parse_port _parse_suggest _parse_have_all _parse_have_none
-        _parse_reject _parse_allowed_fast _parse_extended HANDSHAKE KEEPALIVE
-        CHOKE UNCHOKE INTERESTED NOT_INTERESTED HAVE BITFIELD REQUEST PIECE
-        CANCEL PORT SUGGEST HAVE_ALL HAVE_NONE REJECT ALLOWED_FAST EXTPROTOCOL
-    ];
     %EXPORT_TAGS = (
-        all   => [@EXPORT_OK],
         build => [
-            qw[build_handshake build_keepalive build_choke build_unchoke
-                build_interested  build_not_interested build_have
+            qw[ build_handshake build_keepalive build_choke build_unchoke
+                build_interested build_not_interested build_have
                 build_bitfield build_request build_piece build_cancel
                 build_port build_suggest build_allowed_fast build_reject
                 build_have_all build_have_none build_extended]
         ],
         parse => [
-            qw[parse_packet _parse_handshake _parse_keepalive
+            qw[ parse_packet _parse_handshake _parse_keepalive
                 _parse_choke _parse_unchoke _parse_interested
                 _parse_not_interested _parse_have _parse_bitfield
                 _parse_request _parse_piece _parse_cancel _parse_port
@@ -41,32 +28,36 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
                 _parse_reject _parse_allowed_fast _parse_extended]
         ],
         types => [
-            qw[HANDSHAKE KEEPALIVE CHOKE UNCHOKE INTERESTED NOT_INTERESTED
-                HAVE BITFIELD REQUEST PIECE CANCEL PORT SUGGEST HAVE_ALL
-                HAVE_NONE REJECT ALLOWED_FAST EXTPROTOCOL]
-            ]
-
-            # XXX - Move MSE-related functions from N::B::Peer
-            #mse => [qw[  ]]
+            qw[ $HANDSHAKE $KEEPALIVE $CHOKE $UNCHOKE $INTERESTED
+                $NOT_INTERESTED $HAVE $BITFIELD $REQUEST $PIECE $CANCEL $PORT
+                $SUGGEST $HAVE_ALL $HAVE_NONE $REJECT $ALLOWED_FAST
+                $EXTPROTOCOL]
+        ]
     );
-    sub HANDSHAKE      {-1}
-    sub KEEPALIVE      {''}
-    sub CHOKE          {0}
-    sub UNCHOKE        {1}
-    sub INTERESTED     {2}
-    sub NOT_INTERESTED {3}
-    sub HAVE           {4}
-    sub BITFIELD       {5}
-    sub REQUEST        {6}
-    sub PIECE          {7}
-    sub CANCEL         {8}
-    sub PORT           {9}
-    sub SUGGEST        {13}
-    sub HAVE_ALL       {14}
-    sub HAVE_NONE      {15}
-    sub REJECT         {16}
-    sub ALLOWED_FAST   {17}
-    sub EXTPROTOCOL    {20}
+    @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
+    $EXPORT_TAGS{'all'} = \@EXPORT_OK;
+
+    #
+    our $HANDSHAKE      = -1;
+    our $KEEPALIVE      = '';
+    our $CHOKE          = 0;
+    our $UNCHOKE        = 1;
+    our $INTERESTED     = 2;
+    our $NOT_INTERESTED = 3;
+    our $HAVE           = 4;
+    our $BITFIELD       = 5;
+    our $REQUEST        = 6;
+    our $PIECE          = 7;
+    our $CANCEL         = 8;
+    our $PORT           = 9;
+    our $SUGGEST        = 13;
+    our $HAVE_ALL       = 14;
+    our $HAVE_NONE      = 15;
+    our $REJECT         = 16;
+    our $ALLOWED_FAST   = 17;
+    our $EXTPROTOCOL    = 20;
+
+    #
     my $info_hash_constraint;
 
     sub build_handshake ($$$) {
@@ -240,23 +231,23 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
         my $packet = pack('ca*', $msgID, bencode($data));
         return pack('Nca*', length($packet) + 1, 20, $packet);
     }
-    my %parse_packet_dispatch = (&KEEPALIVE      => \&_parse_keepalive,
-                                 &CHOKE          => \&_parse_choke,
-                                 &UNCHOKE        => \&_parse_unchoke,
-                                 &INTERESTED     => \&_parse_interested,
-                                 &NOT_INTERESTED => \&_parse_not_interested,
-                                 &HAVE           => \&_parse_have,
-                                 &BITFIELD       => \&_parse_bitfield,
-                                 &REQUEST        => \&_parse_request,
-                                 &PIECE          => \&_parse_piece,
-                                 &CANCEL         => \&_parse_cancel,
-                                 &PORT           => \&_parse_port,
-                                 &SUGGEST        => \&_parse_suggest,
-                                 &HAVE_ALL       => \&_parse_have_all,
-                                 &HAVE_NONE      => \&_parse_have_none,
-                                 &REJECT         => \&_parse_reject,
-                                 &ALLOWED_FAST   => \&_parse_allowed_fast,
-                                 &EXTPROTOCOL    => \&_parse_extended
+    my %parse_packet_dispatch = ($KEEPALIVE      => \&_parse_keepalive,
+                                 $CHOKE          => \&_parse_choke,
+                                 $UNCHOKE        => \&_parse_unchoke,
+                                 $INTERESTED     => \&_parse_interested,
+                                 $NOT_INTERESTED => \&_parse_not_interested,
+                                 $HAVE           => \&_parse_have,
+                                 $BITFIELD       => \&_parse_bitfield,
+                                 $REQUEST        => \&_parse_request,
+                                 $PIECE          => \&_parse_piece,
+                                 $CANCEL         => \&_parse_cancel,
+                                 $PORT           => \&_parse_port,
+                                 $SUGGEST        => \&_parse_suggest,
+                                 $HAVE_ALL       => \&_parse_have_all,
+                                 $HAVE_NONE      => \&_parse_have_none,
+                                 $REJECT         => \&_parse_reject,
+                                 $ALLOWED_FAST   => \&_parse_allowed_fast,
+                                 $EXTPROTOCOL    => \&_parse_extended
     );
 
     sub parse_packet ($) {
@@ -269,7 +260,7 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
         my ($packet);
         if (unpack('c', $$data) == 0x13) {
             my @payload = _parse_handshake(substr($$data, 0, 68, ''));
-            $packet = {type           => HANDSHAKE,
+            $packet = {type           => $HANDSHAKE,
                        packet_length  => 68,
                        payload_length => 48,
                        payload        => @payload
