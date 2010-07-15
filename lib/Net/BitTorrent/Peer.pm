@@ -330,13 +330,32 @@ package Net::BitTorrent::Peer;
             );
     }
 
-=begin comment     after 'BUILD' => sub {
-        use Data::Dump;
-        ddx \@_;
-        ...;
-    };
-=cut
+    #
+    sub _pieces_intersection
+    {    # ('the pieces we want' & 'the pieces they have')
+        my $s            = shift;
+        my $intersection = $s->pieces->Shadow();
+        $intersection->Intersection($s->pieces, $s->torrent->wanted);
+        return $intersection;
+    }
 
+    sub check_interest {
+        my $s       = shift;
+        my $options = $s->_pieces_intersection->to_Bin;
+        return index $options,
+            1 ? $s->_send_interested : $s->_send_not_interested;
+    }
+
+    #
+    sub _send_interested {
+        return shift->push_write(build_interested());
+    }
+
+    sub _send_not_interested {
+        return shift->push_write(build_not_interested());
+    }
+
+    #
     my %_packet_dispatch;
 
     sub _handle_packet {
