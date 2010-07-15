@@ -88,6 +88,7 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
 
     sub build_bitfield ($) {
         my ($bitfield) = @_;
+        $bitfield = pack 'b*', $bitfield->to_Bin if blessed $bitfield;
         if ((!$bitfield) || (unpack('b*', $bitfield) !~ m[^[01]+$])) {
             carp sprintf 'Malformed bitfield passed to %s::build_bitfield()',
                 __PACKAGE__;
