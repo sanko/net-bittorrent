@@ -75,18 +75,18 @@ package Net::BitTorrent;
             && $code->($self, $torrent)
             && $torrent->client($self) ? $torrent : ();
     };
-    my $infohash_constraint;
-    around 'torrent' => sub {
+    my $info_hash_constraint;
+    around 'torrent' => sub ($) {
         my ($code, $self, $index) = @_;
         my $torrent;
         {
-            $infohash_constraint //=
+            $info_hash_constraint //=
                 Moose::Util::TypeConstraints::find_type_constraint(
                                                 'NBTypes::Torrent::Infohash');
-            my $infohash = $infohash_constraint->coerce($index);
+            my $info_hash = $info_hash_constraint->coerce($index);
             $torrent = $self->find_torrent(
                 sub {
-                    $_->info_hash->Lexicompare($infohash) == 0;
+                    $_->info_hash->Lexicompare($info_hash) == 0;
                 }
             );
         }

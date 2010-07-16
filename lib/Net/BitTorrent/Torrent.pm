@@ -145,7 +145,7 @@ package Net::BitTorrent::Torrent;
     # Quick methods
     my $pieces_per_hashcheck = 10;    # Max block of pieces in single call
 
-    sub hashcheck {    # Range is split up into $pieces_per_hashcheck blocks
+    sub hash_check {    # Range is split up into $pieces_per_hashcheck blocks
         my ($self, $range) = @_;
         $range
             = defined $range
