@@ -116,19 +116,29 @@ package Net::BitTorrent::Peer;
                   on_parole   seed                optimistic_unchoke
                   snubbed     upload_only]
         )
-    {   has $flag => (isa       => 'Bool',
-                      traits    => ['Bool'],
-                      is        => 'ro',
-                      default   => 0,
-                      predicate => 'is_' . $flag,
-                      handles   => {
-                                  '_set_' . $flag    => 'set',
+    {   has $flag => (isa     => 'Bool',
+                      traits  => ['Bool'],
+                      is      => 'ro',
+                      default => 0,
+                      handles => {'_set_' . $flag    => 'set',
                                   '_unset_' . $flag  => 'unset',
                                   '_toggle_' . $flag => 'toggle',
                                   'is_not_' . $flag  => 'not'
                       }
         );
     }
+    around '_set_interesting' => sub {
+        my ($c, $s) = @_;
+        return if $s->interesting;
+        $c->($s);
+        $s->_send_interested;
+    };
+    around '_unset_interesting' => sub {
+        my ($c, $s) = @_;
+        return if !$s->interesting;
+        $c->($s);
+        $s->_send_not_interested;
+    };
 
     #
     my $infohash_constraint;
@@ -377,19 +387,19 @@ package Net::BitTorrent::Peer;
     }
 
     sub check_interest {
-        my $s       = shift;
-        my $options = $s->_pieces_intersection->to_Bin;
-        return index $options,
-            1 ? $s->_send_interested : $s->_send_not_interested;
+        my $s = shift;
+        return $s->_pieces_intersection->to_Bin =~ m[1]
+            ? $s->_set_interesting
+            : $s->_unset_interesting;
     }
 
     #
     sub _send_interested {
-        return shift->push_write(build_interested());
+        shift->push_write(build_interested());
     }
 
     sub _send_not_interested {
-        return shift->push_write(build_not_interested());
+        shift->push_write(build_not_interested());
     }
 
     #
