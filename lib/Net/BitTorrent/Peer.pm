@@ -479,6 +479,47 @@ package Net::BitTorrent::Peer;
         };
     }
 
+    # Utility methods
+    sub _uT_flags {
+        my $s = shift;
+        my @flags;
+
+        # ?: your client unchoked the peer but the peer is not interested
+        push @flags, !$s->choked && !$s->remote_interested ? '?' : ' ';
+
+# D: currently downloading from the peer (interested and not choked)
+# d: your client wants to download, but peer doesn't want to send (interested and choked)
+        push @flags,
+              $s->interesting && !$s->remote_choked ? 'D'
+            : $s->interesting && $s->remote_choked  ? 'd'
+            :                                         ' ';
+
+# E: peer is using Protocol Encryption (all traffic)
+# e: peer is using Protocol Encryption (handshake)
+# F: peer was involved in a hashfailed piece (not necessarily a bad peer, just involved)
+# H: peer was obtained through DHT
+# h: peer connection established via UDP hole-punching
+# I: peer established an incoming connection
+        push @flags, $s->local_connection ? ' ' : 'I';
+
+        # K: peer unchoked your client, but your client is not interested
+        push @flags, !$s->remote_choked && !$s->interesting ? 'K' : ' ';
+
+# L: peer has been or discovered via Local Peer Discovery
+# O: optimistic unchoke
+# P: peer is communicating and transporting data over uTP
+# S: peer is snubbed
+# U: currently uploading to the peer (interested and not choked)
+# u: the peer wants your client to upload, but your client doesn't want to (interested and choked)
+        push @flags,
+              $s->remote_interested && !$s->choked ? 'U'
+            : $s->remote_interested && $s->choked  ? 'u'
+            :                                        ' ';
+
+     # X: peer was included in peer lists obtained through Peer Exchange (PEX)
+        return join '', @flags;
+    }
+
     # {    ### Simple plugin system
     # my @_plugins;
     # sub _register_plugin {
