@@ -30,6 +30,7 @@ lib/Net/BitTorrent/Protocol/BEP15/Tracker/UDP.pm
 lib/Net/BitTorrent/Protocol/BEP23.pod
 lib/Net/BitTorrent/Protocol/BEP23/Compact.pm
 lib/Net/BitTorrent/Protocol/BEP27/Private/Metadata.pm
+lib/Net/BitTorrent/Protocol/MSE/Peer.pm
 lib/Net/BitTorrent/Storage.pm
 lib/Net/BitTorrent/Storage/Cache.pm
 lib/Net/BitTorrent/Storage/File.pm
