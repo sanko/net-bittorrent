@@ -108,24 +108,29 @@ package Net::BitTorrent::Peer;
         }
         $s->handshake_step;
     };
-    for my $flag (qw[
-                  interesting remote_interested
-                  choked      remote_choked
-                  support_extensions              local_connection
-                  handshake   connecting          queued
-                  on_parole   seed                optimistic_unchoke
-                  snubbed     upload_only]
+    for my $flag (
+        ([0,
+          [qw[ interesting remote_interested
+               choked      remote_choked
+               support_extensions              local_connection
+               handshake   connecting          queued
+               on_parole   seed                optimistic_unchoke
+               snubbed     upload_only]
+          ]
+         ],
+         [1, [qw[choked remote_choked connecting]]]
         )
-    {   has $flag => (isa     => 'Bool',
-                      traits  => ['Bool'],
-                      is      => 'ro',
-                      default => 0,
-                      handles => {'_set_' . $flag    => 'set',
-                                  '_unset_' . $flag  => 'unset',
-                                  '_toggle_' . $flag => 'toggle',
-                                  'is_not_' . $flag  => 'not'
-                      }
-        );
+        )
+    {   has $_ => (isa     => 'Bool',
+                   traits  => ['Bool'],
+                   is      => 'ro',
+                   default => $flag->[0],
+                   handles => {'_set_' . $_    => 'set',
+                               '_unset_' . $_  => 'unset',
+                               '_toggle_' . $_ => 'toggle',
+                               'is_not_' . $_  => 'not'
+                   }
+        ) for @{$flag->[1]};
     }
     around '_set_interesting' => sub {
         my ($c, $s) = @_;
