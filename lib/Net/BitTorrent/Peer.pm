@@ -417,6 +417,8 @@ package Net::BitTorrent::Peer;
         use Data::Dump;
         ddx $packet;
         %_packet_dispatch = (
+            $INTERESTED =>
+                ['interested', sub { shift->_set_remote_interested }],
             $BITFIELD => [
                 'bitfield',
                 sub {
