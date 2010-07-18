@@ -130,6 +130,24 @@ package Net::BitTorrent::Torrent;
                 }
             )
         );
+        $self->add_quest(
+            'unchoke',
+            AE::timer(
+                0, 10,
+                sub {
+                    return if !$self;
+                    return if !$self->has_client;
+                    return if !scalar $self->peers;
+                    my @unchoked = grep { !$_->choked } $self->peers;
+                    my @choked   = grep { $_->choked } $self->peers;
+                    if (scalar @unchoked < 8) {
+
+                        # rand
+                    }
+                    die scalar @unchoked if @unchoked;
+                }
+            )
+        );
     }
 
     sub stop {
