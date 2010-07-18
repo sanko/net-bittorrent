@@ -18,13 +18,11 @@ package Net::BitTorrent::Storage;
     sub _build_cache {
         my $s = shift;
         Net::BitTorrent::Storage::Cache->new(
-                storage => $s,
-                path    => [
-                         catdir $s->root,
-                         '~'
-                             . substr($s->torrent->info_hash->to_Hex, 0, 7)
-                             . '.dat'
-                ]
+               storage => $s,
+               path    => [
+                   catdir $s->root,
+                   '~' . substr($s->torrent->info_hash->to_Hex, 0, 7) . '.dat'
+               ]
         );
     }
     has 'torrent' => (is       => 'ro',
@@ -35,7 +33,7 @@ package Net::BitTorrent::Storage;
                     isa     => 'NBTypes::Files',
                     coerce  => 1,
                     traits  => ['Array'],
-                    writer => '_set_files',
+                    writer  => '_set_files',
                     handles => {_count_files => 'count',
                                 _add_file    => 'push',
                                 _file        => 'get'
