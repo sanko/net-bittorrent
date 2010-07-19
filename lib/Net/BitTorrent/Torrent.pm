@@ -14,9 +14,10 @@ package Net::BitTorrent::Torrent;
         weak_ref  => 1,
         predicate => 'has_client',
         handles   => {
-            dht       => 'dht',
-            max_peers => 'max_peers_per_torrent',
-            peers     => sub {
+            dht              => 'dht',
+            max_peers        => 'max_peers_per_torrent',
+            max_upload_slots => 'max_upload_slots_per_torrent',
+            peers            => sub {
                 my $s = shift;
                 grep {
                            $_->has_torrent
