@@ -81,7 +81,7 @@ package Net::BitTorrent::Peer;
         init_arg   => undef,
         trigger    => sub {
             my $s = shift;
-            $s->send_bitfield if $s->handshake_step eq 'REG_OKAY';
+            $s->_send_bitfield if $s->handshake_step eq 'REG_OKAY';
         }
     );
 
@@ -478,7 +478,8 @@ package Net::BitTorrent::Peer;
     sub _send_not_interested { shift->push_write(build_not_interested()) }
     sub _send_choke          { shift->push_write(build_choke()) }
     sub _send_unchoke        { shift->push_write(build_unchoke()) }
-    sub send_bitfield {
+
+    sub _send_bitfield {
         my $s = shift;
         $s->push_write(build_bitfield($s->torrent->have));
     }
