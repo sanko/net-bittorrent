@@ -483,7 +483,14 @@ package Net::BitTorrent::Peer;
         my $s = shift;
         $s->push_write(build_bitfield($s->torrent->have));
     }
-    {    # Callback system
+
+    sub _send_request {
+        my ($s, $i, $o, $l) = @_;
+        $s->push_write(build_request($i, $o, $l));
+    }
+
+    # Callback system
+    {
         after 'BUILD' => sub {
             my $s = shift;
 
