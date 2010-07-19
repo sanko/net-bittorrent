@@ -140,12 +140,14 @@ package Net::BitTorrent::Torrent;
                     return if !$self->has_client;
                     return if !scalar $self->peers;
                     my @unchoked = grep { !$_->choked } $self->peers;
-                    my @choked   = grep { $_->choked } $self->peers;
-                    if (scalar @unchoked < 8) {
-
-                        # rand
+                    my @choked = sort {
+                               $a->remote_choked <=> $b->remote_choked
+                            || $a->total_download <=> $b->total_download
+                    } grep { $_->choked } $self->peers;
+                    for my $i (0 .. $self->max_upload_slots) {
+                        last if !$choked[$i];
+                        $choked[$i]->_unset_choked;
                     }
-                    die scalar @unchoked if @unchoked;
                 }
             )
         );
