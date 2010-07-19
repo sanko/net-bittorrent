@@ -177,6 +177,30 @@ package Net::BitTorrent::Peer;
         $c->($s);    # XXX - also let the parent client know
         $s->_send_request();
     };
+    around '_unset_remote_choked' => sub {
+        my ($c, $s) = @_;
+        return if $s->has_quest('request_block');
+        my $max_requests = 4;
+        $s->add_quest(
+            'request_block',
+            AE::timer(
+                0, 3,
+                sub {
+
+                    # XXX - max_requests attribute
+                    for (0 .. $max_requests) {
+                        my $piece = $s->torrent->select_piece($s->pieces);
+                        return if !$piece;
+                        my $block = $s->torrent->select_block($piece);
+                        return if !$block;
+                        use Data::Dump;
+                        ddx $piece;
+                        ddx $block;
+                    }
+                }
+            )
+        );
+    };
     has 'quests' => (is      => 'ro',
                      isa     => 'HashRef[ArrayRef]',
                      traits  => ['Hash'],
