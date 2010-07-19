@@ -63,6 +63,16 @@ package Net::BitTorrent::Torrent;
         require Net::BitTorrent::Storage;
         Net::BitTorrent::Storage->new(torrent => $_[0]);
     }
+    has 'piece_selector' => (isa => 'Net::BitTorrent::Torrent::PieceSelector',
+                             is  => 'ro',
+                             builder  => '_build_piece_selector',
+                             weak_ref => 1
+    );
+
+    sub _build_piece_selector {
+        require Net::BitTorrent::Torrent::PieceSelector;
+        Net::BitTorrent::Torrent::PieceSelector->new(torrent => shift);
+    }
     for my $direction (qw[up down]) {
         has $direction
             . 'loaded' => (
