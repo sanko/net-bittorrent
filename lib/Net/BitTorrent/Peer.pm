@@ -144,6 +144,18 @@ package Net::BitTorrent::Peer;
         $c->($s);
         $s->_send_not_interested;
     };
+    around '_set_choked' => sub {
+        my ($c, $s) = @_;
+        return if $s->choked;
+        $c->($s);
+        $s->_send_choke;
+    };
+    around '_unset_choked' => sub {
+        my ($c, $s) = @_;
+        return if !$s->choked;
+        $c->($s);
+        $s->_send_unchoke;
+    };
 
     #
     my $infohash_constraint;
@@ -399,13 +411,10 @@ package Net::BitTorrent::Peer;
     }
 
     #
-    sub _send_interested {
-        shift->push_write(build_interested());
-    }
-
-    sub _send_not_interested {
-        shift->push_write(build_not_interested());
-    }
+    sub _send_interested     { shift->push_write(build_interested()) }
+    sub _send_not_interested { shift->push_write(build_not_interested()) }
+    sub _send_choke          { shift->push_write(build_choke()) }
+    sub _send_unchoke        { shift->push_write(build_unchoke()) }
 
     #
     my %_packet_dispatch;
@@ -417,6 +426,8 @@ package Net::BitTorrent::Peer;
         use Data::Dump;
         ddx $packet;
         %_packet_dispatch = (
+            $CHOKE   => ['choke',   sub { shift->_set_remote_choked }],
+            $UNCHOKE => ['unchoke', sub { shift->_unset_remote_choked }],
             $INTERESTED =>
                 ['interested', sub { shift->_set_remote_interested }],
             $BITFIELD => [
