@@ -156,6 +156,27 @@ package Net::BitTorrent::Peer;
         $c->($s);
         $s->_send_unchoke;
     };
+    has 'requests' => (
+        is      => 'ro',
+        isa     => 'ArrayRef[ArrayRef]',
+        traits  => ['Array'],
+        handles => {
+            _add_request => 'push',
+
+            #_get_request    => ['grep', ],
+            #has_quest    => 'defined',
+            #delete_request => 'delete',
+            _clear_requests => 'clear',
+            _count_requests => 'count'
+        },
+        default => sub { [] }
+    );
+    around '_add_request' => sub {
+        my ($c, $s, $i, $o, $l) = @_;
+        return if !$s->choked;
+        $c->($s);    # XXX - also let the parent client know
+        $s->_send_request();
+    };
     has 'quests' => (is      => 'ro',
                      isa     => 'HashRef[ArrayRef]',
                      traits  => ['Hash'],
