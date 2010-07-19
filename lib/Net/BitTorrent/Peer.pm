@@ -411,12 +411,6 @@ package Net::BitTorrent::Peer;
     }
 
     #
-    sub _send_interested     { shift->push_write(build_interested()) }
-    sub _send_not_interested { shift->push_write(build_not_interested()) }
-    sub _send_choke          { shift->push_write(build_choke()) }
-    sub _send_unchoke        { shift->push_write(build_unchoke()) }
-
-    #
     my %_packet_dispatch;
 
     sub _handle_packet {
@@ -480,6 +474,10 @@ package Net::BitTorrent::Peer;
     }
 
     # Outgoing packets
+    sub _send_interested     { shift->push_write(build_interested()) }
+    sub _send_not_interested { shift->push_write(build_not_interested()) }
+    sub _send_choke          { shift->push_write(build_choke()) }
+    sub _send_unchoke        { shift->push_write(build_unchoke()) }
     sub send_bitfield {
         my $s = shift;
         $s->push_write(build_bitfield($s->torrent->have));
