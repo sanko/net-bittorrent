@@ -156,6 +156,17 @@ package Net::BitTorrent::Peer;
         $c->($s);
         $s->_send_unchoke;
     };
+    has 'quests' => (is      => 'ro',
+                     isa     => 'HashRef[ArrayRef]',
+                     traits  => ['Hash'],
+                     handles => {add_quest    => 'set',
+                                 get_quest    => 'get',
+                                 has_quest    => 'defined',
+                                 delete_quest => 'delete',
+                                 clear_quests => 'clear'
+                     },
+                     default => sub { {} }
+    );
 
     #
     my $infohash_constraint;
