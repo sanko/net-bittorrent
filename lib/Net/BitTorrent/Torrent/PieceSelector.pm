@@ -9,5 +9,16 @@
                       handles  => [qw[peers]],
                       weak_ref => 1
     );
+
+    sub select_piece {
+        my ($s, $peer) = @_;
+        ...
+
+    }
+    sub select_block {
+        my ($s, $piece) = @_;
+
+    }
+
 }
 1;

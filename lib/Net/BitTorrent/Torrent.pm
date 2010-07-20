@@ -66,6 +66,7 @@ package Net::BitTorrent::Torrent;
     has 'piece_selector' => (isa => 'Net::BitTorrent::Torrent::PieceSelector',
                              is  => 'ro',
                              builder  => '_build_piece_selector',
+                             handles => [qw[select_piece select_block]]
     );
 
     sub _build_piece_selector {
