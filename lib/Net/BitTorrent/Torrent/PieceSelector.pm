@@ -6,7 +6,8 @@
     has 'torrent' => (isa      => 'Net::BitTorrent::Torrent',
                       is       => 'ro',
                       required => 1,
-                      handles  => [qw[peers]]
+                      handles  => [qw[peers]],
+                      weak_ref => 1
     );
 }
 1;
