@@ -3,6 +3,7 @@
     package Net::BitTorrent::Torrent::PieceSelector;
     use Moose;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    sub BUILD {1}
     has 'torrent' => (isa      => 'Net::BitTorrent::Torrent',
                       is       => 'ro',
                       required => 1,
@@ -50,5 +51,6 @@
         }
         return $piece;
     }
+    sub end_game {0}
 }
 1;
