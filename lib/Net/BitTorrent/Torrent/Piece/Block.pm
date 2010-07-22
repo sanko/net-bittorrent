@@ -11,19 +11,20 @@
                     is       => 'ro',
                     required => 1,
                     weak_ref => 1,
-                    handles => [qw[index]]
+                    handles  => [qw[index]]
     );
     has 'length' => (isa      => 'Int',
                      is       => 'ro',
                      required => 1
     );
-    has 'peer' => (isa      => 'Net::BitTorrent::Peer',
-                   is       => 'ro',
-                   #required => 1,
-                   writer => '_assign_peer',
-                   predicate => '_has_peer',
-                   weak_ref => 1
+    has 'peer' => (
+        isa => 'Net::BitTorrent::Peer',
+        is  => 'ro',
 
+        #required => 1,
+        writer    => '_assign_peer',
+        predicate => '_has_peer',
+        weak_ref  => 1
     );
 }
 1;

@@ -14,8 +14,8 @@ package Net::BitTorrent::Torrent;
         weak_ref  => 1,
         predicate => 'has_client',
         handles   => {
-            dht              => 'dht',
-            peers            => sub {
+            dht   => 'dht',
+            peers => sub {
                 my $s = shift;
                 grep {
                            $_->has_torrent
@@ -63,7 +63,7 @@ package Net::BitTorrent::Torrent;
     }
     has 'piece_selector' => (isa => 'Net::BitTorrent::Torrent::PieceSelector',
                              is  => 'ro',
-                             builder  => '_build_piece_selector',
+                             builder => '_build_piece_selector',
                              handles => [qw[select_piece select_block]]
     );
 
@@ -248,16 +248,14 @@ package Net::BitTorrent::Torrent;
     #    };
     #}
     #
-
-    has 'max_peers' => (isa     => subtype(as 'Int' => where { $_ >=1 }),
-                                    is      => 'rw',
-                                    default => '200'
+    has 'max_peers' => (isa     => subtype(as 'Int' => where { $_ >= 1 }),
+                        is      => 'rw',
+                        default => '200'
     );
-    has 'max_upload_slots' => (isa     =>  subtype(as 'Int' => where { $_ >=1 }),
-                                           is      => 'rw',
-                                           default => '8'
+    has 'max_upload_slots' => (isa => subtype(as 'Int' => where { $_ >= 1 }),
+                               is  => 'rw',
+                               default => '8'
     );
-
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable
