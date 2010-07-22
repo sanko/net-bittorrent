@@ -541,8 +541,14 @@ package Net::BitTorrent::Peer;
     }
 
     sub _send_request {
-        my ($s, $i, $o, $l) = @_;
-        $s->push_write(build_request($i, $o, $l));
+        my $s = shift;
+        my ($i, $o, $l) = @_;
+        if (blessed $i) {
+            ($i, $o, $l) = ($i->index, $i->offset, $i->length);
+        }
+        warn join ', ', $i, $o, $l;
+        ...;
+        return $s->push_write(build_request($i, $o, $l));
     }
 
     # Callback system
