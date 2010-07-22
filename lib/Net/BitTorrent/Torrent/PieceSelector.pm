@@ -38,5 +38,17 @@
     }
     after 'BUILD' => sub { shift->_apply_strategy };
 
+    sub select_piece {
+        my ($s, $p) = @_;
+        my $piece = $s->_select_piece($p);
+        return if !$piece;
+        if (!blessed $piece) {    # Must be an index
+            require Net::BitTorrent::Torrent::Piece;
+            $piece =
+                Net::BitTorrent::Torrent::Piece->new(selector => $s,
+                                                     index    => $piece);
+        }
+        return $piece;
+    }
 }
 1;
