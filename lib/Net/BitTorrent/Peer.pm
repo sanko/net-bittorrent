@@ -543,8 +543,6 @@ package Net::BitTorrent::Peer;
         if (blessed $i) {
             ($i, $o, $l) = ($i->index, $i->offset, $i->length);
         }
-        warn join ', ', $i, $o, $l;
-        ...;
         return $s->push_write(build_request($i, $o, $l));
     }
 
