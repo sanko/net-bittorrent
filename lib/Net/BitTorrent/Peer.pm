@@ -173,7 +173,7 @@ package Net::BitTorrent::Peer;
     );
     around '_add_request' => sub {
         my ($c, $s, $b) = @_;
-        return if !$s->choked;
+        return if $s->choked;
         $c->($s, $b);    # XXX - also let the parent client know
         return $s->_send_request($b);
     };
