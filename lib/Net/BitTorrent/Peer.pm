@@ -172,10 +172,10 @@ package Net::BitTorrent::Peer;
         default => sub { [] }
     );
     around '_add_request' => sub {
-        my ($c, $s, $i, $o, $l) = @_;
+        my ($c, $s, $b) = @_;
         return if !$s->choked;
-        $c->($s);    # XXX - also let the parent client know
-        $s->_send_request();
+        $c->($s, $b);    # XXX - also let the parent client know
+        return $s->_send_request($b);
     };
     around '_unset_remote_choked' => sub {
         my ($c, $s) = @_;
@@ -186,16 +186,13 @@ package Net::BitTorrent::Peer;
             AE::timer(
                 0, 3,
                 sub {
-
                     # XXX - max_requests attribute
                     for (0 .. $max_requests) {
-                        my $piece = $s->torrent->select_piece($s->pieces);
-                        return if !$piece;
-                        my $block = $s->torrent->select_block($piece);
-                        return if !$block;
-                        use Data::Dump;
-                        ddx $piece;
-                        ddx $block;
+                        my $piece = $s->torrent->select_piece($s);
+                        next if !$piece;
+                        my $block = $piece->_assign_block($s);
+                        next if !$block;
+                        $s->_add_request($block);
                     }
                 }
             )
