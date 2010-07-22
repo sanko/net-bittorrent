@@ -15,8 +15,6 @@ package Net::BitTorrent::Torrent;
         predicate => 'has_client',
         handles   => {
             dht              => 'dht',
-            max_peers        => 'max_peers_per_torrent',
-            max_upload_slots => 'max_upload_slots_per_torrent',
             peers            => sub {
                 my $s = shift;
                 grep {
@@ -250,6 +248,16 @@ package Net::BitTorrent::Torrent;
     #    };
     #}
     #
+
+    has 'max_peers' => (isa     => subtype(as 'Int' => where { $_ >=1 }),
+                                    is      => 'rw',
+                                    default => '200'
+    );
+    has 'max_upload_slots' => (isa     =>  subtype(as 'Int' => where { $_ >=1 }),
+                                           is      => 'rw',
+                                           default => '8'
+    );
+
     with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable

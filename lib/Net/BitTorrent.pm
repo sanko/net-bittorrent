@@ -437,14 +437,7 @@ package Net::BitTorrent;
                         is      => 'rw',
                         default => '50'
     );
-    has 'max_peers_per_torrent' => (isa     => 'Int',
-                                    is      => 'rw',
-                                    default => '200'
-    );
-    has 'max_upload_slots_per_torrent' => (isa     => 'Int',
-                                           is      => 'rw',
-                                           default => '8'
-    );
+
     has '_peers' => (
         is      => 'HashRef[Net::BitTorrent::Peer]',    # by creation id
         is      => 'ro',
