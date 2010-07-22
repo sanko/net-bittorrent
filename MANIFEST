@@ -36,6 +36,7 @@ lib/Net/BitTorrent/Storage/Cache.pm
 lib/Net/BitTorrent/Storage/File.pm
 lib/Net/BitTorrent/Storage/Node.pm
 lib/Net/BitTorrent/Torrent.pm
+lib/Net/BitTorrent/Torrent/Piece/Block.pm
 lib/Net/BitTorrent/Torrent/PieceSelector.pm
 lib/Net/BitTorrent/Torrent/PieceSelector/Endgame.pm
 lib/Net/BitTorrent/Torrent/PieceSelector/Hybrid.pm
