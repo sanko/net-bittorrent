@@ -158,7 +158,7 @@ package Net::BitTorrent::Peer;
     };
     has 'requests' => (
         is      => 'ro',
-        isa     => 'ArrayRef[ArrayRef]',
+        isa     => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
         traits  => ['Array'],
         handles => {
             _add_request => 'push',
