@@ -2,6 +2,7 @@ package Net::BitTorrent::Protocol::MSE::Peer;
 {
     use Moose::Role;
     use Moose::Util::TypeConstraints;
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has 'handshake_step' =>
         (isa => enum([qw[MSE_ONE MSE_TWO MSE_THREE MSE_FOUR MSE_FIVE]]));
 
