@@ -196,7 +196,7 @@ package Net::BitTorrent::Peer;
                         next if !$piece;
                         my $b = $piece->_first_unassigned_block();
                         next if !$b;
-                        $s->_add_request($block);
+                        $s->_add_request($b);
                     }
                 }
             )
