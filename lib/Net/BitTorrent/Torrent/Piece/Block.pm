@@ -17,14 +17,16 @@
                      is       => 'ro',
                      required => 1
     );
-    has 'peer' => (
-        isa => 'Net::BitTorrent::Peer',
-        is  => 'ro',
-
-        #required => 1,
-        writer    => '_assign_peer',
-        predicate => '_has_peer',
-        weak_ref  => 1
+    has 'peer' => (isa       => 'Net::BitTorrent::Peer',
+                   is        => 'ro',
+                   writer    => '_assign_peer',
+                   predicate => '_has_peer',
+                   weak_ref  => 1
+    );
+    has '_complete' => (isa     => 'Defined',
+                        is      => 'ro',
+                        writer  => '_set_complete',
+                        default => 0
     );
 }
 1;
