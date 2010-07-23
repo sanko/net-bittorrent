@@ -194,8 +194,8 @@ package Net::BitTorrent::Peer;
                     for (0 .. $max_requests) {
                         my $piece = $s->torrent->select_piece($s);
                         next if !$piece;
-                        my $block = $piece->_assign_block($s);
-                        next if !$block;
+                        my $b = $piece->_first_unassigned_block();
+                        next if !$b;
                         $s->_add_request($block);
                     }
                 }

@@ -3,6 +3,7 @@
     package Net::BitTorrent::Torrent::Piece;
     use Moose;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    sub BUILD {1}
     has 'index' => (isa      => 'Int',
                     is       => 'ro',
                     required => 1
@@ -42,13 +43,16 @@
         return $max > $s->length ? $s->length : $max;
     }
     has 'blocks' => (
-            isa        => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
-            is         => 'ro',
-            lazy_build => 1,
-            traits     => ['Array'],
-            handles =>
-                {_first_unassigned_block => ['first', sub { !$_->_has_peer }]}
+             isa        => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
+             is         => 'ro',
+             lazy_build => 1,
+             traits     => ['Array'],
+             handles    => {
+                 _first_unassigned_block => ['first', sub { !$_->_has_peer }],
+                 _all_unassigned_blocks  => ['grep',  sub { !$_->_has_peer }]
+             }
     );
+    after 'BUILD' => sub { shift->blocks };
 
     sub _build_blocks {
         my $s = shift;
@@ -72,19 +76,7 @@
                                   offset => $offset,
                                   length => int($s->length % $s->block_length)
             ) if $s->length % $s->block_length;
-        use Data::Dump;
-        ddx \@blocks;
         return \@blocks;
-    }
-
-    sub _assign_block {
-        my ($s, $p) = @_;
-        my ($o, $l) = (0, 0);
-        require Net::BitTorrent::Torrent::Piece::Block;
-        my $b = $s->_first_unassigned_block();
-        return if !$b;
-        $b->_assign_peer($p);
-        $b;
     }
 }
 1;
