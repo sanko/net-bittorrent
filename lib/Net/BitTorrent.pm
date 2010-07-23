@@ -476,6 +476,7 @@ package Net::BitTorrent;
             for qw[
             listen_failure listen_success
             peer_id
+            peer_disconnect
             peer_packet_in
         ];
     }
