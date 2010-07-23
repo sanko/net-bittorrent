@@ -43,13 +43,12 @@
         my ($s, $p) = @_;
         my $piece = $s->_select_piece($p);
         return if !$piece;
-        if (!blessed $piece) {    # Must be an index
-            require Net::BitTorrent::Torrent::Piece;
-            $piece =
-                Net::BitTorrent::Torrent::Piece->new(selector => $s,
-                                                     index    => $piece);
-        }
-        return $piece;
+        return $piece if blessed $piece;
+
+        # Must be an index
+        require Net::BitTorrent::Torrent::Piece;
+        Net::BitTorrent::Torrent::Piece->new(selector => $s,
+                                             index    => $piece);
     }
     sub end_game {0}
 }
