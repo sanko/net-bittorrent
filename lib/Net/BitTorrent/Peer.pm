@@ -343,16 +343,17 @@ package Net::BitTorrent::Peer;
         my ($s, $reason) = @_;
         use Data::Dump;
         ddx $s;
-        $s->trigger_peer_disconnect(
-                                 {peer => $s,
-                                  message =>
-                                      sprintf(
-                                      '%s:%d (%s) disconnect: ',
-                                      $s->host, $s->port,
-                                      $s->peer_id || '[unknown peer]', $reason
-                                      ),
-                                  severity => 'info'
-                                 }
+        $s->trigger_peer_disconnect({peer => $s,
+                                     message =>
+                                         sprintf(
+                                              '%s:%d (%s) disconnect: ',
+                                              $s->host    || 'unknown host',
+                                              $s->port    || 0,
+                                              $s->peer_id || '[unknown peer]',
+                                              $reason
+                                         ),
+                                     severity => 'info'
+                                    }
         );
         if (!$s->handle->destroyed) {
             if (defined $s->handle->{'fh'}) {
