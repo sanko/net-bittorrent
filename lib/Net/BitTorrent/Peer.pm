@@ -488,6 +488,7 @@ package Net::BitTorrent::Peer;
                     $s->_set_pieces($b);
                     }
             ],
+            $REQUEST     => ['request', sub {...}],
             $EXTPROTOCOL => [
                 'ext. protocol',
                 sub {
