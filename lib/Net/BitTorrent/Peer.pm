@@ -40,16 +40,20 @@ package Net::BitTorrent::Peer;
             push_write => 'push_write',
             fh         => sub { shift->handle->{'fh'} },
             host       => sub {
+                my $s = shift;
+                return $_[0] = undef
+                    if !defined $s->fh;    # XXX -error creating socket?
                 require Socket;
-                my (undef, $addr)
-                    = Socket::sockaddr_in(getpeername(shift->fh));
+                my (undef, $addr) = Socket::sockaddr_in(getpeername($s->fh));
                 require Net::BitTorrent::Network::Utility;
                 Net::BitTorrent::Network::Utility::paddr2ip($addr);
             },
             port => sub {
+                my $s = shift;
+                return $_[0] = undef
+                    if !defined $s->fh;    # XXX -error creating socket?
                 require Socket;
-                my ($port, undef)
-                    = Socket::sockaddr_in(getpeername(shift->fh));
+                my ($port, undef) = Socket::sockaddr_in(getpeername($s->fh));
                 $port;
                 }
         }
