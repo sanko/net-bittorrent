@@ -43,13 +43,23 @@
     sub select_piece {
         my ($s, $p) = @_;
         my $piece = $s->_select_piece($p);
-        return if !$piece;
-        return $piece if blessed $piece;
+        return if !defined $piece;
+        if (!blessed $piece ) {    # Must be an index
+            if ($s->_has_working_piece($piece)) {
+                $piece = $s->_get_working_piece($piece);
+            }
+            else {
+                require Net::BitTorrent::Torrent::Piece;
+                $piece =
+                    Net::BitTorrent::Torrent::Piece->new(selector => $s,
+                                                         index    => $piece);
+            }
+        }
 
-        # Must be an index
-        require Net::BitTorrent::Torrent::Piece;
-        Net::BitTorrent::Torrent::Piece->new(selector => $s,
-                                             index    => $piece);
+        # Make a note of this object (may already be there...)
+        $s->_add_working_piece($piece->index, $piece)
+            if !$s->_has_working_piece($piece->index);
+        $piece;
     }
     sub end_game {0}
 }
