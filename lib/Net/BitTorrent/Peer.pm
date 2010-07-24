@@ -183,9 +183,9 @@ package Net::BitTorrent::Peer;
     };
     around '_unset_remote_choked' => sub {
         my ($c, $s) = @_;
-        return if $s->has_quest('request_block');
+        return if $s->_has_quest('request_block');
         my $max_requests = 4;
-        $s->add_quest(
+        $s->_add_quest(
             'request_block',
             AE::timer(
                 0, 3,
@@ -205,11 +205,11 @@ package Net::BitTorrent::Peer;
     has 'quests' => (is      => 'ro',
                      isa     => 'HashRef[ArrayRef]',
                      traits  => ['Hash'],
-                     handles => {add_quest    => 'set',
-                                 get_quest    => 'get',
-                                 has_quest    => 'defined',
-                                 delete_quest => 'delete',
-                                 clear_quests => 'clear'
+                     handles => {_add_quest    => 'set',
+                                 _get_quest    => 'get',
+                                 _has_quest    => 'defined',
+                                 _delete_quest => 'delete',
+                                 _clear_quests => 'clear'
                      },
                      default => sub { {} }
     );
