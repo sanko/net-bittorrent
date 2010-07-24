@@ -16,6 +16,7 @@
                             default => sub { {} },
                             traits  => ['Hash'],
                             handles => {'_add_working_piece'    => 'set',
+                                        '_get_working_piece'    => 'get',
                                         '_del_working_piece'    => 'delete',
                                         '_has_working_piece'    => 'defined',
                                         '_count_working_pieces' => 'count'
