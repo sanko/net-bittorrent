@@ -171,19 +171,14 @@ package Net::BitTorrent::Peer;
                               default => sub { [] }
     );
     has 'requests' => (
-        is      => 'ro',
-        isa     => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
-        traits  => ['Array'],
-        handles => {
-            _add_request => 'push',
-
-            #_get_request    => ['grep', ],
-            #has_quest    => 'defined',
-            #delete_request => 'delete',
-            _clear_requests => 'clear',
-            _count_requests => 'count'
-        },
-        default => sub { [] }
+                    is  => 'ro',
+                    isa => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
+                    traits  => ['Array'],
+                    handles => {_add_request    => 'push',
+                                _clear_requests => 'clear',
+                                _count_requests => 'count'
+                    },
+                    default => sub { [] }
     );
     around '_add_request' => sub {
         my ($c, $s, $b) = @_;
@@ -203,6 +198,7 @@ package Net::BitTorrent::Peer;
             AE::timer(
                 0, 3,
                 sub {
+
                     # XXX - max_requests attribute
                     for (0 .. $max_requests) {
                         my $piece = $s->torrent->select_piece($s);
