@@ -499,7 +499,37 @@ package Net::BitTorrent::Peer;
                     $s->_set_pieces($b);
                     }
             ],
-            $REQUEST     => ['request', sub {...}],
+            $REQUEST => [
+                'request',
+                sub {
+                    my ($s, $r) = @_;
+                    my ($i, $o, $l) = @$r;
+
+                    # XXX - Choke peer if they have too many requests in queue
+                    $s->_add_remote_request($r);
+                    require Scalar::Util;
+                    Scalar::Util::weaken($s);
+                    $s->_add_quest(
+                        'fill_remote_requests',
+                        AE::timer(
+                            0, 15,
+                            sub {
+                                return if !$s;
+
+               # XXX - return if outgoing data queue is larger than block x 8?
+                                my $request = $s->_shift_remote_requests;
+                                $s->_delete_quest('fill_remote_requests')
+                                    if !$s->_count_remote_requests;
+
+                                # XXX - make sure we have this piece
+                                return
+                                    $s->_send_piece(@$request,
+                                                $s->torrent->read(@$request));
+                            }
+                        )
+                    ) if !$s->_has_quest('fill_remote_requests');
+                    }
+            ],
             $EXTPROTOCOL => [
                 'ext. protocol',
                 sub {
