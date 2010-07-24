@@ -56,8 +56,6 @@
 
     sub _build_blocks {
         my $s = shift;
-        warn int($s->length / $s->block_length);
-        warn $s->length % $s->block_length;
         require Net::BitTorrent::Torrent::Piece::Block;
         my $offset = 0;
         my @blocks = map {

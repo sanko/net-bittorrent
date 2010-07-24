@@ -284,7 +284,7 @@ package Net::BitTorrent::Peer;
         };
         $s->handle->on_read(
             sub {
-                warn $s->handle->rbuf;
+                use Data::Dump;
             PACKET: while (my $packet = parse_packet(\$s->handle->rbuf)) {
                     $s->_handle_packet($packet);
                     last PACKET if !$s->rbuf || !$packet;
@@ -526,6 +526,7 @@ package Net::BitTorrent::Peer;
                         $self->has_peer_id ? $self->peer_id : '[Unknown peer]'
                        }
         );
+        warn $_packet_dispatch{$packet->{'type'}}->[0];
         return $_packet_dispatch{$packet->{'type'}}->[1]
             ->($self, $packet->{'payload'})
             if defined $_packet_dispatch{$packet->{'type'}};
