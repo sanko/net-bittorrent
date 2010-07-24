@@ -119,8 +119,8 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
         return pack('Nca*', length($packed) + 1, 6, $packed);
     }
 
-    sub build_piece ($$$) {
-        my ($index, $offset, $data) = @_;
+    sub build_piece ($$$$) {
+        my ($index, $offset, $length, $data) = @_;
         if ((!defined $index) || ($index !~ m[^\d+$])) {
             carp sprintf '%s::build_piece() requires an index parameter',
                 __PACKAGE__;
@@ -131,9 +131,20 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
                 __PACKAGE__;
             return;
         }
+        if ((!defined $length) || ($length !~ m[^\d+$])) {
+            carp sprintf '%s::build_piece() requires an length parameter',
+                __PACKAGE__;
+            return;
+        }
         if (!$data or !$$data) {
             carp sprintf '%s::build_piece() requires data to work with',
                 __PACKAGE__;
+            return;
+        }
+        if ($length != length $$data) {
+            carp sprintf
+                'Incorrect data length or incomplete data block passed to %s::build_piece( %d, %d, %d, {%d bytes} )',
+                __PACKAGE__, $index, $offset, $length, length $$data;
             return;
         }
         my $packed = pack('N2a*', $index, $offset, $$data);
