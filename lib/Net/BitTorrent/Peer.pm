@@ -545,12 +545,13 @@ package Net::BitTorrent::Peer;
     }
 
     sub _send_request {
-        my $s = shift;
-        my ($i, $o, $l) = @_;
-        if (blessed $i) {
-            ($i, $o, $l) = ($i->index, $i->offset, $i->length);
-        }
-        return $s->push_write(build_request($i, $o, $l));
+        my ($s, $b) = @_;
+        return if $s->choked;
+        warn sprintf 'Sending request for %d:%d:%d to %s', $b->index,
+            $b->offset, $b->length, $s->peer_id;
+        return $s->push_write(
+                            build_request($b->index, $b->offset, $b->length));
+    }
     }
 
     # Callback system
