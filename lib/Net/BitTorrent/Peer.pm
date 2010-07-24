@@ -160,6 +160,16 @@ package Net::BitTorrent::Peer;
         $c->($s);
         $s->_send_unchoke;
     };
+    has 'remote_requests' => (is      => 'ro',
+                              isa     => 'ArrayRef[ArrayRef]',
+                              traits  => ['Array'],
+                              handles => {_add_remote_request    => 'push',
+                                          _shift_remote_requests => 'shift',
+                                          _clear_remote_requests => 'clear',
+                                          _count_remote_requests => 'count'
+                              },
+                              default => sub { [] }
+    );
     has 'requests' => (
         is      => 'ro',
         isa     => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
