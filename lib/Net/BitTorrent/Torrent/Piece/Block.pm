@@ -19,7 +19,7 @@
     );
     has 'peer' => (isa       => 'Net::BitTorrent::Peer',
                    is        => 'ro',
-                   writer    => '_assign_peer',
+                   writer    => '_set_peer',
                    predicate => '_has_peer',
                    weak_ref  => 1
     );
