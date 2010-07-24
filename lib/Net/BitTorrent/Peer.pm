@@ -189,7 +189,10 @@ package Net::BitTorrent::Peer;
         my ($c, $s, $b) = @_;
         return if $s->choked;
         $c->($s, $b);    # XXX - also let the parent client know
-        return $s->_send_request($b);
+
+        # XXX - also let the parent client know
+        $s->_send_request($b);
+        $b->_set_peer($s);
     };
     around '_unset_remote_choked' => sub {
         my ($c, $s) = @_;
