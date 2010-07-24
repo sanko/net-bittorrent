@@ -529,6 +529,7 @@ package Net::BitTorrent::Peer;
                     ) if !$s->_has_quest('fill_remote_requests');
                     }
             ],
+            $PIECE       => ['piece', sub {...}],
             $EXTPROTOCOL => [
                 'ext. protocol',
                 sub {
@@ -591,6 +592,12 @@ package Net::BitTorrent::Peer;
         return $s->push_write(
                             build_request($b->index, $b->offset, $b->length));
     }
+
+    sub _send_piece {
+        my ($s, $i, $o, $l, $d) = @_;
+        return if $s->choked;
+        warn sprintf 'Sending block %d:%d:%d to %s', $i, $o, $l, $s->peer_id;
+        return $s->push_write(build_piece($i, $o, $l, $d));
     }
 
     # Callback system
