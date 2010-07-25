@@ -414,7 +414,7 @@ package Net::BitTorrent::Peer;
     has 'peer_id' => (isa       => 'NBTypes::Client::PeerID',
                       is        => 'ro',
                       writer    => '_set_peer_id',
-                      predicate => 'has_peer_id'
+                      predicate => '_has_peer_id'
     );
     after '_set_peer_id' => sub {
         my $s = shift;
