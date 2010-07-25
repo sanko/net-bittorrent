@@ -243,6 +243,7 @@ package Net::BitTorrent::Peer;
         require Scalar::Util;
         Scalar::Util::weaken $s;
         my $hand_shake_writer = sub {
+            return if !defined $s;
             my $packet =
                 build_handshake($s->_build_reserved, $s->torrent->info_hash,
                                 $s->client->peer_id);
@@ -271,6 +272,7 @@ package Net::BitTorrent::Peer;
                         'Bad info_hash (Does not match the torrent we were seeking)'
                     ) if $info_hash->Compare($s->torrent->info_hash) != 0;
                     $s->_set_handshake_step('REG_OKAY');
+                    $s->_check_unique_connection;
                 }
                 elsif ($s->handshake_step eq 'REG_TWO') {
                     warn 'Incoming connection!';
@@ -279,7 +281,8 @@ package Net::BitTorrent::Peer;
                             'Bad info_hash (We are not serving this torrent)')
                         if !$torrent;
                     $s->_set_torrent($torrent);
-                    $hand_shake_writer->();
+                    $s->_check_unique_connection;
+                    $hand_shake_writer->() if defined $torrent;
                 }
                 else {
                     ...;
