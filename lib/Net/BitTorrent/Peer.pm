@@ -524,9 +524,7 @@ package Net::BitTorrent::Peer;
                                     if !$s->_count_remote_requests;
 
                                 # XXX - make sure we have this piece
-                                return
-                                    $s->_send_piece(@$request,
-                                                $s->torrent->read(@$request));
+                                return $s->_send_piece(@$request);
                             }
                         )
                     ) if !$s->_has_quest('fill_remote_requests');
@@ -597,10 +595,11 @@ package Net::BitTorrent::Peer;
     }
 
     sub _send_piece {
-        my ($s, $i, $o, $l, $d) = @_;
+        my ($s, $i, $o, $l) = @_;
         return if $s->choked;
         warn sprintf 'Sending block %d:%d:%d to %s', $i, $o, $l, $s->peer_id;
-        return $s->push_write(build_piece($i, $o, $l, $d));
+        return $s->push_write(
+                      build_piece($i, $o, $l, $s->torrent->read($i, $o, $l)));
     }
 
     # Utility methods
