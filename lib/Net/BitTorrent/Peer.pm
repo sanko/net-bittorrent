@@ -600,6 +600,18 @@ package Net::BitTorrent::Peer;
         return $s->push_write(build_piece($i, $o, $l, $d));
     }
 
+    # Utility methods
+    sub _check_unique_connection {    # XXX - Rename this method
+        my ($s) = @_;
+        return
+            if scalar(grep { $_->_has_peer_id && $_->peer_id eq $s->peer_id }
+                          $s->torrent->peers
+            ) <= 1;
+        $s->disconnect(sprintf '%s already has connection for this torrent',
+                       $s->peer_id);
+        $_[0] = undef;
+    }
+
     # Callback system
     {
         after 'BUILD' => sub {
