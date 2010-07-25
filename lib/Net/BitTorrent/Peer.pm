@@ -41,8 +41,8 @@ package Net::BitTorrent::Peer;
             fh         => sub { shift->handle->{'fh'} },
             host       => sub {
                 my $s = shift;
-                return $_[0] = undef
-                    if !defined $s->fh;    # XXX -error creating socket?
+                return $s->disconnect('Failed to open socket')
+                    if !defined $s->fh;    # XXX - error creating socket?
                 require Socket;
                 my (undef, $addr) = Socket::sockaddr_in(getpeername($s->fh));
                 require Net::BitTorrent::Network::Utility;
@@ -50,8 +50,8 @@ package Net::BitTorrent::Peer;
             },
             port => sub {
                 my $s = shift;
-                return $_[0] = undef
-                    if !defined $s->fh;    # XXX -error creating socket?
+                return $s->disconnect('Failed to open socket')
+                    if !defined $s->fh;    # XXX - error creating socket?
                 require Socket;
                 my ($port, undef) = Socket::sockaddr_in(getpeername($s->fh));
                 $port;
@@ -192,15 +192,16 @@ package Net::BitTorrent::Peer;
     around '_unset_remote_choked' => sub {
         my ($c, $s) = @_;
         return if $s->_has_quest('request_block');
-        my $max_requests = 4;
+        require Scalar::Util;
+        Scalar::Util::weaken $s;
+        my $max_requests = 4;    # XXX - max_requests attribute
         $s->_add_quest(
             'request_block',
             AE::timer(
                 0, 3,
                 sub {
-
-                    # XXX - max_requests attribute
                     for (0 .. $max_requests) {
+                        return if !defined $s;
                         my $piece = $s->torrent->select_piece($s);
                         next if !$piece;
                         my $b = $piece->_first_unassigned_block();
@@ -253,6 +254,7 @@ package Net::BitTorrent::Peer;
             1;
         };
         my $hand_shake_reader = sub {
+            return if !defined $s;
             my (undef, $data) = @_;
             use Data::Dump;
             ddx $s->rbuf;
@@ -273,6 +275,7 @@ package Net::BitTorrent::Peer;
                     ) if $info_hash->Compare($s->torrent->info_hash) != 0;
                     $s->_set_handshake_step('REG_OKAY');
                     $s->_check_unique_connection;
+                    return if !defined $s;
                 }
                 elsif ($s->handshake_step eq 'REG_TWO') {
                     warn 'Incoming connection!';
@@ -282,6 +285,7 @@ package Net::BitTorrent::Peer;
                         if !$torrent;
                     $s->_set_torrent($torrent);
                     $s->_check_unique_connection;
+                    return if !defined $s;
                     $hand_shake_writer->() if defined $torrent;
                 }
                 else {
@@ -296,21 +300,22 @@ package Net::BitTorrent::Peer;
         };
         $s->handle->on_read(
             sub {
-                use Data::Dump;
+                return if !defined $s;
             PACKET: while (my $packet = parse_packet(\$s->handle->rbuf)) {
                     $s->_handle_packet($packet);
                     last PACKET if !$s->rbuf || !$packet;
                 }
-                warn $s->rbuf if $s->rbuf;
             }
         );
         $s->handle->on_eof(
             sub {
+                return if !defined $s;
                 $s->disconnect('Connection closed by remote peer');
             }
         );
         $s->handle->on_error(
             sub {
+                return if !defined $s;
                 my ($h, $fatal, $msg) = @_;
                 warn $msg;
                 return if !$fatal;
@@ -326,6 +331,7 @@ package Net::BitTorrent::Peer;
         #);
         $s->handle->on_error(
             sub {
+                return if !defined $s;
                 my ($h, $fatal, $msg) = @_;
                 return if !$fatal;
                 $s->disconnect($msg);
@@ -333,6 +339,7 @@ package Net::BitTorrent::Peer;
         );
         $s->handle->on_eof(
             sub {
+                return if !defined $s;
                 $s->disconnect('Connection closed by remote peer');
             }
         );
@@ -353,8 +360,6 @@ package Net::BitTorrent::Peer;
 
     sub disconnect {
         my ($s, $reason) = @_;
-        use Data::Dump;
-        ddx $s;
         $s->trigger_peer_disconnect({peer => $s,
                                      message =>
                                          sprintf(
@@ -368,10 +373,7 @@ package Net::BitTorrent::Peer;
                                     }
         );
         if (!$s->handle->destroyed) {
-            if (defined $s->handle->{'fh'}) {
-                shutdown($s->handle->{'fh'}, 2);
-                close($s->handle->{'fh'});
-            }
+            $s->handle->push_shutdown if defined $s->handle->{'fh'};
             $s->handle->destroy;
         }
         $s->client->del_peer($s);
@@ -516,7 +518,7 @@ package Net::BitTorrent::Peer;
                         AE::timer(
                             0, 15,
                             sub {
-                                return if !$s;
+                                return if !defined $s;
 
                # XXX - return if outgoing data queue is larger than block x 8?
                                 my $request = $s->_shift_remote_requests;
@@ -557,15 +559,15 @@ package Net::BitTorrent::Peer;
             ]
         ) if !keys %_packet_dispatch;
         $self->trigger_peer_packet_in(
-                       {peer     => $self,
-                        packet   => $packet,
-                        severity => 'debug',
-                        message  => sprintf 'Recieved %s packet from %s',
-                        $_packet_dispatch{$packet->{'type'}}
-                        ? $_packet_dispatch{$packet->{'type'}}->[0]
-                        : 'unknown packet',
-                        $self->has_peer_id ? $self->peer_id : '[Unknown peer]'
-                       }
+                      {peer     => $self,
+                       packet   => $packet,
+                       severity => 'debug',
+                       message  => sprintf 'Recieved %s packet from %s',
+                       $_packet_dispatch{$packet->{'type'}}
+                       ? $_packet_dispatch{$packet->{'type'}}->[0]
+                       : 'unknown packet',
+                       $self->_has_peer_id ? $self->peer_id : '[Unknown peer]'
+                      }
         );
         warn $_packet_dispatch{$packet->{'type'}}->[0];
         return $_packet_dispatch{$packet->{'type'}}->[1]
@@ -604,6 +606,7 @@ package Net::BitTorrent::Peer;
 
     # Utility methods
     sub _check_unique_connection {    # XXX - Rename this method
+                                      #return;
         my ($s) = @_;
         return
             if scalar(grep { $_->_has_peer_id && $_->peer_id eq $s->peer_id }
@@ -611,7 +614,6 @@ package Net::BitTorrent::Peer;
             ) <= 1;
         $s->disconnect(sprintf '%s already has connection for this torrent',
                        $s->peer_id);
-        $_[0] = undef;
     }
 
     # Callback system
