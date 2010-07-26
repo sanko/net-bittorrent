@@ -690,11 +690,10 @@ package Net::BitTorrent::Peer;
 ###
     sub DEMOLISH {
         my $s = shift;
-        return if $s->handle->destroyed;
-        if (defined $s->handle->{'fh'}) {
-            shutdown($s->handle->{'fh'}, 2);
-            close($s->handle->{'fh'});
-        }
+        return                    if !$s->has_handle;
+        return                    if $s->handle->destroyed;
+        $s->handle->push_shutdown if defined $s->handle->{'fh'};
+        $s->client->del_peer($s);
         $s->handle->destroy;
         1;
     }
