@@ -162,7 +162,7 @@ package Net::BitTorrent;
             }
         }
     }
-    after 'BUILD' => sub { $_[0]->$_() for qw[udp6 tcp6 udp4 tcp4] };
+    after 'BUILDALL' => sub { $_[0]->$_() for qw[tcp6 tcp4 udp4 udp6] };
 
     sub _build_tcp6 {
         my $s = shift;
