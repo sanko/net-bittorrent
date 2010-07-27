@@ -123,13 +123,15 @@ package Net::BitTorrent::Network::Utility;
         return
             if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
         return if !bind $socket, $sockaddr;
+        my $listen = 8;
         if (defined $prepare) {
             my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
-            $prepare->($socket, paddr2ip($packed_ip), $_port);
+            my $return = $prepare->($socket, paddr2ip($packed_ip), $_port);
+            $listen = $return if defined $return;
         }
         require AnyEvent::Util;
         AnyEvent::Util::fh_nonblocking $socket, 1;
-        listen $socket, 8 or return if $proto ne 'udp';
+        listen $socket, $listen or return if $proto ne 'udp';
         return AE::io(
             $socket, 0,
             $proto eq 'udp'
