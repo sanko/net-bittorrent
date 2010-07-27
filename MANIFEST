@@ -1,6 +1,7 @@
 Build.PL
 Changes
 examples/standalone_dht.pl
+examples/swarm_statistics.pl
 lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/Callbacks.pod
 lib/Net/BitTorrent/DHT.pm
