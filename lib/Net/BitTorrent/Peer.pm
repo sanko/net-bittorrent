@@ -460,12 +460,6 @@ package Net::BitTorrent::Peer;
         my $s = shift;
         $s->check_interest;
     };
-
-    sub _set_piece {
-        my ($s, $i) = @_;
-        $s->pieces->Bit_On($i);
-    }
-
     #sub _XXX_set_seed {
     #    $_[0]->set_seed($_[0]->pieces->to_Bin =~ m[0] ? 0 : 1);
     #}
