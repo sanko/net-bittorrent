@@ -470,8 +470,7 @@ package Net::BitTorrent;
                         handles    => {"trigger_$_" => 'execute_method'},
                         lazy_build => 1,
                         builder    => '_build_callback_no_op',
-                        clearer    => "_no_$_",
-                        weak_ref   => 1
+                        clearer    => "_no_$_"
             )
             for qw[
             listen_failure listen_success
