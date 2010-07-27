@@ -120,8 +120,9 @@ package Net::BitTorrent::Network::Utility;
         # - What is the difference between SO_REUSEADDR and SO_REUSEPORT?
         #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
         # SO_REUSEPORT is undefined on Win32 and pre-2.4.15 Linux distros.
-        return
-            if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
+        setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1)
+            if $^O !~ m[Win32]
+                or return;
         return if !bind $socket, $sockaddr;
         my $listen = 8;
         if (defined $prepare) {
