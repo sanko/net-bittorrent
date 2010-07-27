@@ -7,7 +7,6 @@
     sub _select_piece {
         my ($s, $peer) = @_;
         my $bitfield = $peer->_pieces_intersection->to_Bin;
-        warn $bitfield;
         my @index;
         {
             my $i = index $bitfield, '1', 0;
