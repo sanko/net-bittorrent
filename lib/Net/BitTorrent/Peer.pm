@@ -41,7 +41,7 @@ package Net::BitTorrent::Peer;
             fh         => sub { shift->handle->{'fh'} },
             host       => sub {
                 my $s = shift;
-                return $s->disconnect('Failed to open socket')
+                return $_[0] = undef  #$s->disconnect('Failed to open socket')
                     if !defined $s->fh;    # XXX - error creating socket?
                 require Socket;
                 my (undef, $addr) = Socket::sockaddr_in(getpeername($s->fh));
@@ -50,7 +50,7 @@ package Net::BitTorrent::Peer;
             },
             port => sub {
                 my $s = shift;
-                return $s->disconnect('Failed to open socket')
+                return $_[0] = undef  #$s->disconnect('Failed to open socket')
                     if !defined $s->fh;    # XXX - error creating socket?
                 require Socket;
                 my ($port, undef) = Socket::sockaddr_in(getpeername($s->fh));
@@ -117,7 +117,8 @@ package Net::BitTorrent::Peer;
           [qw[ interesting remote_interested
                choked      remote_choked
                support_extensions              local_connection
-               handshake   connecting          queued
+               handshake   connecting
+               queued
                on_parole   seed                optimistic_unchoke
                snubbed     upload_only]
           ]
@@ -200,8 +201,8 @@ package Net::BitTorrent::Peer;
             AE::timer(
                 0, 3,
                 sub {
+                    return if !defined $s;
                     for (0 .. $max_requests) {
-                        return if !defined $s;
                         my $piece = $s->torrent->select_piece($s);
                         next if !$piece;
                         my $b = $piece->_first_unassigned_block();
@@ -226,8 +227,10 @@ package Net::BitTorrent::Peer;
 
     #
     my $infohash_constraint;
-    after 'BUILD' => sub {
+    after 'BUILDALL' => sub {
         my ($s, $a) = @_;
+        require Scalar::Util;
+        Scalar::Util::weaken $s;
         my $rule = $s->client->ip_filter->is_banned($s->handle->{'peername'});
         if (defined $rule) {
             $s->trigger_ip_filter(
@@ -241,8 +244,6 @@ package Net::BitTorrent::Peer;
             );
             return $s->disconnect('Connection terminated by ipfilter');
         }
-        require Scalar::Util;
-        Scalar::Util::weaken $s;
         my $hand_shake_writer = sub {
             return if !defined $s;
             my $packet =
@@ -280,8 +281,10 @@ package Net::BitTorrent::Peer;
                 elsif ($s->handshake_step eq 'REG_TWO') {
                     warn 'Incoming connection!';
                     my $torrent = $a->{'client'}->torrent($info_hash);
-                    return $s->disconnect(
-                            'Bad info_hash (We are not serving this torrent)')
+                    return
+                        $s->disconnect(
+                              sprintf 'Bad info_hash (We are not serving %s)',
+                              $info_hash->to_Hex)
                         if !$torrent;
                     $s->_set_torrent($torrent);
                     $s->_check_unique_connection;
@@ -298,12 +301,30 @@ package Net::BitTorrent::Peer;
             }
             1;
         };
+        $s->handle->on_drain(sub {1});
+        $s->handle->on_timeout(sub { my ($handle) = @_; ... });
+        $s->handle->rtimeout(60 * 5);
+        $s->handle->wtimeout(60 * 10);
+
+        #$s->handle->read_size(1024 * 16);
+        #$s->handle->upload_rate(200);
+        #$s->handle->download_rate(500);
+        #
+        $hand_shake_writer->($s->handle) if $s->local_connection;
+        $s->push_read(chunk => 68, $hand_shake_reader);
+
+        #$hand_shake_reader->($s->handle, substr($s->handle->rbuf, 0, 68) );
+    };
+    after 'BUILD' => sub {
+        my $s = shift;
+        require Scalar::Util;
+        Scalar::Util::weaken $s;
         $s->handle->on_read(
             sub {
                 return if !defined $s;
             PACKET: while (my $packet = parse_packet(\$s->handle->rbuf)) {
                     $s->_handle_packet($packet);
-                    last PACKET if !$s->rbuf || !$packet;
+                    last PACKET if !defined $s || !$s->rbuf || !$packet;
                 }
             }
         );
@@ -343,39 +364,26 @@ package Net::BitTorrent::Peer;
                 $s->disconnect('Connection closed by remote peer');
             }
         );
-        $s->handle->on_drain(sub {1});
-        $s->handle->on_timeout(sub { my ($handle) = @_; ... });
-        $s->handle->rtimeout(60 * 5);
-        $s->handle->wtimeout(60 * 10);
-
-        #$s->handle->read_size(1024 * 16);
-        #$s->handle->upload_rate(200);
-        #$s->handle->download_rate(500);
-        #
-        $hand_shake_writer->($s->handle) if $s->local_connection;
-        $s->push_read(chunk => 68, $hand_shake_reader);
-
-        #$hand_shake_reader->($s->handle, substr($s->handle->rbuf, 0, 68) );
     };
 
     sub disconnect {
         my ($s, $reason) = @_;
-        $s->trigger_peer_disconnect({peer => $s,
-                                     message =>
-                                         sprintf(
-                                              '%s:%d (%s) disconnect: ',
-                                              $s->host    || 'unknown host',
-                                              $s->port    || 0,
-                                              $s->peer_id || '[unknown peer]',
-                                              $reason
-                                         ),
-                                     severity => 'info'
-                                    }
-        );
+        my ($host, $port, $peer_id) = ($s->host, $s->port, $s->peer_id);
         if (!$s->handle->destroyed) {
             $s->handle->push_shutdown if defined $s->handle->{'fh'};
             $s->handle->destroy;
         }
+        $s->trigger_peer_disconnect({peer => $s,
+                                     message =>
+                                         sprintf('%s:%d (%s) disconnect: %s',
+                                                 $host    || 'unknown host',
+                                                 $port    || 0,
+                                                 $peer_id || '[unknown peer]',
+                                                 $reason  || 'Unknown reason'
+                                         ),
+                                     severity => 'info'
+                                    }
+        );
         $s->client->del_peer($s);
         $_[0] = undef;
     }
@@ -453,6 +461,11 @@ package Net::BitTorrent::Peer;
         $s->check_interest;
     };
 
+    sub _set_piece {
+        my ($s, $i) = @_;
+        $s->pieces->Bit_On($i);
+    }
+
     #sub _XXX_set_seed {
     #    $_[0]->set_seed($_[0]->pieces->to_Bin =~ m[0] ? 0 : 1);
     #}
@@ -484,79 +497,108 @@ package Net::BitTorrent::Peer;
 
     #
     my %_packet_dispatch;
+    sub _handle_packet_choke      { shift->_set_remote_choked }
+    sub _handle_packet_unchoke    { shift->_unset_remote_choked }
+    sub _handle_packet_interested { shift->_set_remote_interested }
+
+    sub _handle_packet_have {
+        my ($s, $i) = @_;
+        $s->_set_piece($i);
+        my $seed = $s->torrent->piece_count;
+        my $have = scalar grep {$_} split '', unpack 'b*', $s->pieces;
+        my $perc = (($have / $seed) * 100);
+        $s->trigger_peer_have(
+            {peer     => $s,
+             index    => $i,
+             severity => 'debug',
+             message  => sprintf
+                 '%s:%d (%s) has piece #%d and now claims to have %d out of %d pieces (%3.2f%%) of %s',
+             $s->host, $s->port,
+             $s->_has_peer_id ? $s->peer_id : '[Unknown peer]',
+             $i,
+             $have, $seed, $perc,
+             $s->torrent->info_hash->to_Hex
+            }
+        );
+    }
+
+    sub _handle_packet_bitfield {
+        my ($s, $b) = @_;
+        $s->_set_pieces($b);
+        my $seed = $s->torrent->piece_count;
+        my $have = scalar grep {$_} split '', unpack 'b*', $b;
+        my $perc = (($have / $seed) * 100);
+        $s->trigger_peer_bitfield(
+            {peer     => $s,
+             severity => 'debug',
+             message  => sprintf
+                 '%s:%d (%s) claims to have %d out of %d pieces (%3.2f%%) of %s',
+             $s->host, $s->port,
+             $s->_has_peer_id ? $s->peer_id : '[Unknown peer]',
+             $have, $seed, $perc,
+             $s->torrent->info_hash->to_Hex
+            }
+        );
+    }
+
+    sub _handle_packet_request {
+        my ($s, $r) = @_;
+        my ($i, $o, $l) = @$r;
+
+        # XXX - Choke peer if they have too many requests in queue
+        $s->_add_remote_request($r);
+        require Scalar::Util;
+        Scalar::Util::weaken($s);
+        $s->_add_quest(
+            'fill_remote_requests',
+            AE::timer(
+                0, 15,
+                sub {
+                    return if !defined $s;
+
+               # XXX - return if outgoing data queue is larger than block x 8?
+                    my $request = $s->_shift_remote_requests;
+                    $s->_delete_quest('fill_remote_requests')
+                        if !$s->_count_remote_requests;
+
+                    # XXX - make sure we have this piece
+                    return $s->_send_piece(@$request);
+                }
+            )
+        ) if !$s->_has_quest('fill_remote_requests');
+    }
+    sub _handle_packet_piece {...}
+
+    sub _handle_packet_ext_protocol {
+        my ($s, $pid, $p) = @_;
+        if ($pid == 0) {    # Setup/handshake
+            if (defined $p->{'p'} && $s->client->has_dht) {
+                $s->client->dht->ipv4_add_node(
+                            [join('.', unpack 'C*', $p->{'ipv4'}), $p->{'p'}])
+                    if defined $p->{'ipv4'};
+                $s->client->dht->ipv6_add_node(
+                    [   [join ':', (unpack 'H*', $p->{'ipv6'}) =~ m[(....)]g],
+                        $p->{'p'}
+                    ]
+                ) if defined $p->{'ipv6'};
+            }
+        }
+        return 1;
+    }
 
     sub _handle_packet {
         my ($self, $packet) = @_;
         return if !$self->has_torrent;
         return if !$self->has_handle;
-        use Data::Dump;
-        ddx $packet;
         %_packet_dispatch = (
-            $CHOKE   => ['choke',   sub { shift->_set_remote_choked }],
-            $UNCHOKE => ['unchoke', sub { shift->_unset_remote_choked }],
-            $INTERESTED =>
-                ['interested', sub { shift->_set_remote_interested }],
-            $BITFIELD => [
-                'bitfield',
-                sub {
-                    my ($s, $b) = @_;
-                    $s->_set_pieces($b);
-                    }
-            ],
-            $REQUEST => [
-                'request',
-                sub {
-                    my ($s, $r) = @_;
-                    my ($i, $o, $l) = @$r;
-
-                    # XXX - Choke peer if they have too many requests in queue
-                    $s->_add_remote_request($r);
-                    require Scalar::Util;
-                    Scalar::Util::weaken($s);
-                    $s->_add_quest(
-                        'fill_remote_requests',
-                        AE::timer(
-                            0, 15,
-                            sub {
-                                return if !defined $s;
-
-               # XXX - return if outgoing data queue is larger than block x 8?
-                                my $request = $s->_shift_remote_requests;
-                                $s->_delete_quest('fill_remote_requests')
-                                    if !$s->_count_remote_requests;
-
-                                # XXX - make sure we have this piece
-                                return $s->_send_piece(@$request);
-                            }
-                        )
-                    ) if !$s->_has_quest('fill_remote_requests');
-                    }
-            ],
-            $PIECE       => ['piece', sub {...}],
-            $EXTPROTOCOL => [
-                'ext. protocol',
-                sub {
-                    my ($s, $pid, $p) = @_;
-                    if ($pid == 0) {    # Setup/handshake
-                        if (defined $packet->{'p'} && $self->client->has_dht)
-                        {   $self->client->dht->ipv4_add_node(
-                                [   join('.', unpack 'C*', $packet->{'ipv4'}),
-                                    $packet->{'p'}
-                                ]
-                            ) if defined $packet->{'ipv4'};
-                            $self->client->dht->ipv6_add_node(
-                                      [[join ':',
-                                        (unpack 'H*', $packet->{'ipv6'})
-                                            =~ m[(....)]g
-                                       ],
-                                       $packet->{'p'}
-                                      ]
-                            ) if defined $packet->{'ipv6'};
-                        }
-                    }
-                    return 1;
-                    }
-            ]
+              $CHOKE       => ['choke',         \&_handle_packet_choke],
+              $UNCHOKE     => ['unchoke',       \&_handle_packet_unchoke],
+              $INTERESTED  => ['interested',    \&_handle_packet_interested],
+              $HAVE        => ['have',          \&_handle_packet_have],
+              $BITFIELD    => ['bitfield',      \&_handle_packet_bitfield],
+              $REQUEST     => ['request',       \&_handle_packet_request],
+              $PIECE       => ['piece',         \&_handle_packet_piece],
+              $EXTPROTOCOL => ['ext. protocol', \&_handle_packet_ext_protocol]
         ) if !keys %_packet_dispatch;
         $self->trigger_peer_packet_in(
                       {peer     => $self,
@@ -569,11 +611,11 @@ package Net::BitTorrent::Peer;
                        $self->_has_peer_id ? $self->peer_id : '[Unknown peer]'
                       }
         );
-        warn $_packet_dispatch{$packet->{'type'}}->[0];
         return $_packet_dispatch{$packet->{'type'}}->[1]
             ->($self, $packet->{'payload'})
             if defined $_packet_dispatch{$packet->{'type'}};
-        ...;
+        use Data::Dump;
+        ddx $packet;
     }
 
     # Outgoing packets
