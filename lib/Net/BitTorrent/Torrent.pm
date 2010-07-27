@@ -2,17 +2,43 @@ package Net::BitTorrent::Torrent;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
+    extends 'Net::BitTorrent::Protocol::BEP03::Metadata';
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
+    use Fcntl ':flock';
     use 5.012;
+    sub BUILD {1}
+    has 'path' => (
+        is        => 'ro',
+        isa       => 'Str',
+        required  => 1,
+        predicate => '_has_path',
+        trigger   => sub {
+            my ($self, $new_value, $old_value) = @_;
+            return if !-f $new_value;
+            if (@_ == 2) {
+                open(my ($FH), '<', $new_value)
+                    || return !($_[0] = undef);    # exterminate! exterminate!
+                flock $FH, LOCK_SH;
+                sysread($FH, my ($METADATA), -s $FH) == -s $FH
+                    || return !($_[0] = undef);    # destroy!
+                $self->_set_raw_data($METADATA);
+                return close $FH;
+            }
 
-    #sub BUILD {1}
+            # XXX - set the current value back to the old value
+        }
+    );
+    after 'BUILDALL' => sub {
+        return if $_[0]->_has_raw_data;
+        $_[0] = undef;
+    };
     has 'client' => (
         isa       => 'Maybe[Net::BitTorrent]',
         is        => 'rw',
         weak_ref  => 1,
-        predicate => 'has_client',
+        predicate => '_has_client',
         handles   => {
             dht   => 'dht',
             peers => sub {
@@ -37,7 +63,7 @@ package Net::BitTorrent::Torrent;
                      handles => {add_quest    => 'set',
                                  get_quest    => 'get',
                                  has_quest    => 'defined',
-                                 delete_quest => 'delete',
+                                 _del_quest   => 'delete',
                                  clear_quests => 'clear'
                      },
                      default => sub { {} }
@@ -120,7 +146,7 @@ package Net::BitTorrent::Torrent;
                 0, 3,
                 sub {
                     return if !$self;
-                    return if !$self->has_client;
+                    return if !$self->_has_client;
                     return if scalar($self->peers) >= $self->max_peers;
                     my ($source)
                         = [[$self->get_quest('dht_get_peers'),    'dht'],
@@ -145,7 +171,7 @@ package Net::BitTorrent::Torrent;
                 0, 10,
                 sub {
                     return if !$self;
-                    return if !$self->has_client;
+                    return if !$self->_has_client;
                     return if !scalar $self->peers;
                     my @unchoked = grep { !$_->choked } $self->peers;
                     my @choked = sort {
@@ -256,7 +282,6 @@ package Net::BitTorrent::Torrent;
                                is  => 'rw',
                                default => '8'
     );
-    with 'Net::BitTorrent::Protocol::BEP03::Metadata';
     no Moose;
     __PACKAGE__->meta->make_immutable
 }

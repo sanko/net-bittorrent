@@ -1,32 +1,26 @@
 package Net::BitTorrent::Protocol::BEP03::Metadata;
 {
-    use Moose::Role;
+    use Moose;
     use Moose::Util::TypeConstraints;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
     use Net::BitTorrent::Types qw[:bencode :torrent];
     use Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use Net::BitTorrent::Storage;
-    use Fcntl ':flock';
     use File::Spec::Functions qw[rel2abs];
     use AnyEvent;
 
     #
     has 'metadata' => (
-        isa      => 'NBTypes::Bdecode',
-        is       => 'ro',
-        writer   => '_metadata',
-        init_arg => undef,                # cannot set this with new()
-        coerce   => 1,
-        trigger  => sub {
+        isa       => 'NBTypes::Bdecode',
+        is        => 'ro',
+        writer    => '_set_metadata',
+        predicate => '_has_metadata',
+        init_arg  => undef,                # cannot set this with new()
+        coerce    => 1,
+        trigger   => sub {
             my ($self, $new_value, $old_value) = @_;
-            if (@_ == 2) {                # parse files and trackers
-                require Net::BitTorrent::Protocol::BEP12::MultiTracker;
-                $self->_tracker(
-                          Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
-                                                              torrent => $self
-                          )
-                );
+            if (@_ == 2) {                 # parse files and trackers
                 $self->tracker->add_tier([$new_value->{'announce'}])
                     if $new_value->{'announce'};
                 if (defined $new_value->{'announce-list'}) {
@@ -37,11 +31,11 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 #
                 my @files;
                 if (defined $new_value->{'info'}{'files'})
-                {    # Multi-file .torrent
+                {                          # Multi-file .torrent
                     $self->storage->_set_files($new_value->{'info'}{'files'});
                     $self->storage->_set_root($new_value->{'info'}{'name'});
                 }
-                else {    # single file torrent; use the name
+                else {                     # single file torrent; use the name
                     $self->storage->_set_files(
                               [{path   => [$new_value->{'info'}{'name'}],
                                 length => $new_value->{'info'}{'length'}
@@ -60,6 +54,10 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                 return 1;
             }
             warn 'Someone changed the metadata!';
+            my $info_hash = $self->info_hash;
+            $self->_reset_info_hash;
+            warn sprintf '%s is now %s', $info_hash->to_Hex,
+                $self->info_hash->to_Hex;
         }
     );
     has 'raw_data' => (
@@ -67,30 +65,12 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         lazy_build => 1,
         is         => 'ro',
         init_arg   => undef,                # cannot set this with new()
-        writer     => '_raw_data',
+        predicate  => '_has_raw_data',
+        writer     => '_set_raw_data',
         coerce     => 1,
         trigger    => sub {
             my ($self, $new_value, $old_value) = @_;
-            $self->_metadata($new_value) if @_ == 2;
-
-            # XXX - set the current value back to the old value
-        }
-    );
-    has 'path' => (
-        is       => 'ro',
-        isa      => 'Str',
-        required => 1,
-        trigger  => sub {
-            my ($self, $new_value, $old_value) = @_;
-            if (@_ == 2) {
-                open(my ($FH), '<', $new_value)
-                    || return !($_[0] = undef);    # exterminate! exterminate!
-                flock $FH, LOCK_SH;
-                sysread($FH, my ($METADATA), -s $FH) == -s $FH
-                    || return !($_[0] = undef);    # destroy!
-                $self->_raw_data($METADATA);
-                return close $FH;
-            }
+            $self->_set_metadata($new_value) if @_ == 2;
 
             # XXX - set the current value back to the old value
         }
@@ -104,7 +84,8 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         init_arg => undef,                        # cannot set this with new()
         coerce   => 1,                            # Both ways?
         lazy_build => 1,
-        builder    => '_build_info_hash'   # returns Torrent::Infohash::Packed
+        builder    => '_build_info_hash',  # returns Torrent::Infohash::Packed
+        clearer    => '_reset_info_hash'
     );
 
     sub _build_info_hash {
@@ -113,7 +94,8 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         $bencode_constraint //=
             Moose::Util::TypeConstraints::find_type_constraint(
                                                           'NBTypes::Bencode');
-        return Digest::SHA::sha1(
+        return if !$self->_has_metadata;
+        Digest::SHA::sha1(
                       $bencode_constraint->coerce($self->metadata->{'info'}));
     }
     has 'piece_count' => (is         => 'ro',
@@ -123,13 +105,16 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                           init_arg   => undef
     );
     sub _build_piece_count { return length(shift->pieces) / 20 }
-    {
-        has 'tracker' => (
-                      is  => 'ro',
+    has 'tracker' => (is  => 'ro',
                       isa => 'Net::BitTorrent::Protocol::BEP12::MultiTracker',
-                      writer    => '_tracker',
-                      predicate => 'has_tracker'
-        );
+                      predicate => 'has_tracker',
+                      builder   => '_build_tracker'
+    );
+
+    sub _build_tracker {
+        require Net::BitTorrent::Protocol::BEP12::MultiTracker;
+        Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
+                                                           metadata => shift);
     }
 
     # Quick accessors
