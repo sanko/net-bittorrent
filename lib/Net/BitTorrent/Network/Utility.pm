@@ -119,14 +119,10 @@ package Net::BitTorrent::Network::Utility;
 
         # - What is the difference between SO_REUSEADDR and SO_REUSEPORT?
         #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
-        # - setsockopt - what are the options for ActivePerl under Windows NT?
-        #    [http://perlmonks.org/?node_id=63280]
-        #      setsockopt($_tcp, SOL_SOCKET, SO_REUSEADDR, pack(q[l], 1))
-        #         or return;
-        # SO_REUSEPORT is undefined on Win32... Boo...
-        #return
-        #    if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
-        bind $socket, $sockaddr or return;
+        # SO_REUSEPORT is undefined on Win32 and pre-2.4.15 Linux distros.
+        return
+            if !setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1);
+        return if !bind $socket, $sockaddr;
         if (defined $prepare) {
             my ($_port, $packed_ip) = unpack_sockaddr getsockname $socket;
             $prepare->($socket, paddr2ip($packed_ip), $_port);
