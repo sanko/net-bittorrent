@@ -477,6 +477,8 @@ package Net::BitTorrent;
             peer_id
             peer_disconnect
             peer_packet_in
+            peer_bitfield
+            peer_have
         ];
     }
     else {    # Callback System II
