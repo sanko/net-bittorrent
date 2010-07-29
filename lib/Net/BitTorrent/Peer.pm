@@ -2,12 +2,275 @@ package Net::BitTorrent::Peer;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
-    use 5.010;
+    use 5.012;
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
     use Net::BitTorrent::Protocol::BEP03::Packets
         qw[parse_packet :build :types];
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+
+    #
+    has 'torrent' => (is          => 'ro',
+                      isa         => 'Net::BitTorrent::Torrent',
+                      predicate   => '_has_torrent',
+                      writer      => '_set_torrent',
+                      weak_ref    => 1,
+                      trigger     => \&_trigger_torrent,
+                      initializer => '_initializer_torrent'
+    );
+
+    sub _trigger_torrent {
+        my ($s, $n, $o) = @_;
+        confess 'torrent attribute is alreay set' if defined $o;
+        $s->_has_pieces    # Depending on whether the pieces attribute is set,
+            ? $s->pieces->Resize($s->torrent->piece_count)    # resize
+            : $s->pieces;                                     # or create it
+    }
+
+    sub _initializer_torrent {
+        warn 'Must be an outgoing connection!';
+    }
+    has 'pieces' => (
+        is         => 'ro',
+        isa        => 'NBTypes::Torrent::Bitfield',
+        lazy_build => 1,
+        coerce     => 1,
+        init_arg   => undef,
+        predicate  => '_has_pieces',
+        writer     => '_set_pieces',
+        clearer    => '_clear_pieces',
+        trigger    => \&_trigger_pieces,
+        handles    => {
+            _set_piece => sub {
+                my $s = shift;
+                $s->pieces->Bit_On($s->pieces->Size - 1 - shift);
+            },
+            _has_piece => sub {
+                my $s = shift;
+                $s->pieces->bit_test($s->pieces->Size - 1 - shift);
+                }
+        }
+    );
+
+    sub _build_pieces {
+        $_[0]->_has_torrent ? '0' x $_[0]->torrent->piece_count : ();
+    }
+
+    sub _trigger_pieces {
+        my ($s, $n, $o) = @_;
+        confess 'pieces attribute is alreay set' if defined $o;
+        return if !$s->_has_torrent;
+        $s->pieces->Resize($s->torrent->piece_count);
+    }
+
+    #
+    no Moose;
+    __PACKAGE__->meta->make_immutable;
+}
+1;
+
+=pod
+
+=head1 NAME
+
+Net::BitTorrent::Peer - Base class for peer connections
+
+=head1 Description
+
+As the base class for all outgoing and incoming peer connections, this class
+is all but useless on its own. Don't try C<Net::BitTorrent::Peer->new( ... )>;
+instead, create new peer connections with the correct subclass:
+
+=over
+
+=item Net::BitTorrent::Protocol::BEP03::Peer::Incoming
+
+Incoming TCP-based peer.
+
+=item Net::BitTorrent::Protocol::BEP03::Peer::Outgoing
+
+Outgoing TCP-based peer.
+
+=item Net::BitTorrent::Protocol::uTP::Peer::Outgoing
+
+Outgoing (UDP) uTP-based peer.
+
+=item Net::BitTorrent::Protocol::uTP::Peer::Incoming
+
+Incoming (UDP) uTP-based peer.
+
+=back
+
+=head1 Public Status Methods
+
+These methods (or accessors) do not initiate a particular action but return
+current state of the peer.
+
+=head2 Net::BitTorrent::Peer->torrent( )
+
+This is a L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object. Note
+that incoming connections may not have this value set until after the
+<handshake|/"Net::BitTorrent::Peer->handshake( )"> is complete.
+
+=head2 Net::BitTorrent::Peer->pieces( )
+
+This is a bitfield with one bit per piece in the torrent. Each bit tells you
+if the peer has that piece (if it's set to 1) or if the peer is missing that
+piece (set to 0). Like all bitfields, this returns a
+L<Bit::Vector|Bit::Vector> object.
+
+=begin :TODO
+
+=head2 Net::BitTorrent::Peer->interesting( )
+
+We are interested in pieces from this peer.
+
+=head2 Net::BitTorrent::Peer->choked( )
+
+We have choked this peer.
+
+=head2 Net::BitTorrent::Peer->remote_interested( )
+
+The peer is interested in us.
+
+=head2 Net::BitTorrent::Peer->remote_choked( )
+
+The peer has choked us.
+
+=head2 Net::BitTorrent::Peer->support_extensions( )
+
+Means that this peer supports the extension protocol.
+
+=head2 Net::BitTorrent::Peer->local_connection( )
+
+The connection was initiated by us, the peer has a listen port open, and that
+port is the same as in the address of this peer. If this flag is not set, this
+peer connection was opened by this peer connecting to us.
+
+=head2 Net::BitTorrent::Peer->handshake( )
+
+The connection is opened, and waiting for the handshake. Until the handshake
+is done, the peer cannot be identified.
+
+=head2 Net::BitTorrent::Peer->connecting( )
+
+The connection is in a half-open state (i.e. it is being connected).
+
+=head2 Net::BitTorrent::Peer->queued( )
+
+The connection is currently queued for a connection attempt. This may happen
+if there is a limit set on the number of half-open TCP connections.
+
+=head2 Net::BitTorrent::Peer->on_parole( )
+
+The peer has participated in a piece that failed the hash check, and is now
+"on parole", which means we're only requesting whole pieces from this peer
+until it either fails that piece or proves that it doesn't send bad data.
+
+=head2 Net::BitTorrent::Peer->seed( )
+
+This peer is a seed (it has all the pieces).
+
+=head2 Net::BitTorrent::Peer->optimistic_unchoke( )
+
+This peer is subject to an optimistic unchoke. It has been unchoked for a
+while to see if it might unchoke us in return an earn an upload/unchoke slot.
+If it doesn't within some period of time, it will be choked and another peer
+will be optimistically unchoked.
+
+=head2 Net::BitTorrent::Peer->snubbed( )
+
+This peer has recently failed to send a block within the request timeout from
+when the request was sent. We're currently picking one block at a time from
+this peer.
+
+=head2 Net::BitTorrent::Peer->upload_only( )
+
+This peer has either explicitly (with an extension) or implicitly (by becoming
+a seed) told us that it will not downloading anything more, regardless of
+which pieces we have.
+
+=head2 Net::BitTorrent::Peer->host( )
+
+The IP-address to this peer.
+
+=head2 Net::BitTorrent::Peer->up_speed( )
+
+Contains the current upload speed we have to this peer (including any protocol
+messages). This figure is updated approximately once every second.
+
+=head2 Net::BitTorrent::Peer->down_speed( )
+
+Contains the current download speed we have from this peer (including any
+protocol messages). This figure is updated approximately once every second.
+
+=head2 Net::BitTorrent::Peer->payload_up_speed( )
+
+Contains the current upload speed we have to this peer (includes B<only>
+payload data). This figure is updated approximately once every second.
+
+=head2 Net::BitTorrent::Peer->payload_down_speed( )
+
+Contains the current upload speed we have to this peer (includes B<only>
+payload data). This figure is updated approximately once every second.
+
+=head2 Net::BitTorrent::Peer->total_download( )
+
+The total number of bytes downloaded from this peer. This number does not
+include the protocol chatter, but only the payload data.
+
+=head2 Net::BitTorrent::Peer->total_upload( )
+
+The total number of bytes uploaded to this peer. This number does not include
+the protocol chatter, but only the payload data.
+
+=head2 Net::BitTorrent::Peer->peer_id( )
+
+The peer's id as used in the BitTorrent protocol. This id can be used to
+extract 'fingerprints' from the peer. Sometimes it can tell you which client
+the peer is using.
+
+=head2 Net::BitTorrent::Peer->upload_limit( )
+
+The number of bytes we are allowed to send to this peer every second. It may
+be C<-1> if there's no local limit on the peer. The global limit and the
+torrent limit is always enforced anyway.
+
+=head2 Net::BitTorrent::Peer->download_limit( )
+
+The number of bytes per second this peer is allowed to receive. C<-1> means
+it's unlimited.
+
+=head2 Net::BitTorrent::Peer->last_request( )
+
+The time since we last sent a request to this peer.
+
+=head2 Net::BitTorrent::Peer->last_active( )
+
+The time since any transfer occurred with this peer.
+
+=end :TODO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=cut
+
+=pod
+
+=begin old
 
     #
     sub BUILD {1}
@@ -441,21 +704,15 @@ package Net::BitTorrent::Peer;
                             }
         );
     };
-    has 'pieces' => (
-        is         => 'ro',
-        isa        => 'NBTypes::Torrent::Bitfield',
-        lazy_build => 1,
-        coerce     => 1,
-        init_arg   => undef,
-        writer     => '_set_pieces',
-        clearer    => '_clear_pieces',
-        handles    => {_set_piece => 'Bit_On'},
-        trigger    => sub {
-            my ($s, $n, $o) = @_;
-            $s->pieces->Resize($s->torrent->have->Size);
-        }
-    );
-    sub _build_pieces { '0' x $_[0]->torrent->piece_count }
+
+    #after '_set_pieces' => sub {
+    #    my $s = shift;
+    #    warn unpack 'b*', shift;
+    #    warn $s->pieces->to_Bin;
+    #    #$s->pieces->Reverse($s->pieces);
+    #    #warn $s->pieces->to_Bin;
+    #    die;
+    #};
     after qr[^_set_pieces?] => sub {
         my $s = shift;
         $s->check_interest;
@@ -497,7 +754,11 @@ package Net::BitTorrent::Peer;
 
     sub _handle_packet_have {
         my ($s, $i) = @_;
+        warn $i;
+        warn $s->pieces->bit_test($i)? 'already have! :(': 'yay';
+        my $x = $s->pieces->to_Bin;
         $s->_set_piece($i);
+        warn $s->pieces->bit_test($i)? 'now have! :D': 'aw, man... :( Broken!';
         my $seed = $s->torrent->piece_count;
         my $have = scalar grep {$_} split '', unpack 'b*', $s->pieces;
         my $perc = (($have / $seed) * 100);
@@ -514,6 +775,9 @@ package Net::BitTorrent::Peer;
              $s->torrent->info_hash->to_Hex
             }
         );
+
+        die if $x eq $s->pieces->to_Bin;
+
     }
 
     sub _handle_packet_bitfield {
@@ -733,160 +997,14 @@ package Net::BitTorrent::Peer;
         $s->handle->destroy;
         1;
     }
-}
-1;
+
+=end old
+
+=cut
 
 =pod
 
-
-
 =head1 Activity Methods
-
-
-=head1 Status Methods
-
-These methods (or accessors) do not initiate a particular action but return
-current state of the peer.
-
-=head2 Net::BitTorrent::Peer->interesting( )
-
-We are interested in pieces from this peer.
-
-=head2 Net::BitTorrent::Peer->choked( )
-
-We have choked this peer.
-
-=head2 Net::BitTorrent::Peer->remote_interested( )
-
-The peer is interested in us.
-
-=head2 Net::BitTorrent::Peer->remote_choked( )
-
-The peer has choked us.
-
-=head2 Net::BitTorrent::Peer->support_extensions( )
-
-Means that this peer supports the extension protocol.
-
-=head2 Net::BitTorrent::Peer->local_connection( )
-
-The connection was initiated by us, the peer has a listen port open, and that
-port is the same as in the address of this peer. If this flag is not set, this
-peer connection was opened by this peer connecting to us.
-
-=head2 Net::BitTorrent::Peer->handshake( )
-
-The connection is opened, and waiting for the handshake. Until the handshake
-is done, the peer cannot be identified.
-
-=head2 Net::BitTorrent::Peer->connecting( )
-
-The connection is in a half-open state (i.e. it is being connected).
-
-=head2 Net::BitTorrent::Peer->queued( )
-
-The connection is currently queued for a connection attempt. This may happen
-if there is a limit set on the number of half-open TCP connections.
-
-=head2 Net::BitTorrent::Peer->on_parole( )
-
-The peer has participated in a piece that failed the hash check, and is now
-"on parole", which means we're only requesting whole pieces from this peer
-until it either fails that piece or proves that it doesn't send bad data.
-
-=head2 Net::BitTorrent::Peer->seed( )
-
-This peer is a seed (it has all the pieces).
-
-=head2 Net::BitTorrent::Peer->optimistic_unchoke( )
-
-This peer is subject to an optimistic unchoke. It has been unchoked for a
-while to see if it might unchoke us in return an earn an upload/unchoke slot.
-If it doesn't within some period of time, it will be choked and another peer
-will be optimistically unchoked.
-
-=head2 Net::BitTorrent::Peer->snubbed( )
-
-This peer has recently failed to send a block within the request timeout from
-when the request was sent. We're currently picking one block at a time from
-this peer.
-
-=head2 Net::BitTorrent::Peer->upload_only( )
-
-This peer has either explicitly (with an extension) or implicitly (by becoming
-a seed) told us that it will not downloading anything more, regardless of
-which pieces we have.
-
-=head2 Net::BitTorrent::Peer->host( )
-
-The IP-address to this peer.
-
-=head2 Net::BitTorrent::Peer->up_speed( )
-
-Contains the current upload speed we have to this peer (including any protocol
-messages). This figure is updated approximately once every second.
-
-=head2 Net::BitTorrent::Peer->down_speed( )
-
-Contains the current download speed we have from this peer (including any
-protocol messages). This figure is updated approximately once every second.
-
-=head2 Net::BitTorrent::Peer->payload_up_speed( )
-
-Contains the current upload speed we have to this peer (includes B<only>
-payload data). This figure is updated approximately once every second.
-
-=head2 Net::BitTorrent::Peer->payload_down_speed( )
-
-Contains the current upload speed we have to this peer (includes B<only>
-payload data). This figure is updated approximately once every second.
-
-=head2 Net::BitTorrent::Peer->total_download( )
-
-The total number of bytes downloaded from this peer. This number does not
-include the protocol chatter, but only the payload data.
-
-=head2 Net::BitTorrent::Peer->total_upload( )
-
-The total number of bytes uploaded to this peer. This number does not include
-the protocol chatter, but only the payload data.
-
-=head2 Net::BitTorrent::Peer->peer_id( )
-
-The peer's id as used in the BitTorrent protocol. This id can be used to
-extract 'fingerprints' from the peer. Sometimes it can tell you which client
-the peer is using.
-
-=head2 Net::BitTorrent::Peer->pieces( )
-
-This is a bitfield with one bit per piece in the torrent. Each bit tells you
-if the peer has that piece (if it's set to 1) or if the peer is missing that
-piece (set to 0). Like all bitfields, this returns a
-L<Bit::Vector|Bit::Vector> object.
-
-=head2 Net::BitTorrent::Peer->upload_limit( )
-
-The number of bytes we are allowed to send to this peer every second. It may
-be C<-1> if there's no local limit on the peer. The global limit and the
-torrent limit is always enforced anyway.
-
-=head2 Net::BitTorrent::Peer->download_limit( )
-
-The number of bytes per second this peer is allowed to receive. C<-1> means
-it's unlimited.
-
-=head2 Net::BitTorrent::Peer->last_request( )
-
-The time since we last sent a request to this peer.
-
-=head2 Net::BitTorrent::Peer->last_active( )
-
-The time since any transfer occurred with this peer.
-
-
-
-
-
 
 
 
