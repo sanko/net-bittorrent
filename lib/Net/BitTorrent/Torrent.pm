@@ -9,31 +9,23 @@ package Net::BitTorrent::Torrent;
     use Fcntl ':flock';
     use 5.012;
     sub BUILD {1}
-    has 'path' => (
-        is        => 'ro',
-        isa       => 'Str',
-        required  => 1,
-        predicate => '_has_path',
-        trigger   => sub {
-            my ($self, $new_value, $old_value) = @_;
-            return if !-f $new_value;
-            if (@_ == 2) {
-                open(my ($FH), '<', $new_value)
-                    || return !($_[0] = undef);    # exterminate! exterminate!
-                flock $FH, LOCK_SH;
-                sysread($FH, my ($METADATA), -s $FH) == -s $FH
-                    || return !($_[0] = undef);    # destroy!
-                $self->_set_raw_data($METADATA);
-                return close $FH;
-            }
-
-            # XXX - set the current value back to the old value
-        }
+    has 'path' => (is          => 'ro',
+                   isa         => 'Str',
+                   required    => 1,
+                   predicate   => '_has_path',
+                   initializer => '_initializer_path'
     );
-    after 'BUILDALL' => sub {
-        return if $_[0]->_has_raw_data;
-        $_[0] = undef;
-    };
+
+    sub _initializer_path {
+        my ($s, $p) = @_;
+        open(my ($FH), '<', $p)
+            || return !($_[0] = undef);    # exterminate! exterminate!
+        flock $FH, LOCK_SH;
+        sysread($FH, my ($METADATA), -s $FH) == -s $FH
+            || return !($_[0] = undef);    # destroy!
+        $s->_set_raw_data($METADATA);
+        return close $FH;
+    }
     has 'client' => (
         isa       => 'Maybe[Net::BitTorrent]',
         is        => 'rw',
