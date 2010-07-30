@@ -64,6 +64,13 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
         ];
     }
 
+    sub _008_check_attribute_handlers : Test( 1 ) {
+        my $s = shift;
+        can_ok $s->{'peer'}, $_ for sort qw[
+            seed
+        ];
+    }
+
     # Advanced foolishness
     sub _900_set_pieces : Test( 2 ) {
         my $s = shift;
