@@ -12,7 +12,7 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     sub new_args { my $s = shift; () }
 
     # Basic meta/attribute tests
-    sub _001_check_attributes_reader : Test( 15 ) {
+    sub _0010_check_attributes_reader : Test( 15 ) {
         my $s = shift;
         has_attribute_ok $s->{'peer'}, $_ for sort qw[
             torrent
@@ -23,7 +23,7 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
         ];
     }
 
-    sub _002_check_attributes_writer : Test( 27 ) {
+    sub _0020_check_attributes_writer : Test( 27 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             _set_torrent
@@ -38,14 +38,14 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
         ];
     }
 
-    sub _003_check_attributes_clearer : Test( 1 ) {
+    sub _0030_check_attributes_clearer : Test( 1 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             _clear_pieces
         ];
     }
 
-    sub _004_check_attributes_predicate : Test( 2 ) {
+    sub _0040_check_attributes_predicate : Test( 2 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             _has_torrent
@@ -53,14 +53,14 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
         ];
     }
 
-    sub _005_check_attribute_builders : Test( 1 ) {
+    sub _0050_check_attribute_builders : Test( 1 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             _build_pieces
         ];
     }
 
-    sub _006_check_attribute_triggers : Test( 2 ) {
+    sub _0060_check_attribute_triggers : Test( 2 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             _trigger_torrent
@@ -68,14 +68,14 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
         ];
     }
 
-    sub _007_check_attribute_initializers : Test( 1 ) {
+    sub _0070_check_attribute_initializers : Test( 1 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             _initializer_torrent
         ];
     }
 
-    sub _008_check_attribute_handlers : Test( 1 ) {
+    sub _0080_check_attribute_handlers : Test( 1 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             seed
@@ -83,17 +83,18 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     # Advanced foolishness
-    sub _900_set_pieces : Test( 2 ) {
+    sub _9000_set_pieces : Test( 2 ) {
         my $s = shift;
         $s->{'peer'}->_set_pieces(pack 'b*', '000100000011');
         isa_ok $s->{'peer'}->pieces, 'Bit::Vector', 'coerced packed bitfield';
-        is $s->{'peer'}->pieces->to_Bin, '0001000000110000',
+        is $s->{'peer'}->pieces->to_Enum, '3,10,11',
             '...and has the correct value';
     }
 
-    sub _901_has_piece : Test( 16 ) { # tests that the BV is (fake) zero-based
+    sub _9010_has_piece : Test( 16 )
+    {    # tests that the BV is (fake) zero-based
         my $s = shift;
-        diag '...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
+        diag '...->pieces->to_Enum == ' . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
             for 3, 10, 11;
         ok !$s->{'peer'}->_has_piece($_), sprintf '!...->_has_piece( %3s )',
@@ -101,34 +102,35 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             for 0 .. 2, 4 .. 9, 12 .. 15;
     }
 
-    sub _902_set_piece : Test( 1 ) {
+    sub _9020_set_piece : Test( 1 ) {
         my $s = shift;
         $s->{'peer'}->_set_piece($_) for 0, 2, 8, 15;
-        is $s->{'peer'}->pieces->to_Bin, '1011000010110001',
+        is $s->{'peer'}->pieces->to_Enum, '0,2,3,8,10,11,15',
             'updated ...->pieces with ...->_set_piece( ... )';
     }
 
-    sub _903_has_piece : Test( 4 ) {  # tests that the BV is (fake) zero-based
+    sub _9030_has_piece : Test( 4 ) { # tests that the BV is (fake) zero-based
         my $s = shift;
-        diag 'updated ...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
+        diag 'updated ...->pieces->to_Enum == '
+            . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
             for 0, 2, 8, 15;
     }
 
-    sub _904_set_pieces : Test( 3 ) {
+    sub _9040_set_pieces : Test( 3 ) {
         my $s = shift;
         throws_ok sub { $s->{'peer'}->_set_pieces('011001') },
-            qr[pieces attribute is alreay set],
+            qr[pieces attribute is already set],
             'setting the pieces attribute twice throws exception';
         isa_ok $s->{'peer'}->pieces, 'Bit::Vector',
             'coerced unpacked bitfield';
-        is $s->{'peer'}->pieces->to_Bin, '011001',
+        is $s->{'peer'}->pieces->to_Enum, '1,2,5',
             '...and has the correct value';
     }
 
-    sub _905_has_piece : Test( 6 ) {  # tests that the BV is (fake) zero-based
+    sub _9050_has_piece : Test( 6 ) { # tests that the BV is (fake) zero-based
         my $s = shift;
-        diag '...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
+        diag '...->pieces->to_Enum == ' . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
             for 1, 2, 5;
         ok !$s->{'peer'}->_has_piece($_), sprintf '!...->_has_piece( %3s )',
@@ -136,21 +138,22 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             for 0, 3, 4;
     }
 
-    sub _906_set_piece : Test( 1 ) {
+    sub _9060_set_piece : Test( 1 ) {
         my $s = shift;
         $s->{'peer'}->_set_piece($_) for 0, 3;
-        is $s->{'peer'}->pieces->to_Bin, '111101',
+        is $s->{'peer'}->pieces->to_Enum, '0-3,5',
             'updated ...->pieces with ...->_set_piece( ... )';
     }
 
-    sub _907_has_piece : Test( 2 ) {  # tests that the BV is (fake) zero-based
+    sub _9070_has_piece : Test( 2 ) { # tests that the BV is (fake) zero-based
         my $s = shift;
-        diag 'updated ...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
+        diag 'updated ...->pieces->to_Enum == '
+            . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
             for 0, 3;
     }
 
-    sub _908_piece_range : Test( 2 ) {    # beyond range
+    sub _9080_piece_range : Test( 2 ) {    # beyond range
         my $s = shift;
         throws_ok sub { $s->{'peer'}->_set_piece(100) },
             qr[index out of range],
@@ -160,18 +163,20 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             ' ...->_has_piece( 100 ) throws "out of range" exception';
     }
 
-    sub _910_seed : Test( 2 ) {
+    sub _9100_seed : Test( 2 ) {
         my $s = shift;
-        diag '...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
+        diag '...->pieces->to_Enum == ' . $s->{'peer'}->pieces->to_Enum;
         ok !$s->{'peer'}->seed,
             '...->seed() is false when all peer is missing any pieces';
         $s->{'peer'}->_set_piece(4);
-        diag 'updated ...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
+        diag 'updated ...->pieces->to_Enum == '
+            . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->seed,
             '...->seed() is true when all peer has all pieces';
+        $s->{'peer'}->pieces->Bit_Off(4);    # Turn it off before we continue
     }
 
-    sub _911_set_torrent : Test( 6 ) {
+    sub _9110_set_torrent : Test( 5 ) {
         my $s = shift;
         {
 
@@ -189,28 +194,55 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
                                   default => 100
             );
             has '+path' => (required => 0);
+
+            sub wanted {
+                my $s = shift;
+                my $x = $s->have->Clone;
+                $x->Flip();
+                $x;
+            }
         }
-        {
-            my $torrent
-                = Mock::Net::BitTorrent::Torrent->new(piece_count => 20);
-            explain 'New mock-torrent looks like... ', $torrent;
-            ok !$s->{'peer'}->_has_torrent,
-                '...->_has_torrent is initially false';
-            $s->{'peer'}->_set_torrent($torrent);
-            ok $s->{'peer'}->_has_torrent, '...->_has_torrent is now true';
-            is $s->{'peer'}->pieces->Size, $torrent->piece_count,
-                '...->_set_torrent( ... ) also sets/resizes the pieces attribute';
-            is $s->{'peer'}->pieces->to_Bin, '00000000000000111111',
-                ' ...without loosing the current data';
-            throws_ok sub { $s->{'peer'}->_set_torrent($torrent) },
-                qr[torrent attribute is alreay set],
-                'setting the torrent attribute twice throws exception';
-        }
+        $s->{'torrent'}
+            = Mock::Net::BitTorrent::Torrent->new(piece_count => 20);
+        explain 'New mock-torrent looks like... ', $s->{'torrent'};
+        ok !$s->{'peer'}->_has_torrent,
+            '...->_has_torrent is initially false';
+        $s->{'peer'}->_set_torrent($s->{'torrent'});
+        ok $s->{'peer'}->_has_torrent, '...->_has_torrent is now true';
+        is $s->{'peer'}->pieces->Size, $s->{'torrent'}->piece_count,
+            '...->_set_torrent( ... ) also sets/resizes the pieces attribute';
+        is $s->{'peer'}->pieces->to_Enum, '0-3,5',
+            ' ...without loosing the current data';
+        throws_ok sub { $s->{'peer'}->_set_torrent($s->{'torrent'}) },
+            qr[torrent attribute is already set],
+            'setting the torrent attribute twice throws exception';
+    }
+
+    sub _9120_wanted : Test( 1 ) {
+        my $s = shift;
+        $s->{'torrent'}->_set_piece(3);
+        is $s->{'peer'}->_wanted_pieces->to_Enum, '0-2,5';
+    }
+
+    sub _9130_torrent_weak_ref : Test( 1 ) {
+        my $s = shift;
+        delete $s->{'torrent'};
         is $s->{'peer'}->torrent, undef,
             '...->torrent is only held by a weak ref';
     }
 
-    sub _912_flags_initial_value : Test( 14 ) {
+    sub _9140_has_piece : Test( 20 )
+    {    # tests that the BV is (fake) zero-based
+        my $s = shift;
+        diag '...->pieces->to_Enum == ' . $s->{'peer'}->pieces->to_Enum;
+        ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
+            for 0 .. 3, 5;
+        ok !$s->{'peer'}->_has_piece($_), sprintf '!...->_has_piece( %3s )',
+            $_
+            for 4, 6 .. 19;
+    }
+
+    sub _9150_flags_initial_value : Test( 13 ) {
         my $s = shift;
 
         # True by default
@@ -224,7 +256,7 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             snubbed upload_only];
     }
 
-    sub _913_flags_set_value : Test( 13 ) {
+    sub _9160_flags_set_value : Test( 13 ) {
         my $s     = shift;
         my @flags = qw[ choked remote_choked connecting interesting
             remote_interested support_extensions local_connection handshake
@@ -236,7 +268,7 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
         ok $s->{'peer'}->$_(), sprintf '...->%s() is now true', $_ for @flags;
     }
 
-    sub _914_flags_unset_value : Test( 13 ) {
+    sub _9170_flags_unset_value : Test( 13 ) {
         my $s     = shift;
         my @flags = qw[ choked remote_choked connecting interesting
             remote_interested support_extensions local_connection handshake
