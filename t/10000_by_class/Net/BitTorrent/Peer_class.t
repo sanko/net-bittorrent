@@ -12,18 +12,29 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     sub new_args { my $s = shift; () }
 
     # Basic meta/attribute tests
-    sub _001_check_attributes_reader : Test( 2 ) {
+    sub _001_check_attributes_reader : Test( 15 ) {
         my $s = shift;
         has_attribute_ok $s->{'peer'}, $_ for sort qw[
             torrent
             pieces
+            interesting remote_interested support_extensions local_connection
+            handshake queued on_parole optimistic_unchoke snubbed
+            upload_only choked remote_choked connecting
         ];
     }
 
-    sub _002_check_attributes_writer : Test( 1 ) {
+    sub _002_check_attributes_writer : Test( 27 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
             _set_torrent
+            _set_interesting _set_remote_interested _set_support_extensions
+            _set_local_connection _set_handshake _set_connecting _set_queued
+            _set_on_parole _set_optimistic_unchoke _set_snubbed
+            _set_upload_only _unset_interesting _unset_remote_interested
+            _unset_support_extensions _unset_local_connection _unset_handshake
+            _unset_queued _unset_on_parole _unset_optimistic_unchoke
+            _unset_snubbed _unset_upload_only _set_choked _set_remote_choked
+            _unset_choked _unset_remote_choked _unset_connecting
         ];
     }
 
@@ -198,6 +209,44 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
         is $s->{'peer'}->torrent, undef,
             '...->torrent is only held by a weak ref';
     }
+
+    sub _912_flags_initial_value : Test( 14 ) {
+        my $s = shift;
+
+        # True by default
+        ok $s->{'peer'}->$_(), sprintf '...->%s() is initially true', $_
+            for qw[choked remote_choked connecting];
+
+        # False by default
+        ok !$s->{'peer'}->$_(), sprintf '...->%s() is initially false', $_
+            for qw[ interesting remote_interested support_extensions
+            local_connection handshake queued on_parole optimistic_unchoke
+            snubbed upload_only];
+    }
+
+    sub _913_flags_set_value : Test( 13 ) {
+        my $s     = shift;
+        my @flags = qw[ choked remote_choked connecting interesting
+            remote_interested support_extensions local_connection handshake
+            queued on_parole optimistic_unchoke snubbed upload_only];
+        for (@flags) {
+            my $set = '_set_' . $_;
+            $s->{'peer'}->$set;
+        }
+        ok $s->{'peer'}->$_(), sprintf '...->%s() is now true', $_ for @flags;
+    }
+
+    sub _914_flags_unset_value : Test( 13 ) {
+        my $s     = shift;
+        my @flags = qw[ choked remote_choked connecting interesting
+            remote_interested support_extensions local_connection handshake
+            queued on_parole optimistic_unchoke snubbed upload_only];
+        for (@flags) {
+            my $set = '_unset_' . $_;
+            $s->{'peer'}->$set;
+        }
+        ok !$s->{'peer'}->$_(), sprintf '...->%s() is now false', $_
+            for @flags;
     }
 
     #

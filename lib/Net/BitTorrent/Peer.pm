@@ -67,6 +67,29 @@ package Net::BitTorrent::Peer;
     }
 
     #
+    for my $flag (
+        ([0,
+          [qw[ handshake interesting local_connection on_parole
+               optimistic_unchoke queued remote_interested snubbed
+               support_extensions upload_only]
+          ]
+         ],
+         [1, [qw[choked connecting remote_choked]]]
+        )
+        )
+    {   has $_ => (isa      => 'Bool',
+                   traits   => ['Bool'],
+                   is       => 'ro',
+                   init_arg => undef,
+                   default  => $flag->[0],
+                   handles  => {
+                               '_set_' . $_   => 'set',
+                               '_unset_' . $_ => 'unset'
+                   }
+        ) for @{$flag->[1]};
+    }
+
+    #
     no Moose;
     __PACKAGE__->meta->make_immutable;
 }
