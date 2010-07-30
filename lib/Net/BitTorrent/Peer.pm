@@ -30,6 +30,8 @@ package Net::BitTorrent::Peer;
     sub _initializer_torrent {
         warn 'Must be an outgoing connection!';
     }
+
+    #
     has 'pieces' => (
         is         => 'ro',
         isa        => 'NBTypes::Torrent::Bitfield',
@@ -48,7 +50,8 @@ package Net::BitTorrent::Peer;
             _has_piece => sub {
                 my $s = shift;
                 $s->pieces->bit_test($s->pieces->Size - 1 - shift);
-                }
+            },
+            seed => 'is_full'
         }
     );
 
@@ -119,7 +122,9 @@ if the peer has that piece (if it's set to 1) or if the peer is missing that
 piece (set to 0). Like all bitfields, this returns a
 L<Bit::Vector|Bit::Vector> object.
 
-=begin :TODO
+=head2 Net::BitTorrent::Peer->seed( )
+
+This peer is a seed (it has all the pieces).
 
 =head2 Net::BitTorrent::Peer->interesting( )
 
@@ -167,9 +172,9 @@ The peer has participated in a piece that failed the hash check, and is now
 "on parole", which means we're only requesting whole pieces from this peer
 until it either fails that piece or proves that it doesn't send bad data.
 
-=head2 Net::BitTorrent::Peer->seed( )
 
-This peer is a seed (it has all the pieces).
+
+=begin :TODO
 
 =head2 Net::BitTorrent::Peer->optimistic_unchoke( )
 
