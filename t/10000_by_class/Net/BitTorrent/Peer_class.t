@@ -97,7 +97,7 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             for 0, 2, 8, 15;
     }
 
-    sub _905_set_pieces : Test( 3 ) {
+    sub _904_set_pieces : Test( 3 ) {
         my $s = shift;
         throws_ok sub { $s->{'peer'}->_set_pieces('011001') },
             qr[pieces attribute is alreay set],
@@ -108,7 +108,7 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             '...and has the correct value';
     }
 
-    sub _906_has_piece : Test( 6 ) {  # tests that the BV is (fake) zero-based
+    sub _905_has_piece : Test( 6 ) {  # tests that the BV is (fake) zero-based
         my $s = shift;
         diag '...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
@@ -118,21 +118,21 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             for 0, 3, 4;
     }
 
-    sub _907_set_piece : Test( 1 ) {
+    sub _906_set_piece : Test( 1 ) {
         my $s = shift;
         $s->{'peer'}->_set_piece($_) for 0, 3;
         is $s->{'peer'}->pieces->to_Bin, '111101',
             'updated ...->pieces with ...->_set_piece( ... )';
     }
 
-    sub _908_has_piece : Test( 2 ) {  # tests that the BV is (fake) zero-based
+    sub _907_has_piece : Test( 2 ) {  # tests that the BV is (fake) zero-based
         my $s = shift;
         diag 'updated ...->pieces->to_Bin == ' . $s->{'peer'}->pieces->to_Bin;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
             for 0, 3;
     }
 
-    sub _909_piece_range : Test( 2 ) {    # beyond range
+    sub _908_piece_range : Test( 2 ) {    # beyond range
         my $s = shift;
         throws_ok sub { $s->{'peer'}->_set_piece(100) },
             qr[index out of range],
