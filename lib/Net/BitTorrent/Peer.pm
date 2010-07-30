@@ -132,42 +132,22 @@ Incoming (UDP) uTP-based peer.
 These methods (or accessors) do not initiate a particular action but return
 current state of the peer.
 
-=head2 Net::BitTorrent::Peer->torrent( )
-
-This is a L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object. Note
-that incoming connections may not have this value set until after the
-<handshake|/"Net::BitTorrent::Peer->handshake( )"> is complete.
-
-=head2 Net::BitTorrent::Peer->pieces( )
-
-This is a bitfield with one bit per piece in the torrent. Each bit tells you
-if the peer has that piece (if it's set to 1) or if the peer is missing that
-piece (set to 0). Like all bitfields, this returns a
-L<Bit::Vector|Bit::Vector> object.
-
-=head2 Net::BitTorrent::Peer->seed( )
-
-This peer is a seed (it has all the pieces).
-
-=head2 Net::BitTorrent::Peer->interesting( )
-
-We are interested in pieces from this peer.
-
 =head2 Net::BitTorrent::Peer->choked( )
 
 We have choked this peer.
 
-=head2 Net::BitTorrent::Peer->remote_interested( )
+=head2 Net::BitTorrent::Peer->connecting( )
 
-The peer is interested in us.
+The connection is in a half-open state (i.e. it is being connected).
 
-=head2 Net::BitTorrent::Peer->remote_choked( )
+=head2 Net::BitTorrent::Peer->handshake( )
 
-The peer has choked us.
+The connection is opened, and waiting for the handshake. Until the handshake
+is done, the peer cannot be identified.
 
-=head2 Net::BitTorrent::Peer->support_extensions( )
+=head2 Net::BitTorrent::Peer->interesting( )
 
-Means that this peer supports the extension protocol.
+We are interested in pieces from this peer.
 
 =head2 Net::BitTorrent::Peer->local_connection( )
 
@@ -175,29 +155,11 @@ The connection was initiated by us, the peer has a listen port open, and that
 port is the same as in the address of this peer. If this flag is not set, this
 peer connection was opened by this peer connecting to us.
 
-=head2 Net::BitTorrent::Peer->handshake( )
-
-The connection is opened, and waiting for the handshake. Until the handshake
-is done, the peer cannot be identified.
-
-=head2 Net::BitTorrent::Peer->connecting( )
-
-The connection is in a half-open state (i.e. it is being connected).
-
-=head2 Net::BitTorrent::Peer->queued( )
-
-The connection is currently queued for a connection attempt. This may happen
-if there is a limit set on the number of half-open TCP connections.
-
 =head2 Net::BitTorrent::Peer->on_parole( )
 
 The peer has participated in a piece that failed the hash check, and is now
 "on parole", which means we're only requesting whole pieces from this peer
 until it either fails that piece or proves that it doesn't send bad data.
-
-
-
-=begin :TODO
 
 =head2 Net::BitTorrent::Peer->optimistic_unchoke( )
 
@@ -206,17 +168,61 @@ while to see if it might unchoke us in return an earn an upload/unchoke slot.
 If it doesn't within some period of time, it will be choked and another peer
 will be optimistically unchoked.
 
+=head2 Net::BitTorrent::Peer->pieces( )
+
+This is a bitfield with one bit per piece in the torrent. Each bit tells you
+if the peer has that piece (if it's set to 1) or if the peer is missing that
+piece (set to 0). Like all bitfields, this returns a
+L<Bit::Vector|Bit::Vector> object.
+
+=head2 Net::BitTorrent::Peer->queued( )
+
+The connection is currently queued for a connection attempt. This may happen
+if there is a limit set on the number of half-open TCP connections.
+
+=head2 Net::BitTorrent::Peer->remote_choked( )
+
+The peer has choked us.
+
+=head2 Net::BitTorrent::Peer->remote_interested( )
+
+The peer is interested in us.
+
+=head2 Net::BitTorrent::Peer->seed( )
+
+This peer is a seed (it has all the pieces).
+
 =head2 Net::BitTorrent::Peer->snubbed( )
 
 This peer has recently failed to send a block within the request timeout from
 when the request was sent. We're currently picking one block at a time from
 this peer.
 
+=head2 Net::BitTorrent::Peer->support_extensions( )
+
+Means that this peer supports the extension protocol.
+
+=head2 Net::BitTorrent::Peer->torrent( )
+
+This is a L<Net::BitTorrent::Torrent|Net::BitTorrent::Torrent> object. Note
+that incoming connections may not have this value set until after the
+<handshake|/"Net::BitTorrent::Peer->handshake( )"> is complete.
+
 =head2 Net::BitTorrent::Peer->upload_only( )
 
 This peer has either explicitly (with an extension) or implicitly (by becoming
 a seed) told us that it will not downloading anything more, regardless of
 which pieces we have.
+
+
+
+
+
+
+
+
+
+=begin :TODO
 
 =head2 Net::BitTorrent::Peer->host( )
 
