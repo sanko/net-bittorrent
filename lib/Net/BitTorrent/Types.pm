@@ -53,14 +53,14 @@ package Net::BitTorrent::Types;
         };
     subtype 'NBTypes::Torrent::Bitfield' => as 'Bit::Vector';
     coerce 'NBTypes::Torrent::Bitfield' =>
-        from subtype(as 'Str' => where { $_ =~ m[^(?:[10]*)$] }) => via {
+        from subtype(as 'Str' => where { $_ =~ m[^(?:[10]+)$] }) => via {
         require Bit::Vector;
         Bit::Vector->new_Bin(length($_), $_);
         },
-        from subtype(as 'Str' => where { unpack('b*', $_) =~ m[^(?:[10]*)$] }
+        from subtype(as 'Str' => where { unpack('b*', $_) =~ m[^(?:[10]+)$] }
         ) => via {
         require Bit::Vector;
-        my $unpack = unpack 'b*', $_;
+        my $unpack = scalar reverse unpack 'b*', $_;
         Bit::Vector->new_Bin(length $unpack, $unpack);
         };
 

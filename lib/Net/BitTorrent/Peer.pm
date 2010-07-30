@@ -21,10 +21,10 @@ package Net::BitTorrent::Peer;
 
     sub _trigger_torrent {
         my ($s, $n, $o) = @_;
-        confess 'torrent attribute is alreay set' if defined $o;
+        confess 'torrent attribute is already set' if defined $o;
         $s->_has_pieces    # Depending on whether the pieces attribute is set,
-            ? $s->pieces->Resize($s->torrent->piece_count)    # resize
-            : $s->pieces;                                     # or create it
+            ? $s->pieces->Resize($s->torrent->piece_count)    # create or
+            : $s->pieces                                      # resize it.
     }
 
     sub _initializer_torrent {
@@ -32,36 +32,29 @@ package Net::BitTorrent::Peer;
     }
 
     #
-    has 'pieces' => (
-        is         => 'ro',
-        isa        => 'NBTypes::Torrent::Bitfield',
-        lazy_build => 1,
-        coerce     => 1,
-        init_arg   => undef,
-        predicate  => '_has_pieces',
-        writer     => '_set_pieces',
-        clearer    => '_clear_pieces',
-        trigger    => \&_trigger_pieces,
-        handles    => {
-            _set_piece => sub {
-                my $s = shift;
-                $s->pieces->Bit_On($s->pieces->Size - 1 - shift);
-            },
-            _has_piece => sub {
-                my $s = shift;
-                $s->pieces->bit_test($s->pieces->Size - 1 - shift);
-            },
-            seed => 'is_full'
-        }
+    has 'pieces' => (is         => 'ro',
+                     isa        => 'NBTypes::Torrent::Bitfield',
+                     lazy_build => 1,
+                     coerce     => 1,
+                     init_arg   => undef,
+                     predicate  => '_has_pieces',
+                     writer     => '_set_pieces',
+                     clearer    => '_clear_pieces',
+                     trigger    => \&_trigger_pieces,
+                     handles    => {
+                                 _set_piece => 'Bit_On',
+                                 _has_piece => 'bit_test',
+                                 seed       => 'is_full'
+                     }
     );
 
     sub _build_pieces {
-        $_[0]->_has_torrent ? '0' x $_[0]->torrent->piece_count : ();
+        $_[0]->_has_torrent ? $_[0]->torrent->have->Shadow : ();
     }
 
     sub _trigger_pieces {
         my ($s, $n, $o) = @_;
-        confess 'pieces attribute is alreay set' if defined $o;
+        confess 'pieces attribute is already set' if defined $o;
         return if !$s->_has_torrent;
         $s->pieces->Resize($s->torrent->piece_count);
     }
@@ -87,6 +80,13 @@ package Net::BitTorrent::Peer;
                                '_unset_' . $_ => 'unset'
                    }
         ) for @{$flag->[1]};
+    }
+
+    sub _wanted_pieces {
+        my $s            = shift;
+        my $intersection = $s->pieces->Shadow();
+        $intersection->Intersection($s->pieces, $s->torrent->wanted);
+        return $intersection;
     }
 
     #
@@ -733,13 +733,6 @@ The time since any transfer occurred with this peer.
     }
 
     #
-    sub _pieces_intersection
-    {    # ('the pieces we want' & 'the pieces they have')
-        my $s            = shift;
-        my $intersection = $s->pieces->Shadow();
-        $intersection->Intersection($s->pieces, $s->torrent->wanted);
-        return $intersection;
-    }
 
     sub check_interest {
         my $s = shift;

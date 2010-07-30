@@ -69,10 +69,7 @@ package Net::BitTorrent::Torrent;
                       isa        => 'Net::BitTorrent::Storage',
                       lazy_build => 1,
                       builder    => '_build_storage',
-                      handles    => {
-                                  size => 'size',
-                                  read => 'read'
-                      }
+                      handles    => [qw[size read write wanted]]
     );
 
     sub _build_storage {
@@ -206,7 +203,7 @@ package Net::BitTorrent::Torrent;
                 my $piece = $self->read($index);
                 next if !$piece || !$$piece;
                 require Digest::SHA;
-                $self->have->Bit_On($index)
+                $self->_set_piece($index)
                     if Digest::SHA::sha1($$piece) eq
                         substr($self->pieces, ($index * 20), 20);
             }
@@ -237,17 +234,14 @@ package Net::BitTorrent::Torrent;
                    builder    => '_build_have',
                    init_arg   => undef,
                    writer     => '_have',
-                   clearer    => '_clear_have'
+                   clearer    => '_clear_have',
+                   handles    => {
+                               _set_piece => 'Bit_On',
+                               _has_piece => 'bit_test',
+                               seed       => 'is_full'
+                   },
     );
     sub _build_have { '0' x $_[0]->piece_count }
-    has 'wanted' => (isa        => 'NBTypes::Torrent::Bitfield',
-                     is         => 'ro',
-                     writer     => '_wanted',
-                     coerce     => 1,
-                     builder    => '_build_wanted',
-                     lazy_build => 1
-    );
-    sub _build_wanted { '1' x $_[0]->piece_count }
 
     #{    ### Simple plugin system
     #    my @_plugins;
