@@ -310,12 +310,7 @@ The time since any transfer occurred with this peer.
     sub BUILD {1}
 
     #
-    has 'torrent' => (is        => 'ro',
-                      isa       => 'Net::BitTorrent::Torrent',
-                      predicate => 'has_torrent',
-                      writer    => '_set_torrent',
-                      weak_ref  => 1,
-    );
+
     after '_set_torrent' => sub { shift->pieces };
     has 'connect' =>
         (is => 'ro', isa => 'ArrayRef', writer => '_set_connect');
@@ -409,31 +404,7 @@ The time since any transfer occurred with this peer.
         }
         $s->handshake_step;
     };
-    for my $flag (
-        ([0,
-          [qw[ interesting remote_interested
-               choked      remote_choked
-               support_extensions              local_connection
-               handshake   connecting
-               queued
-               on_parole   seed                optimistic_unchoke
-               snubbed     upload_only]
-          ]
-         ],
-         [1, [qw[choked remote_choked connecting]]]
-        )
-        )
-    {   has $_ => (isa     => 'Bool',
-                   traits  => ['Bool'],
-                   is      => 'ro',
-                   default => $flag->[0],
-                   handles => {'_set_' . $_    => 'set',
-                               '_unset_' . $_  => 'unset',
-                               '_toggle_' . $_ => 'toggle',
-                               'is_not_' . $_  => 'not'
-                   }
-        ) for @{$flag->[1]};
-    }
+
     around '_set_interesting' => sub {
         my ($c, $s) = @_;
         return if $s->interesting;
@@ -751,9 +722,6 @@ The time since any transfer occurred with this peer.
         my $s = shift;
         $s->check_interest;
     };
-    #sub _XXX_set_seed {
-    #    $_[0]->set_seed($_[0]->pieces->to_Bin =~ m[0] ? 0 : 1);
-    #}
     for my $action (qw[request active]) {
         has 'last_'
             . $action => (
