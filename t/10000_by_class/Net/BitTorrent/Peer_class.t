@@ -142,12 +142,11 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
             ' ...->_has_piece( 100 ) throws "out of range" exception';
     }
 
-    sub _910_set_torrent : Test( 3 ) {
+    sub _910_set_torrent : Test( 6 ) {
         my $s = shift;
-        {
-
-            package Net::BitTorrent::Torrent;
+        {   package Mock::Net::BitTorrent::Torrent;
             use Moose;
+            extends 'Net::BitTorrent::Torrent';
             use Net::BitTorrent::Types qw[:torrent];
             has 'info_hash' => (is      => 'ro',
                                 isa     => 'NBTypes::Torrent::Infohash',
@@ -158,17 +157,25 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
                                   isa     => 'Int',
                                   default => 100
             );
+            has '+path' => ( required => 0 );
         }
-        my $torrent = Net::BitTorrent::Torrent->new(piece_count => 20);
-        explain 'New mock-torrent looks like... ', $torrent;
-        $s->{'peer'}->_set_torrent($torrent);
-        is $s->{'peer'}->pieces->Size, $torrent->piece_count,
-            '...->_set_torrent( ... ) also sets/resizes the pieces attribute';
-        is $s->{'peer'}->pieces->to_Bin, '00000000000000111101',
-            ' ...without loosing the current data';
-        throws_ok sub { $s->{'peer'}->_set_torrent($torrent) },
-            qr[torrent attribute is alreay set],
-            'setting the torrent attribute twice throws exception';
+        {
+            my $torrent = Mock::Net::BitTorrent::Torrent->new(piece_count => 20);
+            explain 'New mock-torrent looks like... ', $torrent;
+            ok !$s->{'peer'}->_has_torrent, '...->_has_torrent is initially false';
+            $s->{'peer'}->_set_torrent($torrent);
+            ok $s->{'peer'}->_has_torrent, '...->_has_torrent is now true';
+            is $s->{'peer'}->pieces->Size, $torrent->piece_count,
+                '...->_set_torrent( ... ) also sets/resizes the pieces attribute';
+            is $s->{'peer'}->pieces->to_Bin, '00000000000000111101',
+                ' ...without loosing the current data';
+            throws_ok sub { $s->{'peer'}->_set_torrent($torrent) },
+                qr[torrent attribute is alreay set],
+                'setting the torrent attribute twice throws exception';
+        }
+        is $s->{'peer'}->torrent, undef,
+            '...->torrent is only held by a weak ref';
+    }
     }
 
     #
