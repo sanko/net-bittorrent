@@ -71,8 +71,12 @@ t/10000_by_class/Net/BitTorrent_random_port.t
 t/10000_by_class/Net/BitTorrent_single_port.t
 t/80000_mock/Net/BitTorrent.pm
 t/80000_mock/Net/BitTorrent/Torrent.pm
+t/90000_data/95000_torrents/95003_miniswarm.torrent
 t/90000_data/95000_torrents/credits.txt
 t/90000_data/95000_torrents/OOo_3.2.0_Win32Intel_install_en-US.exe.torrent
 t/90000_data/96000_data/96010_ipfilter.dat
+t/90000_data/96000_data/96020_miniswarm_seed/1291672777_30adc6a421_o.jpg
+t/90000_data/96000_data/96020_miniswarm_seed/2183742557_5c9a91727d_m.jpg
+t/90000_data/96000_data/96020_miniswarm_seed/credit.txt
 t/90000_data/96000_data/credits.txt
 TODO.pod
