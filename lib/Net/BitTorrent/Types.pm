@@ -23,7 +23,7 @@ package Net::BitTorrent::Types;
             qw[NBTypes::Torrent::Status NBTypes::Torrent::Infohash
                 NBTypes::Torrent::Bitfield]
         ],
-        paddr => [qw[NBTypes::Network::Paddr]]
+        addr => [qw[NBTypes::Network::Paddr NBTypes::Network::Addr]]
     );
     @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
@@ -148,6 +148,16 @@ package Net::BitTorrent::Types;
         require Net::BitTorrent::Network::Utility;
         Net::BitTorrent::Network::Utility::ip2paddr($_);
     };
+
+    #
+    subtype 'NBTypes::Network::Addr' => as 'ArrayRef' =>
+        where { $#{$_[0]} == 1 }   => message {'looking for [host, port]'} =>
+        where { defined $_[0][0] } => message {'hostname is missing'} =>
+        where { defined $_[0][1] } => message {'port is missing'} =>
+        where { $_[0][1] =~ m[^\d+$] } => message {'malformed port'};
+
+    #
+    no Moose::Util::TypeConstraints;
 }
 1;
 
