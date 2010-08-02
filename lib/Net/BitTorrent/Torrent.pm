@@ -17,7 +17,8 @@ package Net::BitTorrent::Torrent;
     );
 
     sub _initializer_path {
-        my ($s, $p) = @_;
+        my ( $s, $p, $set, $attr ) = @_;
+        $set->( $p );
         open(my ($FH), '<', $p)
             || return !($_[0] = undef);    # exterminate! exterminate!
         flock $FH, LOCK_SH;
@@ -268,6 +269,7 @@ package Net::BitTorrent::Torrent;
                                is  => 'rw',
                                default => '8'
     );
+    #
     no Moose;
     __PACKAGE__->meta->make_immutable
 }
