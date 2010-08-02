@@ -10,7 +10,6 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     BEGIN { require 't/10000_by_class/Net/BitTorrent/Peer.t'; }
     use parent-norequire, 't::10000_by_class::Net::BitTorrent::Peer';
 
-
     # Basic utility functions/methods
     sub new_args { my $s = shift; () }
 
@@ -124,14 +123,16 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9020_set_piece : Test( 1 ) {
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         $s->{'peer'}->_set_piece($_) for 0, 2, 8, 15;
         is $s->{'peer'}->pieces->to_Enum, '0,2,3,8,10,11,15',
             'updated ...->pieces with ...->_set_piece( ... )';
     }
 
     sub _9030_has_piece : Test( 4 ) { # tests that the BV is (fake) zero-based
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         diag 'updated ...->pieces->to_Enum == '
             . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
@@ -139,7 +140,8 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9040_set_pieces : Test( 3 ) {
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         throws_ok sub { $s->{'peer'}->_set_pieces('011001') },
             qr[pieces attribute is already set],
             'setting the pieces attribute twice throws exception';
@@ -150,7 +152,8 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9050_has_piece : Test( 6 ) { # tests that the BV is (fake) zero-based
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         diag '...->pieces->to_Enum == ' . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
             for 1, 2, 5;
@@ -160,14 +163,16 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9060_set_piece : Test( 1 ) {
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         $s->{'peer'}->_set_piece($_) for 0, 3;
         is $s->{'peer'}->pieces->to_Enum, '0-3,5',
             'updated ...->pieces with ...->_set_piece( ... )';
     }
 
     sub _9070_has_piece : Test( 2 ) { # tests that the BV is (fake) zero-based
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         diag 'updated ...->pieces->to_Enum == '
             . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
@@ -175,7 +180,8 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9080_piece_range : Test( 2 ) {    # beyond range
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         throws_ok sub { $s->{'peer'}->_set_piece(100) },
             qr[index out of range],
             ' ...->_set_piece( 100 ) throws "out of range" exception';
@@ -185,7 +191,8 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9100_seed : Test( 2 ) {
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         diag '...->pieces->to_Enum == ' . $s->{'peer'}->pieces->to_Enum;
         ok !$s->{'peer'}->seed,
             '...->seed() is false when all peer is missing any pieces';
@@ -198,9 +205,11 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9110_set_torrent : Test( 5 ) {
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         require t::80000_mock::Net::BitTorrent::Torrent;
-        $s->{'torrent'} = t::80000_mock::Net::BitTorrent::Torrent->new(piece_count => 20);
+        $s->{'torrent'}
+            = t::80000_mock::Net::BitTorrent::Torrent->new(piece_count => 20);
         explain 'New mock-torrent looks like... ', $s->{'torrent'};
         ok !$s->{'peer'}->_has_torrent,
             '...->_has_torrent is initially false';
@@ -216,13 +225,15 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9120_wanted : Test( 1 ) {
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         $s->{'torrent'}->_set_piece(3);
         is $s->{'peer'}->_wanted_pieces->to_Enum, '0-2,5';
     }
 
     sub _9130_torrent_weak_ref : Test( 1 ) {
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         delete $s->{'torrent'};
         is $s->{'peer'}->torrent, undef,
             '...->torrent is only held by a weak ref';
@@ -230,7 +241,8 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
 
     sub _9140_has_piece : Test( 20 )
     {    # tests that the BV is (fake) zero-based
-        my $s = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         diag '...->pieces->to_Enum == ' . $s->{'peer'}->pieces->to_Enum;
         ok $s->{'peer'}->_has_piece($_), sprintf ' ...->_has_piece( %3s )', $_
             for 0 .. 3, 5;
@@ -241,6 +253,7 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
 
     sub _9150_flags_initial_value : Test( 13 ) {
         my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
 
         # True by default
         ok $s->{'peer'}->$_(), sprintf '...->%s() is initially true', $_
@@ -254,7 +267,8 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9160_flags_set_value : Test( 13 ) {
-        my $s     = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         my @flags = qw[ choked remote_choked connecting interesting
             remote_interested support_extensions local_connection handshake
             queued on_parole optimistic_unchoke snubbed upload_only];
@@ -266,7 +280,8 @@ package t::10000_by_class::Net::BitTorrent::Peer_class;
     }
 
     sub _9170_flags_unset_value : Test( 13 ) {
-        my $s     = shift;return $s->skip_setters if $s->skip_setters;
+        my $s = shift;
+        return $s->skip_setters if $s->skip_setters;
         my @flags = qw[ choked remote_choked connecting interesting
             remote_interested support_extensions local_connection handshake
             queued on_parole optimistic_unchoke snubbed upload_only];

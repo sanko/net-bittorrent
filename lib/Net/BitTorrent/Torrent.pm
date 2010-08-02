@@ -17,8 +17,8 @@ package Net::BitTorrent::Torrent;
     );
 
     sub _initializer_path {
-        my ( $s, $p, $set, $attr ) = @_;
-        $set->( $p );
+        my ($s, $p, $set, $attr) = @_;
+        $set->($p);
         open(my ($FH), '<', $p)
             || return !($_[0] = undef);    # exterminate! exterminate!
         flock $FH, LOCK_SH;
@@ -36,6 +36,7 @@ package Net::BitTorrent::Torrent;
             dht   => 'dht',
             peers => sub {
                 my $s = shift;
+                return if !$s->_has_client;
                 grep {
                            $_->has_torrent
                         && $_->torrent->info_hash eq $s->info_hash
@@ -269,6 +270,7 @@ package Net::BitTorrent::Torrent;
                                is  => 'rw',
                                default => '8'
     );
+
     #
     no Moose;
     __PACKAGE__->meta->make_immutable

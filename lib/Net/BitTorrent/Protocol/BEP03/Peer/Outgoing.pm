@@ -61,9 +61,6 @@
                 connect    => $c,
                 on_connect => sub {
                     return if !defined $s;
-                    use Data::Dump;
-                    ddx \@_;
-                    ddx $s;
                     $s->_send_handshake;
                 },
                 on_read => sub {
@@ -71,8 +68,8 @@
                     require Net::BitTorrent::Protocol::BEP03::Packets;
                 PACKET:
                     while (
-                        my $p
-                        = Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
+                        my $p =
+                        Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
                                                                      \$s->rbuf
                         )
                         )

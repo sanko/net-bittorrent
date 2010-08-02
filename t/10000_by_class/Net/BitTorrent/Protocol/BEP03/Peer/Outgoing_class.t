@@ -36,24 +36,34 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing_clas
             is scalar @{$p->{'payload'}}, 3, 'parsed payload has 3 elements';
             is length $p->{'payload'}[0], 8, 'reserved is eight bytes';
             like $p->{'payload'}[1], qr[^[A-F\d]{40}$]i,        'info_hash';
-            like $p->{'payload'}[2], qr[^NB\d\d\d[SU]-.{13}+$], 'peer_id';
+            like $p->{'payload'}[2], qr[^NB\d\d\d[SU]-.{13}+$], 'peer_id'
             }, sub {
             my ($state, $host, $port) = @_;
             $s->{'host'} = $host;
             $s->{'port'} = $port;
-            1;
-            };
+            1
+            }
     }
+
+
 
     sub new_args {
         my $s = shift;
+
+
+        my $simple_dot_torrent = 't/90000_data/95000_torrents/95003_miniswarm.torrent';
+        chdir '../../../../../../../' if not -f $simple_dot_torrent;
+
+
+
+
+
         $s->{'client'} = t::80000_mock::Net::BitTorrent->new();
-        $s->{'torrent'} = t::80000_mock::Net::BitTorrent::Torrent->new(
-                                                  info_hash => $s->info_hash);
-        (torrent => $s->{'torrent'},
-         connect => [$s->{'host'}, $s->{'port'}],
-         client  => $s->{'client'}
-        );
+        $s->{'torrent'} = Net::BitTorrent::Torrent->new( path => $simple_dot_torrent);
+        $s->{'client'}->add_torrent($s->{'torrent'});
+        (connect => [$s->{'host'}, $s->{'port'}],
+         client  => $s->{'client'},
+         torrent => $s->{'torrent'})
     }
 
     sub _0020_check_attributes_writer : Test( +1 ) {
@@ -61,7 +71,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing_clas
         $s->SUPER::_0020_check_attributes_writer;
         can_ok $s->{'peer'}, $_ for sort qw[
             _set_handle
-        ];
+        ]
     }
 
     # Events

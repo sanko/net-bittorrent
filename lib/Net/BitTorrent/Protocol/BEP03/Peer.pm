@@ -9,8 +9,8 @@
     sub _build_reserved {
         my ($self) = @_;
         my @reserved = qw[0 0 0 0 0 0 0 0];
-        $reserved[5] |= 0x10;              # Ext Protocol
-        $reserved[7] |= 0x04;              # Fast Ext
+        $reserved[5] |= 0x10;    # Ext Protocol
+        $reserved[7] |= 0x04;    # Fast Ext
         return join '', map {chr} @reserved;
     }
 

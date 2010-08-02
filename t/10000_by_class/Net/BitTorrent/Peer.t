@@ -8,21 +8,21 @@ package t::10000_by_class::Net::BitTorrent::Peer;
     use parent 'Test::Class';
     use lib '../../../../lib', 'lib';
     use Net::BitTorrent::Protocol::BEP03::Packets qw[:all];
-            use Net::BitTorrent;
-        use t::80000_mock::Net::BitTorrent;
-        $|++;
-
+    use Net::BitTorrent;
+    use t::80000_mock::Net::BitTorrent;
+    $|++;
 
     # Basic utility functions/methods
     sub class {'Net::BitTorrent::Peer'}
-    sub new_args{ my $s = shift;
+
+    sub new_args {
+        my $s = shift;
         $s->{'client'} = t::80000_mock::Net::BitTorrent->new();
         (client => $s->{'client'});
-
     }
 
     # Test related
-    sub skip_setters { 0 }
+    sub skip_setters {0}
 
     # Handshake data
     sub reserved  { "\0" x 8 }
@@ -59,8 +59,6 @@ package t::10000_by_class::Net::BitTorrent::Peer;
         warn $text;
     }
 
-
-
     # AnyEvent
     sub init : Test( startup ) {
         my $s = shift;
@@ -85,18 +83,13 @@ package t::10000_by_class::Net::BitTorrent::Peer;
         $s->{'cv'}->recv;
     }
 
-
     # Setup/teardown
-
-
-
-
     sub startup : Test( startup => 3 ) {
         my $s = shift;
         use_ok $s->class;
         can_ok $s->class, 'new';
         $s->{'peer'} = new_ok $s->class, [$s->new_args];
-        explain 'New peer looks like... ' , $s->{'peer'};
+        explain 'New peer looks like... ', $s->{'peer'};
     }
 
     sub setup : Test( setup ) {

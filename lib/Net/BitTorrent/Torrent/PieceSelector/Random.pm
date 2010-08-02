@@ -9,10 +9,10 @@
         my $bitfield = $peer->_pieces_intersection->to_Bin;
         my @index;
         {
-            my $i = index $bitfield, '1', 0;
+            my $i = rindex $bitfield, '1', 0;
             while ($i != -1) {
                 push @index, $i;
-                $i = index $bitfield, '1', $i + 1;
+                $i = rindex $bitfield, '1', $i + 1;
             }
         }
 

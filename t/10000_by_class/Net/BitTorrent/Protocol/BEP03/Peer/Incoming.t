@@ -10,7 +10,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
     BEGIN { require 't/10000_by_class/Net/BitTorrent/Peer.t'; }
     use parent-norequire, 't::10000_by_class::Net::BitTorrent::Peer';
 
-# Basic utility functions/methods
+    # Basic utility functions/methods
     sub class {'Net::BitTorrent::Protocol::BEP03::Peer::Incoming'}
 
     sub new_args {
@@ -35,8 +35,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         );
     }
 
-
-# Events
+    # Events
     sub _100_handshake_ : Test( 3 ) {
         my $s = shift;
         use Data::Dump;
@@ -47,9 +46,6 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         sysread $s->{'fh'}, my ($text), 1024;
         warn $text;
     }
-
-
     __PACKAGE__->runtests() if !caller;
-
 }
 1

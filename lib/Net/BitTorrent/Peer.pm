@@ -28,14 +28,16 @@ package Net::BitTorrent::Peer;
     sub _trigger_torrent {
         my ($s, $n, $o) = @_;
         confess 'torrent attribute is already set' if defined $o;
-        $s->_has_pieces && $s->_has_torrent   # Depending on whether the pieces attribute is set,
+        $s->_has_pieces
+            && $s
+            ->_has_torrent # Depending on whether the pieces attribute is set,
             ? $s->pieces->Resize($s->torrent->piece_count)    # create or
             : $s->pieces                                      # resize it.
     }
 
     sub _initializer_torrent {
-        my ( $s, $c, $set, $attr ) = @_;
-        $set->( $c );
+        my ($s, $c, $set, $attr) = @_;
+        $set->($c);
         warn 'Must be an outgoing connection!';
     }
 
