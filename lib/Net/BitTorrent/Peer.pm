@@ -110,6 +110,19 @@ package Net::BitTorrent::Peer;
                   init_arg => undef,
                   default  => sub { state $id = 'aa'; $id++ }
     );
+
+    # Utility methods
+    sub _check_unique_connection {    # XXX - Rename this method
+                                      #return;
+        my ($s) = @_;
+        return
+            if scalar(grep { $_->_has_peer_id && $_->peer_id eq $s->peer_id }
+                          $s->torrent->peers
+            ) <= 1;
+        $s->disconnect(sprintf '%s already has connection for this torrent',
+                       $s->peer_id);
+    }
+
     # Methods
     sub disconnect {
         my ($s, $reason) = @_;
@@ -723,17 +736,7 @@ The time since any transfer occurred with this peer.
                       build_piece($i, $o, $l, $s->torrent->read($i, $o, $l)));
     }
 
-    # Utility methods
-    sub _check_unique_connection {    # XXX - Rename this method
-                                      #return;
-        my ($s) = @_;
-        return
-            if scalar(grep { $_->_has_peer_id && $_->peer_id eq $s->peer_id }
-                          $s->torrent->peers
-            ) <= 1;
-        $s->disconnect(sprintf '%s already has connection for this torrent',
-                       $s->peer_id);
-    }
+
 
     # Callback system
     {
