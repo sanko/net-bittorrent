@@ -80,10 +80,22 @@
             )
         );
     }
+    my $infohash_constraint;
 
-    sub _handle_packet_handshake  {
-        use Data::Dump;
-        ddx \@_;
+    sub _handle_packet_handshake {
+        my ($s, $p) = @_;
+        my ($reserved, $info_hash, $peer_id) = @$p;
+        $infohash_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                                'NBTypes::Torrent::Infohash');
+        $info_hash = $infohash_constraint->coerce($info_hash);
+        $s->_set_support_extensions(ord(substr($reserved, 5, 1)) & 0x10);
+        $s->_set_peer_id($peer_id);
+        return $s->disconnect(
+                 'Bad info_hash (Does not match the torrent we were seeking)')
+            if $info_hash->Compare($s->torrent->info_hash) != 0;
+        $s->_check_unique_connection;
+        return if !defined $s;
         die;
     }
 
