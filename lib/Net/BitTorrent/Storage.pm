@@ -39,6 +39,10 @@ package Net::BitTorrent::Storage;
                                 _file        => 'get'
                     }
     );
+    sub wanted {
+        my $s = shift;
+        ...
+    }
     has 'root' => (    # ??? - Should this be BaseDir/basedir
         is      => 'ro',
         isa     => 'Str',
