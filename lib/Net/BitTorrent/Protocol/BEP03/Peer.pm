@@ -5,35 +5,6 @@
     use lib '../../../../../lib';
     extends 'Net::BitTorrent::Peer';
     use Net::BitTorrent::Protocol::BEP03::Packets qw[:all];
-    has '_handle' => (
-        is        => 'ro',
-        isa       => 'AnyEvent::Handle::Throttle',
-        predicate => '_has_handle',
-        init_arg  => undef,
-        handles   => {
-            rbuf       => 'rbuf',
-            push_read  => 'push_read',
-            push_write => 'push_write',
-            fh         => sub { shift->handle->{'fh'} },
-            host       => sub {
-                my $s = shift;
-                return $_[0] = undef  #$s->disconnect('Failed to open socket')
-                    if !defined $s->fh;    # XXX - error creating socket?
-                require Socket;
-                my (undef, $addr) = Socket::sockaddr_in(getpeername($s->fh));
-                require Net::BitTorrent::Network::Utility;
-                Net::BitTorrent::Network::Utility::paddr2ip($addr);
-            },
-            port => sub {
-                my $s = shift;
-                return $_[0] = undef  #$s->disconnect('Failed to open socket')
-                    if !defined $s->fh;    # XXX - error creating socket?
-                require Socket;
-                my ($port, undef) = Socket::sockaddr_in(getpeername($s->fh));
-                $port;
-                }
-        }
-    );
 
     sub _build_reserved {
         my ($self) = @_;
