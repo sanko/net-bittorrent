@@ -183,6 +183,14 @@
         use Data::Dump;
         ddx $p;
     }
+    override 'disconnect' => sub {
+        super;
+        my $s = shift;
+        if (!$s->_handle->destroyed) {
+            $s->_handle->push_shutdown if defined $s->_handle->{'fh'};
+            $s->_handle->destroy;
+        }
+        }
 }
 1;
 
