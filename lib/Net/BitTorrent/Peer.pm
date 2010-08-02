@@ -10,6 +10,12 @@ package Net::BitTorrent::Peer;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
+    has 'client' => (is       => 'ro',
+                     isa      => 'Net::BitTorrent',
+                     required => 1,
+                     weak_ref => 1,
+                     handles  => qr[^trigger_.+$]
+    );
     has 'torrent' => (is          => 'ro',
                       isa         => 'Net::BitTorrent::Torrent',
                       predicate   => '_has_torrent',
@@ -22,12 +28,14 @@ package Net::BitTorrent::Peer;
     sub _trigger_torrent {
         my ($s, $n, $o) = @_;
         confess 'torrent attribute is already set' if defined $o;
-        $s->_has_pieces    # Depending on whether the pieces attribute is set,
+        $s->_has_pieces && $s->_has_torrent   # Depending on whether the pieces attribute is set,
             ? $s->pieces->Resize($s->torrent->piece_count)    # create or
             : $s->pieces                                      # resize it.
     }
 
     sub _initializer_torrent {
+        my ( $s, $c, $set, $attr ) = @_;
+        $set->( $c );
         warn 'Must be an outgoing connection!';
     }
 
@@ -59,6 +67,20 @@ package Net::BitTorrent::Peer;
         $s->pieces->Resize($s->torrent->piece_count);
     }
 
+    sub _wanted_pieces {
+        my $s            = shift;
+        my $intersection = $s->pieces->Shadow();
+        $intersection->Intersection($s->pieces, $s->torrent->wanted);
+        return $intersection;
+    }
+
+    #
+    has 'peer_id' => (isa       => 'NBTypes::Client::PeerID',
+                      is        => 'ro',
+                      writer    => '_set_peer_id',
+                      predicate => '_has_peer_id'
+    );
+
     #
     for my $flag (
         ([0,
@@ -80,13 +102,6 @@ package Net::BitTorrent::Peer;
                                '_unset_' . $_ => 'unset'
                    }
         ) for @{$flag->[1]};
-    }
-
-    sub _wanted_pieces {
-        my $s            = shift;
-        my $intersection = $s->pieces->Shadow();
-        $intersection->Intersection($s->pieces, $s->torrent->wanted);
-        return $intersection;
     }
 
     #
@@ -307,49 +322,9 @@ The time since any transfer occurred with this peer.
 =begin old
 
     #
-    sub BUILD {1}
 
     #
 
-    after '_set_torrent' => sub { shift->pieces };
-    has 'connect' =>
-        (is => 'ro', isa => 'ArrayRef', writer => '_set_connect');
-    has 'client' => (is       => 'ro',
-                     isa      => 'Net::BitTorrent',
-                     required => 1,
-                     weak_ref => 1,
-                     handles  => qr[^trigger_.+$]
-    );
-    has 'handle' => (
-        is        => 'ro',
-        isa       => 'AnyEvent::Handle::Throttle',
-        predicate => 'has_handle',
-        writer    => '_set_handle',
-        init_arg  => undef,
-        handles   => {
-            rbuf       => 'rbuf',
-            push_read  => 'push_read',
-            push_write => 'push_write',
-            fh         => sub { shift->handle->{'fh'} },
-            host       => sub {
-                my $s = shift;
-                return $_[0] = undef  #$s->disconnect('Failed to open socket')
-                    if !defined $s->fh;    # XXX - error creating socket?
-                require Socket;
-                my (undef, $addr) = Socket::sockaddr_in(getpeername($s->fh));
-                require Net::BitTorrent::Network::Utility;
-                Net::BitTorrent::Network::Utility::paddr2ip($addr);
-            },
-            port => sub {
-                my $s = shift;
-                return $_[0] = undef  #$s->disconnect('Failed to open socket')
-                    if !defined $s->fh;    # XXX - error creating socket?
-                require Socket;
-                my ($port, undef) = Socket::sockaddr_in(getpeername($s->fh));
-                $port;
-                }
-        }
-    );
     after 'BUILD' => sub {
         my ($s, $a) = @_;
         require AnyEvent::Handle::Throttle;
@@ -512,16 +487,7 @@ The time since any transfer occurred with this peer.
             );
             return $s->disconnect('Connection terminated by ipfilter');
         }
-        my $hand_shake_writer = sub {
-            return if !defined $s;
-            my $packet =
-                build_handshake($s->_build_reserved, $s->torrent->info_hash,
-                                $s->client->peer_id);
-            $s->push_write($packet);
-            $s->_set_handshake_step(
-                             $s->local_connection ? 'REG_THREE' : 'REG_OKAY');
-            1;
-        };
+
         my $hand_shake_reader = sub {
             return if !defined $s;
             my (undef, $data) = @_;
@@ -587,16 +553,7 @@ The time since any transfer occurred with this peer.
         my $s = shift;
         require Scalar::Util;
         Scalar::Util::weaken $s;
-        $s->handle->on_read(
-            sub {
-                return if !defined $s;
-            PACKET: while (my $packet = parse_packet(\$s->handle->rbuf)) {
-                    $s->_handle_packet($packet);
-                    last PACKET if !defined $s || !$s->rbuf || !$packet;
-                }
-            }
-        );
-        $s->handle->on_eof(
+         $s->handle->on_eof(
             sub {
                 return if !defined $s;
                 $s->disconnect('Connection closed by remote peer');
@@ -692,11 +649,7 @@ The time since any transfer occurred with this peer.
                       default  => -1               # Unlimited
         );
     }
-    has 'peer_id' => (isa       => 'NBTypes::Client::PeerID',
-                      is        => 'ro',
-                      writer    => '_set_peer_id',
-                      predicate => '_has_peer_id'
-    );
+
     after '_set_peer_id' => sub {
         my $s = shift;
         $s->trigger_peer_id({peer    => $s,
@@ -742,134 +695,6 @@ The time since any transfer occurred with this peer.
     }
 
     #
-    my %_packet_dispatch;
-    sub _handle_packet_choke      { shift->_set_remote_choked }
-    sub _handle_packet_unchoke    { shift->_unset_remote_choked }
-    sub _handle_packet_interested { shift->_set_remote_interested }
-
-    sub _handle_packet_have {
-        my ($s, $i) = @_;
-        warn $i;
-        warn $s->pieces->bit_test($i)? 'already have! :(': 'yay';
-        my $x = $s->pieces->to_Bin;
-        $s->_set_piece($i);
-        warn $s->pieces->bit_test($i)? 'now have! :D': 'aw, man... :( Broken!';
-        my $seed = $s->torrent->piece_count;
-        my $have = scalar grep {$_} split '', unpack 'b*', $s->pieces;
-        my $perc = (($have / $seed) * 100);
-        $s->trigger_peer_have(
-            {peer     => $s,
-             index    => $i,
-             severity => 'debug',
-             message  => sprintf
-                 '%s:%d (%s) has piece #%d and now claims to have %d out of %d pieces (%3.2f%%) of %s',
-             $s->host, $s->port,
-             $s->_has_peer_id ? $s->peer_id : '[Unknown peer]',
-             $i,
-             $have, $seed, $perc,
-             $s->torrent->info_hash->to_Hex
-            }
-        );
-
-        die if $x eq $s->pieces->to_Bin;
-
-    }
-
-    sub _handle_packet_bitfield {
-        my ($s, $b) = @_;
-        $s->_set_pieces($b);
-        my $seed = $s->torrent->piece_count;
-        my $have = scalar grep {$_} split '', unpack 'b*', $b;
-        my $perc = (($have / $seed) * 100);
-        $s->trigger_peer_bitfield(
-            {peer     => $s,
-             severity => 'debug',
-             message  => sprintf
-                 '%s:%d (%s) claims to have %d out of %d pieces (%3.2f%%) of %s',
-             $s->host, $s->port,
-             $s->_has_peer_id ? $s->peer_id : '[Unknown peer]',
-             $have, $seed, $perc,
-             $s->torrent->info_hash->to_Hex
-            }
-        );
-    }
-
-    sub _handle_packet_request {
-        my ($s, $r) = @_;
-        my ($i, $o, $l) = @$r;
-
-        # XXX - Choke peer if they have too many requests in queue
-        $s->_add_remote_request($r);
-        require Scalar::Util;
-        Scalar::Util::weaken($s);
-        $s->_add_quest(
-            'fill_remote_requests',
-            AE::timer(
-                0, 15,
-                sub {
-                    return if !defined $s;
-
-               # XXX - return if outgoing data queue is larger than block x 8?
-                    my $request = $s->_shift_remote_requests;
-                    $s->_delete_quest('fill_remote_requests')
-                        if !$s->_count_remote_requests;
-
-                    # XXX - make sure we have this piece
-                    return $s->_send_piece(@$request);
-                }
-            )
-        ) if !$s->_has_quest('fill_remote_requests');
-    }
-    sub _handle_packet_piece {...}
-
-    sub _handle_packet_ext_protocol {
-        my ($s, $pid, $p) = @_;
-        if ($pid == 0) {    # Setup/handshake
-            if (defined $p->{'p'} && $s->client->has_dht) {
-                $s->client->dht->ipv4_add_node(
-                            [join('.', unpack 'C*', $p->{'ipv4'}), $p->{'p'}])
-                    if defined $p->{'ipv4'};
-                $s->client->dht->ipv6_add_node(
-                    [   [join ':', (unpack 'H*', $p->{'ipv6'}) =~ m[(....)]g],
-                        $p->{'p'}
-                    ]
-                ) if defined $p->{'ipv6'};
-            }
-        }
-        return 1;
-    }
-
-    sub _handle_packet {
-        my ($self, $packet) = @_;
-        return if !$self->has_torrent;
-        return if !$self->has_handle;
-        %_packet_dispatch = (
-              $CHOKE       => ['choke',         \&_handle_packet_choke],
-              $UNCHOKE     => ['unchoke',       \&_handle_packet_unchoke],
-              $INTERESTED  => ['interested',    \&_handle_packet_interested],
-              $HAVE        => ['have',          \&_handle_packet_have],
-              $BITFIELD    => ['bitfield',      \&_handle_packet_bitfield],
-              $REQUEST     => ['request',       \&_handle_packet_request],
-              $PIECE       => ['piece',         \&_handle_packet_piece],
-              $EXTPROTOCOL => ['ext. protocol', \&_handle_packet_ext_protocol]
-        ) if !keys %_packet_dispatch;
-        $self->trigger_peer_packet_in(
-                      {peer     => $self,
-                       packet   => $packet,
-                       severity => 'debug',
-                       message  => sprintf 'Recieved %s packet from %s',
-                       $_packet_dispatch{$packet->{'type'}}
-                       ? $_packet_dispatch{$packet->{'type'}}->[0]
-                       : 'unknown packet',
-                       $self->_has_peer_id ? $self->peer_id : '[Unknown peer]'
-                      }
-        );
-        return $_packet_dispatch{$packet->{'type'}}->[1]
-            ->($self, $packet->{'payload'})
-            if defined $_packet_dispatch{$packet->{'type'}};
-        use Data::Dump;
-        ddx $packet;
-    }
 
     # Outgoing packets
     sub _send_interested     { shift->push_write(build_interested()) }
@@ -1100,6 +925,33 @@ progress_ppm indicates the download progress of the peer in the range [0, 100000
 
 
 
+=head1 Author
+
+Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
+
+CPAN ID: SANKO
+
+=head1 License and Legal
+
+Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of
+L<The Artistic License 2.0|http://www.perlfoundation.org/artistic_license_2_0>.
+See the F<LICENSE> file included with this distribution or
+L<notes on the Artistic License 2.0|http://www.perlfoundation.org/artistic_2_0_notes>
+for clarification.
+
+When separated from the distribution, all original POD documentation is
+covered by the
+L<Creative Commons Attribution-Share Alike 3.0 License|http://creativecommons.org/licenses/by-sa/3.0/us/legalcode>.
+See the
+L<clarification of the CCA-SA3.0|http://creativecommons.org/licenses/by-sa/3.0/us/>.
+
+Neither this module nor the L<Author|/Author> is affiliated with BitTorrent,
+Inc.
+
+=for rcs $Id$
 
 
 =cut

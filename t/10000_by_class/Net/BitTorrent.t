@@ -125,6 +125,7 @@ package t::10000_by_class::Net::BitTorrent;
             peer add_peer del_peer peer_ids has_peer peers clear_peers
             count_peers   no_peers
             trigger_listen_failure trigger_listen_success
+            trigger_peer_bitfield
         ];
     }
 
@@ -151,6 +152,7 @@ package t::10000_by_class::Net::BitTorrent;
             tcp4_host tcp6_host
             udp4_host udp6_host
             on_listen_failure on_listen_success
+            on_peer_bitfield
         ];
     }
 
@@ -190,6 +192,7 @@ package t::10000_by_class::Net::BitTorrent;
             _has_tcp4_host _has_tcp6_host
             _has_udp4_host _has_udp6_host
             _no_listen_failure _no_listen_success
+            _no_peer_bitfield
         ];
     }
 

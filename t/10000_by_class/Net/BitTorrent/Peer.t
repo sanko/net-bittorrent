@@ -2,17 +2,27 @@ package t::10000_by_class::Net::BitTorrent::Peer;
 {
     use strict;
     use warnings;
+    use AnyEvent;
     use Test::Most;
     use Test::Moose;
     use parent 'Test::Class';
     use lib '../../../../lib', 'lib';
     use Net::BitTorrent::Protocol::BEP03::Packets qw[:all];
-    $|++;
+            use Net::BitTorrent;
+        use t::80000_mock::Net::BitTorrent;
+        $|++;
 
 
     # Basic utility functions/methods
     sub class {'Net::BitTorrent::Peer'}
-    sub new_args{ my $s = shift; () }
+    sub new_args{ my $s = shift;
+        $s->{'client'} = t::80000_mock::Net::BitTorrent->new();
+        (client => $s->{'client'});
+
+    }
+
+    # Test related
+    sub skip_setters { 0 }
 
     # Handshake data
     sub reserved  { "\0" x 8 }
@@ -49,7 +59,38 @@ package t::10000_by_class::Net::BitTorrent::Peer;
         warn $text;
     }
 
+
+
+    # AnyEvent
+    sub init : Test( startup ) {
+        my $s = shift;
+        note 'Adding condvar for later use...';
+        $s->{'cv'} = AE::cv();
+        $s->{'cv'}->begin(sub { $s->{'cv'}->send });
+        note '...which will timeout in 2m.';
+        $s->{'to'} = AE::timer(
+            60 * 2,
+            0,
+            sub {
+                diag sprintf 'Timeout waiting for %s!', join ', ',
+                    keys %{$s->{'todo'}};
+                $s->{'cv'}->send;
+            }
+        );
+    }
+
+    sub wait : Test( shutdown => no_plan ) {
+        my $s = shift;
+        $s->{'cv'}->end;
+        $s->{'cv'}->recv;
+    }
+
+
     # Setup/teardown
+
+
+
+
     sub startup : Test( startup => 3 ) {
         my $s = shift;
         use_ok $s->class;
