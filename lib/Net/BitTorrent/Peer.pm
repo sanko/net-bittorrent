@@ -104,6 +104,25 @@ package Net::BitTorrent::Peer;
         ) for @{$flag->[1]};
     }
 
+    # Methods
+    sub disconnect {
+        my ($s, $reason) = @_;
+        my ($host, $port, $peer_id) = ($s->host, $s->port, $s->peer_id);
+        $s->trigger_peer_disconnect({peer => $s,
+                                     message =>
+                                         sprintf('%s:%d (%s) disconnect: %s',
+                                                 $host    || 'unknown host',
+                                                 $port    || 0,
+                                                 $peer_id || '[unknown peer]',
+                                                 $reason  || 'Unknown reason'
+                                         ),
+                                     severity => 'info'
+                                    }
+        );
+        $s->client->del_peer($s);
+        $_[0] = undef;
+    }
+
     #
     no Moose;
     __PACKAGE__->meta->make_immutable;
@@ -590,28 +609,6 @@ The time since any transfer occurred with this peer.
             }
         );
     };
-
-    sub disconnect {
-        my ($s, $reason) = @_;
-        my ($host, $port, $peer_id) = ($s->host, $s->port, $s->peer_id);
-        if (!$s->handle->destroyed) {
-            $s->handle->push_shutdown if defined $s->handle->{'fh'};
-            $s->handle->destroy;
-        }
-        $s->trigger_peer_disconnect({peer => $s,
-                                     message =>
-                                         sprintf('%s:%d (%s) disconnect: %s',
-                                                 $host    || 'unknown host',
-                                                 $port    || 0,
-                                                 $peer_id || '[unknown peer]',
-                                                 $reason  || 'Unknown reason'
-                                         ),
-                                     severity => 'info'
-                                    }
-        );
-        $s->client->del_peer($s);
-        $_[0] = undef;
-    }
 
     sub _build_sockaddr {
         require Net::BitTorrent::Network::Utility;
