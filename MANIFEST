@@ -18,6 +18,7 @@ lib/Net/BitTorrent/Protocol/BEP03/Bencode.pm
 lib/Net/BitTorrent/Protocol/BEP03/Metadata.pm
 lib/Net/BitTorrent/Protocol/BEP03/Packets.pm
 lib/Net/BitTorrent/Protocol/BEP03/Peer.pm
+lib/Net/BitTorrent/Protocol/BEP03/Peer/Incoming.pm
 lib/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing.pm
 lib/Net/BitTorrent/Protocol/BEP03/Tracker/HTTP.pm
 lib/Net/BitTorrent/Protocol/BEP05.pod
