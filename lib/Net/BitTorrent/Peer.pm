@@ -104,6 +104,12 @@ package Net::BitTorrent::Peer;
         ) for @{$flag->[1]};
     }
 
+    # Internal id
+    has '_id' => (isa      => 'Str',                            # creation id
+                  is       => 'ro',
+                  init_arg => undef,
+                  default  => sub { state $id = 'aa'; $id++ }
+    );
     # Methods
     sub disconnect {
         my ($s, $reason) = @_;
@@ -358,11 +364,7 @@ The time since any transfer occurred with this peer.
              isa => enum([qw[tracker dht pex lsd resume_data incoming user]]),
              default => 'user'
     );
-    has '_id' => (isa      => 'Str',                            # creation id
-                  is       => 'ro',
-                  init_arg => undef,
-                  default  => sub { state $id = 'aa'; $id++ }
-    );
+
     has 'handshake_step' => (
         isa        => enum([qw[REG_ONE REG_TWO REG_THREE REG_OKAY]]),
         is         => 'ro',
