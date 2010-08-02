@@ -10,13 +10,13 @@
         is        => 'ro',
         isa       => 'AnyEvent::Handle::Throttle',
         predicate => '_has_handle',
-        writer    => '_set_handle',
         init_arg  => undef,
+        writer    => '_set_handle',
         handles   => {
             rbuf       => 'rbuf',
             push_read  => 'push_read',
             push_write => 'push_write',
-            fh         => sub { shift->handle->{'fh'} },
+            fh         => sub { shift->_handle->{'fh'} },
             host       => sub {
                 my $s = shift;
                 return $_[0] = undef  #$s->disconnect('Failed to open socket')
