@@ -39,9 +39,17 @@ package Net::BitTorrent::Storage;
                                 _file        => 'get'
                     }
     );
+
     sub wanted {
         my $s = shift;
-        ...
+        my $b = $s->torrent->have->Shadow;
+        for my $file (grep { $_->priority } @{$s->files}) {
+            my $min = $file->offset / $s->torrent->piece_length;
+            my $max
+                = ($file->offset + $file->length) / $s->torrent->piece_length;
+            $b->Interval_Fill($min, $max);
+        }
+        $b;
     }
     has 'root' => (    # ??? - Should this be BaseDir/basedir
         is      => 'ro',
