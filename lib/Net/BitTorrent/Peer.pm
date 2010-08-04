@@ -76,7 +76,8 @@ package Net::BitTorrent::Peer;
 
     sub _trigger_pieces {
         my ($s, $n, $o) = @_;
-        confess 'pieces attribute is already set' if defined $o;
+        confess 'pieces attribute is already set'
+            if defined $o && !$s->local_connection;
         return if !$s->_has_torrent;
         $s->pieces->Resize($s->torrent->piece_count);
     }
