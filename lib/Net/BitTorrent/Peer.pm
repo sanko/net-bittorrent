@@ -708,43 +708,6 @@ The time since any transfer occurred with this peer.
 
     #
 
-    sub check_interest {
-        my $s = shift;
-        return $s->_pieces_intersection->to_Bin =~ m[1]
-            ? $s->_set_interesting
-            : $s->_unset_interesting;
-    }
-
-    #
-
-    # Outgoing packets
-    sub _send_interested     { shift->push_write(build_interested()) }
-    sub _send_not_interested { shift->push_write(build_not_interested()) }
-    sub _send_choke          { shift->push_write(build_choke()) }
-    sub _send_unchoke        { shift->push_write(build_unchoke()) }
-
-    sub _send_bitfield {
-        my $s = shift;
-        $s->push_write(build_bitfield($s->torrent->have));
-    }
-
-    sub _send_request {
-        my ($s, $b) = @_;
-        return if $s->choked;
-        warn sprintf 'Sending request for %d:%d:%d to %s', $b->index,
-            $b->offset, $b->length, $s->peer_id;
-        return $s->push_write(
-                            build_request($b->index, $b->offset, $b->length));
-    }
-
-    sub _send_piece {
-        my ($s, $i, $o, $l) = @_;
-        return if $s->choked;
-        warn sprintf 'Sending block %d:%d:%d to %s', $i, $o, $l, $s->peer_id;
-        return $s->push_write(
-                      build_piece($i, $o, $l, $s->torrent->read($i, $o, $l)));
-    }
-
 
 
     # Callback system
