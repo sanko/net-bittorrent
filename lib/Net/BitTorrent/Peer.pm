@@ -112,6 +112,30 @@ package Net::BitTorrent::Peer;
                    }
         ) for @{$flag->[1]};
     }
+    around '_set_interesting' => sub {
+        my ($c, $s) = @_;
+        return if $s->interesting;
+        $c->($s);
+        $s->_send_interested;
+    };
+    around '_unset_interesting' => sub {
+        my ($c, $s) = @_;
+        return if !$s->interesting;
+        $c->($s);
+        $s->_send_not_interested;
+    };
+    around '_set_choked' => sub {
+        my ($c, $s) = @_;
+        return if $s->choked;
+        $c->($s);
+        $s->_send_choke;
+    };
+    around '_unset_choked' => sub {
+        my ($c, $s) = @_;
+        return if !$s->choked;
+        $c->($s);
+        $s->_send_unchoke;
+    };
 
     # Internal id
     has '_id' => (isa      => 'Str',                            # creation id
@@ -423,30 +447,6 @@ The time since any transfer occurred with this peer.
         $s->handshake_step;
     };
 
-    around '_set_interesting' => sub {
-        my ($c, $s) = @_;
-        return if $s->interesting;
-        $c->($s);
-        $s->_send_interested;
-    };
-    around '_unset_interesting' => sub {
-        my ($c, $s) = @_;
-        return if !$s->interesting;
-        $c->($s);
-        $s->_send_not_interested;
-    };
-    around '_set_choked' => sub {
-        my ($c, $s) = @_;
-        return if $s->choked;
-        $c->($s);
-        $s->_send_choke;
-    };
-    around '_unset_choked' => sub {
-        my ($c, $s) = @_;
-        return if !$s->choked;
-        $c->($s);
-        $s->_send_unchoke;
-    };
     has 'remote_requests' => (is      => 'ro',
                               isa     => 'ArrayRef[ArrayRef]',
                               traits  => ['Array'],
