@@ -27,7 +27,7 @@ package t::10000_by_class::Net::BitTorrent::Peer;
     # Handshake data
     sub reserved  { "\0" x 8 }
     sub info_hash { 'A' x 40 }
-    sub peer_id   { 'Peer_ID' x 20 }
+    sub peer_id   {'This ain\'t a peer_id'}
 
     # Callbacks
     sub on_peer_disconnect {
