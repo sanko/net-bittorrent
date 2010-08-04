@@ -12,18 +12,19 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer_class;
 
     # Basic utility functions/methods
     sub class {'Net::BitTorrent::Protocol::BEP03::Peer'}
-    sub new_args { my $s = shift;
+
+    sub new_args {
+        my $s = shift;
         $s->{'client'} = t::80000_mock::Net::BitTorrent->new();
-        (client => $s->{'client'}); }
+        (client => $s->{'client'});
+    }
 
     sub _0010_check_public_attributes : Test( +0 ) {
         my $s = shift;
         $s->SUPER::_0010_check_public_attributes;
         has_attribute_ok $s->{'peer'}, $_ for sort qw[
-
         ];
     }
-
 
     sub _0012_check_private_attributes : Test( +1 ) {
         my $s = shift;
@@ -55,9 +56,10 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer_class;
         ];
     }
 
-    sub _0090_check_public_methods : Test( 0 ) {
+    sub _0090_check_public_methods : Test( 1 ) {
         my $s = shift;
         can_ok $s->{'peer'}, $_ for sort qw[
+            disconnect
         ];
     }
 
@@ -74,8 +76,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer_class;
         ];
     }
 
-
-    $ENV{'TEST_VERBOSE'}++;
+    #$ENV{'TEST_VERBOSE'}++;
     __PACKAGE__->runtests() if !caller;
 }
 1
