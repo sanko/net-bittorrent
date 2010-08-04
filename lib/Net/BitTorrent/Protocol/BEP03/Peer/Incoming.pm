@@ -51,7 +51,7 @@
                 while (
                       my $p =
                       Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
-                                                                     \$s->rbuf
+                                                            \$s->_handle->rbuf
                       )
                     )
                 {   $s->_handle_packet($p);
