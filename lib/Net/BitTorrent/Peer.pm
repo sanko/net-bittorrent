@@ -80,6 +80,7 @@ package Net::BitTorrent::Peer;
             if defined $o && !$s->local_connection;
         return if !$s->_has_torrent;
         $s->pieces->Resize($s->torrent->piece_count);
+        $s->_check_interest;
     }
 
     #
