@@ -6,6 +6,11 @@
     use lib '../../../../../../lib';
     use Net::BitTorrent::Types qw[:addr];
     extends 'Net::BitTorrent::Protocol::BEP03::Peer';
+
+    #
+    has '+local_connection' => (default => '1', handles => {});
+
+    #
     has '_handle' => (
         is        => 'ro',
         isa       => 'AnyEvent::Handle::Throttle',
