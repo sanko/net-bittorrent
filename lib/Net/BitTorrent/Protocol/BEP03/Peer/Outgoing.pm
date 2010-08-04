@@ -101,7 +101,7 @@
             if $info_hash->Compare($s->torrent->info_hash) != 0;
         $s->_check_unique_connection;
         return if !defined $s;
-        die;
+        $s->_send_bitfield;
     }
 
     #
