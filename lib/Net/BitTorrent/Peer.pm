@@ -38,24 +38,36 @@ package Net::BitTorrent::Peer;
     sub _initializer_torrent {
         my ($s, $c, $set, $attr) = @_;
         $set->($c);
-        warn 'Must be an outgoing connection!';
     }
 
     #
-    has 'pieces' => (is         => 'ro',
-                     isa        => 'NBTypes::Torrent::Bitfield',
-                     lazy_build => 1,
-                     coerce     => 1,
-                     init_arg   => undef,
-                     predicate  => '_has_pieces',
-                     writer     => '_set_pieces',
-                     clearer    => '_clear_pieces',
-                     trigger    => \&_trigger_pieces,
-                     handles    => {
-                                 _set_piece => 'Bit_On',
-                                 _has_piece => 'bit_test',
-                                 seed       => 'is_full'
-                     }
+    has 'pieces' => (
+        is         => 'ro',
+        isa        => 'NBTypes::Torrent::Bitfield',
+        lazy_build => 1,
+        coerce     => 1,
+        init_arg   => undef,
+        predicate  => '_has_pieces',
+        writer     => '_set_pieces',
+        clearer    => '_clear_pieces',
+        trigger    => \&_trigger_pieces,
+        handles    => {
+            _set_piece      => 'Bit_On',
+            _has_piece      => 'bit_test',
+            seed            => 'is_full',
+            _check_interest => sub {
+                my $s = shift;
+                $s->_wanted_pieces->Norm
+                    ? $s->_set_interesting
+                    : $s->_unset_interesting;
+            },
+            _wanted_pieces => sub {
+                my $s            = shift;
+                my $intersection = $s->pieces->Shadow();
+                $intersection->Intersection($s->pieces, $s->torrent->wanted);
+                $intersection;
+                }
+        }
     );
 
     sub _build_pieces {
@@ -67,13 +79,6 @@ package Net::BitTorrent::Peer;
         confess 'pieces attribute is already set' if defined $o;
         return if !$s->_has_torrent;
         $s->pieces->Resize($s->torrent->piece_count);
-    }
-
-    sub _wanted_pieces {
-        my $s            = shift;
-        my $intersection = $s->pieces->Shadow();
-        $intersection->Intersection($s->pieces, $s->torrent->wanted);
-        return $intersection;
     }
 
     #
