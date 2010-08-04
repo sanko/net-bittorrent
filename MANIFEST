@@ -62,7 +62,6 @@ t/10000_by_class/Net/BitTorrent/Network/IPFilter_path.t
 t/10000_by_class/Net/BitTorrent/Peer.t
 t/10000_by_class/Net/BitTorrent/Peer_bad_info_hash.t
 t/10000_by_class/Net/BitTorrent/Peer_class.t
-t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer.t
 t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Incoming.t
 t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing.t
 t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing_class.t
