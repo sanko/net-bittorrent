@@ -60,7 +60,7 @@ package t::10000_by_class::Net::BitTorrent::Peer;
     }
 
     # AnyEvent
-    sub init : Test( startup ) {
+    sub _00000_init : Test( startup ) {
         my $s = shift;
         note 'Adding condvar for later use...';
         $s->{'cv'} = AE::cv();
