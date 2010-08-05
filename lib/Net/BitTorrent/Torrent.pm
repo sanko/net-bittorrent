@@ -145,13 +145,14 @@ package Net::BitTorrent::Torrent;
                         ]->[int rand 2];
                     return if !@{$source->[0][2]};
                     my $addr = $source->[0][2]->[int rand @{$source->[0][2]}];
-                    require Net::BitTorrent::Peer;
-                    $self->client->add_peer(Net::BitTorrent::Peer->new(
+                    require Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
+                    $self->client->add_peer(
+                        Net::BitTorrent::Protocol::BEP03::Peer::Outgoing->new(
                                                        torrent => $self,
                                                        connect => $addr,
                                                        source => $source->[1],
                                                        client => $self->client
-                                            )
+                        )
                     );
                 }
             )

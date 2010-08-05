@@ -368,9 +368,14 @@ package Net::BitTorrent;
             shutdown $peer, 2;
             return close $peer;
         }
-        require Net::BitTorrent::Peer;
+        require Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
+        require AnyEvent::Handle::Throttle;
         $self->add_peer(
-                    Net::BitTorrent::Peer->new(fh => $peer, client => $self));
+                    Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
+                        client => $self,
+                        handle => AnyEvent::Handle::Throttle->new(fh => $peer)
+                    )
+        );
     }
 
     sub _on_tcp6_in {
@@ -389,9 +394,14 @@ package Net::BitTorrent;
             shutdown $peer, 2;
             return close $peer;
         }
-        require Net::BitTorrent::Peer;
+        require Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
+        require AnyEvent::Handle::Throttle;
         $self->add_peer(
-                    Net::BitTorrent::Peer->new(fh => $peer, client => $self));
+                    Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
+                        client => $self,
+                        handle => AnyEvent::Handle::Throttle->new(fh => $peer)
+                    )
+        );
     }
 
     sub _on_udp4_in {
