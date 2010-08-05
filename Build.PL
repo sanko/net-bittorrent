@@ -57,7 +57,7 @@ my $mb = $class->new(
     },
     recommends       => {perl => '5.13.0'},
     test_files       => \@tests,
-    test_file_exts   => [qw(.t .tap .txt)],
+    test_file_exts   => ['.t'],
     use_tap_harness  => 1,
     tap_harness_args => {
                     jobs  => 9,

@@ -11,7 +11,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
     use lib '../', '../../../../../../../', '../../../../../../../lib', 'lib';
     use Net::BitTorrent::Protocol::BEP03::Packets qw[:all];
     use Net::BitTorrent::Torrent;
-    BEGIN { require 't/10000_by_class/Net/BitTorrent/Peer.t'; }
+    BEGIN { require 't/10000_by_class/Net/BitTorrent/Peer.tm'; }
     use parent-norequire, 't::10000_by_class::Net::BitTorrent::Peer';
 
     # Handshake data
@@ -42,18 +42,6 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
             $s->{'port'} = $port;
             1;
             }
-    }
-
-    sub new_args {
-        my $s = shift;
-        $s->{'client'} = Net::BitTorrent->new();
-        $s->{'torrent'}
-            = Net::BitTorrent::Torrent->new(path => $simple_dot_torrent);
-        $s->{'client'}->add_torrent($s->{'torrent'});
-        (connect => [$s->{'host'}, $s->{'port'}],
-         client  => $s->{'client'},
-         torrent => $s->{'torrent'}
-        );
     }
 
     sub _read_handshake {

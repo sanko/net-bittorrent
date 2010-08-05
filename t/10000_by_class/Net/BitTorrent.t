@@ -114,7 +114,7 @@ package t::10000_by_class::Net::BitTorrent;
         }
     }
 
-    sub _check_public_methods : Test( 25 ) {
+    sub _check_public_methods : Test( 26 ) {
         my $s = shift;
         can_ok $s->{'nb'}, $_ for sort qw[
             timer        run
@@ -137,7 +137,7 @@ package t::10000_by_class::Net::BitTorrent;
         ];
     }
 
-    sub _check_attributes : Test( 19 ) {
+    sub _check_attributes : Test( 20 ) {
         my $s = shift;
         has_attribute_ok $s->{'nb'}, $_ for sort qw[
             port
@@ -175,7 +175,7 @@ package t::10000_by_class::Net::BitTorrent;
         ];
     }
 
-    sub _check_attribute_private_methods : Test( 27 ) {
+    sub _check_attribute_private_methods : Test( 28 ) {
         my $s = shift;
         can_ok $s->{'nb'}, $_ for sort qw[
             _set_port
@@ -215,6 +215,7 @@ package t::10000_by_class::Net::BitTorrent;
 
     sub validate_port : Test( 2 ) {
         my $s = shift;
+        return 'Failed to open port' if ref $s->{'nb'}->port;
         like $s->{'nb'}->port, qr[^\d+$],
             sprintf '...->port( ) is an integer [%d]', $s->{'nb'}->port;
         my $port = ref $s->port ? $s->port : [$s->port];

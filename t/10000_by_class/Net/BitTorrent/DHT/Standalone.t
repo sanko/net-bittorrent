@@ -17,7 +17,7 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
          on_listen_failure => sub {
              my ($s, $a) = @_;
              diag $a->{'message'};
-             $t->{'cv'}->send;
+             $t->{'cv'}->end if $a->{'protocol'} =~ m[udp];
          },
          on_listen_success => sub {
              my ($s, $a) = @_;

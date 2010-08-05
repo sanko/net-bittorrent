@@ -5,7 +5,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
     use Test::More;
     use parent 'Test::Class';
     use lib '../../../../lib', 'lib';
-    use 5.010;
+    use 5.012;
     use Test::Moose;
     use Test::More;
     use AnyEvent;
@@ -20,7 +20,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
          on_listen_failure => sub {
              my ($s, $a) = @_;
              diag $a->{'message'};
-             $t->{'cv'}->send if $a->{'protocol'} =~ m[udp];
+             $t->{'cv'}->end if $a->{'protocol'} =~ m[udp];
          },
          on_listen_success => sub {
              my ($s, $a) = @_;
@@ -64,7 +64,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
             '... standard dht nodes have a parent client';
     }
 
-    sub init : Test( startup ) {
+    sub _000_init : Test( startup ) {
         my $s = shift;
         note 'Adding condvar for later use...';
         $s->{'cv'} = AE::cv();
