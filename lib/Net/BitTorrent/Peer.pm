@@ -82,6 +82,7 @@ package Net::BitTorrent::Peer;
         $s->pieces->Resize($s->torrent->piece_count);
         $s->_check_interest;
     }
+    after '_set_piece' => \&_check_interest;
 
     #
     has 'peer_id' => (isa       => 'NBTypes::Client::PeerID',
