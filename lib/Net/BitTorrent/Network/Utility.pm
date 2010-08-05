@@ -121,8 +121,8 @@ package Net::BitTorrent::Network::Utility;
         #    [http://www.unixguide.net/network/socketfaq/4.11.shtml]
         # SO_REUSEPORT is undefined on Win32 and pre-2.4.15 Linux distros.
         setsockopt $socket, SOL_SOCKET, SO_REUSEADDR, pack('l', 1)
-            if $^O !~ m[Win32]
-                or return;
+            or return
+            if $^O !~ m[Win32];
         return if !bind $socket, $sockaddr;
         my $listen = 8;
         if (defined $prepare) {
