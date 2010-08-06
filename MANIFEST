@@ -59,7 +59,6 @@ t/10000_by_class/Net/BitTorrent/DHT/Standalone.t
 t/10000_by_class/Net/BitTorrent/Network/IPFilter.t
 t/10000_by_class/Net/BitTorrent/Network/IPFilter/Rule.t
 t/10000_by_class/Net/BitTorrent/Network/IPFilter_path.t
-t/10000_by_class/Net/BitTorrent/Peer.tm
 t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Incoming.t
 t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing.t
 t/10000_by_class/Net/BitTorrent/Storage/File.t
