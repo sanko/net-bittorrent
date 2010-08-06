@@ -38,7 +38,7 @@ package Net::BitTorrent::Torrent;
                 my $s = shift;
                 return if !$s->_has_client;
                 grep {
-                           $_->has_torrent
+                           $_->_has_torrent
                         && $_->torrent->info_hash eq $s->info_hash
                 } $s->client->peers;
                 }
