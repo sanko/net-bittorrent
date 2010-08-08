@@ -1,5 +1,6 @@
 Build.PL
 Changes
+examples/generate_torrent.pl
 examples/standalone_dht.pl
 examples/swarm_statistics.pl
 lib/Net/BitTorrent.pm
