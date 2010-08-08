@@ -71,16 +71,9 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
         note 'Adding condvar for later use...';
         $s->{'cv'} = AE::cv();
         $s->{'cv'}->begin(sub { $s->{'cv'}->send });
-        note '...which will timeout in 2m.';
-        $s->{'to'} = AE::timer(
-            60 * 2,
-            0,
-            sub {
-                diag sprintf 'Timeout waiting for %s!', join ', ',
-                    keys %{$s->{'todo'}};
-                $s->{'cv'}->send;
-            }
-        );
+        note '...which will timeout in 30s';
+        $s->{'to'}
+            = AE::timer(30, 0, sub { diag 'Timeout!'; $s->{'cv'}->send });
     }
 
     sub wait : Test( shutdown => no_plan ) {
@@ -96,6 +89,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
         can_ok $s->class, 'new';
         $s->{'peer'} = new_ok $s->class, [$s->new_args];
         explain 'New peer looks like... ', $s->{'peer'};
+        $s->{'expect'} = [qw[handshake bitfield]];
     }
 
     sub setup : Test( setup ) {
@@ -105,96 +99,112 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
     sub shutdown : Test( shutdown ) {
     }
 
+    sub __dispatch {
+        {handshake => sub {
+             plan tests => 10;
+             my $s = shift;
+             ok $s->{'handle'}->rbuf, 'read handshake packet';
+             ok length $s->{'handle'}->rbuf >= 68,
+                 'handshake was >= 68 bytes';
+             my $p = parse_packet(\$s->{'handle'}->rbuf);
+             is ref $p, 'HASH', 'packet parses to hashref';
+             is $p->{'type'},           -1, 'fake handshake type';
+             is $p->{'packet_length'},  68, 'parsed packet was 68 bytes';
+             is $p->{'payload_length'}, 48, 'parsed payload was 48 bytes';
+             is scalar @{$p->{'payload'}}, 3, 'parsed payload has 3 elements';
+             is length $p->{'payload'}[0], 8, 'reserved is eight bytes';
+             like $p->{'payload'}[1], qr[^[A-F\d]{40}$]i,        'info_hash';
+             like $p->{'payload'}[2], qr[^NB\d\d\d[SU]-.{13}+$], 'peer_id';
+
+             # Next step
+             $s->{'handle'}->push_write(
+                   build_handshake($s->reserved, $s->info_hash, $s->peer_id));
+             $s->{'handle'}->push_read(
+                 sub {
+                     AnyEvent->one_event;
+                     subtest 'post handshake', sub {
+                         plan tests => 4;
+                         ok $s->{'peer'}->_has_torrent,
+                             '...->torrent is defined';
+                         is $s->{'peer'}->torrent->info_hash->to_Hex,
+                             $s->info_hash,
+                             '...->torrent->info_hash->to_Hex is correct';
+                         is $s->{'peer'}->peer_id, $s->peer_id,
+                             '...->peer_id is correct';
+                         is $s->{'peer'}->pieces->to_Enum, '',
+                             'initial value for ...->pieces->to_Enum is correct';
+                     };
+                     1;
+                 }
+             );
+         },
+         bitfield => sub {
+             plan tests => 2;
+             my $s = shift;
+             is length $s->{'handle'}->rbuf, 6, 'read 6 bytes from peer';
+             is_deeply parse_packet(\$s->{'handle'}->rbuf),
+                 {packet_length  => 6,
+                  payload        => "\0",
+                  payload_length => 1,
+                  type           => 5
+                 },
+                 'bitfield is correct';
+
+             # Next step
+             $s->{'handle'}->push_write(build_bitfield(pack 'B*', '10'));
+             $s->{'handle'}->push_read(
+                 sub {
+                     AnyEvent->one_event for 1 .. 10;
+                     subtest 'post bitfield', sub {
+                         plan tests => 2;
+                         is $s->{'peer'}->pieces->to_Enum, '0',
+                             'new value for ...->pieces->to_Enum is correct';
+                         ok $s->{'peer'}->interesting,
+                             'peer is now interested in us';
+                     };
+                     1;
+                 }
+             );
+             }
+        };
+    }
+
     sub _9000_open_socket : Test( startup => 0 ) {
         my $s = shift;
         $s->{'cv'}->begin;
         $s->{'socket'} = tcp_server '127.0.0.1', 0, sub {
             my ($fh, $host, $port) = @_;
             $s->{'fh'} = $fh;
-            subtest 'read handshake'  => sub { $s->_read_handshake };
-            subtest 'write handshake' => sub { $s->_write_handshake };
-            subtest 'read bitfield'   => sub { $s->_read_bitfield };
-            subtest 'write bitfield'  => sub { $s->_write_bitfield };
-            subtest 'read interested' => sub { $s->_read_interested };
-            subtest 'write unchoke'   => sub { $s->_write_unchoke };
-            $s->{'cv'}->end;
+            $s->{'handle'} = AnyEvent::Handle->new(
+                fh      => $fh,
+                on_read => sub {
+                    @{$s->{'expect'}}
+                        ? subtest $s->{'expect'}->[0], sub {
+                        $s->{'cv'}->begin;
+                        $s->__dispatch->{shift @{$s->{'expect'}}}->($s);
+                        $s->{'cv'}->end;
+                        }
+                        : explain 'No idea what to do with this packet: ',
+                        $s->{'handle'}->rbuf;
+
+                    #subtest 'read handshake', sub { $s->_read_handshake; 1 }
+                },
+                on_write => sub {...}
+            );
+
+            #
+            #subtest 'write handshake' => sub { $s->_write_handshake };
+            #subtest 'read bitfield'   => sub { $s->_read_bitfield };
+            #subtest 'write bitfield'  => sub { $s->_write_bitfield };
+            #subtest 'read interested' => sub { $s->_read_interested };
+            #subtest 'write unchoke'   => sub { $s->_write_unchoke };
+            #$s->{'cv'}->end;
             }, sub {
             my ($state, $host, $port) = @_;
             $s->{'host'} = $host;
             $s->{'port'} = $port;
             1;
             }
-    }
-
-    sub _read_handshake {
-        plan tests => 10;
-        my $s = shift;
-        $s->{'cv'}->begin;
-
-        #
-        AnyEvent->one_event for 1 .. 10;
-        ok sysread($s->{'fh'}, my ($in), 1024), 'read handshake packet';
-        ok length $in >= 68, 'handshake was >= 68 bytes';
-        my $p = parse_packet(\$in);
-        is ref $p, 'HASH', 'packet parses to hashref';
-        is $p->{'type'},           -1, 'fake handshake type';
-        is $p->{'packet_length'},  68, 'parsed packet was 68 bytes';
-        is $p->{'payload_length'}, 48, 'parsed payload was 48 bytes';
-        is scalar @{$p->{'payload'}}, 3, 'parsed payload has 3 elements';
-        is length $p->{'payload'}[0], 8, 'reserved is eight bytes';
-        like $p->{'payload'}[1], qr[^[A-F\d]{40}$]i,        'info_hash';
-        like $p->{'payload'}[2], qr[^NB\d\d\d[SU]-.{13}+$], 'peer_id';
-
-        # Next step
-        $s->{'cv'}->end;
-    }
-
-    sub _write_handshake {
-        plan tests => 5;
-        my $s = shift;
-        $s->{'cv'}->begin;
-        AnyEvent->one_event for 1 .. 10;
-        is syswrite($s->{'fh'},
-                   build_handshake($s->reserved, $s->info_hash, $s->peer_id)),
-            68, 'wrote 68 byte handshake to peer';
-        AnyEvent->one_event for 1 .. 10;
-        ok $s->{'peer'}->_has_torrent, '...->torrent is defined';
-        is $s->{'peer'}->torrent->info_hash->to_Hex, $s->info_hash,
-            '...->torrent->info_hash->to_Hex is correct';
-        is $s->{'peer'}->peer_id, $s->peer_id, '...->peer_id is correct';
-        is $s->{'peer'}->pieces->to_Enum, '',
-            'initial value for ...->pieces->to_Enum is correct';
-        $s->{'cv'}->end;
-    }
-
-    sub _read_bitfield {
-        plan tests => 2;
-        my $s = shift;
-        $s->{'cv'}->begin;
-        AnyEvent->one_event for 1 .. 10;
-        is sysread($s->{'fh'}, my ($x), 1024), 6, 'read 6 bytes from peer';
-        is_deeply parse_packet(\$x),
-            {packet_length  => 6,
-             payload        => "\0",
-             payload_length => 1,
-             type           => 5
-            },
-            'bitfield is correct';
-        $s->{'cv'}->end;
-    }
-
-    sub _write_bitfield {
-        plan tests => 3;
-        my $s = shift;
-        $s->{'cv'}->begin;
-        AnyEvent->one_event for 1 .. 10;
-        is syswrite($s->{'fh'}, build_bitfield(pack 'B*', '10')), 6,
-            'wrote 6 byte bitfield to peer';
-        AnyEvent->one_event for 1 .. 10;
-        is $s->{'peer'}->pieces->to_Enum, '0',
-            'new value for ...->pieces->to_Enum is correct';
-        ok $s->{'peer'}->interesting, 'peer is now interested in us';
-        $s->{'cv'}->end;
     }
 
     sub _read_interested {
