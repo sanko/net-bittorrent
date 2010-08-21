@@ -1,4 +1,3 @@
-
 #!start included C:\strawberry\perl\lib\ExtUtils\MANIFEST.SKIP
 # Avoid version control files.
 \bRCS\b
@@ -92,3 +91,10 @@ inc/
 Ideas.pod
 docs/Design.pod
 ipfilter_.+.dat
+examples/a.legal.torrent
+
+# Stuff added late one night when I should be asleep
+examples/.+.torrent$
+t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing_bad_info_hash.t
+t/60000_swarm/basic.t
+t/60000_swarm/~basic.t
