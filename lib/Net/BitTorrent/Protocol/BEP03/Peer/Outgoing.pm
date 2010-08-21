@@ -48,6 +48,15 @@
         $set->($t);
         $s->_set_pieces($t->have->Shadow);
     }
+    override '_trigger_torrent' => sub {
+        super;
+        my ($s, $n, $o) = @_;
+        $s->_has_pieces
+            && $s
+            ->_has_torrent # Depending on whether the pieces attribute is set,
+            ? $s->pieces->Resize($s->torrent->piece_count)    # create or
+            : $s->pieces                                      # resize it.
+    };
     has '_connect' => (is          => 'ro',
                        isa         => 'NBTypes::Network::Addr',
                        required    => 1,
@@ -105,7 +114,6 @@
     }
 
     #
-
     no Moose;
     no Moose::Util::TypeConstraints;
     __PACKAGE__->meta->make_immutable

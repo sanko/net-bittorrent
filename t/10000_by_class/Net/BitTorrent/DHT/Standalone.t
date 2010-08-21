@@ -11,18 +11,17 @@ package t::10000_by_class::Net::BitTorrent::DHT::Standalone;
     #
     sub new_args {
         my $t = shift;
-        [port => [1337 .. 3339, 0],
-         boot_nodes =>
-             [['router.utorrent.com', 6881], ['router.bittorrent.com', 6881]],
-         on_listen_failure => sub {
-             my ($s, $a) = @_;
-             diag $a->{'message'};
-             $t->{'cv'}->end if $a->{'protocol'} =~ m[udp];
-         },
-         on_listen_success => sub {
-             my ($s, $a) = @_;
-             diag $a->{'message'};
-             }
+        [    #port => [1337 .. 3339, 0],
+           boot_nodes => [['router.utorrent.com',   6881],
+                          ['router.bittorrent.com', 6881]
+           ],
+           on_listen_failure => sub {
+               my ($s, $a) = @_;
+               note $a->{'message'};
+               $t->{'cv'}->end if $a->{'protocol'} =~ m[udp];
+           },
+           on_listen_success =>
+               sub { my ($s, $a) = @_; note $a->{'message'}; }
         ];
     }
 

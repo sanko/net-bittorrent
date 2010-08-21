@@ -7,16 +7,17 @@
     use Net::BitTorrent::Types qw[:addr];
     extends 'Net::BitTorrent::Protocol::BEP03::Peer';
     has '_handle' => (
-        is        => 'ro',
-        isa       => 'AnyEvent::Handle::Throttle',
-        predicate => '_has_handle',
-        init_arg  => 'handle',
-        required  => 1,
-        handles   => {
+        is          => 'ro',
+        isa         => 'AnyEvent::Handle::Throttle',
+        predicate   => '_has_handle',
+        initializer => '_initializer_handle',
+        init_arg    => 'handle',
+        required    => 1,
+        handles     => {
             rbuf       => 'rbuf',
             push_read  => 'push_read',
             push_write => 'push_write',
-            fh         => sub { shift->handle->{'fh'} },
+            fh         => sub { shift->_handle->{'fh'} },
             host       => sub {
                 my $s = shift;
                 return $_[0] = undef  #$s->disconnect('Failed to open socket')
@@ -42,7 +43,6 @@
         $set->($c);
         require Scalar::Util;
         Scalar::Util::weaken $s;
-        require AnyEvent::Handle::Throttle;
         $c->on_read(
             sub {
                 return if !defined $s;
@@ -59,6 +59,25 @@
                 }
             }
         );
+
+      #on_connect => sub {
+      #           return if !defined $s;
+      #           $s->_send_handshake;
+      #       },
+      #       on_read => sub {
+      #           return if !defined $s;
+      #           require Net::BitTorrent::Protocol::BEP03::Packets;
+      #       PACKET:
+      #           while (
+      #               my $p =
+      #               Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
+      #                                                   \$s->_handle->rbuf
+      #               )
+      #               )
+      #           {   $s->_handle_packet($p);
+      #               last PACKET if !defined $s || !$s->rbuf || !$p;
+      #           }
+      #       }
     }
     my $infohash_constraint;
 
@@ -77,14 +96,11 @@
                            $info_hash->to_Hex)
             if !$t;
         $s->_set_torrent($t);
-
-        #$s->_set_pieces($t->have->Shadow);
         $s->_check_unique_connection;
         return if !defined $s;
 
-        # XXX - send handshake
-        #$hand_shake_writer->() if defined $torrent;
-        ...;
+        # send handshake
+        $s->_send_handshake if defined $t;
     }
 
     #

@@ -169,6 +169,27 @@ package Net::BitTorrent::Torrent;
                     my @choked = sort {
                                $a->remote_choked <=> $b->remote_choked
                             || $a->total_download <=> $b->total_download
+                        } grep { $_->remote_interested && $_->choked }
+                        $self->peers;
+                    for my $i (0 .. $self->max_upload_slots) {
+                        last if !$choked[$i];
+                        $choked[$i]->_unset_choked;
+                    }
+                }
+            )
+        );
+        $self->add_quest(
+            'optimistic_unchoke',
+            AE::timer(
+                0, 120,
+                sub {
+                    return if !$self;
+                    return if !$self->_has_client;
+                    return if !scalar $self->peers;
+                    my @unchoked = grep { !$_->choked } $self->peers;
+                    my @choked = sort {
+                               $a->remote_choked <=> $b->remote_choked
+                            || $a->total_download <=> $b->total_download
                     } grep { $_->choked } $self->peers;
                     for my $i (0 .. $self->max_upload_slots) {
                         last if !$choked[$i];

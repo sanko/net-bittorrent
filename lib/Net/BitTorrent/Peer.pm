@@ -21,18 +21,13 @@ package Net::BitTorrent::Peer;
                       predicate   => '_has_torrent',
                       writer      => '_set_torrent',
                       weak_ref    => 1,
-                      trigger     => \&_trigger_torrent,
+                      trigger     => sub { shift->_trigger_torrent },
                       initializer => '_initializer_torrent'
     );
 
     sub _trigger_torrent {
         my ($s, $n, $o) = @_;
         confess 'torrent attribute is already set' if defined $o;
-        $s->_has_pieces
-            && $s
-            ->_has_torrent # Depending on whether the pieces attribute is set,
-            ? $s->pieces->Resize($s->torrent->piece_count)    # create or
-            : $s->pieces                                      # resize it.
     }
 
     sub _initializer_torrent {
@@ -77,7 +72,7 @@ package Net::BitTorrent::Peer;
     sub _trigger_pieces {
         my ($s, $n, $o) = @_;
         confess 'pieces attribute is already set'
-            if defined $o && !$s->local_connection;
+            if $o && !$s->local_connection;
         return if !$s->_has_torrent;
         $s->pieces->Resize($s->torrent->piece_count);
         $s->_check_interest;

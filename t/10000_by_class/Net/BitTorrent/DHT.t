@@ -16,16 +16,14 @@ package t::10000_by_class::Net::BitTorrent::DHT;
     sub new_args {
         my $t = shift;
         require Net::BitTorrent;
-        [port              => [1337 .. 1339, 0],
-         on_listen_failure => sub {
-             my ($s, $a) = @_;
-             diag $a->{'message'};
-             $t->{'cv'}->end if $a->{'protocol'} =~ m[udp];
-         },
-         on_listen_success => sub {
-             my ($s, $a) = @_;
-             diag $a->{'message'};
-             }
+        [    #port              => [1337 .. 1339, 0],
+           on_listen_failure => sub {
+               my ($s, $a) = @_;
+               note $a->{'message'};
+               $t->{'cv'}->end if $a->{'protocol'} =~ m[udp];
+           },
+           on_listen_success =>
+               sub { my ($s, $a) = @_; note $a->{'message'}; }
         ];
     }
 
@@ -74,7 +72,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
             60 * 2,
             0,
             sub {
-                diag sprintf 'Timeout waiting for %s!', join ', ',
+                note sprintf 'Timeout waiting for %s!', join ', ',
                     keys %{$s->{'todo'}};
                 $s->{'cv'}->send;
             }

@@ -64,7 +64,8 @@ sub gather_stats {
     # Add/update this peer's seed status. This could go into a database.
     $torrents{$a->{'peer'}->torrent->info_hash->to_Hex}{$a->{'peer'}->peer_id}
         = $seed == $have ? 'seed' : 'leech';
-    $a->{'peer'}->disconnect('We are only gathering statistics');
+
+    #$a->{'peer'}->disconnect('We are only gathering statistics');
 }
 for my $dot_torrent ('a.legal.torrent') {
     $client->add_torrent(Net::BitTorrent::Torrent::crypt_1->new(

@@ -127,7 +127,7 @@
 
     sub _handle_packet {
         my ($s, $p) = @_;
-        return if !$s->_has_torrent;
+        return if $s->local_connection && !$s->_has_torrent;
         return if !$s->_has_handle;
         %_packet_dispatch = ($HANDSHAKE   => 'handshake',
                              $CHOKE       => 'choke',
@@ -151,7 +151,7 @@
         my $code
             = $s->can('_handle_packet_' . $_packet_dispatch{$p->{'type'}});
         return $code->($s, $p->{'payload'}) if $code;
-        use Data::Dump;
+        return if !eval 'use Data::Dump;';
         ddx $p;
     }
     override 'disconnect' => sub {
@@ -190,6 +190,11 @@
         return $s->push_write(
                       build_piece($i, $o, $l, $s->torrent->read($i, $o, $l)));
     }
+
+    #
+    no Moose;
+    no Moose::Util::TypeConstraints;
+    __PACKAGE__->meta->make_immutable
 }
 1;
 

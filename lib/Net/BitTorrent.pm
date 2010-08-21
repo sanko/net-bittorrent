@@ -180,6 +180,7 @@ package Net::BitTorrent;
                     $s->_set_tcp6_sock($actual_socket);
                     $s->_set_tcp6_host($actual_host);
                     $s->_set_port($actual_port);
+                    8;
                 },
                 'tcp'
             );
@@ -227,6 +228,7 @@ package Net::BitTorrent;
                     $s->_set_tcp4_sock($actual_socket);
                     $s->_set_tcp4_host($actual_host);
                     $s->_set_port($actual_port);
+                    8;
                 },
                 'tcp'
             );
@@ -370,11 +372,19 @@ package Net::BitTorrent;
         }
         require Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         require AnyEvent::Handle::Throttle;
-        $self->add_peer(
-                    Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
+        $peer =
+            Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
                         client => $self,
                         handle => AnyEvent::Handle::Throttle->new(fh => $peer)
-                    )
+            );
+        $self->add_peer($peer);
+        $self->trigger_peer_connect(
+                   {severity => 'info',
+                    event    => 'peer_connect',
+                    peer     => $peer,
+                    message => sprintf 'Incomming peer connection from %s:%s',
+                    $peer->host, $peer->port
+                   }
         );
     }
 
@@ -396,11 +406,19 @@ package Net::BitTorrent;
         }
         require Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         require AnyEvent::Handle::Throttle;
-        $self->add_peer(
-                    Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
+        $peer =
+            Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
                         client => $self,
                         handle => AnyEvent::Handle::Throttle->new(fh => $peer)
-                    )
+            );
+        $self->add_peer($peer);
+        $self->trigger_peer_connect(
+                   {severity => 'info',
+                    event    => 'peer_connect',
+                    peer     => $peer,
+                    message => sprintf 'Incomming peer connection from %s:%s',
+                    $peer->host, $peer->port
+                   }
         );
     }
 
@@ -447,7 +465,6 @@ package Net::BitTorrent;
                         is      => 'rw',
                         default => '50'
     );
-
     has '_peers' => (
         is      => 'HashRef[Net::BitTorrent::Peer]',    # by creation id
         is      => 'ro',
