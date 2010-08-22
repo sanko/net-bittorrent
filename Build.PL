@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use File::Find;
 use Module::Build;
-our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 8; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 9; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 $|++;
 my $automated_testing = $ENV{'AUTOMATED_TESTING'}
     || $ENV{'PERL_MM_USE_DEFAULT'};
@@ -50,12 +50,12 @@ my $mb = $class->new(
                        ($is_developer
                         ? ('CPAN::Meta::Converter' => 0,
                            'CPAN::Meta::Validator' => 0,
-                           JSON                    => 0
+                           JSON                    => 0,
+                           'Perl::Tidy'            => 0
                             )
                         : ()
                        )
     },
-    recommends       => {perl => '5.13.0'},
     test_files       => \@tests,
     test_file_exts   => ['.t'],
     use_tap_harness  => 1,

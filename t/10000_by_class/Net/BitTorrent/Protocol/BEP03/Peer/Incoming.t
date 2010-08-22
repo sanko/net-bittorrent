@@ -128,8 +128,9 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
     # Callbacks
     sub on_peer_disconnect {
         my ($s, $a) = @_;
-        use Data::Dump;
-        ddx $a;
+
+        #use Data::Dump;
+        #ddx $a;
         is $a->{'peer'}->handshake, 0, 'disconnect mid-handshake';
 
         # Regression test

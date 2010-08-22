@@ -151,7 +151,7 @@
         my $code
             = $s->can('_handle_packet_' . $_packet_dispatch{$p->{'type'}});
         return $code->($s, $p->{'payload'}) if $code;
-        return if !eval 'use Data::Dump;';
+        return if !eval 'require Data::Dump;';
         ddx $p;
     }
     override 'disconnect' => sub {
