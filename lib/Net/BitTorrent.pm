@@ -45,7 +45,6 @@ package Net::BitTorrent;
                        isa     => 'ArrayRef[Net::BitTorrent::Torrent]',
                        is      => 'ro',
                        default => sub { [] },
-                       coerce  => 1,
                        handles => {
                                 add_torrent     => 'push',
                                 clear_torrents  => 'clear',

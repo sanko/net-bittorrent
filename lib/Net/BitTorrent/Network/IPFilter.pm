@@ -11,7 +11,6 @@ package Net::BitTorrent::Network::IPFilter;
           isa => 'ArrayRef[Net::BitTorrent::Network::IPFilter::Rule]' => is =>
               'ro',
           traits   => ['Array'],
-          coerce   => 1,
           init_arg => undef,
           default  => sub { [] },
           handles  => {
