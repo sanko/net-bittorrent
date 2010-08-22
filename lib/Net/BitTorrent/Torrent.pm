@@ -52,7 +52,7 @@ package Net::BitTorrent::Torrent;
         }
     );
     has 'quests' => (is      => 'ro',
-                     isa     => 'HashRef[ArrayRef]',
+                     isa     => 'HashRef[Defined]',
                      traits  => ['Hash'],
                      handles => {add_quest    => 'set',
                                  get_quest    => 'get',

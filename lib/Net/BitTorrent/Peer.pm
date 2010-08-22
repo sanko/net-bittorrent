@@ -496,7 +496,7 @@ The time since any transfer occurred with this peer.
         );
     };
     has 'quests' => (is      => 'ro',
-                     isa     => 'HashRef[ArrayRef]',
+                     isa     => 'HashRef[Defined]',
                      traits  => ['Hash'],
                      handles => {_add_quest    => 'set',
                                  _get_quest    => 'get',
