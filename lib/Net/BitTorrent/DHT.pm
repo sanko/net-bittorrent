@@ -512,17 +512,15 @@ package Net::BitTorrent::DHT;
             }
         }
         elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {
-
-            #use Data::Dump;
             warn sprintf 'Error from %s:%d', $node->host, $node->port;
 
+            #use Data::Dump;
             #ddx $packet;
         }
         else {
 
             #use Data::Dump;
-            warn sprintf '%s:%d', $node->host, $node->port;
-
+            #warn sprintf '%s:%d', $node->host, $node->port;
             #ddx $packet;
             #ddx $data;
             #...;
