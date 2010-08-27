@@ -6,19 +6,10 @@
 
     sub _select_piece {
         my ($s, $peer) = @_;
-        my $bitfield = $peer->_pieces_intersection->to_Bin;
-        my @index;
-        {
-            my $i = rindex $bitfield, '1', 0;
-            while ($i != -1) {
-                push @index, $i;
-                $i = rindex $bitfield, '1', $i + 1;
-            }
-        }
+        my @indices = $peer->_wanted_pieces->Index_List_Read();
 
   # XXX - Make sure this isn't a piece we've requested all blocks from already
-        return if !scalar @index;
-        return $index[rand @index];
+        return @indices ? $indices[rand @indices] : ();
     }
 }
 1;

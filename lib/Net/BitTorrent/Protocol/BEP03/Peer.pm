@@ -43,7 +43,7 @@
             ? 'now have! :D'
             : 'aw, man... :( Broken!';
         my $seed = $s->torrent->piece_count;
-        my $have = scalar grep {$_} split '', unpack 'b*', $s->pieces;
+        my $have = $s->pieces->Norm;
         my $perc = (($have / $seed) * 100);
         $s->trigger_peer_have(
             {peer     => $s,
@@ -65,7 +65,7 @@
         my ($s, $b) = @_;
         $s->_set_pieces($b);
         my $seed = $s->torrent->piece_count;
-        my $have = scalar grep {$_} split '', unpack 'b*', $b;
+        my $have = $s->pieces->Norm();
         my $perc = (($have / $seed) * 100);
         $s->trigger_peer_bitfield(
             {peer     => $s,
