@@ -136,7 +136,7 @@ package Net::BitTorrent::Torrent;
         $self->add_quest(
             'new_peer',
             AE::timer(
-                0, 3,
+                0, 30,
                 sub {
                     return if !$self;
                     return if !$self->_has_client;
