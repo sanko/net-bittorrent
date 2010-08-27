@@ -45,7 +45,7 @@ package Net::BitTorrent::Peer;
         predicate  => '_has_pieces',
         writer     => '_set_pieces',
         clearer    => '_clear_pieces',
-        trigger    => \&_trigger_pieces,
+        trigger    => sub { shift->_trigger_pieces },
         handles    => {
             _set_piece      => 'Bit_On',
             _has_piece      => 'bit_test',
@@ -75,9 +75,39 @@ package Net::BitTorrent::Peer;
             if $o && !$s->local_connection;
         return if !$s->_has_torrent;
         $s->pieces->Resize($s->torrent->piece_count);
-        $s->_check_interest;
     }
-    after '_set_piece' => \&_check_interest;
+    after '_set_piece' => sub { shift->_check_interest };
+
+    #
+    has 'remote_requests' => (is      => 'ro',
+                              isa     => 'ArrayRef[ArrayRef]',
+                              traits  => ['Array'],
+                              handles => {_add_remote_request    => 'push',
+                                          _shift_remote_requests => 'shift',
+                                          _clear_remote_requests => 'clear',
+                                          _count_remote_requests => 'count'
+                              },
+                              default => sub { [] }
+    );
+    has 'requests' => (
+                    is  => 'ro',
+                    isa => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
+                    traits  => ['Array'],
+                    handles => {_add_request    => 'push',
+                                _clear_requests => 'clear',
+                                _count_requests => 'count'
+                    },
+                    default => sub { [] }
+    );
+    around '_add_request' => sub {
+        my ($c, $s, $b) = @_;
+        return if $s->choked;
+        $c->($s, $b);    # XXX - also let the parent client know
+
+        # XXX - also let the parent client know
+        $s->_send_request($b);
+        $b->_set_peer($s);
+    };
 
     #
     has 'peer_id' => (isa       => 'NBTypes::Client::PeerID',
@@ -121,6 +151,8 @@ package Net::BitTorrent::Peer;
                    }
         ) for @{$flag->[1]};
     }
+
+    #
     around '_set_interesting' => sub {
         my ($c, $s) = @_;
         return if $s->interesting;
@@ -182,6 +214,9 @@ package Net::BitTorrent::Peer;
         );
         $s->client->del_peer($s);
         $_[0] = undef;
+    }
+
+    sub DEMOLISH {
     }
 
     #
@@ -454,59 +489,6 @@ The time since any transfer occurred with this peer.
             # incoming
         }
         $s->handshake_step;
-    };
-
-    has 'remote_requests' => (is      => 'ro',
-                              isa     => 'ArrayRef[ArrayRef]',
-                              traits  => ['Array'],
-                              handles => {_add_remote_request    => 'push',
-                                          _shift_remote_requests => 'shift',
-                                          _clear_remote_requests => 'clear',
-                                          _count_remote_requests => 'count'
-                              },
-                              default => sub { [] }
-    );
-    has 'requests' => (
-                    is  => 'ro',
-                    isa => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
-                    traits  => ['Array'],
-                    handles => {_add_request    => 'push',
-                                _clear_requests => 'clear',
-                                _count_requests => 'count'
-                    },
-                    default => sub { [] }
-    );
-    around '_add_request' => sub {
-        my ($c, $s, $b) = @_;
-        return if $s->choked;
-        $c->($s, $b);    # XXX - also let the parent client know
-
-        # XXX - also let the parent client know
-        $s->_send_request($b);
-        $b->_set_peer($s);
-    };
-    around '_unset_remote_choked' => sub {
-        my ($c, $s) = @_;
-        return if $s->_has_quest('request_block');
-        require Scalar::Util;
-        Scalar::Util::weaken $s;
-        my $max_requests = 4;    # XXX - max_requests attribute
-        $s->_add_quest(
-            'request_block',
-            AE::timer(
-                0, 3,
-                sub {
-                    return if !defined $s;
-                    for (0 .. $max_requests) {
-                        my $piece = $s->torrent->select_piece($s);
-                        next if !$piece;
-                        my $b = $piece->_first_unassigned_block();
-                        next if !$b;
-                        $s->_add_request($b);
-                    }
-                }
-            )
-        );
     };
 
     #
