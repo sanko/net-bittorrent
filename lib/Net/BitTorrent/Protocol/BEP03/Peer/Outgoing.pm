@@ -77,8 +77,12 @@
                     return if !defined $s;
                     $s->_send_handshake;
                 },
-                on_read => sub {
+                on_eof => sub {
                     return if !defined $s;
+                    $s->_handle->push_shutdown;
+                    $s->_handle->destroy;
+                },
+                on_read => sub {
                     require Net::BitTorrent::Protocol::BEP03::Packets;
                 PACKET:
                     while (

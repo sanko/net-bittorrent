@@ -155,12 +155,12 @@
         ddx $p;
     }
     override 'disconnect' => sub {
-        super;
-        my $s = shift;
+        my ($s) = @_;
         if (!$s->_handle->destroyed) {
-            $s->_handle->push_shutdown if defined $s->_handle->{'fh'};
+            $s->_handle->push_shutdown;
             $s->_handle->destroy;
         }
+        super;
     };
 
     # Outgoing packets
