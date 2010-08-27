@@ -102,6 +102,9 @@
             }
         );
     }
+    after qw[_handle_packet_bitfield _handle_packet_have] => sub {
+        shift->_check_interest;
+    };
 
     sub _handle_packet_request {
         my ($s, $r) = @_;
