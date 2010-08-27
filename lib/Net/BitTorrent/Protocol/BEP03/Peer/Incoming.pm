@@ -14,11 +14,12 @@
         init_arg    => 'handle',
         required    => 1,
         handles     => {
-            rbuf       => 'rbuf',
-            push_read  => 'push_read',
-            push_write => 'push_write',
-            fh         => sub { shift->_handle->{'fh'} },
-            host       => sub {
+            rbuf           => 'rbuf',
+            push_read      => 'push_read',
+            push_write     => 'push_write',
+            total_download => 'download_total',
+            fh             => sub { shift->_handle->{'fh'} },
+            host           => sub {
                 my $s = shift;
                 return $_[0] = undef  #$s->disconnect('Failed to open socket')
                     if !defined $s->fh;    # XXX - error creating socket?
