@@ -33,8 +33,10 @@ package Net::BitTorrent::Torrent;
         weak_ref  => 1,
         predicate => '_has_client',
         handles   => {
-            dht   => 'dht',
-            peers => sub {
+            dht                     => 'dht',
+            trigger_piece_hash_pass => 'trigger_piece_hash_pass',
+            trigger_piece_hash_fail => 'trigger_piece_hash_fail',
+            peers                   => sub {
                 my $s = shift;
                 return if !$s->_has_client;
                 grep {
@@ -188,8 +190,9 @@ package Net::BitTorrent::Torrent;
                     return if !scalar $self->peers;
                     my @unchoked = grep { !$_->choked } $self->peers;
                     my @choked = sort {
-                               $a->remote_choked <=> $b->remote_choked
-                            || $a->total_download <=> $b->total_download
+                        ($a->remote_choked <=> $b->remote_choked)
+                            || (($a->total_download || 0)
+                                <=> ($b->total_download || 0))
                     } grep { $_->choked } $self->peers;
                     for my $i (0 .. $self->max_upload_slots) {
                         last if !$choked[$i];
@@ -260,12 +263,15 @@ package Net::BitTorrent::Torrent;
                    writer     => '_have',
                    clearer    => '_clear_have',
                    handles    => {
-                               _set_piece => 'Bit_On',
-                               _has_piece => 'bit_test',
-                               seed       => 'is_full'
+                               _set_piece   => 'Bit_On',
+                               _unset_piece => 'Bit_Off',
+                               _has_piece   => 'bit_test',
+                               seed         => 'is_full'
                    },
     );
     sub _build_have { '0' x $_[0]->piece_count }
+    after '_set_piece'   => sub { $_[0]->trigger_piece_hash_pass($_[1]) };
+    after '_unset_piece' => sub { $_[0]->trigger_piece_hash_fail($_[1]) };
 
     #{    ### Simple plugin system
     #    my @_plugins;
