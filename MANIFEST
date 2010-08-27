@@ -66,6 +66,7 @@ t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing.t
 t/10000_by_class/Net/BitTorrent/Storage/File.t
 t/10000_by_class/Net/BitTorrent_random_port.t
 t/10000_by_class/Net/BitTorrent_single_port.t
+t/60000_swarm/60010_http.t
 t/90000_data/95000_torrents/95003_miniswarm.torrent
 t/90000_data/95000_torrents/credits.txt
 t/90000_data/95000_torrents/OOo_3.2.0_Win32Intel_install_en-US.exe.torrent
