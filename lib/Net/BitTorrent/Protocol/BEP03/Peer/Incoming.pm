@@ -100,7 +100,9 @@
         return if !defined $s;
 
         # send handshake
-        $s->_send_handshake if defined $t;
+        return if !defined $t;
+        $s->_send_handshake;
+        $s->_send_bitfield;
     }
 
     #
