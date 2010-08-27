@@ -505,6 +505,8 @@ package Net::BitTorrent;
             peer_packet_in
             peer_bitfield
             peer_have
+            piece_hash_pass
+            piece_hash_fail
         ];
     }
     else {    # Callback System II
