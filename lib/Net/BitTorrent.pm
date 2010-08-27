@@ -371,11 +371,17 @@ package Net::BitTorrent;
         }
         require Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         require AnyEvent::Handle::Throttle;
-        $peer =
-            Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
-                        client => $self,
-                        handle => AnyEvent::Handle::Throttle->new(fh => $peer)
-            );
+        $peer = Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
+            client => $self,
+            handle => AnyEvent::Handle::Throttle->new(
+                fh     => $peer,
+                on_eof => sub {
+                    return if !defined $peer;
+                    $peer->_handle->push_shutdown;
+                    $peer->_handle->destroy;
+                }
+            )
+        );
         $self->add_peer($peer);
         $self->trigger_peer_connect(
                    {severity => 'info',
@@ -405,11 +411,17 @@ package Net::BitTorrent;
         }
         require Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         require AnyEvent::Handle::Throttle;
-        $peer =
-            Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
-                        client => $self,
-                        handle => AnyEvent::Handle::Throttle->new(fh => $peer)
-            );
+        $peer = Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
+            client => $self,
+            handle => AnyEvent::Handle::Throttle->new(
+                fh     => $peer,
+                on_eof => sub {
+                    return if !defined $peer;
+                    $peer->_handle->push_shutdown;
+                    $peer->_handle->destroy;
+                }
+            )
+        );
         $self->add_peer($peer);
         $self->trigger_peer_connect(
                    {severity => 'info',
