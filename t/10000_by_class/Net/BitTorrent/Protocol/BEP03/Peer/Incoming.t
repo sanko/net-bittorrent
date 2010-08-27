@@ -29,6 +29,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
                     is $args->{'peer'}->host, '127.0.0.1', 'local peer...';
                     isa_ok $s->{'peer'}, 'Net::BitTorrent::Peer';
                     isa_ok $s->{'peer'}, $s->class;
+                    explain 'New peer looks like... ', $s->{'peer'};
                 };
             }
         );
