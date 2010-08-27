@@ -32,6 +32,29 @@
     sub _handle_packet_choke      { shift->_set_remote_choked }
     sub _handle_packet_unchoke    { shift->_unset_remote_choked }
     sub _handle_packet_interested { shift->_set_remote_interested }
+    around '_unset_remote_choked' => sub {
+        my ($c, $s) = @_;
+        return if $s->_has_quest('request_block');
+        require Scalar::Util;
+        Scalar::Util::weaken $s;
+        my $max_requests = 4;    # XXX - max_requests attribute
+        $s->_add_quest(
+            'request_block',
+            AE::timer(
+                0, 3,
+                sub {
+                    return if !defined $s;
+                    for (0 .. $max_requests) {
+                        my $piece = $s->torrent->select_piece($s);
+                        next if !$piece;
+                        my $b = $piece->_first_unassigned_block();
+                        next if !$b;
+                        $s->_add_request($b);
+                    }
+                }
+            )
+        );
+    };
 
     sub _handle_packet_have {
         my ($s, $i) = @_;
