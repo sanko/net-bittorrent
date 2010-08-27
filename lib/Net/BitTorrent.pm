@@ -25,7 +25,7 @@ package Net::BitTorrent;
         return pack(
             'a20',
             (sprintf(
-                 'NB%03d%1s-%8s%5s',
+                 'NB%03d%1s-%8s%-5s',
                  $MAJOR * 1000,
                  ($DEV > 0 ? 'U' : 'S'),
                  (join '',
@@ -34,7 +34,7 @@ package Net::BitTorrent;
                       ->[rand(66)]
                       } 1 .. 8
                  ),
-                 'KaiLi'
+                 [qw[KaiLi April]]->[rand 2]
              )
             )
         );
