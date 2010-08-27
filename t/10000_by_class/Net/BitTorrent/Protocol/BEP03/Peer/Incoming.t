@@ -16,6 +16,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
 
     # Basic utility functions/methods
     sub class {'Net::BitTorrent::Protocol::BEP03::Peer::Incoming'}
+    sub _done { shift->{'cv'}->send }
 
     sub new_args {
         my $s = shift;
@@ -65,7 +66,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
     sub __expect {
         my ($s, $k) = @_;
         state $expect;
-        $expect //= [qw[handshake interested]];
+        $expect //= [qw[handshake bitfield interested]];
         return wantarray ? @$expect : shift @$expect;
     }
     sub _send_handshake {return}
@@ -202,7 +203,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
             bitfield => sub {
                 plan tests => 2;
                 my $s = shift;
-                is length $s->{'handle'}->rbuf, 5, 'read 5 bytes from peer';
+                is length $s->{'handle'}->rbuf, 6, 'read 6 bytes from peer';
                 is_deeply parse_packet(\$s->{'handle'}->rbuf),
                     {packet_length  => 6,
                      payload        => "\0",
@@ -242,12 +243,15 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
                 $s->{'handle'}->push_write(build_unchoke());
                 $s->{'handle'}->push_read(
                     sub {
-                        AnyEvent->one_event for 1 .. 10;
+                        my ($h, $d) = @_;
+                        return if !$d;
+                        AnyEvent->one_event for 1 .. 20;
                         subtest 'post unchoke', sub {
                             plan tests => 1;
+                            warn $s->{'peer'}->choked;
                             is $s->{'peer'}->remote_choked, 0,
                                 'peer is now unchoked by us';
-                            $s->{'cv'}->send;
+                            $s->_done;
                         };
                         1;
                     }
