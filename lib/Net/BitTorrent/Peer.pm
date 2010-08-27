@@ -87,6 +87,19 @@ package Net::BitTorrent::Peer;
     );
 
     #
+    has 'quests' => (is      => 'ro',
+                     isa     => 'HashRef[Defined]',
+                     traits  => ['Hash'],
+                     handles => {_add_quest    => 'set',
+                                 _get_quest    => 'get',
+                                 _has_quest    => 'defined',
+                                 _delete_quest => 'delete',
+                                 _clear_quests => 'clear'
+                     },
+                     default => sub { {} }
+    );
+
+    #
     for my $flag (
         ([0,
           [qw[ handshake interesting local_connection on_parole
@@ -495,17 +508,6 @@ The time since any transfer occurred with this peer.
             )
         );
     };
-    has 'quests' => (is      => 'ro',
-                     isa     => 'HashRef[Defined]',
-                     traits  => ['Hash'],
-                     handles => {_add_quest    => 'set',
-                                 _get_quest    => 'get',
-                                 _has_quest    => 'defined',
-                                 _delete_quest => 'delete',
-                                 _clear_quests => 'clear'
-                     },
-                     default => sub { {} }
-    );
 
     #
     my $infohash_constraint;
