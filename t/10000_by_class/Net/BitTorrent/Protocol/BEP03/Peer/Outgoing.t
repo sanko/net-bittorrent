@@ -14,6 +14,9 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
     $|++;
 
     # Basic utility functions/methods
+    sub class {'Net::BitTorrent::Protocol::BEP03::Peer::Outgoing'}
+    sub _done { shift->{'cv'}->send }
+
     sub new_args {
         my $s = shift;
         -f $s->torrent ? last : chdir '..' for 0 .. 15;
@@ -25,13 +28,13 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
          torrent => $s->{'torrent'}
         );
     }
-    sub class {'Net::BitTorrent::Protocol::BEP03::Peer::Outgoing'}
 
     sub startup : Test( startup => 3 ) {
         my $s = shift;
         use_ok $s->class;
         can_ok $s->class, 'new';
         $s->{'peer'} = new_ok $s->class, [$s->new_args];
+        $s->{'client'}->add_peer($s->{'peer'});    # This is done internally
         explain 'New peer looks like... ', $s->{'peer'};
     }
 
@@ -42,7 +45,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
         return shift @$expect;
     }
 
-    sub _send_handshake {    # Next step
+    sub _send_handshake {                          # Next step
         my $s = shift;
         $s->{'handle'}->push_write(
                    build_handshake($s->reserved, $s->info_hash, $s->peer_id));
@@ -83,7 +86,8 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
                         }
                         : explain 'No idea what to do with this packet: ',
                         $s->{'handle'}->rbuf;
-                }
+                },
+                on_drain => sub { note 'drain' }
             );
             }, sub {
             my ($state, $host, $port) = @_;
@@ -154,6 +158,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
                     'handshake was >= 68 bytes';
                 my $p = parse_packet(\$s->{'handle'}->rbuf);
                 is ref $p, 'HASH', 'packet parses to hashref';
+                explain 'packet looks like... ', $p;
                 is $p->{'type'},           -1, 'fake handshake type';
                 is $p->{'packet_length'},  68, 'parsed packet was 68 bytes';
                 is $p->{'payload_length'}, 48, 'parsed payload was 48 bytes';
@@ -187,7 +192,6 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
                                 'new value for ...->pieces->to_Enum is correct';
                             ok $s->{'peer'}->interesting,
                                 'peer is now interested in us';
-                            $s->{'cv'}->send;
                         };
                         1;
                     }
@@ -208,15 +212,18 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
                 $s->{'handle'}->push_write(build_unchoke());
                 $s->{'handle'}->push_read(
                     sub {
+                        my ($h, $d) = @_;
                         AnyEvent->one_event for 1 .. 10;
                         subtest 'post unchoke', sub {
                             plan tests => 1;
                             is $s->{'peer'}->remote_choked, 0,
                                 'peer is now unchoked by us';
+                            $s->_done;
                         };
                         1;
                     }
                 );
+                AnyEvent->one_event for 1 .. 10;
                 }
         };
         $dispatch->{$k} // sub {...}
