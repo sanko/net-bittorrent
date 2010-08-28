@@ -183,7 +183,7 @@ package Net::BitTorrent::Torrent;
         $self->add_quest(
             'optimistic_unchoke',
             AE::timer(
-                0, 120,
+                120, 120,
                 sub {
                     return if !$self;
                     return if !$self->_has_client;
