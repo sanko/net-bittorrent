@@ -201,6 +201,20 @@ package Net::BitTorrent::Torrent;
                 }
             )
         );
+        $self->add_quest(
+            'choke',    # Cycle them until we get some good peers
+            AE::timer(
+                60, 60,
+                sub {
+                    return if !$self;
+                    return if !$self->_has_client;
+                    return if !scalar $self->peers;
+                    my @unchoked = grep { !$_->choked } $self->peers;
+
+                    # XXX - choke the slow peers first?
+                }
+            )
+        );
     }
 
     sub stop {
