@@ -32,8 +32,8 @@
     sub _handle_packet_choke      { shift->_set_remote_choked }
     sub _handle_packet_unchoke    { shift->_unset_remote_choked }
     sub _handle_packet_interested { shift->_set_remote_interested }
-    around '_unset_remote_choked' => sub {
-        my ($c, $s) = @_;
+    after '_unset_remote_choked' => sub {
+        my $s = shift;
         return if $s->_has_quest('request_block');
         require Scalar::Util;
         Scalar::Util::weaken $s;
