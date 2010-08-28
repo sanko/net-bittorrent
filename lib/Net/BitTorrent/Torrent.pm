@@ -162,7 +162,7 @@ package Net::BitTorrent::Torrent;
         $self->add_quest(
             'unchoke',
             AE::timer(
-                0, 10,
+                15, 10,
                 sub {
                     return if !$self;
                     return if !$self->_has_client;
