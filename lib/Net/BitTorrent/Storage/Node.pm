@@ -25,12 +25,17 @@ package Net::BitTorrent::Storage::Node;
             ? $code->($self, @args)
             : canonpath(catfile $self->root, @{$self->{'path'}});
     };
-    has 'filehandle' => (is  => 'rw',
-                         isa => 'Maybe[GlobRef]');
-    has 'open' => (
-        is      => 'rw',
-        isa     => 'Maybe[NBTypes::File::Open::Permission]',
-        trigger => sub {
+    has 'filehandle' => (is       => 'ro',
+                         isa      => 'Maybe[GlobRef]',
+                         init_arg => undef,
+                         writer   => '_set_filehandle'
+    );
+    has 'open_mode' => (
+        is       => 'ro',
+        isa      => 'Maybe[NBTypes::File::Open::Permission]',
+        init_arg => undef,
+        writer   => '_set_open_mode',
+        trigger  => sub {
             my ($self, $new_mode, $old_mode) = @_;
             if (defined $new_mode) {
                 my ($vol, $dirs, $file) = splitpath($self->path);
@@ -45,7 +50,7 @@ package Net::BitTorrent::Storage::Node;
                         )
                     )
                     || return !$self->close();
-                $self->filehandle($FH);
+                $self->_set_filehandle($FH);
                 flock $self->filehandle,
                     $new_mode eq 'ro' ? LOCK_SH : LOCK_EX;
             }
@@ -54,16 +59,17 @@ package Net::BitTorrent::Storage::Node;
                     flock $self->filehandle, LOCK_UN;
                     close $self->filehandle;
                 }
-                $self->filehandle(undef);
+                $self->_set_filehandle(undef);
             }
         }
     );
-    sub close () { !shift->open(undef); }
+    sub open  { shift->_set_open_mode(shift); }
+    sub close { shift->_set_open_mode(undef); }
 
     sub read ($$$) {
         my ($self, $offset, $length) = @_;
-        return if !$self->open;
-        return if $self->open ne 'ro';
+        return if !$self->open_mode;
+        return if $self->open_mode ne 'ro';
         truncate $self->filehandle, $offset
             if $offset + $length > -s $self->filehandle;
         sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
@@ -74,14 +80,14 @@ package Net::BitTorrent::Storage::Node;
 
     sub write ($$$) {
         my ($self, $offset, $data) = @_;
-        return if !$self->open;
-        return if $self->open ne 'wo';
+        return if !$self->open_mode;
+        return if $self->open_mode ne 'wo';
         truncate $self->filehandle, $offset
             if $offset + length $data > -s $self->filehandle;
         sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
         return syswrite $self->filehandle, $data, length($data);
     }
-    sub DEMOLISH { shift->close }
+    sub DEMOLISH { shift->close; }
 }
 1;
 
