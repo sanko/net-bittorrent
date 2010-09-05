@@ -9,7 +9,7 @@ my $automated_testing = $ENV{'AUTOMATED_TESTING'}
     || $ENV{'PERL_MM_USE_DEFAULT'};
 my $is_developer = ((-d '.git') ? 1 : 0) or ($ENV{'RELEASE_TESTING'} ? 1 : 0);
 my @tests;
-find \&find_cb, qw[t/10000_by_class/];
+find \&find_cb, qw[t/10000_by_class/ t/60000_swarm/];
 my $class = $is_developer ? 'inc::MBX::Developer' : 'Module::Build';
 
 if (!eval "require $class") {
