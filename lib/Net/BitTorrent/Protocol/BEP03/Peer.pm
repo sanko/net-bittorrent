@@ -5,6 +5,7 @@
     use lib '../../../../../lib';
     extends 'Net::BitTorrent::Peer';
     use Net::BitTorrent::Protocol::BEP03::Packets qw[:all];
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 10; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     sub _build_reserved {
         my ($self) = @_;

@@ -71,6 +71,7 @@ package Net::BitTorrent::Storage;
     );
     around '_set_root' =>
         sub { my ($c, $s, $set) = @_; $c->($s, rel2abs $set) };
+
     sub _initializer_root {
         my ($s, $c, $set, $attr) = @_;
         $set->(rel2abs $c);

@@ -6,6 +6,7 @@
     use lib '../../../../../../lib';
     use Net::BitTorrent::Types qw[:addr];
     extends 'Net::BitTorrent::Protocol::BEP03::Peer';
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 10; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     has '+local_connection' => (default => '1', handles => {});
