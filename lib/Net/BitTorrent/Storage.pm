@@ -7,34 +7,32 @@ package Net::BitTorrent::Storage;
     use Net::BitTorrent::Storage::File;
     use Net::BitTorrent::Storage::Cache;
     use File::Spec::Functions qw[rel2abs catdir];
-    has 'cache' => (is         => 'rw',
+    has 'cache' => (is         => 'ro',
                     isa        => 'Net::BitTorrent::Storage::Cache',
                     init_arg   => undef,
                     lazy_build => 1,
-                    builder    => '_build_cache',
-                    clearer    => '_clear_cache'
+                    builder    => '_build_cache'
     );
 
     sub _build_cache {
         my $s = shift;
         Net::BitTorrent::Storage::Cache->new(
-               storage => $s,
-               path    => [
-                   catdir $s->root,
-                   '~' . substr($s->torrent->info_hash->to_Hex, 0, 7) . '.dat'
-               ]
+             storage => $s,
+             path =>
+                 ['~' . substr($s->torrent->info_hash->to_Hex, 0, 7) . '.dat']
         );
     }
     has 'torrent' => (is       => 'ro',
                       required => 1,
                       isa      => 'Net::BitTorrent::Torrent'
     );
-    has 'files' => (is      => 'ro',
-                    isa     => 'NBTypes::Files',
-                    coerce  => 1,
-                    traits  => ['Array'],
-                    writer  => '_set_files',
-                    handles => {_count_files => 'count',
+    has 'files' => (is       => 'ro',
+                    isa      => 'ArrayRef[Net::BitTorrent::Storage::File]',
+                    traits   => ['Array'],
+                    writer   => '_set_files',
+                    init_arg => undef,
+                    handles  => {
+                                _count_files => 'count',
                                 _add_file    => 'push',
                                 _file        => 'get'
                     }
@@ -49,23 +47,34 @@ package Net::BitTorrent::Storage;
                 = ($file->offset + $file->length) / $s->torrent->piece_length;
             $b->Interval_Fill($min, $max);
         }
+        $b->AndNot($b, $s->torrent->have);
         $b;
     }
+    sub is_seed { return !shift->wanted->Norm() }
     has 'root' => (    # ??? - Should this be BaseDir/basedir
         is      => 'ro',
         isa     => 'Str',
         writer  => '_set_root',
+        default => '.',
         trigger => sub {
             my ($self, $new_root, $old_root) = @_;
-            $self->_clear_cache;
             if ($self->_count_files) {
-                for my $file (@{$self->files}, $self->cache) {
-                    $file->_shift if defined $old_root;
-                    $file->_unshift(rel2abs $new_root);
-                }
+
+                # XXX - close any files we have open
+                #for my $file (@{$self->files}, $self->cache) {
+                #    $file->_shift if defined $old_root;
+                #    $file->_unshift(rel2abs $new_root);
+                #}
             }
-        }
+        },
+        initializer => '_initializer_root'
     );
+    around '_set_root' =>
+        sub { my ($c, $s, $set) = @_; $c->($s, rel2abs $set) };
+    sub _initializer_root {
+        my ($s, $c, $set, $attr) = @_;
+        $set->(rel2abs $c);
+    }
 
     #
     has 'size' => (is         => 'ro',
@@ -82,7 +91,23 @@ package Net::BitTorrent::Storage;
         return $size;
     }
 
-    sub read {
+    sub read {    # Also checks cache
+        my ($s, $i, $o, $l) = @_;
+        my $data = $s->_read($i, $o, $l) || \'';
+        my $x = -1;
+        my @cache
+            = $s->cache->_map_blocks(sub { $x++; $_->[0] == $i ? $x : () });
+        return $data if !@cache;
+        warn $data;
+        for my $i (@cache) {
+            my $where = $s->cache->_get_block_info($i);
+            my $d     = $s->cache->get_block($i);
+            substr $$data, $where->[1], $where->[2], $d;
+        }
+        return $data;
+    }
+
+    sub _read {
         my ($self, $index, $offset, $length) = @_;
         $offset //= 0;
         $length //=
@@ -106,16 +131,48 @@ package Net::BitTorrent::Storage;
                    >= $self->files->[$file_index]->length)
                 ? ($self->files->[$file_index]->length - $total_offset)
                 : $length;
-            $self->files->[$file_index]->open('ro') or return;
-            my $_data = $self->files->[$file_index]
-                ->read($total_offset, $this_read);
-            $data .= $_data if $_data;
+            if (!$self->files->[$file_index]->open('ro')) {
+                $data .= "\0" x $this_read;
+            }
+            else {
+                my $_data = $self->files->[$file_index]
+                    ->read($total_offset, $this_read);
+                $data .= $_data if $_data;
+            }
             $file_index++;
             $length -= $this_read;
             last READ if not defined $self->files->[$file_index];
             $total_offset = 0;
         }
         return \$data;
+    }
+
+    sub write {
+        my ($self, $index, $offset, $data) = @_;
+        my $file_index = 0;
+        my $total_offset
+            = int(($index * $self->torrent->piece_length) + ($offset || 0));
+    SEARCH:
+        while ($total_offset > $self->files->[$file_index]->length) {
+            $total_offset -= $self->files->[$file_index]->length;
+            $file_index++;
+            last SEARCH    # XXX - return?
+                if not defined $self->files->[$file_index]->length;
+        }
+    WRITE: while ((defined $data) && (length $data > 0)) {
+            my $this_write
+                = (($total_offset + length $data)
+                   >= $self->files->[$file_index]->length)
+                ? ($self->files->[$file_index]->length - $total_offset)
+                : length $data;
+            $self->files->[$file_index]->open('wo') or return;
+            $self->files->[$file_index]
+                ->write($total_offset, substr $data, 0, $this_write, '');
+            $file_index++;
+            last WRITE if not defined $self->files->[$file_index];
+            $total_offset = 0;
+        }
+        return 1;
     }
 }
 1;

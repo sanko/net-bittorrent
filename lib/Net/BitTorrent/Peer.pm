@@ -52,6 +52,9 @@ package Net::BitTorrent::Peer;
             seed            => 'is_full',
             _check_interest => sub {
                 my $s = shift;
+
+                #return $s->_unset_interesting if $s->is_seed;
+                #warn $s->_wanted_pieces->to_Enum;
                 $s->_wanted_pieces->Norm
                     ? $s->_set_interesting
                     : $s->_unset_interesting;
@@ -90,21 +93,48 @@ package Net::BitTorrent::Peer;
                               default => sub { [] }
     );
     has 'requests' => (
-                    is  => 'ro',
-                    isa => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
-                    traits  => ['Array'],
-                    handles => {_add_request    => 'push',
-                                _clear_requests => 'clear',
-                                _count_requests => 'count'
-                    },
-                    default => sub { [] }
+        is => 'ro',
+        isa =>
+            'ArrayRef[Net::BitTorrent::Protocol::BEP03::Metadata::Piece::Block]',
+        traits  => ['Array'],
+        handles => {_add_request    => 'push',
+                    _clear_requests => 'clear',
+                    _count_requests => 'count',
+                    _first_request  => 'first',
+                    _delete_request => 'delete'
+        },
+        default => sub { [] }
     );
+    around '_delete_request' => sub {
+        my ($c, $s, $i, $o, $l) = @_;
+        return $c->($s, $i) if !blessed $i;
+        my $x = 0;
+        $s->_find_request(
+            sub {
+                $x++;
+                $_->index == $i && $_->offset == $o && $_->length == $l;
+            }
+        );
+        return $c->($s, $x);
+    };
+
+    sub _find_request {
+        my ($s, $i, $o, $l) = @_;
+        my $x = 0;
+        my $p = $s->_first_request(
+            sub {
+                $x++;
+                $_->index == $i && $_->offset == $o && $_->length == $l;
+            }
+        );
+        wantarray ? [$p, $x] : $p;
+    }
     around '_add_request' => sub {
         my ($c, $s, $b) = @_;
-        return if $s->choked;
+        return if $s->remote_choked;
         $c->($s, $b);    # XXX - also let the parent client know
-
-        # XXX - also let the parent client know
+        require Scalar::Util;
+        Scalar::Util::weaken($s->requests->[-1]);
         $s->_send_request($b);
         $b->_set_peer($s);
     };
@@ -186,13 +216,16 @@ package Net::BitTorrent::Peer;
     );
 
     # Utility methods
-    sub _check_unique_connection {    # XXX - Rename this method
-                                      #return;
-        my ($s) = @_;
-        return
-            if scalar(grep { $_->_has_peer_id && $_->peer_id eq $s->peer_id }
-                          $s->torrent->peers
-            ) <= 1;
+    sub _check_unique_connection {
+        my $s = shift;
+        return 1
+            if scalar(
+            grep {
+                       $_->_has_peer_id
+                    && $_->_id ne $s->_id
+                    && $_->peer_id eq $s->peer_id
+                } $s->torrent->peers
+            ) == 0;
         $s->disconnect(sprintf '%s already has connection for this torrent',
                        $s->peer_id);
     }

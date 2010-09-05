@@ -215,6 +215,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
                         my ($h, $d) = @_;
                         AnyEvent->one_event for 1 .. 10;
                         subtest 'post unchoke', sub {
+                            AnyEvent->one_event for 1 .. 20;
                             plan tests => 1;
                             is $s->{'peer'}->remote_choked, 0,
                                 'peer is now unchoked by us';
@@ -223,7 +224,6 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
                         1;
                     }
                 );
-                AnyEvent->one_event for 1 .. 10;
                 }
         };
         $dispatch->{$k} // sub {...}

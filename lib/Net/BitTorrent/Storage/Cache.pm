@@ -2,57 +2,80 @@ package Net::BitTorrent::Storage::Cache;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
-    use File::Spec::Functions qw[catfile splitpath];
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    use lib '../../../../lib';
     extends 'Net::BitTorrent::Storage::Node';
-    has 'packets' => (traits  => ['Hash'],
-                      is      => 'ro',
-                      isa     => 'HashRef[NBTypes::Cache::Packet]',
-                      default => sub { {} },
-                      handles => {_add_packet => 'set',
-                                  _get_packet => 'get',
-                                  _del_packet => 'delete',
-                                  is_empty    => 'is_empty',
-                                  size        => 'count',
-                                  clear       => 'clear'
-                      }
+    my $blocktype
+        = subtype 'NBTypes::Cache::Block' => as 'ArrayRef[Int]' =>
+        where { scalar @$_ == 4 } =>
+        message {'bad array'};    # i, o, l, file_offset
+    has 'blocks' => (traits  => ['Array'],
+                     is      => 'ro',
+                     isa     => 'ArrayRef[NBTypes::Cache::Block]',
+                     default => sub { [] },
+                     handles => {_add_block_info => 'push',
+                                 _get_block_info => 'get',
+                                 _del_block_info => 'delete',
+                                 is_empty        => 'is_empty',
+                                 size            => 'count',
+                                 _clear_blocks   => 'clear',
+                                 _grep_blocks    => 'grep',
+                                 _map_blocks     => 'map'
+                     }
     );
+    after '_clear_blocks' => sub {
+        my $s = shift;
+        $s->close() if defined $s->open;
+        unlink $s->path;
+    };
 
-    sub add_packet ($$$$) {
-        my ($self, $index, $offset, $data) = @_;
-        $self->close() if defined $self->open && $self->open ne 'wo';
-        $self->open('wo') || return;
-        my $_offset = -s $self->filehandle;
-        $self->write($_offset, $data) || die $!;
-        return $self->_add_packet(
-                          $index . '|' . $offset => [$_offset, length $data]);
+    sub add_block ($$$) {
+        my ($s, $b, $d) = @_;
+        $s->close() if defined $s->open && $s->open ne 'wo';
+        return if !$s->open('wo');
+        my $_offset = -s $s->filehandle;
+        my $header = pack 'N3', $b->index, $b->offset, $b->length;
+        warn 'Adding: ' . $header . ' | ' . pack 'L3', $b->index, $b->offset,
+            $b->length;
+        $s->write($_offset, $header . $d) || die $!;
+        $s->_add_block_info([$b->index, $b->offset, $b->length, $_offset]);
     }
 
-    sub get_packet ($$;$) {
-        my ($self, $index, $offset) = @_;
-        $offset //= 0;
-        my $where = $self->_get_packet($index . '|' . $offset);
+    sub get_block ($$) {
+        my ($s, $i) = @_;
+        my $where = $s->_get_block_info($i);
         return if !defined $where;
-        $self->close() if defined $self->open && $self->open ne 'ro';
-        $self->open('ro') || return;
-        return $self->read(@$where);
+        $s->close() if defined $s->open && $s->open ne 'ro';
+        $s->open('ro') || return;
+        return $s->read($where->[3], $where->[2]);
     }
 
-    sub del_packet ($$;$) {
-        my ($self, $index, $offset) = @_;
-        $offset //= 0;
-        my $where = $self->_del_packet($index . '|' . $offset);
+    sub del_block ($$) {
+        my ($s, $i) = @_;
+        ...;    # XXX - I need to double check all offsets after removal
+        my $where = $s->_get_block_info($i);
         return if !defined $where;
-        $self->close() if defined $self->open && $self->open ne 'ro';
-        $self->open('ro') || return;
-        my $data = $self->read(0, -s $self->filehandle);
+        $s->close() if defined $s->open && $s->open ne 'ro';
+        $s->open('ro') || return;
+        my $data = $s->read(0, -s $s->filehandle);
         substr($data, $where->[0], $where->[1], '');
-        $self->close();
-        rename $self->path, $self->path . '.old';
-        $self->open('wo') || return;
-        return $self->write(0, $data);
+        $s->close();
+        rename $s->path, $s->path . '.old';
+        $s->open('wo') || return;
+        return $s->write(0, $data) && $s->_del_block_info($i);
     }
     sub _resume { return $_->packets }
+
+    sub BUILDALL {
+        my ($s, $a) = @_;
+        return if !-f $s->path;
+        $s->open('ro') || return;
+
+        # XXX - Load index from file
+        my ($i, $o, $l) = unpack 'N3', $s->read(12);
+        warn join '|', $i, $o, $l;
+        ...;
+    }
 }
 1;
 

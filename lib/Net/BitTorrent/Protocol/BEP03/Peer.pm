@@ -41,10 +41,11 @@
         $s->_add_quest(
             'request_block',
             AE::timer(
-                0, 3,
+                3, 10,
                 sub {
                     return if !defined $s;
-                    for (0 .. $max_requests) {
+                    return if !$s->_wanted_pieces->Norm;
+                    for ($s->_count_requests .. $max_requests) {
                         my $piece = $s->torrent->select_piece($s);
                         next if !$piece;
                         my $b = $piece->_first_unassigned_block();
@@ -58,13 +59,7 @@
 
     sub _handle_packet_have {
         my ($s, $i) = @_;
-        warn $i;
-        warn $s->pieces->bit_test($i) ? 'already have! :(' : 'yay';
-        my $x = $s->pieces->to_Bin;
         $s->_set_piece($i);
-        warn $s->pieces->bit_test($i)
-            ? 'now have! :D'
-            : 'aw, man... :( Broken!';
         my $seed = $s->torrent->piece_count;
         my $have = $s->pieces->Norm;
         my $perc = (($have / $seed) * 100);
@@ -81,7 +76,6 @@
              $s->torrent->info_hash->to_Hex
             }
         );
-        die if $x eq $s->pieces->to_Bin;
     }
 
     sub _handle_packet_bitfield {
@@ -109,6 +103,22 @@
     sub _handle_packet_request {
         my ($s, $r) = @_;
         my ($i, $o, $l) = @$r;
+        return
+            $s->disconnect(sprintf 'Bad piece index in request: %d > %d',
+                           $i, $s->torrent->piece_count)
+            if $i > $s->torrent->piece_count;
+        my $_l
+            = ($i == $s->torrent->piece_count - 1)
+            ? $s->torrent->size % $s->torrent->piece_length
+            : $s->torrent->piece_length;
+        return
+            $s->disconnect(sprintf 'Bad piece length for index %d: %d > %d',
+                           $i, $l, $_l)
+            if $l > $_l;
+        return
+            $s->disconnect(sprintf 'Bad offset for index %d: %d > %d',
+                           $i, $o + $l, $_l)
+            if $o + $l > $_l;
 
         # XXX - Choke peer if they have too many requests in queue
         $s->_add_remote_request($r);
@@ -117,9 +127,11 @@
         $s->_add_quest(
             'fill_remote_requests',
             AE::timer(
-                0, 15,
+                5, 15,
                 sub {
+                    warn 'HERE!!!!!!!!!!!!';
                     return if !defined $s;
+                    warn 'Here...';
 
                # XXX - return if outgoing data queue is larger than block x 8?
                     my $request = $s->_shift_remote_requests;
@@ -132,7 +144,20 @@
             )
         ) if !$s->_has_quest('fill_remote_requests');
     }
-    sub _handle_packet_piece {...}
+
+    sub _handle_packet_piece {
+        my ($s, $p) = @_;
+        my ($i, $o, $d) = @$p;
+        my $req = $s->_find_request($i, $o, length $d);
+        return $s->disconnect('Peer sent us a block we were not asking for.')
+            if !$req;
+        $req->_write($d);
+        $s->_delete_request($req);
+        if (!$req->piece->_first_incompete_block) {
+            $s->torrent->piece_selector->_del_working_piece($req->index)
+                if $s->torrent->hash_check($req->index);
+        }
+    }
 
     sub _handle_packet_ext_protocol {
         my ($s, $pid, $p) = @_;
@@ -192,6 +217,7 @@
     # Outgoing packets
     sub _send_interested     { shift->push_write(build_interested()) }
     sub _send_not_interested { shift->push_write(build_not_interested()) }
+    sub _send_have           { shift->push_write(build_have(shift)) }
     sub _send_choke          { shift->push_write(build_choke()) }
     sub _send_unchoke        { shift->push_write(build_unchoke()) }
 
@@ -202,7 +228,7 @@
 
     sub _send_request {
         my ($s, $b) = @_;
-        return if $s->choked;
+        return if $s->remote_choked;
         warn sprintf 'Sending request for %d:%d:%d to %s', $b->index,
             $b->offset, $b->length, $s->peer_id;
         return $s->push_write(

@@ -18,48 +18,33 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         predicate => '_has_metadata',
         init_arg  => undef,                # cannot set this with new()
         coerce    => 1,
-        trigger   => sub {
-            my ($self, $new_value, $old_value) = @_;
-            if (@_ == 2) {                 # parse files and trackers
-                $self->tracker->add_tier([$new_value->{'announce'}])
-                    if $new_value->{'announce'};
-                if (defined $new_value->{'announce-list'}) {
-                    $self->tracker->add_tier($_)
-                        for @{$new_value->{'announce-list'}};
-                }
-
-                #
-                my @files;
-                if (defined $new_value->{'info'}{'files'})
-                {                          # Multi-file .torrent
-                    $self->storage->_set_files($new_value->{'info'}{'files'});
-                    $self->storage->_set_root($new_value->{'info'}{'name'});
-                }
-                else {                     # single file torrent; use the name
-                    $self->storage->_set_files(
-                              [{path   => [$new_value->{'info'}{'name'}],
-                                length => $new_value->{'info'}{'length'}
-                               }
-                              ]
-                    );
-                }
-
-                #
-                if ($_[0]->metadata->{'info'}{'private'}) {
-                    require
-                        Net::BitTorrent::Protocol::BEP27::Private::Metadata;
-                    Net::BitTorrent::Protocol::BEP27::Private::Metadata->meta
-                        ->apply($_[0]);
-                }
-                return 1;
-            }
-            warn 'Someone changed the metadata!';
-            my $info_hash = $self->info_hash;
-            $self->_reset_info_hash;
-            warn sprintf '%s is now %s', $info_hash->to_Hex,
-                $self->info_hash->to_Hex;
-        }
+        trigger => sub { shift->_trigger_metadata(@_) }
     );
+
+    sub _trigger_metadata {   # Subclasses should override this and call super
+        my ($self, $new_value, $old_value) = @_;
+        if (@_ == 2) {        # parse trackers
+            $self->tracker->add_tier([$new_value->{'announce'}])
+                if $new_value->{'announce'};
+            if (defined $new_value->{'announce-list'}) {
+                $self->tracker->add_tier($_)
+                    for @{$new_value->{'announce-list'}};
+            }
+
+            #
+            if ($_[0]->metadata->{'info'}{'private'}) {
+                require Net::BitTorrent::Protocol::BEP27::Private::Metadata;
+                Net::BitTorrent::Protocol::BEP27::Private::Metadata->meta
+                    ->apply($_[0]);
+            }
+            return 1;
+        }
+        warn 'Someone changed the metadata!';
+        my $info_hash = $self->info_hash;
+        $self->_reset_info_hash;
+        warn sprintf '%s is now %s', $info_hash->to_Hex,
+            $self->info_hash->to_Hex;
+    }
     has 'raw_data' => (
         isa        => 'NBTypes::Bencode',
         lazy_build => 1,

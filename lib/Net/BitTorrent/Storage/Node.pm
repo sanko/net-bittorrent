@@ -4,24 +4,26 @@ package Net::BitTorrent::Storage::Node;
     use Moose::Util::TypeConstraints;
     use Net::BitTorrent::Types qw[:file];
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
-    use File::Spec::Functions qw[splitpath catpath canonpath catfile];
+    use File::Spec::Functions qw[splitpath catpath canonpath catfile rel2abs];
     use File::Path qw[make_path];
     use Fcntl qw[/O_/ /SEEK/ :flock];
-    has 'path' => (is       => 'rw',
+    has 'storage' => (is       => 'ro',
+                      isa      => 'Net::BitTorrent::Storage',
+                      required => 1,
+                      handles  => [qw[root]],
+                      weak_ref => 1
+    );
+    has 'path' => (is       => 'ro',
                    isa      => 'ArrayRef[Str]',
                    required => 1,
-                   trigger  => sub { $_[0]->close },
-                   traits   => ['Array'],
-                   handles  => {
-                               _unshift    => 'unshift',
-                               _shift      => 'shift',
-                               _path_array => 'elements'
-                   }
+                   trigger  => sub { shift->close },
+                   traits   => ['Array']
     );
     around 'path' => sub {
         my ($code, $self, @args) = @_;
-        return canonpath(catfile @{$self->{'path'}}) if !@args;
-        return $code->($self, @args);
+        return @args
+            ? $code->($self, @args)
+            : canonpath(catfile $self->root, @{$self->{'path'}});
     };
     has 'filehandle' => (is  => 'rw',
                          isa => 'Maybe[GlobRef]');
@@ -79,6 +81,7 @@ package Net::BitTorrent::Storage::Node;
         sysseek $self->filehandle, $offset, SEEK_SET;   # Set correct position
         return syswrite $self->filehandle, $data, length($data);
     }
+    sub DEMOLISH { shift->close }
 }
 1;
 

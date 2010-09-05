@@ -11,16 +11,16 @@
                       weak_ref => 1
     );
     has 'working_pieces' => (
-                            isa => 'HashRef[Net::BitTorrent::Torrent::Piece]',
-                            is  => 'ro',
-                            default => sub { {} },
-                            traits  => ['Hash'],
-                            handles => {'_add_working_piece'    => 'set',
-                                        '_get_working_piece'    => 'get',
-                                        '_del_working_piece'    => 'delete',
-                                        '_has_working_piece'    => 'defined',
-                                        '_count_working_pieces' => 'count'
-                            }
+          isa => 'HashRef[Net::BitTorrent::Protocol::BEP03::Metadata::Piece]',
+          is  => 'ro',
+          default => sub { {} },
+          traits  => ['Hash'],
+          handles => {'_add_working_piece'    => 'set',
+                      '_get_working_piece'    => 'get',
+                      '_del_working_piece'    => 'delete',
+                      '_has_working_piece'    => 'defined',
+                      '_count_working_pieces' => 'count'
+          }
     );
     has 'strategy' => (isa     => 'RoleName',
                        is      => 'ro',
@@ -49,10 +49,11 @@
                 $piece = $s->_get_working_piece($piece);
             }
             else {
-                require Net::BitTorrent::Torrent::Piece;
+                require Net::BitTorrent::Protocol::BEP03::Metadata::Piece;
                 $piece =
-                    Net::BitTorrent::Torrent::Piece->new(selector => $s,
-                                                         index    => $piece);
+                    Net::BitTorrent::Protocol::BEP03::Metadata::Piece->new(
+                                                         piece_selector => $s,
+                                                         index => $piece);
             }
         }
 

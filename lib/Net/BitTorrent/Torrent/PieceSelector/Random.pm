@@ -8,8 +8,9 @@
         my ($s, $peer) = @_;
         my @indices = $peer->_wanted_pieces->Index_List_Read();
 
+  #warn 'Wanted pieces: '. join ', ', @indices;
   # XXX - Make sure this isn't a piece we've requested all blocks from already
-        return @indices ? $indices[rand @indices] : ();
+        return scalar @indices ? $indices[rand @indices] : ();
     }
 }
 1;

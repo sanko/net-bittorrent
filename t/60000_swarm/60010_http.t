@@ -2,9 +2,13 @@ use strict;
 use warnings;
 use lib '../../lib';
 use Test::More;
+use File::Temp;
 use Net::BitTorrent::Network::Utility qw[server];
 use AnyEvent::Handle;
 use AnyEvent;
+use Net::BitTorrent;
+use lib reverse 'lib', '../lib', '../../lib';
+
 $|++;
 {
 
@@ -63,7 +67,7 @@ $|++;
                     on_read => sub {
                         $s->on_read($hdl, $fh, $paddr, $host, $port, @_);
                     },
-                    on_eof => sub { warn 'bye!' }
+                    on_eof  => sub { warn 'bye!' }
                 );
             },
             sub {
@@ -144,7 +148,7 @@ $|++;
                         )
                     )
                 };
-            }
+             }
 
             #warn bencode $s->get_info_hash($info_hash);
             elsif ($path eq '/scrape.pl') { warn 'Scrape!' }
@@ -162,12 +166,13 @@ Connection: close
 
 %s
 END
-my $tracker = t::Net::BitTorrent::Tracker::HTTP->new(host => '127.0.0.1');
-use Net::BitTorrent;
-use lib reverse 'lib', '../lib', '../../lib';
+ my $tracker = t::Net::BitTorrent::Tracker::HTTP->new(
+ host => '127.0.0.1'
+
+ );
 chdir '../..' if !-f 't/90000_data/95000_torrents/95003_miniswarm.torrent';
-my @cli;
-for (1 .. 2) {
+my (@cli, @dir);
+for my $seed (qw[1 0]) {
     push @cli, Net::BitTorrent->new(
         on_peer_id => sub {
             my ($s, $a) = @_;
@@ -189,12 +194,12 @@ for (1 .. 2) {
             my ($s, $a) = @_;
             note explain $a->{'message'}, $a->{'packet'};
         },
-        on_piece_hash_pass => sub { },
-        on_piece_hash_fail => sub { },
-        on_peer_bitfield   => sub {
+        on_piece_hash_pass =>  sub {   },
+        on_piece_hash_fail =>  sub {   },
+        on_peer_bitfield => sub {
             my ($s, $a) = @_;
             note 'Bitfield packet: ' . $a->{'message'};
-        }
+    }
     );
     $cli[-1]->add_torrent(
                 path => 't\90000_data\95000_torrents\95003_miniswarm.torrent')
@@ -203,8 +208,20 @@ for (1 .. 2) {
                     $tracker->port,                         int rand time
                    ]
         );
+        if ($seed) {
+            $cli[-1]->torrent(0)->storage->_set_root('t\90000_data\96000_data\96020_miniswarm_seed');
+        }
+        else {
+            push @dir, File::Temp->newdir( 'NBminiswarm_peer_'. scalar(@cli) .'_XXXX', TMPDIR=> 1, CLEANUP => 1 );
+            $cli[-1]->torrent(0)->storage->_set_root($dir[-1]->dirname);
+
+
+        }
+        $cli[-1]->torrent(0)->hash_check;
+        is $cli[-1]->torrent(0)->have->to_Enum, $seed ?  '0,1' : '',
+        sprintf '[%02d] hashcheck %s', scalar(@cli),
+        ($seed ?  'seed' : 'peer');
+        #warn $cli[-1]->torrent(0)->have->to_Enum;
+        #warn $cli[-1]->torrent(0)->wanted->to_Enum;
 }
-$cli[0]->torrent(0)
-    ->storage->_set_root('t\90000_data\96000_data\96020_miniswarm_seed');
-$cli[0]->torrent(0)->hash_check;
 $tracker->wait;

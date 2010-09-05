@@ -17,6 +17,8 @@ lib/Net/BitTorrent/Peer.pm
 lib/Net/BitTorrent/Protocol/BEP03.pod
 lib/Net/BitTorrent/Protocol/BEP03/Bencode.pm
 lib/Net/BitTorrent/Protocol/BEP03/Metadata.pm
+lib/Net/BitTorrent/Protocol/BEP03/Metadata/Piece.pm
+lib/Net/BitTorrent/Protocol/BEP03/Metadata/Piece/Block.pm
 lib/Net/BitTorrent/Protocol/BEP03/Packets.pm
 lib/Net/BitTorrent/Protocol/BEP03/Peer.pm
 lib/Net/BitTorrent/Protocol/BEP03/Peer/Incoming.pm
@@ -42,8 +44,6 @@ lib/Net/BitTorrent/Storage/File.pm
 lib/Net/BitTorrent/Storage/Node.pm
 lib/Net/BitTorrent/Torrent.pm
 lib/Net/BitTorrent/Torrent/Generator.pm
-lib/Net/BitTorrent/Torrent/Piece.pm
-lib/Net/BitTorrent/Torrent/Piece/Block.pm
 lib/Net/BitTorrent/Torrent/PieceSelector.pm
 lib/Net/BitTorrent/Torrent/PieceSelector/Endgame.pm
 lib/Net/BitTorrent/Torrent/PieceSelector/Hybrid.pm

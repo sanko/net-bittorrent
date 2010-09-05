@@ -14,8 +14,7 @@ package Net::BitTorrent::Types;
                 NBTypes::Tracker::UDP NBTypes::Tracker::HTTP
                 NBTypes::Tracker::HTTP::Event]
         ],
-        file    => [qw[NBTypes::Files NBTypes::File::Open::Permission]],
-        cache   => [qw[NBTypes::Cache::Packet]],
+        file    => [qw[NBTypes::File::Open::Permission]],
         client  => [qw[NBTypes::Client::PeerID]],
         dht     => [qw[NBTypes::DHT::NodeID]],
         bencode => [qw[NBTypes::Bencode NBTypes::Bdecode]],
@@ -92,34 +91,6 @@ package Net::BitTorrent::Types;
 
     #
     enum 'NBTypes::File::Open::Permission' => qw[ro wo rw];
-    subtype 'NBTypes::Files' => as 'ArrayRef[Net::BitTorrent::Storage::File]';
-    coerce 'NBTypes::Files' => from 'ArrayRef[HashRef]' => via {
-        require Net::BitTorrent::Storage::File;
-        my ($offset, $index) = (0, 0);
-        [map {
-             my $obj =
-                 Net::BitTorrent::Storage::File->new(
-                                           index  => $index++,
-                                           length => $_->{'length'},
-                                           offset => $offset,
-                                           path => [grep {$_} @{$_->{'path'}}]
-                 );
-             $offset += $_->{'length'};
-             $obj
-             } @{$_}
-        ];
-    };
-    coerce 'NBTypes::Files' => from 'HashRef' => via {
-        require Net::BitTorrent::Storage::File;
-        [Net::BitTorrent::Storage::File->new(length => $_->{'length'},
-                                             path   => $_->{'path'}
-         )
-        ];
-    };
-
-    #
-    subtype 'NBTypes::Cache::Packet' => as 'ArrayRef[Int]' =>
-        where { scalar @$_ == 2 };
 
     #
     subtype 'NBTypes::Client::PeerID' => as 'Str' =>

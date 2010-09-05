@@ -248,7 +248,6 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
                         AnyEvent->one_event for 1 .. 20;
                         subtest 'post unchoke', sub {
                             plan tests => 1;
-                            warn $s->{'peer'}->choked;
                             is $s->{'peer'}->remote_choked, 0,
                                 'peer is now unchoked by us';
                             $s->_done;

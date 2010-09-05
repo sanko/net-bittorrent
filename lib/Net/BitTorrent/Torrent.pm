@@ -73,13 +73,54 @@ package Net::BitTorrent::Torrent;
                       isa        => 'Net::BitTorrent::Storage',
                       lazy_build => 1,
                       builder    => '_build_storage',
-                      handles    => [qw[size read write wanted]]
+                      handles    => [qw[size read write wanted is_seed]]
     );
 
     sub _build_storage {
         require Net::BitTorrent::Storage;
         Net::BitTorrent::Storage->new(torrent => $_[0]);
     }
+    override '_trigger_metadata' => sub {
+        super;
+        my ($self, $new_value, $old_value) = @_;
+        if (@_ == 2) {    # parse files
+            require Net::BitTorrent::Storage::File;
+
+            #
+            my @files;
+            if (defined $new_value->{'info'}{'files'}) { # Multi-file .torrent
+                my ($offset, $index) = (0, 0);
+                $self->storage->_set_files(
+                    [   map {
+                            my $obj =
+                                Net::BitTorrent::Storage::File->new(
+                                          index  => $index++,
+                                          length => $_->{'length'},
+                                          offset => $offset,
+                                          path => [grep {$_} @{$_->{'path'}}],
+                                          storage => $self->storage
+                                );
+                            $offset += $_->{'length'};
+                            $obj;
+                            } @{$new_value->{'info'}{'files'}}
+                    ]
+                );
+                $self->storage->_set_root($new_value->{'info'}{'name'});
+            }
+            else {    # single file torrent; use the name
+                $self->storage->_set_files(
+                             [Net::BitTorrent::Storage::File->new(
+                                     index  => 0,
+                                     length => $new_value->{'info'}{'length'},
+                                     offset => 0,
+                                     path   => [$new_value->{'info'}{'name'}],
+                                     storage => $self->storage
+                              )
+                             ]
+                );
+            }
+        }
+    };
     has 'piece_selector' => (isa => 'Net::BitTorrent::Torrent::PieceSelector',
                              is  => 'ro',
                              builder => '_build_piece_selector',
@@ -193,7 +234,12 @@ package Net::BitTorrent::Torrent;
                                 <=> ($b->total_download || 0))
                         } grep {
                         $_->choked
-                            && $self->have->Not($_->pieces)->Norm
+                            && sub {
+                            my $x = $self->have->Clone;
+                            $x->Not($_->pieces);
+                            $x->Norm;
+                            }
+                            ->()
                         } $self->peers;
                     for my $i (0 .. $self->max_upload_slots) {
                         last if !$choked[$i];
@@ -232,6 +278,7 @@ package Net::BitTorrent::Torrent;
     my $pieces_per_hashcheck = 10;    # Max block of pieces in single call
 
     sub hash_check {    # Range is split up into $pieces_per_hashcheck blocks
+                        # ??? - Disconnect peers if @$range > 1
         my ($self, $range) = @_;
         $range
             = defined $range
@@ -240,7 +287,7 @@ package Net::BitTorrent::Torrent;
                 : [$range]
             : [0 .. $self->piece_count - 1];
         if (scalar @$range <= $pieces_per_hashcheck) {
-            $self->_clear_have();
+            $self->_clear_have() if !defined $_[0];  # retain current bitfield
             for my $index (@$range) {
                 my $piece = $self->read($index);
                 next if !$piece || !$$piece;
@@ -259,7 +306,7 @@ package Net::BitTorrent::Torrent;
             $coderef = sub {
                 shift @watchers if @watchers;
                 @this_range = shift @ranges;
-                $self->hashcheck(@this_range);
+                $self->hash_check(@this_range);
                 push @watchers,
                     AE::idle(@ranges ? $coderef : sub { $cv->end });
             };
@@ -285,7 +332,11 @@ package Net::BitTorrent::Torrent;
                    },
     );
     sub _build_have { '0' x $_[0]->piece_count }
-    after '_set_piece'   => sub { $_[0]->trigger_piece_hash_pass($_[1]) };
+    after '_set_piece' => sub {
+        my ($s, $i) = @_;
+        $s->trigger_piece_hash_pass($i);
+        $_->_send_have($i) for $s->peers;
+    };
     after '_unset_piece' => sub { $_[0]->trigger_piece_hash_fail($_[1]) };
 
     #{    ### Simple plugin system

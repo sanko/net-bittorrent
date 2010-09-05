@@ -1,6 +1,6 @@
 {
 
-    package Net::BitTorrent::Torrent::Piece;
+    package Net::BitTorrent::Protocol::BEP03::Metadata::Piece;
     use Moose;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     sub BUILD {1}
@@ -8,7 +8,7 @@
                     is       => 'ro',
                     required => 1
     );
-    has 'selector' => (
+    has 'piece_selector' => (
                     isa      => 'Net::BitTorrent::Torrent::PieceSelector',
                     is       => 'ro',
                     required => 1,
@@ -22,8 +22,8 @@
 
     sub _build_length {
         my $s = shift;
-        return $s->torrent->length % $s->torrent->piece_length
-            if $s->index == $s->torrent->piece_count;
+        return $s->torrent->size % $s->torrent->piece_length
+            if $s->index == $s->torrent->piece_count - 1;
         return $s->torrent->piece_length;
     }
     has 'priority' => (
@@ -43,24 +43,27 @@
         return $max > $s->length ? $s->length : $max;
     }
     has 'blocks' => (
-             isa        => 'ArrayRef[Net::BitTorrent::Torrent::Piece::Block]',
-             is         => 'ro',
-             lazy_build => 1,
-             traits     => ['Array'],
-             handles    => {
+        isa =>
+            'ArrayRef[Net::BitTorrent::Protocol::BEP03::Metadata::Piece::Block]',
+        is         => 'ro',
+        lazy_build => 1,
+        traits     => ['Array'],
+        handles    => {
                  _first_unassigned_block => ['first', sub { !$_->_has_peer }],
-                 _all_unassigned_blocks  => ['grep',  sub { !$_->_has_peer }]
-             }
+                 _all_unassigned_blocks  => ['grep',  sub { !$_->_has_peer }],
+                 _first_incompete_block  => ['first', sub { !$_->_complete }],
+                 _all_incomplete_blocks  => ['grep',  sub { !$_->_complete }]
+        }
     );
     after 'BUILD' => sub { shift->blocks };
 
     sub _build_blocks {
         my $s = shift;
-        require Net::BitTorrent::Torrent::Piece::Block;
+        require Net::BitTorrent::Protocol::BEP03::Metadata::Piece::Block;
         my $offset = 0;
         my @blocks = map {
             my $b =
-                Net::BitTorrent::Torrent::Piece::Block->new(
+                Net::BitTorrent::Protocol::BEP03::Metadata::Piece::Block->new(
                                                     piece  => $s,
                                                     offset => $offset,
                                                     length => $s->block_length
@@ -69,7 +72,7 @@
             $b
         } 1 .. int($s->length / $s->block_length);
         push @blocks,
-            Net::BitTorrent::Torrent::Piece::Block->new(
+            Net::BitTorrent::Protocol::BEP03::Metadata::Piece::Block->new(
                                   piece  => $s,
                                   offset => $offset,
                                   length => int($s->length % $s->block_length)
