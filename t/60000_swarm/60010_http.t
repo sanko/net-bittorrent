@@ -16,7 +16,7 @@ my (@cli, @dir);
 note 'Adding condvar for later use...';
 my $cv = AE::cv();
 $cv->begin(sub { $cv->send });
-note '...which will timeout in 120s';
+note '...which will timeout in 2m';
 my $to = AE::timer(120, 0, sub { note 'Timeout!'; $cv->send });
 sub _done { $cv->send }
 

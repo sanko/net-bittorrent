@@ -130,10 +130,11 @@
             AE::timer(
                 5, 15,
                 sub {
-                    warn 'HERE!!!!!!!!!!!!';
-                    return if !defined $s;
-                    warn 'Here...';
 
+                    #warn 'HERE!!!!!!!!!!!!';
+                    return if !defined $s;
+
+               #warn 'Here...';
                # XXX - return if outgoing data queue is larger than block x 8?
                     my $request = $s->_shift_remote_requests;
                     $s->_delete_quest('fill_remote_requests')
@@ -230,8 +231,9 @@
     sub _send_request {
         my ($s, $b) = @_;
         return if $s->remote_choked;
-        warn sprintf 'Sending request for %d:%d:%d to %s', $b->index,
-            $b->offset, $b->length, $s->peer_id;
+
+        #warn sprintf 'Sending request for %d:%d:%d to %s', $b->index,
+        #    $b->offset, $b->length, $s->peer_id;
         return $s->push_write(
                             build_request($b->index, $b->offset, $b->length));
     }
@@ -239,7 +241,8 @@
     sub _send_piece {
         my ($s, $i, $o, $l) = @_;
         return if $s->choked;
-        warn sprintf 'Sending block %d:%d:%d to %s', $i, $o, $l, $s->peer_id;
+
+        #warn sprintf 'Sending block %d:%d:%d to %s', $i, $o, $l, $s->peer_id;
         return $s->push_write(
                       build_piece($i, $o, $l, $s->torrent->read($i, $o, $l)));
     }
