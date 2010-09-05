@@ -1,6 +1,7 @@
 package Net::BitTorrent::Tracker;
 {
     use Moose;
+    use AnyEvent::Handle;
     use Net::BitTorrent::Network::Utility qw[server];
     use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
     has 'port' => (isa     => 'Int',
