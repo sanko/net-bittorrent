@@ -1,4 +1,4 @@
-Version 0.XXXXX | In the not too distant future | be4f2da
+Version 0.XXXXX | In the not too distant future | baf5a6f
 
     API Changes/Compatibility Information:
      * Rewrite!
@@ -15,7 +15,7 @@ Version 0.XXXXX | In the not too distant future | be4f2da
     Notes:
      * Meanwhile...
          - This distribution is going through a rewrite. You know, ...fyi.
-         - This particular dist is being uploaded to test the IPFilter code so far.
+         - This particular dist is being uploaded to test the Peer code so far.
          - See http://github.com/sanko/net-bittorrent/tree/summer-2010-moose-anyevent
 
 ---
