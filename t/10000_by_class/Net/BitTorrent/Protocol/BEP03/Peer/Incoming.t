@@ -69,7 +69,10 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         $expect //= [qw[handshake bitfield interested]];
         return wantarray ? @$expect : shift @$expect;
     }
-    sub _send_handshake {return}
+
+    sub _send_handshake {
+        return;
+    }
 
     sub _9000_open_socket : Test( startup => 0 ) {
         my $s = shift;
@@ -83,6 +86,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
                     AnyEvent->one_event for 1 .. 5;    # at least 3
                     subtest 'pre handshake', sub {
                         plan tests => 4;
+                        explain $s->{'peer'};
                         ok $s->{'peer'}->_has_torrent,
                             '...->torrent is defined';
                         is $s->{'peer'}->torrent->info_hash->to_Hex,

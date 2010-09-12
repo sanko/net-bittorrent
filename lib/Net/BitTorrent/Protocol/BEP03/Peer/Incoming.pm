@@ -5,6 +5,7 @@
     use Moose::Util::TypeConstraints;
     use lib '../../../../../../lib';
     use Net::BitTorrent::Types qw[:addr];
+    use Net::BitTorrent::Network::Utility qw[:sockaddr :paddr];
     extends 'Net::BitTorrent::Protocol::BEP03::Peer';
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 10; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has '_handle' => (
@@ -24,18 +25,15 @@
                 my $s = shift;
                 return $_[0] = undef  #$s->disconnect('Failed to open socket')
                     if !defined $s->fh;    # XXX - error creating socket?
-                require Socket;
-                my (undef, $addr) = Socket::sockaddr_in(getpeername($s->fh));
-                require Net::BitTorrent::Network::Utility;
-                Net::BitTorrent::Network::Utility::paddr2ip($addr);
+                my (undef, $addr) = unpack_sockaddr(getpeername($s->fh));
+                return paddr2ip($addr);
             },
             port => sub {
                 my $s = shift;
                 return $_[0] = undef  #$s->disconnect('Failed to open socket')
                     if !defined $s->fh;    # XXX - error creating socket?
-                require Socket;
-                my ($port, undef) = Socket::sockaddr_in(getpeername($s->fh));
-                $port;
+                my ($port, undef) = unpack_sockaddr(getpeername($s->fh));
+                return $port;
                 }
         }
     );
