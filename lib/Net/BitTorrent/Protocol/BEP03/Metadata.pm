@@ -11,6 +11,7 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use AnyEvent;
 
     #
+    my $bencode_constraint;
     has 'metadata' => (
         isa       => 'NBTypes::Bdecode',
         is        => 'ro',
@@ -18,7 +19,18 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         predicate => '_has_metadata',
         init_arg  => undef,                # cannot set this with new()
         coerce    => 1,
-        trigger => sub { shift->_trigger_metadata(@_) }
+        trigger => sub { shift->_trigger_metadata(@_) },
+        default => sub { {} },
+        handles => {
+            rawdata => sub {
+                $bencode_constraint //=
+                    Moose::Util::TypeConstraints::find_type_constraint(
+                                                          'NBTypes::Bencode');
+                my $s = shift;
+                return if !$s->_has_metadata;
+                return $bencode_constraint->coerce($s->metadata);
+                }
+        }
     );
 
     sub _trigger_metadata {   # Subclasses should override this and call super
@@ -39,30 +51,17 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
             }
             return 1;
         }
-        warn 'Someone changed the metadata!';
-        my $info_hash = $self->info_hash;
-        $self->_reset_info_hash;
-        warn sprintf '%s is now %s', $info_hash->to_Hex,
-            $self->info_hash->to_Hex;
-    }
-    has 'raw_data' => (
-        isa        => 'NBTypes::Bencode',
-        lazy_build => 1,
-        is         => 'ro',
-        init_arg   => undef,                # cannot set this with new()
-        predicate  => '_has_raw_data',
-        writer     => '_set_raw_data',
-        coerce     => 1,
-        trigger    => sub {
-            my ($self, $new_value, $old_value) = @_;
-            $self->_set_metadata($new_value) if @_ == 2;
 
-            # XXX - set the current value back to the old value
-        }
-    );
+        #warn 'Someone changed the metadata!';
+        $self->_reset_info_hash;
+
+        #my $info_hash = $self->info_hash;
+        #$self->_reset_info_hash;
+        #warn sprintf '%s is now %s', $info_hash->to_Hex,
+        #    $self->info_hash->to_Hex;
+    }
 
     #
-    my $bencode_constraint;
     has 'info_hash' => (
         is       => 'ro',
         isa      => 'NBTypes::Torrent::Infohash',
@@ -70,18 +69,19 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         coerce   => 1,                            # Both ways?
         lazy_build => 1,
         builder    => '_build_info_hash',  # returns Torrent::Infohash::Packed
-        clearer    => '_reset_info_hash'
+        clearer    => '_reset_info_hash',
+        predicate  => '_has_info_hash'
     );
 
     sub _build_info_hash {
         require Digest::SHA;
-        my ($self) = @_;
+        my $s = shift;
         $bencode_constraint //=
             Moose::Util::TypeConstraints::find_type_constraint(
                                                           'NBTypes::Bencode');
-        return if !$self->_has_metadata;
+        return if !$s->_has_metadata;
         Digest::SHA::sha1(
-                      $bencode_constraint->coerce($self->metadata->{'info'}));
+                         $bencode_constraint->coerce($s->metadata->{'info'}));
     }
     has 'piece_count' => (is         => 'ro',
                           isa        => 'Int',

@@ -85,6 +85,8 @@ package Net::BitTorrent;
             my $info_hash = $info_hash_constraint->coerce($index);
             $torrent = $self->find_torrent(
                 sub {
+
+                    #$_->_has_info_hash &&
                     $_->info_hash->Lexicompare($info_hash) == 0;
                 }
             );

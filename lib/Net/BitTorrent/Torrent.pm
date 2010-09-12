@@ -5,13 +5,15 @@ package Net::BitTorrent::Torrent;
     extends 'Net::BitTorrent::Protocol::BEP03::Metadata';
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../lib';
-    use Net::BitTorrent::Types qw[:torrent];
+    use Net::BitTorrent::Types qw[:torrent :file];
     use Fcntl ':flock';
     use 5.010.000;
     sub BUILD {1}
+    has '+info_hash' => (lazy_build => 0);
     has 'path' => (is          => 'ro',
-                   isa         => 'Str',
+                   isa         => 'NBTypes::File::Path::PreExisting',
                    required    => 1,
+                   coerce      => 1,
                    predicate   => '_has_path',
                    initializer => '_initializer_path'
     );
@@ -24,8 +26,8 @@ package Net::BitTorrent::Torrent;
         flock $FH, LOCK_SH;
         sysread($FH, my ($METADATA), -s $FH) == -s $FH
             || return !($_[0] = undef);    # destroy!
-        $s->_set_raw_data($METADATA);
-        return close $FH;
+        $s->_set_metadata($METADATA);
+        close $FH;
     }
     has 'client' => (
         isa       => 'Maybe[Net::BitTorrent]',
@@ -83,42 +85,42 @@ package Net::BitTorrent::Torrent;
     override '_trigger_metadata' => sub {
         super;
         my ($self, $new_value, $old_value) = @_;
-        if (@_ == 2) {    # parse files
-            require Net::BitTorrent::Storage::File;
 
-            #
-            my @files;
-            if (defined $new_value->{'info'}{'files'}) { # Multi-file .torrent
-                my ($offset, $index) = (0, 0);
-                $self->storage->_set_files(
-                    [   map {
-                            my $obj =
-                                Net::BitTorrent::Storage::File->new(
+        # parse files
+        require Net::BitTorrent::Storage::File;
+
+        #
+        my @files;
+        if (defined $new_value->{'info'}{'files'}) {    # Multi-file .torrent
+            my ($offset, $index) = (0, 0);
+            $self->storage->_set_files(
+                [map {
+                     my $obj
+                         = Net::BitTorrent::Storage::File->new(
                                           index  => $index++,
                                           length => $_->{'length'},
                                           offset => $offset,
                                           path => [grep {$_} @{$_->{'path'}}],
                                           storage => $self->storage
-                                );
-                            $offset += $_->{'length'};
-                            $obj;
-                            } @{$new_value->{'info'}{'files'}}
-                    ]
-                );
-                $self->storage->_set_root($new_value->{'info'}{'name'});
-            }
-            else {    # single file torrent; use the name
-                $self->storage->_set_files(
-                             [Net::BitTorrent::Storage::File->new(
+                         );
+                     $offset += $_->{'length'};
+                     $obj;
+                     } @{$new_value->{'info'}{'files'}}
+                ]
+            );
+            $self->storage->_set_root($new_value->{'info'}{'name'});
+        }
+        else {    # single file torrent; use the name
+            $self->storage->_set_files(
+                                [Net::BitTorrent::Storage::File->new(
                                      index  => 0,
                                      length => $new_value->{'info'}{'length'},
                                      offset => 0,
                                      path   => [$new_value->{'info'}{'name'}],
                                      storage => $self->storage
-                              )
-                             ]
-                );
-            }
+                                 )
+                                ]
+            );
         }
     };
     has 'piece_selector' => (isa => 'Net::BitTorrent::Torrent::PieceSelector',
@@ -367,6 +369,7 @@ package Net::BitTorrent::Torrent;
 
     #
     no Moose;
+    no Moose::Util::TypeConstraints;
     __PACKAGE__->meta->make_immutable
 }
 1;

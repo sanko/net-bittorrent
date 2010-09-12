@@ -14,7 +14,13 @@ package Net::BitTorrent::Types;
                 NBTypes::Tracker::UDP NBTypes::Tracker::HTTP
                 NBTypes::Tracker::HTTP::Event]
         ],
-        file    => [qw[NBTypes::File::Open::Permission]],
+        file => [
+            qw[NBTypes::File::Open::Permission
+                NBTypes::File::Path
+                NBTypes::File::Path::Absolute
+                NBTypes::File::Path::PreExisting
+                ]
+        ],
         client  => [qw[NBTypes::Client::PeerID]],
         dht     => [qw[NBTypes::DHT::NodeID]],
         bencode => [qw[NBTypes::Bencode NBTypes::Bdecode]],
@@ -90,7 +96,19 @@ package Net::BitTorrent::Types;
     enum 'NBTypes::Tracker::HTTP::Event' => qw[started stopped completed];
 
     #
-    enum 'NBTypes::File::Open::Permission' => qw[ro wo rw];
+    enum 'NBTypes::File::Open::Permission'  => qw[ro wo rw];
+    subtype 'NBTypes::File::Path'           => as 'Str';
+    subtype 'NBTypes::File::Path::Absolute' => as 'Str' =>
+        where { require File::Spec; File::Spec->file_name_is_absolute($_) } =>
+        message {'Filename must be absolute.'};
+    coerce 'NBTypes::File::Path::Absolute' => from 'Str' =>
+        via { require File::Spec; File::Spec->rel2abs($_); };
+    subtype 'NBTypes::File::Path::PreExisting' => as 'Str' =>
+        where { require File::Spec; File::Spec->file_name_is_absolute($_) } =>
+        message {'Filename must be absolute.'} => where { -f $_ } =>
+        message {'File must be preexisting'};
+    coerce 'NBTypes::File::Path::PreExisting' => from 'Str' =>
+        via { require File::Spec; File::Spec->rel2abs($_); };
 
     #
     subtype 'NBTypes::Client::PeerID' => as 'Str' =>
