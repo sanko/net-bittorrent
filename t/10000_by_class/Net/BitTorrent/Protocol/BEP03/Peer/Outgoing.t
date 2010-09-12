@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
 {
     use strict;
     use warnings;
-    use 5.012;
+    use 5.010.000;
     use AnyEvent;
     use AnyEvent::Socket qw[tcp_server];
     use Test::Most;
@@ -226,7 +226,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
                 );
                 }
         };
-        $dispatch->{$k} // sub {...}
+        $dispatch->{$k} // sub { die '...'; }
     }
 
     #

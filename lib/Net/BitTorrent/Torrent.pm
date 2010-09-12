@@ -7,7 +7,7 @@ package Net::BitTorrent::Torrent;
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
     use Fcntl ':flock';
-    use 5.012;
+    use 5.010.000;
     sub BUILD {1}
     has 'path' => (is          => 'ro',
                    isa         => 'Str',

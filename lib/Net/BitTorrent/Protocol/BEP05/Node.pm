@@ -6,7 +6,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     use lib '../../../../../lib';
     use Net::BitTorrent::Types qw[NBTypes::DHT::NodeID];
     use Net::BitTorrent::Protocol::BEP05::Packets qw[:all];
-    use 5.12.0;
+    use 5.010.000;
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 4; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #

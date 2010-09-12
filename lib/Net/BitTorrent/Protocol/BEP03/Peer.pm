@@ -29,7 +29,7 @@
         #1;
     }
     my %_packet_dispatch;
-    sub _handle_packet_handshake  {...}
+    sub _handle_packet_handshake  { die '...'; }
     sub _handle_packet_choke      { shift->_set_remote_choked }
     sub _handle_packet_unchoke    { shift->_unset_remote_choked }
     sub _handle_packet_interested { shift->_set_remote_interested }

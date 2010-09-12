@@ -52,7 +52,7 @@ package Net::BitTorrent::Storage::Cache;
 
     sub del_block ($$) {
         my ($s, $i) = @_;
-        ...;    # XXX - I need to double check all offsets after removal
+        die '...';    # XXX - I need to double check all offsets after removal
         my $where = $s->_get_block_info($i);
         return if !defined $where;
         $s->close() if defined $s->open && $s->open ne 'ro';
@@ -74,7 +74,7 @@ package Net::BitTorrent::Storage::Cache;
         # XXX - Load index from file
         my ($i, $o, $l) = unpack 'N3', $s->read(12);
         warn join '|', $i, $o, $l;
-        ...;
+        die '...';
     }
 }
 1;

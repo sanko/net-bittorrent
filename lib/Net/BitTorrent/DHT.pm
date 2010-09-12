@@ -385,7 +385,7 @@ package Net::BitTorrent::DHT;
                             )
                             )
                         {    # Malformed packet
-                            ...;
+                            die '...';
                         }
                         if (defined $packet->{'r'}{'nodes'}) {
                             require Net::BitTorrent::Protocol::BEP23::Compact;
@@ -508,7 +508,7 @@ package Net::BitTorrent::DHT;
                     );
             }
             else {
-                ...;
+                die '...';
             }
         }
         elsif ($packet->{'y'} eq 'q' && defined $packet->{'a'}) {

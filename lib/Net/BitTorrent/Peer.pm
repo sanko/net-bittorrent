@@ -2,7 +2,7 @@ package Net::BitTorrent::Peer;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
-    use 5.012;
+    use 5.010.000;
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent];
     use Net::BitTorrent::Protocol::BEP03::Packets

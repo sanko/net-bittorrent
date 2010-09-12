@@ -5,7 +5,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
     use Test::More;
     use parent 'Test::Class';
     use lib '../../../../lib', 'lib';
-    use 5.012;
+    use 5.010.000;
     use Test::Moose;
     use Test::More;
     use AnyEvent;

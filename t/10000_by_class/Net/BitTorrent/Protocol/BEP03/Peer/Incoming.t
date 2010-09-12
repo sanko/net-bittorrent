@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
 {
     use strict;
     use warnings;
-    use 5.012;
+    use 5.010.000;
     use AnyEvent;
     use AnyEvent::Socket qw[tcp_connect];
     use AnyEvent::Handle;
@@ -58,7 +58,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
         #        : explain 'No idea what to do with this packet: ',
         #        $s->{'handle'}->rbuf;
         #},
-        #on_write => sub {...}
+        #on_write => sub {die '...';}
         #    );
         #ok $s->{'handle'}, 'handle created opened';
     }
@@ -257,7 +257,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
                 );
                 }
         };
-        $dispatch->{$k} // sub {...}
+        $dispatch->{$k} // sub { die '...'; }
     }
 
     #
