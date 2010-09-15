@@ -3,6 +3,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
     use strict;
     use warnings;
     use 5.010.000;
+    use AnyEvent::Impl::Perl;   # Timing is different than with EV. Go figure.
     use AnyEvent;
     use AnyEvent::Socket qw[tcp_server];
     use Test::Most;

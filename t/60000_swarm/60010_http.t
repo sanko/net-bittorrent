@@ -3,6 +3,7 @@ use warnings;
 use lib '../../lib';
 use Test::More;
 use File::Temp;
+use AnyEvent::Impl::Perl;    # Timing is different than with EV. Go figure.
 use AnyEvent;
 use lib reverse 'lib', '../lib', '../../lib';
 use Net::BitTorrent;
