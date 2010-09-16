@@ -8,29 +8,27 @@ package Net::BitTorrent::Torrent::Generator;
     use Net::BitTorrent::Types qw[:all];
     use Digest::SHA;
     use Fcntl qw[SEEK_CUR];
-    use File::Spec::Functions;
-    has 'path' => (
-        is       => 'ro',
-        isa      => 'Str',
+    use File::Spec::Functions
+        qw[abs2rel catdir curdir no_upwards rel2abs splitdir splitpath];
+    has '_files' => (
+        is => 'ro',
+        isa =>
+            'ArrayRef[NBTypes::File::Path::PreExisting]|NBTypes::File::Path::PreExisting|NBTypes::File::Directory::PreExisting',
         required => 1,
-        writer   => '_set_path',
+        init_arg => 'files',
+        writer   => '_set_files',
+        coerce   => 1,
         handles  => {
             files => sub {
                 my $s = shift;
-                return [$s->path] if -f $s->path;
+                return [$s->_files] if -f $s->_files;
+                return $s->_files if grep { !-d } $s->_files;
                 my @files;
                 require File::Find;
-                File::Find::find(
-                    {wanted => sub {
-                         push @files, $_
-                             if -f && (  $s->_has_path_skip
-                                       ? $_ !~ $s->path_skip
-                                       : 1
-                             );
-                     },
-                     no_chdir => 1
-                    },
-                    $s->path
+                File::Find::find({wanted => sub { push @files, $_ if -f },
+                                  no_chdir => 1
+                                 },
+                                 $s->_files
                 );
                 \@files;
             },
@@ -42,11 +40,6 @@ package Net::BitTorrent::Torrent::Generator;
                 }
         }
     );
-    has 'path_skip' => (is        => 'ro',
-                        isa       => 'RegexpRef',
-                        predicate => '_has_path_skip',
-                        writer    => '_set_path_skip',
-                        clearer   => '_clear_path_skip'
     );
     has 'announce' => (is        => 'ro',
                        isa       => 'Str',
@@ -211,12 +204,11 @@ Net::BitTorrent::Torrent::Generator - .torrent metadata generator
 =head1 Synopsis
 
     # Generate a single file .torrent to seed file.avi
-    my $t1 = Net::BitTorrent::Torrent::Generator->new( path => 'file.avi' );
+    my $t1 = Net::BitTorrent::Torrent::Generator->new( files => 'file.avi' );
 
     # Add everything in the current directory accept .torrent files
     my $t2 = Net::BitTorrent::Torrent::Generator->new(
-        path      => '../',
-        path_skip => qr[.*torrent$]
+        files      => '../'
     );
 
     # Now, let's write the metadata to disk
@@ -233,7 +225,7 @@ TODO
 
 Creating a new .torrent is simple. As is this API.
 
-=head2 my $torrent = Net::BitTorrent::Torrent::Generator->B<new>( path => ..., [ ... ] )
+=head2 my $torrent = Net::BitTorrent::Torrent::Generator->B<new>( files => ..., [ ... ] )
 
 Creates a new generator object.
 
@@ -241,9 +233,9 @@ This constructor requires the following arguments:
 
 =over
 
-=item C<path>
+=item C<files>
 
-See L<< path|/"$torrent->B<path>( )" >>.
+See L<< files|/"$torrent->B<files>( )" >>.
 
 =back
 
@@ -258,10 +250,6 @@ See L<< announce|/"$torrent->B<announce>( )" >>.
 =item C<announce_list>
 
 See L<< announce_list|/"$torrent->B<announce_list>( )" >>.
-
-=item C<path_skip>
-
-See L<< path_skip|/"$torretn->B<path_skip>( )" >>.
 
 =item C<comment>
 
@@ -322,23 +310,13 @@ This method generates and returns the metadata.
 For raw data ready to write to disk, see
 L<< raw_data|/"$torrent->B<raw_data>( ))" >>.
 
-=head2 $torrent->B<path>( )
+=head2 $torrent->B<files>( )
 
 This is a string contining either a directory or a single file.
 
 If this is a directory, a multi-file torrent is generated.
 
-Use C<< $torrent->B<_set_path>( $path ) >> to set this value later.
-
-=head2 $torrent->B<path_skip>( )
-
-This is a regular expression. If L<path|/"$torrent->B<path>( )"> is a
-directory, L<found files|File::Find/"find"> are checked against this regex. If
-they match, they're ignored when generating
-<metadata|/"$torrent->B<metadata>( )">.
-
-Use C<< $torrent->B<_set_path_skip>( qr[...] ) >> to set this value later and
-C<< $torrent->B<_clear_path_skip>( ) >> to clear it.
+Use C<< $torrent->B<_set_files>( $path ) >> to set this value later.
 
 =head2 $torrent->B<piece_length>( )
 
