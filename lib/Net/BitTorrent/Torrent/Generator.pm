@@ -137,26 +137,41 @@ package Net::BitTorrent::Torrent::Generator;
                 pieces         => '',                 # Filled later
                 ($s->private ? (private => 1) : ()),
                 ($s->_count_files > 1 ? (             # Multiple files
-                     files => [
-                         map {
-                             {path => [
-                                  grep { defined && length }
-                                      File::Spec::Functions::no_upwards(
-                                      sub {
-                                          my $p = $s->path;
-                                          m[^$p[\\/](.+)$]i;
-                                          File::Spec::Functions::splitdir($1
-                                                                       // $_);
-                                          }
-                                          ->()
-                                      )
-                              ],
-                              length => -s $_
+                     sub {
+                         my $tree = {};
+                         for my $f (@{$s->files}) {
+                             my $pos = \$tree;
+                             for my $key (splitdir $f) {
+                                 $$pos->{$key} ||= ();
+                                 $pos = \$$pos->{$key};
                              }
-                             } @{$s->files}
-                     ],
-                     name =>
-                         sub { $s->path =~ m[(\w+)$]; $1 ? $1 : 'torrent' }
+                         }
+                         my $base;
+                         my $abs = '';
+                         while (scalar keys %$tree == 1) {
+                             ($base) = keys(%$tree);
+                             $abs .= $base . '/';
+                             $tree = $tree->{$base};
+                         }
+                         my $cwd = rel2abs curdir;
+                         return (
+                             files => [
+                                 map {
+                                     my $f_abs = rel2abs $_;
+                                     my ($c, $d, undef) = splitpath($f_abs);
+                                     chdir catdir rel2abs $abs;
+                                     my $x = abs2rel $f_abs;
+                                     chdir $cwd;
+                                     {path => [grep { defined && length }
+                                                   splitdir($x)
+                                      ],
+                                      length => -s $f_abs
+                                     };
+                                     } @{$s->files}
+                             ],
+                             name => $s->_has_name ? $s->name : $base
+                         );
+                         }
                          ->()
                      )
                  : (    # Single file
