@@ -40,6 +40,10 @@ package Net::BitTorrent::Torrent::Generator;
                 }
         }
     );
+    has 'name' => (is        => 'ro',
+                   isa       => 'Str',
+                   writer    => '_set_name',
+                   predicate => '_has_name'
     );
     has 'announce' => (is        => 'ro',
                        isa       => 'Str',
@@ -157,8 +161,7 @@ package Net::BitTorrent::Torrent::Generator;
                      )
                  : (    # Single file
                      length => $s->total_size,
-                     name =>
-                         [File::Spec::Functions::splitpath($s->path)]->[-1]
+                     name   => [splitpath($s->files->[0])]->[-1]
                  )
                 )
             },
@@ -360,7 +363,7 @@ L<Net::BitTorrent::File|Net::BitTorrent::File>
 
 =over
 
-=item Optional, user-defined/smart file sorting
+=item Document optional .torrent C<name>.
 
 =back
 
