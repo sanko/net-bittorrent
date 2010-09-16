@@ -35,7 +35,7 @@ package Net::BitTorrent::Torrent::Generator;
             _count_files => sub { scalar @{shift->files} },
             total_size   => sub {
                 my $t = 0;
-                $t += -s $_->[0] for shift->files;
+                $t += -s for @{shift->files};
                 $t;
                 }
         }
