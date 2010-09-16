@@ -19,6 +19,7 @@ package Net::BitTorrent::Types;
                 NBTypes::File::Path
                 NBTypes::File::Path::Absolute
                 NBTypes::File::Path::PreExisting
+                NBTypes::File::Directory::PreExisting
                 ]
         ],
         client  => [qw[NBTypes::Client::PeerID]],
@@ -107,7 +108,13 @@ package Net::BitTorrent::Types;
         where { require File::Spec; File::Spec->file_name_is_absolute($_) } =>
         message {'Filename must be absolute.'} => where { -f $_ } =>
         message {'File must be preexisting'};
+    subtype 'NBTypes::File::Directory::PreExisting' => as 'Str' =>
+        where { require File::Spec; File::Spec->file_name_is_absolute($_) } =>
+        message {'Directory must be absolute.'} => where { -d $_ } =>
+        message {'Directory must be preexisting'};
     coerce 'NBTypes::File::Path::PreExisting' => from 'Str' =>
+        via { require File::Spec; File::Spec->rel2abs($_); };
+    coerce 'NBTypes::File::Directory::PreExisting' => from 'Str' =>
         via { require File::Spec; File::Spec->rel2abs($_); };
 
     #
