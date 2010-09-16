@@ -177,7 +177,9 @@ package Net::BitTorrent::Torrent::Generator;
         );
         my $data = '';
     FILE: for my $f (@{$s->files}) {
-            open(my ($fh), '<', $f) || confess 'Cannot generate .torrent';
+            open(my ($fh), '<', $f)
+                || confess sprintf
+                'Cannot open "%s" to generate metadata: %s', $f, $!;
         PIECE:
             while (length $data < $s->piece_length) {
                 sysread($fh, $data, ($s->piece_length - length($data)),
