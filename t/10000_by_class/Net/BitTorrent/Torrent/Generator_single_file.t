@@ -15,7 +15,14 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator_single_file;
     sub info_hash {'AF734F7A29006EB16E47FB66A06290224EEAFD02'}
 
     sub files {
-        './t/90000_data/96000_data/96020_miniswarm_seed/1291672777_30adc6a421_o.jpg'
+        './t/90000_data/96000_data/96020_miniswarm_seed/1291672777_30adc6a421_o.jpg';
+    }
+    {    # under _files attribute
+
+        sub _files {
+            ['./t/90000_data/96000_data/96020_miniswarm_seed/1291672777_30adc6a421_o.jpg'
+            ];
+        }
     }
 
     #
