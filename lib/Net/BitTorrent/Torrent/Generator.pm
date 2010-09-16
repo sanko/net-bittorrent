@@ -212,6 +212,11 @@ package Net::BitTorrent::Torrent::Generator;
     # If anything is changed, update the good stuff
     after qr[^(_(set|unset|add|del|sort)|add)] =>
         sub { my $s = shift; $s->_clear_info_hash; $s->_clear_metadata };
+
+    #
+    no Moose;
+    no Moose::Util::TypeConstraints;
+    __PACKAGE__->meta->make_immutable
 }
 1;
 
