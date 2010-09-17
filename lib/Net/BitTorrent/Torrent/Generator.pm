@@ -50,13 +50,14 @@ package Net::BitTorrent::Torrent::Generator;
                        writer    => '_set_announce',
                        predicate => '_has_announce'
     );
-    has 'announce-list' => (is      => 'ro',
+    has 'announce_list' => (is      => 'ro',
                             isa     => 'ArrayRef[ArrayRef[Str]]',
                             default => sub { [] },
                             traits  => ['Array'],
                             handles => {_add_tier          => 'push',
-                                        _get_pier          => 'get',
-                                        _has_announce_list => 'count'
+                                        _get_tier          => 'get',
+                                        _has_announce_list => 'count',
+                                        _del_tier          => 'delete'
                             }
     );
     has 'private' => (is      => 'ro',
