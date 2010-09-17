@@ -15,7 +15,7 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator_piece_length;
         't::10000_by_class::Net::BitTorrent::Torrent::Generator_multiple_files';
     $|++;
 
-    sub t_020_piece_length : Test( 5 ) {
+    sub t_020_piece_length : Test( 8 ) {
         my $s = shift;
         is $s->{'torrent'}->piece_length, 262144,
             'default piece_length (2**18)';
