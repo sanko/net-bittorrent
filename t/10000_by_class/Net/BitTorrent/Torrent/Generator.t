@@ -33,7 +33,7 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator;
         explain 'Metadata now looks like...', $s->{'torrent'};
     }
 
-    sub api_comment : Test( 4 ) {
+    sub _200_api : Test( 7 ) {
         my $s = shift;
         is $s->{'torrent'}->comment, undef, 'default comment is undef';
         ok !$s->{'torrent'}->_has_comment, '_has_comment is false';
@@ -41,8 +41,6 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator;
             '_set_comment( ... )';
         is $s->{'torrent'}->comment, 'See credit.txt for attributions.',
             'comment is correct';
-    }
-    {
 
         sub _files {
             ['./t/90000_data/96000_data/96020_miniswarm_seed/1291672777_30adc6a421_o.jpg',
@@ -50,19 +48,15 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator;
              './t/90000_data/96000_data/96020_miniswarm_seed/credit.txt'
             ];
         }
-
-        sub api___files : Test( 3 ) {
-            my $s = shift;
-            is_deeply $s->{'torrent'}->files, $s->_files,
-                'list of files is correct';
-            is $s->{'torrent'}->_count_files, scalar(@{$s->_files}),
-                '_count_files is correct';
-            {
-                my $expected;
-                for my $file (@{$s->_files}) { $expected += -s $file }
-                is $s->{'torrent'}->total_size, $expected,
-                    'total_size is correct'
-            }
+        is_deeply $s->{'torrent'}->files, $s->_files,
+            'list of files is correct';
+        is $s->{'torrent'}->_count_files, scalar(@{$s->_files}),
+            '_count_files is correct';
+        {
+            my $expected;
+            for my $file (@{$s->_files}) { $expected += -s $file }
+            is $s->{'torrent'}->total_size, $expected,
+                'total_size is correct'
         }
     }
 
