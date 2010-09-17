@@ -2,6 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
 {
     use strict;
     use warnings;
+    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use 5.010.000;
     use AnyEvent::Impl::Perl;   # Timing is different than with EV. Go figure.
     use AnyEvent;
