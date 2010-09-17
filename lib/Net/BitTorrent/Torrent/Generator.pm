@@ -86,6 +86,10 @@ package Net::BitTorrent::Torrent::Generator;
         handles => {
             _piece_count => sub {
                 my ($s, $v) = @_;
+                int ($s->total_size / $s->piece_length) + 1;
+            },
+            _set_piece_count => sub {
+                my ($s, $v) = @_;
                 $s->_set_piece_length(int($s->total_size / $v) + 1);
                 }
         }
