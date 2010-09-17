@@ -66,6 +66,7 @@ t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing.t
 t/10000_by_class/Net/BitTorrent/Storage/File.t
 t/10000_by_class/Net/BitTorrent/Torrent/Generator.t
 t/10000_by_class/Net/BitTorrent/Torrent/Generator_multiple_files.t
+t/10000_by_class/Net/BitTorrent/Torrent/Generator_piece_length.t
 t/10000_by_class/Net/BitTorrent/Torrent/Generator_single_file.t
 t/10000_by_class/Net/BitTorrent_random_port.t
 t/10000_by_class/Net/BitTorrent_single_port.t

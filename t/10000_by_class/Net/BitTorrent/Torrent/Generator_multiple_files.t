@@ -1,4 +1,4 @@
-package t::10000_by_class::Net::BitTorrent::Torrent::Generator_multiple_file;
+package t::10000_by_class::Net::BitTorrent::Torrent::Generator_multiple_files;
 {
     use strict;
     use warnings;
