@@ -15,8 +15,9 @@ Version 0.XXXXX | In the not too distant future | baf5a6f
     Notes:
      * Meanwhile...
          - This distribution is going through a rewrite. You know, ...fyi.
-         - This particular dist is being uploaded to test the Peer code so far.
-         - See http://github.com/sanko/net-bittorrent/tree/summer-2010-moose-anyevent
+         - This particular dist is being uploaded to test the Peer code and
+             metadata generator.
+         - See http://github.com/sanko/net-bittorrent/
 
 ---
 Version 0.052 | 2010-04-02 18:31:29Z (Fri, 02 Apr 2010) | 07f0c35

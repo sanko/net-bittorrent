@@ -18,7 +18,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
     sub new_args {
         my $t = shift;
         require Net::BitTorrent;
-        [    #port              => [1337 .. 1339, 0],
+        [                       #port              => [1337 .. 1339, 0],
            on_listen_failure => sub {
                my ($s, $a) = @_;
                note $a->{'message'};
