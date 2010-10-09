@@ -9,7 +9,7 @@ my $automated_testing = $ENV{'AUTOMATED_TESTING'}
     || $ENV{'PERL_MM_USE_DEFAULT'};
 my $is_developer = ((-d '.git') ? 1 : 0) or ($ENV{'RELEASE_TESTING'} ? 1 : 0);
 my @tests;
-find \&find_cb, qw[t/10000_by_class/ t/60000_swarm/];
+find \&find_cb, qw[t/1000_basic/];
 my $class = $is_developer ? 'inc::MBX::Developer' : 'Module::Build';
 
 if (!eval "require $class") {
@@ -17,73 +17,77 @@ if (!eval "require $class") {
     exit 0;
 }
 my $mb = $class->new(
-    module_name   => 'Net::BitTorrent',
-    license       => 'artistic_2',
-    dist_author   => 'Sanko Robinson <sanko@cpan.org>',
-    dist_abstract => 'BitTorrent peer-to-peer protocol',
-    dist_version  => $VERSION,
-    requires      => {
-                 AnyEvent                     => 0,
-                 'AnyEvent::Handle::Throttle' => '0.000002004',
-                 'Bit::Vector'                => 0,
-                 'Digest::SHA'                => 5.45,
-                 Exporter                     => 0,
-                 'File::Path'                 => 2.07,
-                 'File::Spec'                 => 0,
-                 'File::Temp'                 => 0,
-                 'Module::Build'              => 0.30,
-                 Moose                        => 0,
-                 perl                         => '5.10.0',
-                 'Scalar::Util'               => 1.19
-    },
-    build_requires => {'File::Temp'      => 0,
-                       'Module::Build'   => 0.30,
-                       perl              => '5.10.0',
-                       'TAP::Harness'    => 3.18,
-                       'Test::Class'     => 0.35,
-                       'Test::Exception' => 0,
-                       'Test::Most'      => 0,
-                       ($is_developer
-                        ? ('CPAN::Meta::Converter' => 0,
-                           'CPAN::Meta::Validator' => 0,
-                           JSON                    => 0,
-                           'Perl::Tidy'            => 0
-                            )
-                        : ()
-                       )
-    },
-    test_files       => \@tests,
-    test_file_exts   => ['.t'],
-    use_tap_harness  => 1,
-    tap_harness_args => {
+     module_name   => 'Net::BitTorrent',
+     license       => 'artistic_2',
+     dist_author   => 'Sanko Robinson <sanko@cpan.org>',
+     dist_abstract => 'BitTorrent peer-to-peer protocol',
+     dist_version  => $VERSION,
+     requires      => {
+                  #AnyEvent                     => 0,
+                  #'AnyEvent::Handle::Throttle' => '0.000002004',
+                  #'Bit::Vector'                => 0,
+                  #'Digest::SHA'                => 5.45,
+                  #Exporter                     => 0,
+                  #'File::Path'                 => 2.07,
+                  #'File::Spec'                 => 0,
+                  Moose                        => 0,
+                  perl                         => '5.10.0',
+                  #'Scalar::Util'               => 1.19
+     },
+     build_requires => {AnyEvent                     => 0,
+                        #'AnyEvent::Handle::Throttle' => '0.000002004',
+                        #'Bit::Vector'                => 0,
+                        #'Digest::SHA'                => 5.45,
+                        Exporter                     => 0,
+                        #'File::Path'                 => 2.07,
+                        #'File::Spec'                 => 0,
+                        #'File::Temp'                 => 0,
+                        #'Module::Build'              => 0.30,
+                        parent => 0,
+                        perl                         => '5.10.0',
+                        'TAP::Harness'               => 3.18,
+                        'Test::Class'                => 0.35,
+                        #'Test::Exception'            => 0,
+                        #'Test::Most'                 => 0,
+                        #($is_developer
+                        # ? ('CPAN::Meta::Converter' => 0,
+                        #    'CPAN::Meta::Validator' => 0,
+                        #    JSON                    => 0,
+                        #    'Perl::Tidy'            => 0
+                        #     )
+                        # : ()
+                        #)
+     },
+     test_files       => \@tests,
+     test_file_exts   => ['.t'],
+     use_tap_harness  => 1,
+     tap_harness_args => {
                     jobs  => 9,
                     rules => {
                         par => [
-                            {seq => '/t/10000_by_class/Net/BitTorrent[\._]'},
-                            {seq => '/t/10000_by_class/Net/BitTorrent/DHT/*'},
+                            {seq => '/t/*'},
+                            {seq => '/xt/*'},
                             '*'
                         ]
                     }
-    },
-    meta_merge => {
-        keywords  => [qw[BitTorrent torrent client DHT UDP]],
-        resources => {
-            bugtracker => {
+     },
+     meta_merge => {
+         keywords  => [qw[bencode bdecode]],
+         resources => {
+             bugtracker => {
                        web => 'http://github.com/sanko/net-bittorrent/issues',
                        mailto => 'sanko@cpan.org'
-            },
-            repository => {
-                url => 'git://github.com/sanko/net-bittorrent.git',
-                web =>
-                    'http://github.com/sanko/net-bittorrent/tree/summer-2010-moose-anyevent',
-                type => 'git'
-            },
-            ChangeLog =>
-                'http://github.com/sanko/net-bittorrent/commits/summer-2010-moose-anyevent/',
-            homepage => 'http://sankorobinson.com/net-bittorrent/',
-            license  => ['http://www.perlfoundation.org/artistic_license_2_0']
-        }
-    }
+             },
+             repository => {
+                        url => 'git://github.com/sanko/net-bittorrent.git',
+                        web => 'http://github.com/sanko/net-bittorrent/tree/',
+                        type => 'git'
+             },
+             ChangeLog => 'http://github.com/sanko/net-bittorrent/commits/',
+             homepage  => 'http://sankorobinson.com/net-bittorrent/',
+             license => ['http://www.perlfoundation.org/artistic_license_2_0']
+         }
+     }
 );
 $mb->notes(automated_testing => $automated_testing ? 1 : 0);
 $mb->notes(release_testing   => $is_developer);

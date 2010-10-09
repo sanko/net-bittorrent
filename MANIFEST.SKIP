@@ -98,3 +98,6 @@ examples/.+.torrent$
 t/10000_by_class/Net/BitTorrent/Protocol/BEP03/Peer/Outgoing_bad_info_hash.t
 t/60000_swarm/basic.t
 t/60000_swarm/~basic.t
+
+# TODO list
+policy.outline
