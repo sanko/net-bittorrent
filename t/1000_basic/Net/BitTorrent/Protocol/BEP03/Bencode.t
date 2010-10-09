@@ -3,13 +3,16 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
     use strict;
     use warnings;
 
-    # Load standard test modules
+    # Load standard modules
+    use Module::Build;
     use Test::More;
     use parent 'Test::Class';
 
     # Load local context
-    #my $test_builder = Test::More->builder;
-    #my $build        = Module::Build->current;
+    -d '_build' ? last : chdir '..' for 1 .. 10;
+    my $t_builder = Test::More->builder;
+    my $m_builder = Module::Build->current;
+
     # Load local modules
     use lib '../../../../../../lib', 'lib';
     use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
