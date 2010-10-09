@@ -84,14 +84,10 @@ package inc::MBX::Developer;
         my $_Date = POSIX::strftime('%Y-%m-%d %H:%M:%SZ (%a, %d %b %Y)',
                                     gmtime($bits[0]));
         my $_Commit = $bits[1];
-        my $dist = sprintf(
+        my $dist    = sprintf
             'Version %s | %s | %s',
-            ($self->dist_version() =~ m[_]   # $self->dist_version()->is_alpha
-             ? ('0.XXXXX', 'In the not too distant future')
-             : ($self->dist_version(), $_Date) # $self->dist_version()->numify
-            ),
-            $bits[2]
-        );
+            $self->dist_version(), $_Date,
+            $bits[2];
 
         # start changing the data around
         $CHANGES_D =~ s[.+(\r?\n)][$dist$1];
