@@ -174,8 +174,8 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
 
     #
     __PACKAGE__->runtests() if !caller;
-    1;
 }
+1;
 
 =pod
 
