@@ -137,6 +137,15 @@ http://bittorrent.org/beps/bep_0003.html#the-connectivity-is-as-follows
 
 =back
 
+=head1 TODO
+
+=over
+
+=item I would like to benchmark my versions of bencode and bdecode against the
+L<other public versions|/"See Also"> written in Perl.
+
+=back
+
 =head1 Author
 
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
