@@ -72,7 +72,36 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
 
 =head1 NAME
 
-Net::BitTorrent::Protocol::BEP03::Bencode - Utility functions for BEP03: The BitTorrent Protocol Specification
+Net::BitTorrent::Protocol::BEP03::Bencode - Metadata Utility Functions for BEP03: The BitTorrent Protocol Specification
+
+=head1 Description
+
+Taken from BEP03...
+
+=over
+
+=item * Strings are length-prefixed base ten followed by a colon and the
+string. For example C<4:spam> corresponds to 'C<spam>'.
+
+=item * Integers are represented by an 'i' followed by the number in base
+C<10> followed by an 'e'. For example C<i3e> corresponds to C<3> and C<i-3e>
+corresponds to C<-3>. Integers have no size limitation. C<i-0e> is invalid.
+All encodings with a leading zero, such as C<i03e>, are invalid, other than
+C<i0e>, which of course corresponds to C<0>.
+
+=item * Lists are encoded as an 'l' followed by their elements (also bencoded)
+followed by an 'e'. For example C<l4:spam4:eggse> corresponds to
+C<['spam', 'eggs']>.
+
+=item * Dictionaries are encoded as a 'd' followed by a list of alternating
+keys and their corresponding values followed by an 'e'. For example,
+C<d3:cow3:moo4:spam4:eggse corresponds> to C<{'cow': 'moo', 'spam': 'eggs'}>
+and C<d4:spaml1:a1:bee> corresponds to C<{'spam': ['a', 'b']}>. Keys must be
+strings and appear in sorted order (sorted as raw strings, not alphanumerics).
+
+=back
+
+Torrent metadata is bencoded dictionaries.
 
 =head1 Importing From Net::BitTorrent::Protocol::BEP03::Bencode
 
@@ -85,39 +114,36 @@ these tags:
 
 =item C<:all>
 
-You get the two Bencode-related functions: L<bencode|/"bencode ( ARGS )">
-and L<bdecode|/"bdecode ( STRING )">.  For more on Bencoding, see the
+You get the two Bencode-related functions:
+L<bencode|/"$string = B<bencode>( $value )"> and
+L<bdecode|/"$data = B<bdecode>( $string )">.  For more on Bencoding, see the
 BitTorrent Protocol documentation.
 
 =back
 
 =head1 Functions
 
-=over
+This is all we need.
 
-=item C<bencode ( ARGS )>
+=head2 C<< $string = B<bencode>( $value ) >>
 
-Expects a single value (basic scalar, array reference, or hash reference) and
-returns a single string.
+Expects a single C<$value> (which may be a scalar, list, or hash reference)
+and returns a single C<$string> value.
 
 Bencoding is the BitTorrent protocol's basic serialization and data
 organization format. The specification supports integers, lists (arrays),
 dictionaries (hashes), and byte strings.
 
-=item C<bdecode ( STRING )>
+=head2 C<< $data = B<bdecode>( $string ) >>
 
-Expects a bencoded string.  The return value depends on the type of data
-contained in the string.
-
-=back
+Expects a bencoded C<$string>. The return value depends on the type of data
+contained in the C<$string>.
 
 =head1 See Also
 
 =over
 
-=item The BitTorrent Protocol Specification
-
-http://bittorrent.org/beps/bep_0003.html#the-connectivity-is-as-follows
+=item L<The BitTorrent Protocol Specification|http://bittorrent.org/beps/bep_0003.html#the-connectivity-is-as-follows>
 
 =item Other Bencode related modules:
 
@@ -144,13 +170,30 @@ L<other public versions|/"See Also"> written in Perl.
 
 =head1 Author
 
+=begin :html
+
+L<Sanko Robinson|http://sankorobinson.com/>
+<L<sanko@cpan.org|mailto://sanko@cpan.org>> -
+L<http://sankorobinson.com/|http://sankorobinson.com/>
+
+CPAN ID: L<SANKO|http://search.cpan.org/~sanko>
+
+=end :html
+
+=begin :text
+
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
 
+=end :text
+
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+=for :html Copyright (C) 2008-2010 by Sanko Robinson
+<L<sanko@cpan.org|mailto://sanko@cpan.org>>
+
+=for :text Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of
