@@ -30,8 +30,8 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
     sub bencode_string : Test( 6 ) {
         is bencode('Perl'), '4:Perl', 'string';
         is bencode(''),     '0:',     'null string';
-        is bencode(), '0:', 'undef';
-        is bencode(undef), '0:', 'undef';
+        is bencode(undef),  '0:',     'undef';
+        is bencode(undef),  '0:',     'undef';
         is bencode(\undef), '', 'ref to undef';
         is bencode('0:0:'), '4:0:0:', 'odd string (malformed bencoded int)';
     }
@@ -89,7 +89,7 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
     }
 
     sub bdecode_string : Test( 11 ) {
-        is bdecode, undef, 'Empty string';
+        is bdecode(''),              undef,        'Empty string';
         is bdecode('0:'),            '',           'zero length string';
         is bdecode('3:abc'),         'abc',        'string';
         is bdecode('10:1234567890'), '1234567890', 'integer cast as string';

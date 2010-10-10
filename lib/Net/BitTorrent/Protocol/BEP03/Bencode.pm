@@ -13,38 +13,31 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
 
     #
     sub bencode {
-        my ($ref) = @_;
-        $ref = defined $ref ? $ref : '';
-        if (not ref $ref) {
-            return (  (defined $ref and $ref =~ m[^[-+]?\d+$])
-                    ? ('i' . $ref . 'e')
-                    : (length($ref) . ':' . $ref)
-            );
-        }
-        elsif (ref $ref eq 'ARRAY') {
-            return join('', 'l', (map { bencode($_) } @{$ref}), 'e');
-        }
-        elsif (ref $ref eq 'HASH') {
-            return
-                join('', 'd',
-                     (map { bencode($_) . bencode($ref->{$_}) }
-                      sort keys %{$ref}
-                     ),
-                     'e'
-                );
-        }
+        my $ref = shift;
+        $ref //= '';
+        return (  ((length $ref) && $ref =~ m[^[\+-]?\d+$])
+                ? ('i' . $ref . 'e')
+                : (length($ref) . ':' . $ref)
+        ) if !ref $ref;
+        return join('', 'l', (map { bencode($_) } @{$ref}), 'e')
+            if ref $ref eq 'ARRAY';
+        return
+            join('', 'd',
+                 (map { length($_) . ':' . $_ . bencode($ref->{$_}) }
+                  sort keys %{$ref}
+                 ),
+                 'e'
+            ) if ref $ref eq 'HASH';
         return '';
     }
 
     sub bdecode {
-        my ($string) = @_;
-        return if not defined $string;
+        my $string = shift;
+        $string // return;
         my ($return, $leftover);
-        if (   $string =~ m[^([1-9]\d*):]s
-            or $string =~ m[^(0+):]s)
-        {   my $size = $1;
-            $return = '' if $1 =~ m[^0+$];
-            $string =~ s|^$size:||s;
+        if ($string =~ s[^(0+|[1-9]\d*):][]s) {
+            my $size = $1;
+            $return = '' if $size =~ m[^0+$];
             $return .= substr($string, 0, $size, '');
             return if length $return < $size;
             return wantarray ? ($return, $string) : $return;    # byte string
