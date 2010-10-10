@@ -7,12 +7,11 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
     our $MAJOR = 0.074; our $MINOR = 1; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
-    use vars qw[@EXPORT_OK %EXPORT_TAGS];
-    use Exporter qw[];
-    *import = *import = *Exporter::import;
-    @EXPORT_OK = qw[bencode bdecode];
-    $EXPORT_TAGS{'all'} = [@EXPORT_OK];
+    use Exporter qw[import];
+    our %EXPORT_TAGS;
+    our @EXPORT_OK = @{$EXPORT_TAGS{'all'}} = qw[bencode bdecode];
 
+    #
     sub bencode {
         my ($ref) = @_;
         $ref = defined $ref ? $ref : '';
