@@ -79,6 +79,13 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
             q[bencode {'spam'=> ['a', 'b']}];
     }
 
+    sub bencode_complex : Test( 1 ) {
+        is bencode(
+                 {e => 0, m => {}, p => 48536, v => "\xC2\xB5Torrent 1.7.7"}),
+            'd1:ei0e1:mde1:pi48536e1:v15:µTorrent 1.7.7e',
+            'bencode complex structure (empty dictionary, "safe" hex chars';
+    }
+
     sub bencode_unsupported : Test( 1 ) {
         is bencode(
             {key => sub { return 'value' }
@@ -184,7 +191,7 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
     sub bdecode_complex : Test( 1 ) {
         is_deeply [bdecode('d1:ei0e1:mde1:pi48536e1:v15:µTorrent 1.7.7e')],
             [{e => 0, m => {}, p => 48536, v => "\xC2\xB5Torrent 1.7.7"}],
-            'Complex structure (empty dictionary, "safe" hex chars';
+            'bdecode complex structure (empty dictionary, "safe" hex chars';
     }
 
     sub bdecode_unsupported : Test( 1 ) {
