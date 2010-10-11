@@ -101,10 +101,10 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
         is_deeply [bdecode('35208734823ljdahflajhdf')],
             [], 'garbage looking vaguely like a string, with large count';
         is_deeply [bdecode('1:')], [], 'string longer than data';
-        is_deeply [bdecode('i6easd')],
+        is_deeply [bdecode('i6easd', 1)],
             [6, 'asd'],
             'string with trailing junk';
-        is_deeply [bdecode('2:abfdjslhfld')],
+        is_deeply [bdecode('2:abfdjslhfld', 1)],
             ['ab', 'fdjslhfld'],
             'string with trailing garbage';
         is_deeply [bdecode('02:xy')], [],
@@ -117,8 +117,8 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
             'list in scalar context';
 
         # Error handling
-        is_deeply [bdecode('l')], [[], ''], 'unclosed empty list';
-        is_deeply [bdecode('leanfdldjfh')],
+        is_deeply [bdecode('l')], [[]], 'unclosed empty list';
+        is_deeply [bdecode('leanfdldjfh', 1)],
             [[], 'anfdldjfh'],
             'empty list with trailing garbage';
     }
@@ -145,12 +145,12 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
                   {qw[this that the other]}, 'dictionary in scalar context');
 
         # Error handling
-        is_deeply([bdecode('d')], [{}, ''], 'unclosed empty dict');
+        is_deeply([bdecode('d')], [{}], 'unclosed empty dict');
         is_deeply
-            [bdecode('defoobar')],
+            [bdecode('defoobar', 1)],
             [{}, 'foobar'],
             'Catch invalid format (empty dictionary w/ trailing garbage)';
-        is_deeply [bdecode('d3:fooe')],
+        is_deeply [bdecode('d3:fooe', 1)],
             [{foo => undef}, undef],
             'Catch invalid format (dictionary w/ empty key)';
     }
@@ -162,8 +162,7 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
               m => {},
               p => 48536,
               v => "\xC2\xB5Torrent 1.7.7"
-             },
-             ''
+             }
             ],
             'Complex structure (empty dictionary, "safe" hex chars';
     }

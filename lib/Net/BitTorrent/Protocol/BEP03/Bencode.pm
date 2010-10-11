@@ -32,36 +32,37 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
     }
 
     sub bdecode {
-        my $string = shift;
-        $string // return;
+
+        #my ($string, $wantlist) = @_;
+        my $string = shift // return;
         my ($return, $leftover);
         if ($string =~ s[^(0+|[1-9]\d*):][]s) {
             my $size = $1;
             $return = '' if $size =~ m[^0+$];
             $return .= substr($string, 0, $size, '');
             return if length $return < $size;
-            return wantarray ? ($return, $string) : $return;    # byte string
+            return $_[0] ? ($return, $string) : $return;    # byte string
         }
-        elsif ($string =~ s|^i([-+]?\d+)e||s) {                 # integer
-            return wantarray ? (int($1), $string) : int($1);
+        elsif ($string =~ s|^i([-+]?\d+)e||s) {             # integer
+            return $_[0] ? (int($1), $string) : int($1);
         }
-        elsif ($string =~ s|^l(.*)||s) {                        # list
+        elsif ($string =~ s|^l(.*)||s) {                    # list
             $leftover = $1;
             while ($leftover and $leftover !~ s|^e||s) {
-                (my ($piece), $leftover) = bdecode($leftover);
+                (my ($piece), $leftover) = bdecode($leftover, 1);
                 push @$return, $piece;
             }
-            return wantarray ? (\@$return, $leftover) : \@$return;
+            return $_[0] ? (\@$return, $leftover) : \@$return;
         }
-        elsif ($string =~ s|^d(.*)||s) {                        # dictionary
+        elsif ($string =~ s|^d(.*)||s) {                    # dictionary
             $leftover = $1;
             while ($leftover and $leftover !~ s|^e||s) {
                 my ($key, $value);
-                ($key, $leftover) = bdecode($leftover);
-                ($value, $leftover) = bdecode($leftover) if $leftover;
+                ($key, $leftover) = bdecode($leftover, 1);
+                ($value, $leftover) = bdecode($leftover, 1) if $leftover;
                 $return->{$key} = $value if defined $key;
             }
-            return wantarray ? (\%$return, $leftover) : \%$return;
+            return $_[0] ? (\%$return, $leftover) : \%$return;
         }
         return;
     }
@@ -73,6 +74,18 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
 =head1 NAME
 
 Net::BitTorrent::Protocol::BEP03::Bencode - Metadata Utility Functions for BEP03: The BitTorrent Protocol Specification
+
+=head1 Synopsis
+
+    use Net::BitTorrent::Protocol::BEP03::Bencode qw[bencode bdecode];
+    use Data::Dump qw[dump];
+    printf "bencode: %s\n", bencode [123, [''], 'XXX'];
+    printf "bdecode: %s\n", dump bdecode 'd3:fool3:bar4:stube6:numberi123ee';
+
+...prints...
+
+    bencode: li123el0:e3:XXXe
+    bdecode: { foo => ["bar", "stub"], number => 123 }
 
 =head1 Description
 
@@ -103,27 +116,16 @@ strings and appear in sorted order (sorted as raw strings, not alphanumerics).
 
 Torrent metadata is bencoded dictionaries.
 
-=head1 Importing From Net::BitTorrent::Protocol::BEP03::Bencode
+=head2 Importing From Net::BitTorrent::Protocol::BEP03::Bencode
 
 By default, nothing is exported.
 
-You may import any of the following functions by name or with one or more of
-these tags:
-
-=over
-
-=item C<:all>
-
-You get the two Bencode-related functions:
-L<bencode|/"$string = B<bencode>( $value )"> and
-L<bdecode|/"$data = B<bdecode>( $string )">.  For more on Bencoding, see the
-BitTorrent Protocol documentation.
-
-=back
+You may import any of the included functions by name or import everything with
+the C<:all> tag.
 
 =head1 Functions
 
-This is all we need.
+In. Out. That's all there is.
 
 =head2 C<< $string = B<bencode>( $value ) >>
 
@@ -138,6 +140,15 @@ dictionaries (hashes), and byte strings.
 
 Expects a bencoded C<$string>. The return value depends on the type of data
 contained in the C<$string>.
+
+=head2 C<< ( $data, $leftovers ) = B<bdecode>( $string, 1 ) >>
+
+Expects a bencoded C<$string>. The return value depends on the type of data
+contained in the C<$string>.
+
+This form returns a second value which is any left over data found in the
+C<$string>. Unless your input is malformed the C<$leftovers> will be an empty
+string.
 
 =head1 See Also
 
