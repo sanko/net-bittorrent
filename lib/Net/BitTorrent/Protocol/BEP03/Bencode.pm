@@ -13,9 +13,8 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
 
     #
     sub bencode {
-        my $ref = shift;
-        $ref //= '';
-        return (  ((length $ref) && $ref =~ m[^[\+-]?\d+$])
+        my $ref = shift // return;
+        return (  ((length $ref) && $ref =~ m[^([-\+][1-9])?\d*$])
                 ? ('i' . $ref . 'e')
                 : (length($ref) . ':' . $ref)
         ) if !ref $ref;
@@ -32,31 +31,31 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
     }
 
     sub bdecode {
-
-        #my ($string, $wantlist) = @_;
         my $string = shift // return;
         my ($return, $leftover);
-        if ($string =~ s[^(0+|[1-9]\d*):][]s) {
+        if ($string =~ s[^(0+|[1-9]\d*):][]) {
             my $size = $1;
             $return = '' if $size =~ m[^0+$];
             $return .= substr($string, 0, $size, '');
             return if length $return < $size;
             return $_[0] ? ($return, $string) : $return;    # byte string
         }
-        elsif ($string =~ s|^i([-+]?\d+)e||s) {             # integer
-            return $_[0] ? (int($1), $string) : int($1);
+        elsif ($string =~ s[^i([-\+]?\d+)e][]) {            # integer
+            my $int = $1;
+            $int = () if $int =~ m[^-0] || $int =~ m[^0\d+];
+            return $_[0] ? ($int, $string) : $int;
         }
-        elsif ($string =~ s|^l(.*)||s) {                    # list
+        elsif ($string =~ s[^l(.*)][]s) {                   # list
             $leftover = $1;
-            while ($leftover and $leftover !~ s|^e||s) {
+            while ($leftover and $leftover !~ s[^e][]s) {
                 (my ($piece), $leftover) = bdecode($leftover, 1);
                 push @$return, $piece;
             }
             return $_[0] ? (\@$return, $leftover) : \@$return;
         }
-        elsif ($string =~ s|^d(.*)||s) {                    # dictionary
+        elsif ($string =~ s[^d(.*)][]s) {                   # dictionary
             $leftover = $1;
-            while ($leftover and $leftover !~ s|^e||s) {
+            while ($leftover and $leftover !~ s[^e][]s) {
                 my ($key, $value);
                 ($key, $leftover) = bdecode($leftover, 1);
                 ($value, $leftover) = bdecode($leftover, 1) if $leftover;
@@ -108,13 +107,11 @@ C<['spam', 'eggs']>.
 
 =item * Dictionaries are encoded as a 'd' followed by a list of alternating
 keys and their corresponding values followed by an 'e'. For example,
-C<d3:cow3:moo4:spam4:eggse corresponds> to C<{'cow': 'moo', 'spam': 'eggs'}>
+C<d3:cow3:moo4:spam4:eggse> corresponds to C<{'cow': 'moo', 'spam': 'eggs'}>
 and C<d4:spaml1:a1:bee> corresponds to C<{'spam': ['a', 'b']}>. Keys must be
 strings and appear in sorted order (sorted as raw strings, not alphanumerics).
 
 =back
-
-Torrent metadata is bencoded dictionaries.
 
 =head2 Importing From Net::BitTorrent::Protocol::BEP03::Bencode
 
@@ -146,8 +143,8 @@ contained in the C<$string>.
 Expects a bencoded C<$string>. The return value depends on the type of data
 contained in the C<$string>.
 
-This form returns a second value which is any left over data found in the
-C<$string>. Unless your input is malformed the C<$leftovers> will be an empty
+This form returns a second value which is any extra data found in the original
+C<$string>. Unless your input is malformed, C<$leftovers> will be an empty
 string.
 
 =head1 See Also
