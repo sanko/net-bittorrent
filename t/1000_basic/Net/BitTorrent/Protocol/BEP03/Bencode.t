@@ -36,7 +36,7 @@ package t::Net::BitTorrent::Protocol::BEP03::Bencode;
     sub bencode_string : Test( 6 ) {
         is bencode('Perl'), '4:Perl', 'string';
         is bencode(''),     '0:',     'null string';
-        is bencode(undef),  undef,     'undef';
+        is bencode(undef),  undef,    'undef';
         is bencode(\undef), '', 'ref to undef';
         is bencode('0:0:'), '4:0:0:', 'odd string (malformed bencoded int)';
 
