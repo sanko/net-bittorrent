@@ -27,9 +27,11 @@ package Net::BitTorrent::Types;
 #],
 #client  => [qw[Net::BitTorrent::Types::Client::PeerID]],
 #dht     => [qw[Net::BitTorrent::Types::DHT::NodeID]],
-        bencode => [qw[Bencode Bdecode]],
-        metadata =>
-            [qw[Metadata::File Metadata::Pieces Metadata::Pieces_Array]],
+        bencode  => [qw[Bencode Bdecode]],
+        metadata => [
+            qw[ Metadata::File Metadata::Pieces Metadata::Pieces_Array
+                Metadata::Piece_Length]
+        ],
         url => [qw[URL URL::HTTP URL::HTTPS URL::UDP]],
 
 #torrent => [
@@ -60,7 +62,7 @@ package Net::BitTorrent::Types;
 
     #
     subtype 'Net::BitTorrent::Types::Metadata::File' => as 'HashRef' =>
-        message {'A file must be a HashRef'} => where {
+        where {
         keys %$_ == 2
             && defined $_->{'path'}
             && ref $_->{'path'} eq 'ARRAY'
@@ -69,24 +71,25 @@ package Net::BitTorrent::Types;
             && $_->{'length'} !~ m[\D]
             && $_->{'length'} > 0;
         } => message {
-        'the file should look like { path => [qw[dir dir name.ext]], length => 1024 }'
+        'The file should look like { path => [qw[dir dir name.ext]], length => 1024 }';
         };
 
     #
     subtype 'Net::BitTorrent::Types::Metadata::Pieces' => as 'Str' =>
-        message {'Must be a string'} => where { !(length($_) % 40) } =>
-        message {'Incorrect length'};
+        where { !(length($_) % 40) } => message {'Incorrect length'};
+
+    #
+    subtype 'Net::BitTorrent::Types::Metadata::Piece_Length' => as 'Int' =>
+        where { $_ > 0 } => message {'Value is not a positive integer'};
 
     #
     subtype 'Net::BitTorrent::Types::URL::HTTP' => as 'Str' =>
-        message {'HTTP URLs must be strings'} => where {m[^http://]i} =>
-        message {'HTTP URLs must begin with http://'};
+        where {m[^http://]i} => message {'HTTP URLs must begin with http://'};
     subtype 'Net::BitTorrent::Types::URL::HTTPS' => as 'Str' =>
-        message {'HTTPS URLs must be strings'} => where {m[^https://]i} =>
+        where {m[^https://]i} =>
         message {'HTTPS URLs must begin with https://'};
     subtype 'Net::BitTorrent::Types::URL::UDP' => as 'Str' =>
-        message {'UDP URLs must be strings'} => where {m[^udp://]i} =>
-        message {'UDP URLs must begin with udp://'};
+        where {m[^udp://]i} => message {'UDP URLs must begin with udp://'};
     subtype 'Net::BitTorrent::Types::URL' => as
         'Net::BitTorrent::Types::URL::HTTP|Net::BitTorrent::Types::URL::HTTPS|Net::BitTorrent::Types::URL::UDP'
         => message {'URL does not match any of the supported forms'};

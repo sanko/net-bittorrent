@@ -24,6 +24,12 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                      default  => '',
                      init_arg => undef
     );
+    has 'piece_length' => (
+                      isa => 'Net::BitTorrent::Types::Metadata::Piece_Length',
+                      is  => 'ro',
+                      lazy    => 1,
+                      default => 2**18
+    );
 
     #
     __PACKAGE__->meta->make_immutable;

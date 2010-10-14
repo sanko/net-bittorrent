@@ -88,32 +88,54 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
             qr[Validation failed], '[{ path => [\'test\'] }] is invalid';
         throws_ok sub { $s->class->new(files => [{length => 100}]) },
             qr[Validation failed], '[{ length => 100 }] is invalid';
-        throws_ok
-            sub { $s->class->new(files => {path => ['test'], length => -100}) },
+        throws_ok sub {
+            $s->class->new(files => {path => ['test'], length => -100});
+            },
             qr[Validation failed],
             '{ path => [\'test\'], length => -100 } is invalid';
-
         throws_ok
             sub { $s->class->new(files => {path => ['test'], length => 0}) },
             qr[Validation failed],
             '{ path => [\'test\'], length => 0 } is invalid';
-        throws_ok
-            sub { $s->class->new(files => {path => ['test'], length => 'long'}) },
+        throws_ok sub {
+            $s->class->new(files => {path => ['test'], length => 'long'});
+            },
             qr[Validation failed],
             '{ path => [\'test\'], length => \'long\' } is invalid';
-
         throws_ok
             sub { $s->class->new(files => {path => ['test'], length => ''}) },
             qr[Validation failed],
             '{ path => [\'test\'], length => \'\' } is invalid';
-
-
     }
 
     sub new_pieces : Test( 2 ) {
         my $s = shift;
         is new_ok($s->class, [pieces => pack 'H80', 'A' x 40])->pieces, '',
             'Cannot set pieces attribute with new( ... )';
+    }
+
+    sub new_piece_length : Test( 8 ) {
+        my $s = shift;
+        is new_ok($s->class, [])->piece_length, 262144,
+            'using default piece length';
+        is new_ok($s->class, [piece_length => 1024])->piece_length, 1024,
+            '{ piece_length => 1024 } is valid';
+        throws_ok
+            sub { $s->class->new(piece_length => '') },
+            qr[Value is not a positive integer],
+            '{ piece_length => \'\' }} is invalid';
+        throws_ok
+            sub { $s->class->new(piece_length => 0) },
+            qr[Value is not a positive integer],
+            '{ piece_length => 0 }} is invalid';
+        throws_ok
+            sub { $s->class->new(piece_length => 'ABCD') },
+            qr[Value is not a positive integer],
+            '{ piece_length => \'ABCD\' }} is invalid';
+        throws_ok
+            sub { $s->class->new(piece_length => -1024) },
+            qr[Value is not a positive integer],
+            '{ piece_length => -1024 }} is invalid';
     }
 
     sub class_can : Test( 0 ) {
