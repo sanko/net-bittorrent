@@ -1,5 +1,6 @@
 Build.PL
 Changes
+lib/Net/BitTorrent/Protocol/BEP03.pod
 lib/Net/BitTorrent/Protocol/BEP03/Bencode.pm
 lib/Net/BitTorrent/Protocol/BEP03/Metadata.pm
 lib/Net/BitTorrent/Types.pm
