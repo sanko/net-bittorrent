@@ -5,122 +5,146 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
 
     #
     use lib '../../../../';
-    use Net::BitTorrent::Types qw[:bencode];
+    use Net::BitTorrent::Types qw[:bencode :metadata :url];
 
     #
-    has '_content' => (isa => 'Net::BitTorrent::Types::Bdecode',
-                       is  => 'ro');
-
-=pod
-    use Net::BitTorrent::Types qw[:bencode :torrent];
-    use Net::BitTorrent::Protocol::BEP12::MultiTracker;
-    use Net::BitTorrent::Storage;
-    use File::Spec::Functions qw[rel2abs];
-    use AnyEvent;
+    has 'announce' => (isa     => 'Maybe[Net::BitTorrent::Types::URL]',
+                       is      => 'ro',
+                       lazy    => 1,
+                       default => undef
+    );
+    has 'files' => (isa => 'ArrayRef[Net::BitTorrent::Types::Metadata::File]',
+                    is  => 'ro',
+                    lazy    => 1,
+                    default => sub { [] }
+    );
+    has 'pieces' => (isa      => 'Net::BitTorrent::Types::Metadata::Pieces',
+                     is       => 'ro',
+                     lazy     => 1,
+                     default  => '',
+                     init_arg => undef
+    );
 
     #
-    my $bencode_constraint;
-    has 'metadata' => (
-        isa       => 'NBTypes::Bdecode',
-        is        => 'ro',
-        writer    => '_set_metadata',
-        predicate => '_has_metadata',
-        init_arg  => undef,                # cannot set this with new()
-        coerce    => 1,
-        trigger => sub { shift->_trigger_metadata(@_) },
-        default => sub { {} },
-        handles => {
-            rawdata => sub {
-                $bencode_constraint //=
-                    Moose::Util::TypeConstraints::find_type_constraint(
-                                                          'NBTypes::Bencode');
-                my $s = shift;
-                return if !$s->_has_metadata;
-                return $bencode_constraint->coerce($s->metadata);
-                }
-        }
-    );
-
-    sub _trigger_metadata {   # Subclasses should override this and call super
-        my ($s, $n, $o) = @_;
-        if (@_ == 2) {
-
-            # May have changed
-            $s->tracker->_clear_tiers;
-            if ($s->metadata->{'info'}{'private'}) {
-                require Net::BitTorrent::Protocol::BEP27::Private::Metadata;
-                Net::BitTorrent::Protocol::BEP27::Private::Metadata->meta
-                    ->apply($s);
-            }
-        }
-
-        # parse trackers
-        $s->tracker->add_tier([$n->{'announce'}]) if $n->{'announce'};
-        if (defined $n->{'announce-list'}) {
-            $s->tracker->add_tier($_) for @{$n->{'announce-list'}};
-        }
-
-        #warn 'Someone changed the metadata!';
-        $s->_reset_info_hash;
-
-        #my $info_hash = $self->info_hash;
-        #$self->_reset_info_hash;
-        #warn sprintf '%s is now %s', $info_hash->to_Hex,
-        #    $self->info_hash->to_Hex;
-    }
-
-    #
-    has 'info_hash' => (
-        is       => 'ro',
-        isa      => 'NBTypes::Torrent::Infohash',
-        init_arg => undef,                        # cannot set this with new()
-        coerce   => 1,                            # Both ways?
-        lazy_build => 1,
-        builder    => '_build_info_hash',  # returns Torrent::Infohash::Packed
-        clearer    => '_reset_info_hash',
-        predicate  => '_has_info_hash'
-    );
-
-    sub _build_info_hash {
-        require Digest::SHA;
-        my $s = shift;
-        $bencode_constraint //=
-            Moose::Util::TypeConstraints::find_type_constraint(
-                                                          'NBTypes::Bencode');
-        return if !$s->_has_metadata;
-        Digest::SHA::sha1(
-                         $bencode_constraint->coerce($s->metadata->{'info'}));
-    }
-    has 'piece_count' => (is         => 'ro',
-                          isa        => 'Int',
-                          lazy_build => 1,
-                          builder    => '_build_piece_count',
-                          init_arg   => undef
-    );
-    sub _build_piece_count { return length(shift->pieces) / 20 }
-    has 'tracker' => (is  => 'ro',
-                      isa => 'Net::BitTorrent::Protocol::BEP12::MultiTracker',
-                      predicate => 'has_tracker',
-                      builder   => '_build_tracker'
-    );
-
-    sub _build_tracker {
-        require Net::BitTorrent::Protocol::BEP12::MultiTracker;
-        Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
-                                                           metadata => shift);
-    }
-
-    # Quick accessors
-    sub piece_length { shift->metadata->{'info'}{'piece length'} }
-    sub pieces       { shift->metadata->{'info'}{'pieces'} }
-    sub private {0}    # overridden by BEP27::Private::Metadata
-=cut
-
+    __PACKAGE__->meta->make_immutable;
     no Moose;
 }
 1;
 
 =pod
+
+=head1 NAME
+
+Net::BitTorrent::Protocol::BEP03::Metadata - Base Class Which Contains the Basic Torrent Metadata as Defined by BEP03
+
+=head1 Synopsis
+
+    use Net::BitTorrent::Protocol::BEP03::Metadata;
+    my $torrent = Net::BitTorrent::Protocol::BEP03::Metadata->new(
+        announce => 'http://example.com/announce.pl',
+        files    => [{
+            path   => [qw[one k file.ext]],
+            length => 1024
+        }]
+    );
+    # TODO: print $torrent->as_string; # returns bencoded metadata
+
+=head1 Description
+
+Taken from L<BEP03|Net::BitTorrent::Protocol::BEP03/"Metainfo files are bencoded dictionaries with the following keys:">...
+
+=over
+
+=item announce
+
+The URL of the tracker.
+
+=item info
+
+This maps to a dictionary, with keys described below.
+
+=over
+
+=item The C<name> key maps to a UTF-8 encoded string which is the suggested
+name to save the file (or directory) as. It is purely advisory.
+
+=item C<piece length> maps to the number of bytes in each piece the file is
+split into. For the purposes of transfer, files are split into fixed-size
+pieces which are all the same length except for possibly the last one which
+may be truncated. C<piece length> is almost always a power of two, most
+commonly C<2^18 = 256K> (BitTorrent prior to version C<3.2> uses C<2^20 = 1M>
+as default).
+
+=item C<pieces> maps to a string whose length is a multiple of C<20>. It is to
+be subdivided into strings of length C<20>, each of which is the SHA1 hash of
+the piece at the corresponding index.
+
+=item There is also a key C<length> or a key C<files>, but not both or
+neither. If C<length> is present then the download represents a single file,
+otherwise it represents a set of files which go in a directory structure.
+
+=item In the single file case, C<length> maps to the length of the file in
+bytes.
+
+For the purposes of the other keys, the multi-file case is treated as only
+having a single file by concatenating the files in the order they appear in
+the files list. The files list is the value C<files> maps to, and is a list of
+dictionaries containing the following keys:
+
+=over
+
+=item C<length>
+
+The length of the file, in bytes.
+
+=item C<path>
+
+A list of UTF-8 encoded strings corresponding to subdirectory names, the last
+of which is the actual file name (a zero length list is an error case).
+
+=back
+
+In the single file case, the name key is the name of a file, in the muliple
+file case, it's the name of a directory.
+
+=back
+
+=back
+
+All strings in a .torrent file that contains text must be UTF-8 encoded.
+
+=head1 Methods
+
+In. Out. That's all there is.
+
+=head2 C<< $metadata = Net::BitTorrent::Protocol::BEP03::Metadata->B<new>( ... ) >>
+
+Creates a new object. Supported arguments include:
+
+=over
+
+=item L<C<announce>|/"announce">
+
+This value maps directly to the L<C<announce>|/"announce"> metadata key.
+
+=item C<files>
+
+The constructor expects this to be a list of hashrefs
+(C<{ path => [...] , length => ... }>). When the metadata is generated, the
+correct type of data is created (multi vs. single file).
+
+=back
+
+
+
+
+
+
+
+
+
+
+
 
 =head1 Author
 

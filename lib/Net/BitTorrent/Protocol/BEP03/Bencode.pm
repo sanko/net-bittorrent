@@ -88,7 +88,7 @@ Net::BitTorrent::Protocol::BEP03::Bencode - Metadata Utility Functions for BEP03
 
 =head1 Description
 
-Taken from BEP03...
+Taken from L<BEP03|Net::BitTorrent::Protocol::BEP03/"The connectivity is as follows">...
 
 =over
 

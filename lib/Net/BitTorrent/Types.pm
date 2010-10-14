@@ -1,54 +1,103 @@
 package Net::BitTorrent::Types;
 {
-    use 5.010;
-    #use Moose;
+    use strict;
+    use warnings;
     use Moose::Util::TypeConstraints;
+
+    #
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
-    use vars qw[@EXPORT_OK %EXPORT_TAGS];
-    use Exporter qw[];
-    *import = *import = *Exporter::import;
-    %EXPORT_TAGS = (
-        #infohash => [qw[Net::BitTorrent::Type::Infohash Net::BitTorrent::Type::Infohash::Packed]],
-        #tracker  => [
-        #    qw[ Net::BitTorrent::Type::Tracker      Net::BitTorrent::Type::Tracker::Tier
-        #        Net::BitTorrent::Type::Tracker::UDP Net::BitTorrent::Type::Tracker::HTTP
-        #        Net::BitTorrent::Type::Tracker::HTTP::Event]
-        #],
-        #file => [
-        #    qw[Net::BitTorrent::Type::File::Open::Permission
-        #        Net::BitTorrent::Type::File::Path
-        #        Net::BitTorrent::Type::File::Path::Absolute
-        #        Net::BitTorrent::Type::File::Path::PreExisting
-        #        Net::BitTorrent::Type::File::Directory::PreExisting
-        #        ]
-        #],
-        #client  => [qw[Net::BitTorrent::Type::Client::PeerID]],
-        #dht     => [qw[Net::BitTorrent::Type::DHT::NodeID]],
-        bencode => [qw[Net::BitTorrent::Type::Bencode Net::BitTorrent::Type::Bdecode]],
-        #torrent => [
-        #    qw[Net::BitTorrent::Type::Torrent::Status Net::BitTorrent::Type::Torrent::Infohash
-        #        Net::BitTorrent::Type::Torrent::Bitfield]
-        #],
-        #addr => [qw[Net::BitTorrent::Type::Network::Paddr Net::BitTorrent::Type::Network::Addr]]
+
+    #
+    use Exporter qw[import];
+    my %_exports = (
+
+#infohash => [qw[Net::BitTorrent::Types::Infohash Net::BitTorrent::Types::Infohash::Packed]],
+#tracker  => [
+#    qw[ Net::BitTorrent::Types::Tracker      Net::BitTorrent::Types::Tracker::Tier
+#        Net::BitTorrent::Types::Tracker::UDP Net::BitTorrent::Types::Tracker::HTTP
+#        Net::BitTorrent::Types::Tracker::HTTP::Event]
+#],
+#file => [
+#    qw[Net::BitTorrent::Types::File::Open::Permission
+#        Net::BitTorrent::Types::File::Path
+#        Net::BitTorrent::Types::File::Path::Absolute
+#        Net::BitTorrent::Types::File::Path::PreExisting
+#        Net::BitTorrent::Types::File::Directory::PreExisting
+#        ]
+#],
+#client  => [qw[Net::BitTorrent::Types::Client::PeerID]],
+#dht     => [qw[Net::BitTorrent::Types::DHT::NodeID]],
+        bencode => [qw[Bencode Bdecode]],
+        metadata =>
+            [qw[Metadata::File Metadata::Pieces Metadata::Pieces_Array]],
+        url => [qw[URL URL::HTTP URL::HTTPS URL::UDP]],
+
+#torrent => [
+#    qw[Net::BitTorrent::Types::Torrent::Status Net::BitTorrent::Types::Torrent::Infohash
+#        Net::BitTorrent::Types::Torrent::Bitfield]
+#],
+#addr => [qw[Net::BitTorrent::Types::Network::Paddr Net::BitTorrent::Types::Network::Addr]]
     );
-    @EXPORT_OK = sort map { @$_ = sort @$_; @$_ } values %EXPORT_TAGS;
+    our %EXPORT_TAGS = map {
+        $_ => [map { 'Net::BitTorrent::Types::' . $_ } @{$_exports{$_}}]
+    } keys %_exports;
+    our @EXPORT_OK = sort map {@$_} values %EXPORT_TAGS;
     $EXPORT_TAGS{'all'} = \@EXPORT_OK;    # When you want to import everything
-    subtype 'Net::BitTorrent::Type::Bencode' => as 'Str';
-    subtype 'Net::BitTorrent::Type::Bdecode' => as 'Ref';
-    coerce 'Net::BitTorrent::Type::Bencode'  => from 'Net::BitTorrent::Type::Bdecode' => via {
+
+    #
+    subtype 'Net::BitTorrent::Types::Bencode' => as 'Str';
+    subtype 'Net::BitTorrent::Types::Bdecode' => as 'Ref';
+    coerce 'Net::BitTorrent::Types::Bencode'  => from
+        'Net::BitTorrent::Types::Bdecode'     => via {
         require Net::BitTorrent::Protocol::BEP03::Bencode;
         Net::BitTorrent::Protocol::BEP03::Bencode::bencode($_);
-    };
-    coerce 'Net::BitTorrent::Type::Bdecode' => from 'Net::BitTorrent::Type::Bencode' => via {
+        };
+    coerce 'Net::BitTorrent::Types::Bdecode' => from
+        'Net::BitTorrent::Types::Bencode'    => via {
         require Net::BitTorrent::Protocol::BEP03::Bencode;
         Net::BitTorrent::Protocol::BEP03::Bencode::bdecode($_);
-    };
+        };
+
+    #
+    subtype 'Net::BitTorrent::Types::Metadata::File' => as 'HashRef' =>
+        message {'A file must be a HashRef'} => where {
+        keys %$_ == 2
+            && defined $_->{'path'}
+            && ref $_->{'path'} eq 'ARRAY'
+            && scalar @{$_->{'path'}}
+            && defined $_->{'length'}
+            && $_->{'length'} !~ m[\D]
+            && $_->{'length'} > 0;
+        } => message {
+        'the file should look like { path => [qw[dir dir name.ext]], length => 1024 }'
+        };
+
+    #
+    subtype 'Net::BitTorrent::Types::Metadata::Pieces' => as 'Str' =>
+        message {'Must be a string'} => where { !(length($_) % 40) } =>
+        message {'Incorrect length'};
+
+    #
+    subtype 'Net::BitTorrent::Types::URL::HTTP' => as 'Str' =>
+        message {'HTTP URLs must be strings'} => where {m[^http://]i} =>
+        message {'HTTP URLs must begin with http://'};
+    subtype 'Net::BitTorrent::Types::URL::HTTPS' => as 'Str' =>
+        message {'HTTPS URLs must be strings'} => where {m[^https://]i} =>
+        message {'HTTPS URLs must begin with https://'};
+    subtype 'Net::BitTorrent::Types::URL::UDP' => as 'Str' =>
+        message {'UDP URLs must be strings'} => where {m[^udp://]i} =>
+        message {'UDP URLs must begin with udp://'};
+    subtype 'Net::BitTorrent::Types::URL' => as
+        'Net::BitTorrent::Types::URL::HTTP|Net::BitTorrent::Types::URL::HTTPS|Net::BitTorrent::Types::URL::UDP'
+        => message {'URL does not match any of the supported forms'};
+
 =pod
-    # Nearly the same as Net::BitTorrent::Type::DHT::NodeID
-    subtype 'Net::BitTorrent::Type::Torrent::Infohash' => as 'Bit::Vector' =>
+
+    # Nearly the same as Net::BitTorrent::Types::DHT::NodeID
+    subtype 'Net::BitTorrent::Types::Torrent::Infohash' => as 'Bit::Vector' =>
         where { $_->Size == 160 } =>
         message {'Torrent info_hashes are 160-bit integers.'};
-    coerce 'Net::BitTorrent::Type::Torrent::Infohash' =>
+    coerce 'Net::BitTorrent::Types::Torrent::Infohash' =>
         from subtype(as 'Int' => where { length $_ < 40 }) =>
         via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
         from subtype(as 'Str' => where { length $_ == 40 && /^[a-f\d]+$/i }
@@ -57,8 +106,8 @@ package Net::BitTorrent::Types;
         require Bit::Vector;
         Bit::Vector->new_Hex(160, unpack 'H*', $_);
         };
-    subtype 'Net::BitTorrent::Type::Torrent::Bitfield' => as 'Bit::Vector';
-    coerce 'Net::BitTorrent::Type::Torrent::Bitfield' =>
+    subtype 'Net::BitTorrent::Types::Torrent::Bitfield' => as 'Bit::Vector';
+    coerce 'Net::BitTorrent::Types::Torrent::Bitfield' =>
         from subtype(as 'Str' => where { $_ =~ m[^(?:[10]+)$] }) => via {
         require Bit::Vector;
         Bit::Vector->new_Bin(length($_), scalar reverse $_);
@@ -71,62 +120,62 @@ package Net::BitTorrent::Types;
         };
 
     #
-    subtype 'Net::BitTorrent::Type::Tracker::HTTP' => as
+    subtype 'Net::BitTorrent::Types::Tracker::HTTP' => as
         'Net::BitTorrent::Protocol::BEP03::Tracker::HTTP';
-    coerce 'Net::BitTorrent::Type::Tracker::HTTP' =>
+    coerce 'Net::BitTorrent::Types::Tracker::HTTP' =>
         from subtype(as 'Str' => where {m[^http://]i}) => via {
         require Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
         return Net::BitTorrent::Protocol::BEP03::Tracker::HTTP->new(
                                                                    url => $_);
         };
-    subtype 'Net::BitTorrent::Type::Tracker::UDP' => as
+    subtype 'Net::BitTorrent::Types::Tracker::UDP' => as
         'Net::BitTorrent::Protocol::BEP15::Tracker::UDP';
-    coerce 'Net::BitTorrent::Type::Tracker::UDP' =>
+    coerce 'Net::BitTorrent::Types::Tracker::UDP' =>
         from subtype(as 'Str' => where {m[^udp://]i}) => via {
         require Net::BitTorrent::Protocol::BEP15::Tracker::UDP;
         return Net::BitTorrent::Protocol::BEP15::Tracker::UDP->new(url => $_);
         };
-    subtype 'Net::BitTorrent::Type::Tracker::Tier' => as
-        'ArrayRef[Net::BitTorrent::Type::Tracker::UDP|Net::BitTorrent::Type::Tracker::HTTP]';
-    coerce 'Net::BitTorrent::Type::Tracker::Tier' => from 'ArrayRef[Str]' => via {
+    subtype 'Net::BitTorrent::Types::Tracker::Tier' => as
+        'ArrayRef[Net::BitTorrent::Types::Tracker::UDP|Net::BitTorrent::Types::Tracker::HTTP]';
+    coerce 'Net::BitTorrent::Types::Tracker::Tier' => from 'ArrayRef[Str]' => via {
         state $tracker_constraint
             = Moose::Util::TypeConstraints::find_type_constraint(
-                              'Net::BitTorrent::Type::Tracker::HTTP|Net::BitTorrent::Type::Tracker::UDP');
+                              'Net::BitTorrent::Types::Tracker::HTTP|Net::BitTorrent::Types::Tracker::UDP');
         [map { $tracker_constraint->coerce($_) } @$_];
     };
-    enum 'Net::BitTorrent::Type::Tracker::HTTP::Event' => qw[started stopped completed];
+    enum 'Net::BitTorrent::Types::Tracker::HTTP::Event' => qw[started stopped completed];
 
     #
-    enum 'Net::BitTorrent::Type::File::Open::Permission'  => qw[ro wo rw];
-    subtype 'Net::BitTorrent::Type::File::Path'           => as 'Str';
-    subtype 'Net::BitTorrent::Type::File::Path::Absolute' => as 'Str' =>
+    enum 'Net::BitTorrent::Types::File::Open::Permission'  => qw[ro wo rw];
+    subtype 'Net::BitTorrent::Types::File::Path'           => as 'Str';
+    subtype 'Net::BitTorrent::Types::File::Path::Absolute' => as 'Str' =>
         where { require File::Spec; File::Spec->file_name_is_absolute($_) } =>
         message {'Filename must be absolute.'};
-    coerce 'Net::BitTorrent::Type::File::Path::Absolute' => from 'Str' =>
+    coerce 'Net::BitTorrent::Types::File::Path::Absolute' => from 'Str' =>
         via { require File::Spec; File::Spec->rel2abs($_); };
-    subtype 'Net::BitTorrent::Type::File::Path::PreExisting' => as 'Str' =>
+    subtype 'Net::BitTorrent::Types::File::Path::PreExisting' => as 'Str' =>
         where { require File::Spec; File::Spec->file_name_is_absolute($_) } =>
         message {'Filename must be absolute.'} => where { -f $_ } =>
         message {'File must be preexisting'};
-    subtype 'Net::BitTorrent::Type::File::Directory::PreExisting' => as 'Str' =>
+    subtype 'Net::BitTorrent::Types::File::Directory::PreExisting' => as 'Str' =>
         where { require File::Spec; File::Spec->file_name_is_absolute($_) } =>
         message {'Directory must be absolute.'} => where { -d $_ } =>
         message {'Directory must be preexisting'};
-    coerce 'Net::BitTorrent::Type::File::Path::PreExisting' => from 'Str' =>
+    coerce 'Net::BitTorrent::Types::File::Path::PreExisting' => from 'Str' =>
         via { require File::Spec; File::Spec->rel2abs($_); };
-    coerce 'Net::BitTorrent::Type::File::Directory::PreExisting' => from 'Str' =>
+    coerce 'Net::BitTorrent::Types::File::Directory::PreExisting' => from 'Str' =>
         via { require File::Spec; File::Spec->rel2abs($_); };
 
     #
-    subtype 'Net::BitTorrent::Type::Client::PeerID' => as 'Str' =>
+    subtype 'Net::BitTorrent::Types::Client::PeerID' => as 'Str' =>
         where { length $_ == 20 } =>
         message {'PeerID is malformed: length != 20'};
 
-    # Nearly the same as Net::BitTorrent::Type::Torrent::Infohash
-    subtype 'Net::BitTorrent::Type::DHT::NodeID' => as 'Bit::Vector' =>
+    # Nearly the same as Net::BitTorrent::Types::Torrent::Infohash
+    subtype 'Net::BitTorrent::Types::DHT::NodeID' => as 'Bit::Vector' =>
         where { $_->Size == 160 } =>
         message {'DHT NodeIDs are 160-bit integers.'};
-    coerce 'Net::BitTorrent::Type::DHT::NodeID' =>
+    coerce 'Net::BitTorrent::Types::DHT::NodeID' =>
         from subtype(as 'Int' => where { length $_ < 40 }) =>
         via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
         from subtype(as 'Str' => where { length $_ == 40 && /^[a-f\d]+$/i }
@@ -137,22 +186,23 @@ package Net::BitTorrent::Types;
         };
 
     # IPv6 packed address
-    subtype 'Net::BitTorrent::Type::Network::Paddr' => as 'Str' =>
+    subtype 'Net::BitTorrent::Types::Network::Paddr' => as 'Str' =>
         where { length $_ == 16 } =>
         message { sprintf '%s is not 16 bytes', $_ };
-    coerce 'Net::BitTorrent::Type::Network::Paddr' => from 'Str' => via {
+    coerce 'Net::BitTorrent::Types::Network::Paddr' => from 'Str' => via {
         require Net::BitTorrent::Network::Utility;
         Net::BitTorrent::Network::Utility::ip2paddr($_);
     };
 
     #
-    subtype 'Net::BitTorrent::Type::Network::Addr' => as 'ArrayRef' =>
+    subtype 'Net::BitTorrent::Types::Network::Addr' => as 'ArrayRef' =>
         where { $#{$_[0]} == 1 }   => message {'looking for [host, port]'} =>
         where { defined $_[0][0] } => message {'hostname is missing'} =>
         where { defined $_[0][1] } => message {'port is missing'} =>
         where { $_[0][1] =~ m[^\d+$] } => message {'malformed port'};
 
 =cut
+
     #
     no Moose::Util::TypeConstraints;
 }
