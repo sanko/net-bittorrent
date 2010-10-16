@@ -22,6 +22,8 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
     #
     sub class     {'Net::BitTorrent::Protocol::BEP03::Metadata'}
     sub init_args { () }
+    sub info_hash {'E55BD8B859C8E835234EF6801B56E8A6F730BB6C'}
+    sub stringish {'d4:infod5:filesle12:piece_lengthi262144e6:pieces0:ee'}
 
     #
     sub build : Test( startup => 1 ) {
@@ -136,6 +138,74 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
             sub { $s->class->new(piece_length => -1024) },
             qr[Value is not a positive integer],
             '{ piece_length => -1024 }} is invalid';
+    }
+
+    sub infohash : Test( 7 ) {
+        my $s = shift;
+        is $s->{'m'}->info_hash->to_Hex, $s->info_hash;
+        is new_ok($s->class,
+                  [{files => [{path   => [qw[deep deeper deepest.ext]],
+                               length => 1024
+                              }
+                    ]
+                   }
+                  ]
+            )->info_hash->to_Hex,
+            '369A5DDB2348887573871DB41F038917F17C2318',
+            'deep single file torrent infohash is okay';
+        is new_ok($s->class,
+                  [{files => [{path => [qw[simple.ext]], length => 1024}]}])
+            ->info_hash->to_Hex,
+            'C1E32528BD921212A633CD7C11321EA6D6CAE359',
+            'simple single file torrent infohash is okay';
+        is new_ok($s->class,
+                  [{files => [{path   => [qw[deep deeper deepest.ext]],
+                               length => 1024
+                              },
+                              {path   => [qw[deep deeper reallydeep.ext]],
+                               length => 2448
+                              }
+                    ],
+                    length => 1024
+                   }
+                  ]
+            )->info_hash->to_Hex,
+            '02E48FAC7C76C8E59E051187BB105616C6A35924',
+            'multifile torrent infohash is okay';
+    }
+
+    sub as_string : Test( 7 ) {
+        my $s = shift;
+        is $s->{'m'}->as_string, $s->stringish;
+        is new_ok($s->class,
+                  [{files => [{path   => [qw[deep deeper deepest.ext]],
+                               length => 1024
+                              }
+                    ]
+                   }
+                  ]
+            )->as_string,
+            'd4:infod5:filesld6:lengthi1024e4:pathl4:deep6:deeper11:deepest.exteee12:piece_lengthi262144e6:pieces0:ee',
+            'deep single file torrent as_string is okay';
+        is new_ok($s->class,
+                  [{files => [{path => [qw[simple.ext]], length => 1024}]}])
+            ->as_string,
+            'd4:infod12:piece_lengthi262144e6:pieces0:e6:lengthi1024e4:name10:simple.exte',
+            'simple single file torrent as_string is okay';
+        is new_ok($s->class,
+                  [{files => [{path   => [qw[deep deeper deepest.ext]],
+                               length => 1024
+                              },
+                              {path   => [qw[deep deeper reallydeep.ext]],
+                               length => 2448
+                              }
+                    ],
+                    length => 1024
+                   }
+                  ]
+            )->as_string,
+            'd4:infod5:filesld6:lengthi1024e4:pathl4:deep6:deeper11:deepest.exteed6:lengthi2448e4:pathl4:deep6:deeper14:reallydeep.exteee12:piece_lengthi262144e6:pieces0:ee',
+            'multifile torrent as_string is okay';
     }
 
     sub class_can : Test( 0 ) {
