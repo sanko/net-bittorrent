@@ -29,13 +29,13 @@ package Net::BitTorrent::Types;
 #dht     => [qw[Net::BitTorrent::Types::DHT::NodeID]],
         bencode  => [qw[Bencode Bdecode]],
         metadata => [
-            qw[ Metadata::File Metadata::Pieces Metadata::Pieces_Array
-                Metadata::Piece_Length]
+            qw[ Metadata::File Metadata::Pieces Metadata::Piece_Length
+                Metadata::Infohash]
         ],
         url => [qw[URL URL::HTTP URL::HTTPS URL::UDP]],
 
 #torrent => [
-#    qw[Net::BitTorrent::Types::Torrent::Status Net::BitTorrent::Types::Torrent::Infohash
+#    qw[Net::BitTorrent::Types::Torrent::Status
 #        Net::BitTorrent::Types::Torrent::Bitfield]
 #],
 #addr => [qw[Net::BitTorrent::Types::Network::Paddr Net::BitTorrent::Types::Network::Addr]]
@@ -94,13 +94,11 @@ package Net::BitTorrent::Types;
         'Net::BitTorrent::Types::URL::HTTP|Net::BitTorrent::Types::URL::HTTPS|Net::BitTorrent::Types::URL::UDP'
         => message {'URL does not match any of the supported forms'};
 
-=pod
-
     # Nearly the same as Net::BitTorrent::Types::DHT::NodeID
-    subtype 'Net::BitTorrent::Types::Torrent::Infohash' => as 'Bit::Vector' =>
-        where { $_->Size == 160 } =>
+    subtype 'Net::BitTorrent::Types::Metadata::Infohash' => as
+        'Bit::Vector' => where { $_->Size == 160 } =>
         message {'Torrent info_hashes are 160-bit integers.'};
-    coerce 'Net::BitTorrent::Types::Torrent::Infohash' =>
+    coerce 'Net::BitTorrent::Types::Metadata::Infohash' =>
         from subtype(as 'Int' => where { length $_ < 40 }) =>
         via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
         from subtype(as 'Str' => where { length $_ == 40 && /^[a-f\d]+$/i }
@@ -109,6 +107,9 @@ package Net::BitTorrent::Types;
         require Bit::Vector;
         Bit::Vector->new_Hex(160, unpack 'H*', $_);
         };
+
+=pod
+
     subtype 'Net::BitTorrent::Types::Torrent::Bitfield' => as 'Bit::Vector';
     coerce 'Net::BitTorrent::Types::Torrent::Bitfield' =>
         from subtype(as 'Str' => where { $_ =~ m[^(?:[10]+)$] }) => via {
