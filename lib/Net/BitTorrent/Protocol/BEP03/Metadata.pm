@@ -8,28 +8,30 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Net::BitTorrent::Types qw[:bencode :metadata :url];
 
     #
-    has 'announce' => (isa     => 'Maybe[Net::BitTorrent::Types::URL]',
-                       is      => 'ro',
-                       lazy    => 1,
-                       default => undef
+    has 'announce' => (isa        => 'Maybe[Net::BitTorrent::Types::URL]',
+                       is         => 'ro',
+                       lazy_build => 1
     );
+    sub _build_announce {undef}
     has 'files' => (isa => 'ArrayRef[Net::BitTorrent::Types::Metadata::File]',
                     is  => 'ro',
-                    lazy    => 1,
-                    default => sub { [] }
+                    lazy_build => 1,
+                    traits     => ['Array'],
+                    handles    => {_count_files => 'count'}
     );
-    has 'pieces' => (isa      => 'Net::BitTorrent::Types::Metadata::Pieces',
-                     is       => 'ro',
-                     lazy     => 1,
-                     default  => '',
-                     init_arg => undef
+    sub _build_files { [] }
+    has 'pieces' => (isa        => 'Net::BitTorrent::Types::Metadata::Pieces',
+                     is         => 'ro',
+                     lazy_build => 1,
+                     init_arg   => undef
     );
+    sub _build_pieces {''}
     has 'piece_length' => (
                       isa => 'Net::BitTorrent::Types::Metadata::Piece_Length',
                       is  => 'ro',
-                      lazy    => 1,
-                      default => 2**18
+                      lazy_build => 1
     );
+    sub _build_piece_length { 2**18 }
 
     #
     __PACKAGE__->meta->make_immutable;
