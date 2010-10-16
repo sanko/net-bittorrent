@@ -1,5 +1,6 @@
 package Net::BitTorrent::Protocol::BEP03::Metadata;
 {
+    use 5.010;
     use Moose;
     our $MAJOR = 0.074; our $MINOR = 1; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
@@ -34,6 +35,22 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     sub _build_piece_length { 2**18 }
 
     #
+    has 'info_hash' => (isa => 'Net::BitTorrent::Types::Metadata::Infohash',
+                        is  => 'ro',
+                        lazy_build => 1,
+                        init_arg   => undef,
+                        coerce     => 1
+    );
+
+    sub _build_info_hash {
+        my $s = shift;
+        state $bencode_constraint //=
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                           'Net::BitTorrent::Types::Bencode');
+        require Digest::SHA;
+        Digest::SHA::sha1(
+               $bencode_constraint->coerce($s->_prepared_metadata->{'info'}));
+    }
     __PACKAGE__->meta->make_immutable;
     no Moose;
 }
@@ -143,7 +160,11 @@ correct type of data is created (multi vs. single file).
 
 =back
 
+=head2 C<< $infohash = $metadata->B<infohash>( ) >>
 
+Returns a L<Bit::Vector> object which contains the C<20> byte SHA1 hash of the
+bencoded form of the info value from the metainfo file. Note that this is a
+substring of the metainfo file.
 
 
 
