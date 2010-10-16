@@ -51,6 +51,39 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         Digest::SHA::sha1(
                $bencode_constraint->coerce($s->_prepared_metadata->{'info'}));
     }
+    has '_prepared_metadata' => (
+        isa        => 'Net::BitTorrent::Types::Bdecode',
+        is         => 'ro',
+        lazy_build => 1,
+        init_arg   => undef,
+        coerce     => 1,
+        handles    => {
+            as_string => sub {
+                my $s = shift;
+                state $bencode_constraint //=    # //
+                    Moose::Util::TypeConstraints::find_type_constraint(
+                                           'Net::BitTorrent::Types::Bencode');
+                $bencode_constraint->coerce($s->_prepared_metadata);
+                }
+        }
+    );
+
+    sub _build__prepared_metadata {
+        my $s = shift;
+        my $r = {($s->has_announce ? (announce => $s->announce) : ()),
+                 ($s->_count_files == 1
+                      && scalar @{$s->files->[0]->{'path'}} == 1
+                  ? (length => $s->files->[0]->{'length'},
+                     name   => $s->files->[0]->{'path'}->[0]
+                      )
+                  : (info => {files => $s->files})
+                 )
+        };
+        $r->{'info'}{$_} = $s->$_() for qw[pieces piece_length];
+        return $r;
+    }
+
+    #
     __PACKAGE__->meta->make_immutable;
     no Moose;
 }
@@ -72,7 +105,7 @@ Net::BitTorrent::Protocol::BEP03::Metadata - Base Class Which Contains the Basic
             length => 1024
         }]
     );
-    # TODO: print $torrent->as_string; # returns bencoded metadata
+    print $torrent->as_string; # returns bencoded metadata
 
 =head1 Description
 
@@ -166,7 +199,10 @@ Returns a L<Bit::Vector> object which contains the C<20> byte SHA1 hash of the
 bencoded form of the info value from the metainfo file. Note that this is a
 substring of the metainfo file.
 
+=head2 C<< $torrent = $metadata->B<as_string>( ) >>
 
+Returns the medatada bencoded into a string. This string is ready for storage
+as a C<[blah].torrent> file.
 
 =head1 Author
 
