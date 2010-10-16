@@ -219,13 +219,30 @@ Net::BitTorrent::Types - Moose Types
 
 =head1 Author
 
+=begin :html
+
+L<Sanko Robinson|http://sankorobinson.com/>
+<L<sanko@cpan.org|mailto://sanko@cpan.org>> -
+L<http://sankorobinson.com/|http://sankorobinson.com/>
+
+CPAN ID: L<SANKO|http://search.cpan.org/~sanko>
+
+=end :html
+
+=begin :text
+
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
 
+=end :text
+
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+=for :html Copyright (C) 2008-2010 by Sanko Robinson
+<L<sanko@cpan.org|mailto://sanko@cpan.org>>
+
+=for :text Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of
