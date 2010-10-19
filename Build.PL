@@ -26,12 +26,13 @@ my $mb = $class->new(
 
         #AnyEvent                     => 0,
         #'AnyEvent::Handle::Throttle' => '0.000002004',
-        #'Bit::Vector'                => 0,
-        #'Digest::SHA'                => 5.45,
-        #Exporter                     => 0,
+        'Bit::Vector' => 7.1,
+        'Digest::SHA' => 5.45,
+        Exporter      => 0,
+
         #'File::Path'                 => 2.07,
         #'File::Spec'                 => 0,
-        Moose => 0,
+        Moose => 1.17,
         perl  => '5.10.0',
 
         #'Scalar::Util'               => 1.19
@@ -40,20 +41,21 @@ my $mb = $class->new(
         AnyEvent => 0,
 
         #'AnyEvent::Handle::Throttle' => '0.000002004',
-        #'Bit::Vector'                => 0,
-        #'Digest::SHA'                => 5.45,
-        Exporter => 0,
+        'Bit::Vector' => 7.1,
+        'Digest::SHA' => 5.45,
+        Exporter      => 0,
 
         #'File::Path'                 => 2.07,
         #'File::Spec'                 => 0,
         #'File::Temp'                 => 0,
         #'Module::Build'              => 0.30,
-        parent         => 0,
-        perl           => '5.10.0',
-        'TAP::Harness' => 3.18,
-        'Test::Class'  => 0.35,
+        Moose             => 1.17,
+        parent            => 0,
+        perl              => '5.10.0',
+        'TAP::Harness'    => 3.18,
+        'Test::Class'     => 0.35,
+        'Test::Exception' => 0,
 
-        #'Test::Exception'            => 0,
         #'Test::Most'                 => 0,
         #($is_developer
         # ? ('CPAN::Meta::Converter' => 0,
