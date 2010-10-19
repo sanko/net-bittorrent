@@ -8,3 +8,5 @@ MANIFEST			This list of files
 META.json
 t/1000_basic/Net/BitTorrent/Protocol/BEP03/Bencode.t
 t/1000_basic/Net/BitTorrent/Protocol/BEP03/Metadata.t
+t/1000_basic/Net/BitTorrent/Protocol/BEP03/Metadata_deep_single_file.t
+t/1000_basic/Net/BitTorrent/Protocol/BEP03/Metadata_single_file.t

@@ -9,32 +9,46 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     use Net::BitTorrent::Types qw[:bencode :metadata :url];
 
     #
+    sub BUILD {1}
+
+    #
+    has 'name' => (isa      => 'Str',
+                   is       => 'ro',
+                   required => 1
+    );
+    sub _build_name { 'New Metadata @ ' . gmtime }
     has 'announce' => (isa        => 'Maybe[Net::BitTorrent::Types::URL]',
                        is         => 'ro',
                        lazy_build => 1
     );
-    sub _build_announce {undef}
+    sub _build_announce { () }
     has 'files' => (isa => 'ArrayRef[Net::BitTorrent::Types::Metadata::File]',
                     is  => 'ro',
-                    lazy_build => 1,
-                    traits     => ['Array'],
-                    handles    => {_count_files => 'count'}
+                    traits   => ['Array'],
+                    handles  => {_count_files => 'count'},
+                    required => 1
     );
-    sub _build_files { [] }
-    has 'pieces' => (isa        => 'Net::BitTorrent::Types::Metadata::Pieces',
-                     is         => 'ro',
-                     lazy_build => 1,
-                     init_arg   => undef
+    has 'pieces' => (isa      => 'Net::BitTorrent::Types::Metadata::Pieces',
+                     is       => 'ro',
+                     required => 1,
+                     coerce   => 1,
+                     traits   => ['Array'],
+                     handles  => {_count_pieces => 'count'}
     );
-    sub _build_pieces {''}
+    after 'BUILD' => sub {
+        my $s        = shift;
+        my $x        = $s->size / $s->piece_length;
+        my $expected = int $x + (int($x) < $x);
+        confess sprintf
+            'Invalid pieces value: Expected %d pieces but found %d',
+            $expected, $s->_count_pieces
+            if $s->_count_pieces != $expected;
+    };
     has 'piece_length' => (
                       isa => 'Net::BitTorrent::Types::Metadata::Piece_Length',
                       is  => 'ro',
-                      lazy_build => 1
+                      required => 1
     );
-    sub _build_piece_length { 2**18 }
-
-    #
     has 'info_hash' => (isa => 'Net::BitTorrent::Types::Metadata::Infohash',
                         is  => 'ro',
                         lazy_build => 1,
@@ -44,7 +58,9 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
 
     sub _build_info_hash {
         my $s = shift;
+        #<<< perltidy will skip this
         state $bencode_constraint //=
+        #>>>
             Moose::Util::TypeConstraints::find_type_constraint(
                                            'Net::BitTorrent::Types::Bencode');
         require Digest::SHA;
@@ -60,7 +76,9 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
         handles    => {
             as_string => sub {
                 my $s = shift;
-                state $bencode_constraint //=    # //
+                #<<< perltidy will skip this
+                state $bencode_constraint //=
+                #>>>
                     Moose::Util::TypeConstraints::find_type_constraint(
                                            'Net::BitTorrent::Types::Bencode');
                 $bencode_constraint->coerce($s->_prepared_metadata);
@@ -71,16 +89,25 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     sub _build__prepared_metadata {
         my $s = shift;
         my $r = {($s->has_announce ? (announce => $s->announce) : ()),
-                 ($s->_count_files == 1
-                      && scalar @{$s->files->[0]->{'path'}} == 1
-                  ? (length => $s->files->[0]->{'length'},
-                     name   => $s->files->[0]->{'path'}->[0]
-                      )
-                  : (info => {files => $s->files})
-                 )
+                 info => {($s->_count_files == 1
+                               && scalar @{$s->files->[0]->{'path'}} == 1
+                           ? (length => $s->files->[0]->{'length'})
+                           : (files => $s->files)
+                          )
+                 }
         };
-        $r->{'info'}{$_} = $s->$_() for qw[pieces piece_length];
+        $r->{'info'}{'piece length'} = $s->piece_length;
+        $r->{'info'}{'pieces'} = pack 'H*', join '',
+            map { $_->to_Hex } @{$s->pieces};
+        $r->{'info'}{'name'} = $s->name;
         return $r;
+    }
+
+    sub size {
+        my $s = shift;
+        my $x = 0;
+        for my $f (@{$s->files}) { $x += $f->{'length'} }
+        $x;
     }
 
     #
@@ -100,12 +127,22 @@ Net::BitTorrent::Protocol::BEP03::Metadata - Base Class Which Contains the Basic
     use Net::BitTorrent::Protocol::BEP03::Metadata;
     my $torrent = Net::BitTorrent::Protocol::BEP03::Metadata->new(
         announce => 'http://example.com/announce.pl',
-        files    => [{
-            path   => [qw[one k file.ext]],
-            length => 1024
-        }]
+        files    => [
+                  {path   => [qw[one k file.ext]],
+                   length => 1024
+                  },
+                  {path => [qw[really tiny file.ext]],
+                   length => 256
+                  }
+        ],
+        name         => 'My New Torrent',
+        piece_length => 2**15,
+        pieces       => "\0" x 20
     );
-    print $torrent->as_string; # returns bencoded metadata
+    printf 'Saving %s.torrent... ', $torrent->info_hash->to_Hex; # 106783C6...
+    open my $FH, '>', $torrent->info_hash->to_Hex . '.torrent' || die $!;
+    syswrite $FH, $torrent->as_string || die $!;
+    print close $FH ? 'okay' : 'fail!';
 
 =head1 Description
 
@@ -185,15 +222,29 @@ Creates a new object. Supported arguments include:
 
 This value maps directly to the L<C<announce>|/"announce"> metadata key.
 
-=item C<files>
+=item C<files> (required)
 
 The constructor expects this to be a list of hashrefs
 (C<{ path => [...] , length => ... }>). When the metadata is generated, the
 correct type of data is created (multi vs. single file).
 
+=item C<piece_length> (required)
+
+This value maps directly to the L<C<pieces length>|/"pieces length"> metadata
+key.
+
+=item C<pieces> (required)
+
+This is a list of L<Bit::Vector> objects. ...but a single string will be
+coerced for you.
+
+=item C<name> (required)
+
+This is a string.
+
 =back
 
-=head2 C<< $infohash = $metadata->B<infohash>( ) >>
+=head2 C<< $infohash = $metadata->B<info_hash>( ) >>
 
 Returns a L<Bit::Vector> object which contains the C<20> byte SHA1 hash of the
 bencoded form of the info value from the metainfo file. Note that this is a

@@ -3,6 +3,7 @@ package Net::BitTorrent::Types;
     use strict;
     use warnings;
     use Moose::Util::TypeConstraints;
+    use 5.010;
 
     #
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
@@ -73,10 +74,48 @@ package Net::BitTorrent::Types;
         } => message {
         'The file should look like { path => [qw[dir dir name.ext]], length => 1024 }';
         };
+    coerce 'Net::BitTorrent::Types::Metadata::File' => from 'Str' => via {
+        require File::Spec;
+        {
+            length   => -s $_,
+                path => [File::Spec->splitdir(File::Spec->cannonpath($_))]
+        }
+    };
+    coerce subtype(
+        'ArrayRef.Net::BitTorrent::Types::Metadata::File' => as 'ArrayRef') =>
+        from 'ArrayRef[Str]' => via {
+        #<<< perltidy will skip this
+        state $metadata_file_constraint //=
+        #>>>
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                    'Net::BitTorrent::Types::Metadata::File');
+        map { $metadata_file_constraint->coerce($_) } @$_;
+        };
 
     #
-    subtype 'Net::BitTorrent::Types::Metadata::Pieces' => as 'Str' =>
-        where { !(length($_) % 40) } => message {'Incorrect length'};
+    subtype 'Net::BitTorrent::Types::Metadata::Piece' => as 'Bit::Vector';
+    subtype 'Net::BitTorrent::Types::Metadata::Piece' => as 'Bit::Vector' =>
+        where { $_->Size == 160 } =>
+        message {'Torrent pieces are 160-bit integers.'};
+    coerce 'Net::BitTorrent::Types::Metadata::Piece' =>
+        from subtype(as 'Int' => where { length $_ < 40 }) =>
+        via { require Bit::Vector; Bit::Vector->new_Dec(160, $_) } =>
+        from subtype(as 'Str' => where { length $_ == 40 && /^[a-f\d]+$/i }
+        ) => via { require Bit::Vector; Bit::Vector->new_Hex(160, $_) } =>
+        from 'Str' => via {
+        require Bit::Vector;
+        Bit::Vector->new_Hex(160, unpack 'H*', $_);
+        };
+    subtype 'Net::BitTorrent::Types::Metadata::Pieces' => as
+        'ArrayRef[Net::BitTorrent::Types::Metadata::Piece]';
+    coerce 'Net::BitTorrent::Types::Metadata::Pieces' => from 'Str' => via {
+            #<<< perltidy will skip this
+            state $piece_constraint //=
+            #>>>
+            Moose::Util::TypeConstraints::find_type_constraint(
+                                   'Net::BitTorrent::Types::Metadata::Piece');
+        [map { $piece_constraint->coerce($_) } shift =~ m[\G(.{20})]g];
+    };
 
     #
     subtype 'Net::BitTorrent::Types::Metadata::Piece_Length' => as 'Int' =>

@@ -21,9 +21,31 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
 
     #
     sub class     {'Net::BitTorrent::Protocol::BEP03::Metadata'}
-    sub init_args { () }
-    sub info_hash {'E55BD8B859C8E835234EF6801B56E8A6F730BB6C'}
-    sub stringish {'d4:infod5:filesle12:piece_lengthi262144e6:pieces0:ee'}
+    sub info_hash {'859E525BD848DA81C1E67E127D308C9FB04B9742'}
+
+    sub meta_data {
+        'd4:infod5:filesld6:lengthi28229e4:pathl27:1291672777_30adc6a421_o.j'
+            . 'pgeed6:lengthi21769e4:pathl27:2183742557_5c9a91727d_m.jpgeed6'
+            . ':lengthi518e4:pathl10:credit.txteee4:name20:96020_miniswarm_s'
+            . 'eed12:piece lengthi65536e6:pieces20:ހЋHJը/tT񁝾󞋯ee';
+    }
+
+    sub init_args {
+        {name         => '96020_miniswarm_seed',
+         piece_length => 65536,
+         files        => [
+                   {length => 28229,
+                    path   => ['1291672777_30adc6a421_o.jpg']
+                   },
+                   {length => 21769,
+                    path   => ['2183742557_5c9a91727d_m.jpg']
+                   },
+                   {length => 518, path => ['credit.txt']},
+         ],
+         pieces => pack 'H*',
+         'de807fd08b484ad5a82f7454f1819dbef39e8baf'
+        };
+    }
 
     #
     sub build : Test( startup => 1 ) {
@@ -38,174 +60,14 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
             '...->files are correct';
     }
 
-    sub new_announce : Test( 6 ) {
-        my $s = shift;
-        throws_ok sub { $s->class->new(announce => 'test') },
-            qr[Validation failed], 'test is not a valid announce URL';
-        throws_ok sub { $s->class->new(announce => '') },
-            qr[Validation failed],
-            'empty string is not a valid announce URL';
-        throws_ok sub { $s->class->new(announce => 'fail://example.com/') },
-            qr[Validation failed],
-            'fail://example.com/ is not a valid announce URL';
-        lives_ok sub { $s->class->new(announce => 'udp://example.com/') },
-            'udp://example.com/ is a valid announce URL';
-        lives_ok sub { $s->class->new(announce => 'http://example.com/') },
-            'http://example.com/ is a valid announce URL';
-        lives_ok sub { $s->class->new(announce => 'https://example.com/') },
-            'https://example.com/ is a valid announce URL';
-    }
-
-    sub new_files : Test( 14 ) {
-        my $s = shift;
-        for my $files ([{path   => [qw[deep deeper deepest.ext]],
-                         length => 1024
-                        }
-                       ],
-                       [{path   => [qw[deep deeper deepest.ext]],
-                         length => 1024
-                        },
-                        {path   => [qw[deep deeper reallydeep.ext]],
-                         length => 2448
-                        }
-                       ]
-            )
-        {   is_deeply new_ok($s->class, [{files => $files}])->files, $files,
-                sprintf 'list of files match. (%d total)', scalar @{$files};
-        }
-        throws_ok sub { $s->class->new(files => 'test') },
-            qr[Validation failed],
-            'test is not a valid file';
-        throws_ok sub { $s->class->new(files => '') }, qr[Validation failed],
-            'empty string is not a valid file';
-        throws_ok
-            sub { $s->class->new(files => {path => 'test', length => 100}) },
-            qr[Validation failed],
-            '{ path => \'test\', length => 100 } is invalid';
-        throws_ok
-            sub { $s->class->new(files => [{path => 'test', length => 100}]) }
-            , qr[Validation failed],
-            '[{ path => \'test\', length => 100 }] is invalid';
-        throws_ok sub { $s->class->new(files => [{path => ['test']}]) },
-            qr[Validation failed], '[{ path => [\'test\'] }] is invalid';
-        throws_ok sub { $s->class->new(files => [{length => 100}]) },
-            qr[Validation failed], '[{ length => 100 }] is invalid';
-        throws_ok sub {
-            $s->class->new(files => {path => ['test'], length => -100});
-            },
-            qr[Validation failed],
-            '{ path => [\'test\'], length => -100 } is invalid';
-        throws_ok
-            sub { $s->class->new(files => {path => ['test'], length => 0}) },
-            qr[Validation failed],
-            '{ path => [\'test\'], length => 0 } is invalid';
-        throws_ok sub {
-            $s->class->new(files => {path => ['test'], length => 'long'});
-            },
-            qr[Validation failed],
-            '{ path => [\'test\'], length => \'long\' } is invalid';
-        throws_ok
-            sub { $s->class->new(files => {path => ['test'], length => ''}) },
-            qr[Validation failed],
-            '{ path => [\'test\'], length => \'\' } is invalid';
-    }
-
-    sub new_pieces : Test( 2 ) {
-        my $s = shift;
-        is new_ok($s->class, [pieces => pack 'H80', 'A' x 40])->pieces, '',
-            'Cannot set pieces attribute with new( ... )';
-    }
-
-    sub new_piece_length : Test( 8 ) {
-        my $s = shift;
-        is new_ok($s->class, [])->piece_length, 262144,
-            'using default piece length';
-        is new_ok($s->class, [piece_length => 1024])->piece_length, 1024,
-            '{ piece_length => 1024 } is valid';
-        throws_ok
-            sub { $s->class->new(piece_length => '') },
-            qr[Value is not a positive integer],
-            '{ piece_length => \'\' }} is invalid';
-        throws_ok
-            sub { $s->class->new(piece_length => 0) },
-            qr[Value is not a positive integer],
-            '{ piece_length => 0 }} is invalid';
-        throws_ok
-            sub { $s->class->new(piece_length => 'ABCD') },
-            qr[Value is not a positive integer],
-            '{ piece_length => \'ABCD\' }} is invalid';
-        throws_ok
-            sub { $s->class->new(piece_length => -1024) },
-            qr[Value is not a positive integer],
-            '{ piece_length => -1024 }} is invalid';
-    }
-
-    sub infohash : Test( 7 ) {
+    sub infohash : Test( 1 ) {
         my $s = shift;
         is $s->{'m'}->info_hash->to_Hex, $s->info_hash;
-        is new_ok($s->class,
-                  [{files => [{path   => [qw[deep deeper deepest.ext]],
-                               length => 1024
-                              }
-                    ]
-                   }
-                  ]
-            )->info_hash->to_Hex,
-            '369A5DDB2348887573871DB41F038917F17C2318',
-            'deep single file torrent infohash is okay';
-        is new_ok($s->class,
-                  [{files => [{path => [qw[simple.ext]], length => 1024}]}])
-            ->info_hash->to_Hex,
-            'C1E32528BD921212A633CD7C11321EA6D6CAE359',
-            'simple single file torrent infohash is okay';
-        is new_ok($s->class,
-                  [{files => [{path   => [qw[deep deeper deepest.ext]],
-                               length => 1024
-                              },
-                              {path   => [qw[deep deeper reallydeep.ext]],
-                               length => 2448
-                              }
-                    ],
-                    length => 1024
-                   }
-                  ]
-            )->info_hash->to_Hex,
-            '02E48FAC7C76C8E59E051187BB105616C6A35924',
-            'multifile torrent infohash is okay';
     }
 
-    sub as_string : Test( 7 ) {
+    sub as_string : Test( 1 ) {
         my $s = shift;
-        is $s->{'m'}->as_string, $s->stringish;
-        is new_ok($s->class,
-                  [{files => [{path   => [qw[deep deeper deepest.ext]],
-                               length => 1024
-                              }
-                    ]
-                   }
-                  ]
-            )->as_string,
-            'd4:infod5:filesld6:lengthi1024e4:pathl4:deep6:deeper11:deepest.exteee12:piece_lengthi262144e6:pieces0:ee',
-            'deep single file torrent as_string is okay';
-        is new_ok($s->class,
-                  [{files => [{path => [qw[simple.ext]], length => 1024}]}])
-            ->as_string,
-            'd4:infod12:piece_lengthi262144e6:pieces0:e6:lengthi1024e4:name10:simple.exte',
-            'simple single file torrent as_string is okay';
-        is new_ok($s->class,
-                  [{files => [{path   => [qw[deep deeper deepest.ext]],
-                               length => 1024
-                              },
-                              {path   => [qw[deep deeper reallydeep.ext]],
-                               length => 2448
-                              }
-                    ],
-                    length => 1024
-                   }
-                  ]
-            )->as_string,
-            'd4:infod5:filesld6:lengthi1024e4:pathl4:deep6:deeper11:deepest.exteed6:lengthi2448e4:pathl4:deep6:deeper14:reallydeep.exteee12:piece_lengthi262144e6:pieces0:ee',
-            'multifile torrent as_string is okay';
+        is $s->{'m'}->as_string, $s->meta_data;
     }
 
     sub class_can : Test( 0 ) {
