@@ -16,7 +16,6 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
                    is       => 'ro',
                    required => 1
     );
-    sub _build_name { 'New Metadata @ ' . gmtime }
     has 'announce' => (isa        => 'Maybe[Net::BitTorrent::Types::URL]',
                        is         => 'ro',
                        lazy_build => 1
@@ -254,6 +253,10 @@ substring of the metainfo file.
 
 Returns the medatada bencoded into a string. This string is ready for storage
 as a C<[blah].torrent> file.
+
+=head2 C<< $bytes = $metadata->B<size>( ) >>
+
+Returns the collective size of all included files.
 
 =head1 Author
 

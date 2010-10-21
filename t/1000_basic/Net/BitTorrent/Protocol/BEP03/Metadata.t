@@ -33,18 +33,21 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
     sub init_args {
         {name         => '96020_miniswarm_seed',
          piece_length => 65536,
-         files        => [
-                   {length => 28229,
-                    path   => ['1291672777_30adc6a421_o.jpg']
-                   },
-                   {length => 21769,
-                    path   => ['2183742557_5c9a91727d_m.jpg']
-                   },
-                   {length => 518, path => ['credit.txt']},
-         ],
-         pieces => pack 'H*',
+         files        => shift->_files,
+         pieces       => pack 'H*',
          'de807fd08b484ad5a82f7454f1819dbef39e8baf'
         };
+    }
+
+    sub _files {
+        [{length => 28229,
+          path   => ['1291672777_30adc6a421_o.jpg']
+         },
+         {length => 21769,
+          path   => ['2183742557_5c9a91727d_m.jpg']
+         },
+         {length => 518, path => ['credit.txt']},
+        ];
     }
 
     #
@@ -55,8 +58,7 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
 
     sub files : Test( 1 ) {
         my $s = shift;
-        is_deeply [$s->{'m'}->files],
-            [$s->init_args ? $s->init_args->{'files'} : []],
+        is_deeply [$s->{'m'}->files], [$s->init_args ? $s->_files : []],
             '...->files are correct';
     }
 
@@ -70,18 +72,20 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
         is $s->{'m'}->as_string, $s->meta_data;
     }
 
-    sub class_can : Test( 0 ) {
+    sub class_can : Test( 2 ) {
         my $s = shift;
+        can_ok $s->{'m'}, $_ for qw[size as_string];
     }
 
     sub moose_does : Test( 0 ) {
         my $s = shift;
     }
 
-    sub moose_attributes : Test( 2 ) {
+    sub moose_attributes : Test( 7 ) {
         my $s = shift;
-        has_attribute_ok $s->{'m'}, 'files',    'has files';
-        has_attribute_ok $s->{'m'}, 'announce', 'has announce';
+        has_attribute_ok $s->{'m'}, $_, 'has ' . $_
+            for
+            qw[files announce name pieces piece_length info_hash _prepared_metadata];
     }
 
     sub moose_meta : Test( 1 ) {

@@ -27,11 +27,12 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata_deep_single_file;
     sub init_args {
         {name         => 'credits.txt',
          piece_length => 65536,
-         files        => [{length => 267, path => ['deep', 'credits.txt']}],
+         files        => shift->_files,
          pieces       => pack 'H*',
          '6ce193aec89ddeb5f0a083bd13cb9fd9bad4b178'
         };
     }
+    sub _files { [{length => 267, path => ['deep', 'credits.txt']}] }
 
     #
     __PACKAGE__->runtests() if !caller;

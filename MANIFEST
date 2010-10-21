@@ -3,6 +3,7 @@ Changes
 lib/Net/BitTorrent/Protocol/BEP03.pod
 lib/Net/BitTorrent/Protocol/BEP03/Bencode.pm
 lib/Net/BitTorrent/Protocol/BEP03/Metadata.pm
+lib/Net/BitTorrent/Torrent.pm
 lib/Net/BitTorrent/Types.pm
 MANIFEST			This list of files
 META.json
@@ -10,3 +11,7 @@ t/1000_basic/Net/BitTorrent/Protocol/BEP03/Bencode.t
 t/1000_basic/Net/BitTorrent/Protocol/BEP03/Metadata.t
 t/1000_basic/Net/BitTorrent/Protocol/BEP03/Metadata_deep_single_file.t
 t/1000_basic/Net/BitTorrent/Protocol/BEP03/Metadata_single_file.t
+t/1000_basic/Net/Torrent.t
+t/9000_data/9500_torrents/9503_miniswarm.torrent
+t/9000_data/9500_torrents/credits.txt
+t/9000_data/9500_torrents/OOo_3.2.0_Win32Intel_install_en-US.exe.torrent

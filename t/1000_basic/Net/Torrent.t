@@ -1,4 +1,4 @@
-package t::Net::BitTorrent::Protocol::BEP03::Metadata_single_file;
+package t::Net::BitTorrent::Torrent_single_file;
 {
     use strict;
     use warnings;
@@ -17,22 +17,37 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata_single_file;
     # Load local modules
     BEGIN { require 't\1000_basic\Net\BitTorrent\Protocol\BEP03\Metadata.t' }
     use parent-norequire, 't::Net::BitTorrent::Protocol::BEP03::Metadata';
-    sub info_hash {'B7ADF9CE9C375F1F72CFCE1D989BED10502D551F'}
+    use Net::BitTorrent::Torrent;
+
+    #
+    sub class     {'Net::BitTorrent::Torrent'}
+    sub info_hash {'2B3AAF361BD40540BF7E3BFD140B954B90E4DFBC'}
 
     sub meta_data {
-        'd4:infod6:lengthi267e4:name11:credits.txt12:piece lengthi65536e6:pie'
-            . 'ces20:lᓮȝ޵𠃽˟ٺԱxee';
+        'd7:comment32:See credit.txt for attributions.10:created by31:Net::Bi'
+            . 'tTorrent::GenTorrent 0.113:creation datei1214665975e8:encoding'
+            . '5:UTF-84:infod5:filesld6:lengthi28229e4:pathl27:1291672777_30a'
+            . 'dc6a421_o.jpgeed6:lengthi21769e4:pathl27:2183742557_5c9a91727d'
+            . '_m.jpgeee4:name4:seed12:piece lengthi32768e6:pieces40:'
+            . "\x8867\16\x9E \13\xF3\xDE\xE7\37c\2\x96\xC4V\xAF\x8F\xA9k"
+            . "\xF07I!\x85=\xBD\xAA8\xA3)\xA8\xFC\xDErNH\x8D\xD4\23ee";
+    }
+    sub init_args {'t/9000_data/9500_torrents/9503_miniswarm.torrent'}
+
+    sub _files {
+        [{length => 28229, path => ['1291672777_30adc6a421_o.jpg']},
+         {length => 21769, path => ['2183742557_5c9a91727d_m.jpg']}
+        ];
     }
 
-    sub init_args {
-        {name         => 'credits.txt',
-         piece_length => 65536,
-         files        => shift->_files,
-         pieces       => pack 'H*',
-         '6ce193aec89ddeb5f0a083bd13cb9fd9bad4b178'
-        };
+    #
+    sub moose_attributes : Test( +0 ) {
+        my $s = shift;
+        $s->SUPER::moose_attributes;
+
+        #has_attribute_ok $s->{'m'}, 'files',    'has files';
+        #has_attribute_ok $s->{'m'}, 'announce', 'has announce';
     }
-    sub _files { [{length => 267, path => ['credits.txt']}] }
 
     #
     __PACKAGE__->runtests() if !caller;
