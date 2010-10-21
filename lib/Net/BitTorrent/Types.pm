@@ -26,8 +26,9 @@ package Net::BitTorrent::Types;
 #        Net::BitTorrent::Types::File::Directory::PreExisting
 #        ]
 #],
-#client  => [qw[Net::BitTorrent::Types::Client::PeerID]],
-#dht     => [qw[Net::BitTorrent::Types::DHT::NodeID]],
+        peer => [qw[PeerID]],
+
+        #dht     => [qw[Net::BitTorrent::Types::DHT::NodeID]],
         bencode  => [qw[Bencode Bdecode]],
         metadata => [
             qw[ Metadata::File Metadata::Pieces Metadata::Piece_Length
@@ -64,7 +65,7 @@ package Net::BitTorrent::Types;
     #
     subtype 'Net::BitTorrent::Types::Metadata::File' => as 'HashRef' =>
         where {
-        keys %$_ == 2
+        keys %$_ >= 2
             && defined $_->{'path'}
             && ref $_->{'path'} eq 'ARRAY'
             && scalar @{$_->{'path'}}
@@ -209,10 +210,14 @@ package Net::BitTorrent::Types;
     coerce 'Net::BitTorrent::Types::File::Directory::PreExisting' => from 'Str' =>
         via { require File::Spec; File::Spec->rel2abs($_); };
 
+=cut
+
     #
-    subtype 'Net::BitTorrent::Types::Client::PeerID' => as 'Str' =>
+    subtype 'Net::BitTorrent::Types::PeerID' => as 'Str' =>
         where { length $_ == 20 } =>
         message {'PeerID is malformed: length != 20'};
+
+=pod
 
     # Nearly the same as Net::BitTorrent::Types::Torrent::Infohash
     subtype 'Net::BitTorrent::Types::DHT::NodeID' => as 'Bit::Vector' =>
