@@ -7,8 +7,8 @@ package t::Net::BitTorrent::Torrent_single_file;
     use Module::Build;
     use Test::More;
     use Test::Moose;
-    use Test::Exception;
 
+    #use Test::Fatal;
     # Load local context
     BEGIN { -d '_build' ? last : chdir '..' for 1 .. 10 }
     my $t_builder = Test::More->builder;
@@ -41,12 +41,10 @@ package t::Net::BitTorrent::Torrent_single_file;
     }
 
     #
-    sub moose_attributes : Test( +0 ) {
+    sub moose_attributes : Test( +1 ) {
         my $s = shift;
         $s->SUPER::moose_attributes;
-
-        #has_attribute_ok $s->{'m'}, 'files',    'has files';
-        #has_attribute_ok $s->{'m'}, 'announce', 'has announce';
+        has_attribute_ok $s->{'m'}, 'client', 'has client';
     }
 
     #

@@ -8,8 +8,8 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
     use Test::More;
     use parent 'Test::Class';
     use Test::Moose;
-    use Test::Exception;
 
+    #use Test::Fatal;
     # Load local context
     BEGIN { -d '_build' ? last : chdir '..' for 1 .. 10 }
     my $t_builder = Test::More->builder;

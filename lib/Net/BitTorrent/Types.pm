@@ -6,26 +6,27 @@ package Net::BitTorrent::Types;
     use 5.010;
 
     #
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     use Exporter qw[import];
     my %_exports = (
 
 #infohash => [qw[Net::BitTorrent::Types::Infohash Net::BitTorrent::Types::Infohash::Packed]],
-#tracker  => [
-#    qw[ Net::BitTorrent::Types::Tracker      Net::BitTorrent::Types::Tracker::Tier
-#        Net::BitTorrent::Types::Tracker::UDP Net::BitTorrent::Types::Tracker::HTTP
-#        Net::BitTorrent::Types::Tracker::HTTP::Event]
-#],
-#file => [
-#    qw[Net::BitTorrent::Types::File::Open::Permission
-#        Net::BitTorrent::Types::File::Path
-#        Net::BitTorrent::Types::File::Path::Absolute
-#        Net::BitTorrent::Types::File::Path::PreExisting
-#        Net::BitTorrent::Types::File::Directory::PreExisting
-#        ]
-#],
+        tracker => [
+            qw[ Tracker      Tracker::Tier
+                Tracker::UDP Tracker::HTTP
+                Tracker::HTTP::Event]
+        ],
+
+        #file => [
+        #    qw[Net::BitTorrent::Types::File::Open::Permission
+        #        Net::BitTorrent::Types::File::Path
+        #        Net::BitTorrent::Types::File::Path::Absolute
+        #        Net::BitTorrent::Types::File::Path::PreExisting
+        #        Net::BitTorrent::Types::File::Directory::PreExisting
+        #        ]
+        #],
         peer => [qw[PeerID]],
 
         #dht     => [qw[Net::BitTorrent::Types::DHT::NodeID]],
@@ -147,9 +148,6 @@ package Net::BitTorrent::Types;
         require Bit::Vector;
         Bit::Vector->new_Hex(160, unpack 'H*', $_);
         };
-
-=pod
-
     subtype 'Net::BitTorrent::Types::Torrent::Bitfield' => as 'Bit::Vector';
     coerce 'Net::BitTorrent::Types::Torrent::Bitfield' =>
         from subtype(as 'Str' => where { $_ =~ m[^(?:[10]+)$] }) => via {
@@ -181,12 +179,19 @@ package Net::BitTorrent::Types;
         };
     subtype 'Net::BitTorrent::Types::Tracker::Tier' => as
         'ArrayRef[Net::BitTorrent::Types::Tracker::UDP|Net::BitTorrent::Types::Tracker::HTTP]';
-    coerce 'Net::BitTorrent::Types::Tracker::Tier' => from 'ArrayRef[Str]' => via {
+    coerce 'Net::BitTorrent::Types::Tracker::Tier' => from 'ArrayRef[Str]' =>
+        via {
         state $tracker_constraint
             = Moose::Util::TypeConstraints::find_type_constraint(
-                              'Net::BitTorrent::Types::Tracker::HTTP|Net::BitTorrent::Types::Tracker::UDP');
+            'Net::BitTorrent::Types::Tracker::HTTP|Net::BitTorrent::Types::Tracker::UDP'
+            );
         [map { $tracker_constraint->coerce($_) } @$_];
-    };
+        };
+
+=pod
+
+
+
     enum 'Net::BitTorrent::Types::Tracker::HTTP::Event' => qw[started stopped completed];
 
     #

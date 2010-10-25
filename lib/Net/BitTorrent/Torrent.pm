@@ -2,13 +2,19 @@ package Net::BitTorrent::Torrent;
 {
     use 5.010;
     use Moose;
-    our $MAJOR = 0.074; our $MINOR = 1; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     use lib '../../';
     extends 'Net::BitTorrent::Protocol::BEP03::Metadata';
 
     #
+    has 'client' => (isa      => 'Net::BitTorrent',
+                     is       => 'ro',
+                     init_arg => undef,
+                     writer   => '_set_client',
+                     weak_ref => 1
+    );
     has '+_prepared_metadata' =>
         (init_arg => 'prepared_metadata', required => 1);
     around 'BUILDARGS' => sub {
@@ -20,7 +26,8 @@ package Net::BitTorrent::Torrent;
             Moose::Util::TypeConstraints::find_type_constraint(
                                            'Net::BitTorrent::Types::Bdecode');
         if (@_ == 1 && !ref $_[0]) {
-            open my $FH, '<', $_[0] || confess 'Failed to open %s: %s', $_[0],
+            open(my $FH, '<', $_[0])
+                || confess sprintf 'Failed to open %s: %s', $_[0],
                 $!;
             sysread $FH, my $TORRENT, -s $FH;
             $TORRENT = $bedecode_constraint->coerce($TORRENT);

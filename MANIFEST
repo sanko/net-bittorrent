@@ -4,7 +4,13 @@ lib/Net/BitTorrent.pm
 lib/Net/BitTorrent/Protocol/BEP03.pod
 lib/Net/BitTorrent/Protocol/BEP03/Bencode.pm
 lib/Net/BitTorrent/Protocol/BEP03/Metadata.pm
+lib/Net/BitTorrent/Protocol/BEP03/Tracker/HTTP.pm
+lib/Net/BitTorrent/Protocol/BEP15.pod
+lib/Net/BitTorrent/Protocol/BEP15/Tracker/UDP.pm
+lib/Net/BitTorrent/Protocol/BEP23.pod
+lib/Net/BitTorrent/Protocol/BEP23/Compact.pm
 lib/Net/BitTorrent/Torrent.pm
+lib/Net/BitTorrent/Torrent/Queued.pm
 lib/Net/BitTorrent/Types.pm
 MANIFEST			This list of files
 META.json

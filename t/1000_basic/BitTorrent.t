@@ -8,7 +8,7 @@ package t::Net::BitTorrent;
     use Test::More;
     use parent 'Test::Class';
     use Test::Moose;
-    use Test::Exception;
+    use Test::Fatal;
 
     # Load local context
     BEGIN { -d '_build' ? last : chdir '..' for 1 .. 10 }
@@ -21,37 +21,49 @@ package t::Net::BitTorrent;
 
     #
     sub class     {'Net::BitTorrent'}
-
     sub init_args { }
 
     #
     sub build : Test( startup => 1 ) {
         my $s = shift;
         $s->{'m'} = new_ok $s->class, [@_ ? @_ : $s->init_args];
-
-
     }
-
 
     sub peer_id : Test( 1 ) {
         my $s = shift;
-        like $s->{'m'}->peer_id, qr[^NB\d{3}[SU]-.{13}$];
+        like $s->{'m'}->peer_id, qr[^NB\d{3}[SU]-.{7}-.{5}$];
     }
 
-    sub class_can : Test( 0 ) {
+    sub torrents : Test( 4 ) {
         my $s = shift;
-        #can_ok $s->{'m'}, $_ for qw[size as_string];
+        is_deeply $s->{'m'}->torrents, [],
+            'initial value of ...>torrents is an empty list';
+        like exception { $s->{'m'}->add_torrent('Non-existant.torrent') },
+            qr[Failed to open],
+            '->add_torrent( q[Non-existant.torrent] ) fails';
+        isa_ok $s->{'m'}
+            ->add_torrent('t/9000_data/9500_torrents/9503_miniswarm.torrent'),
+            'Net::BitTorrent::Torrent',
+            '->( q[[...]miniswarm.torrent] ) returns new torrent';
+        is $s->{'m'}->count_torrents, 1, '->count_torrents( ) is correct';
+    }
+
+    sub class_can : Test( 14 ) {
+        my $s = shift;
+        can_ok $s->{'m'}, $_
+            for qw[add_torrent clear_torrents count_torrents filter_torrents
+            find_torrent has_torrents info_hashes map_torrents no_torrents
+            shuffle_torrents sort_torrents sort_torrents_in_place torrent
+            torrents];
     }
 
     sub moose_does : Test( 0 ) {
         my $s = shift;
     }
 
-    sub moose_attributes : Test( 1 ) {
+    sub moose_attributes : Test( 2 ) {
         my $s = shift;
-        has_attribute_ok $s->{'m'}, $_, 'has ' . $_
-            for
-            qw[peer_id];
+        has_attribute_ok $s->{'m'}, $_, 'has ' . $_ for qw[peer_id torrents];
     }
 
     sub moose_meta : Test( 1 ) {
