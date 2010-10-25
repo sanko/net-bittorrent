@@ -5,6 +5,8 @@ lib/Net/BitTorrent/Protocol/BEP03.pod
 lib/Net/BitTorrent/Protocol/BEP03/Bencode.pm
 lib/Net/BitTorrent/Protocol/BEP03/Metadata.pm
 lib/Net/BitTorrent/Protocol/BEP03/Tracker/HTTP.pm
+lib/Net/BitTorrent/Protocol/BEP12.pod
+lib/Net/BitTorrent/Protocol/BEP12/MultiTracker.pm
 lib/Net/BitTorrent/Protocol/BEP15.pod
 lib/Net/BitTorrent/Protocol/BEP15/Tracker/UDP.pm
 lib/Net/BitTorrent/Protocol/BEP23.pod

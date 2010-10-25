@@ -1,17 +1,41 @@
 package Net::BitTorrent::Torrent::Queued;
 {
     use Moose::Role;
-    use Net::BitTorrent::Types qw[];
     #use Moose::Util::TypeConstraints;
     our $MAJOR = 0; our $MINOR = 74; our $DEV = 3; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
-    use lib '../../../../';
+    use lib '../../../';
+    use Net::BitTorrent::Protocol::BEP12::MultiTracker;
 
     #
-    has 'client' => ( is => 'ro', required => 1 );
-
-    has 'trackers' => (is =>
-
+    has 'client' => (is => 'ro', required => 1);
+    has 'tracker' => (is  => 'ro',
+                      isa => 'Net::BitTorrent::Protocol::BEP12::MultiTracker',
+                      predicate => 'has_tracker',
+                      builder   => '_build_tracker'
     );
+
+    sub _build_tracker {
+        require Net::BitTorrent::Protocol::BEP12::MultiTracker;
+        Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
+                                                           metadata => shift);
+    }
+
+    after 'BUILDALL' => sub {
+        my $s = shift;
+
+        #if ($s->metadata->{'info'}{'private'}) {
+        #        require Net::BitTorrent::Protocol::BEP27::Private::Metadata;
+        #        Net::BitTorrent::Protocol::BEP27::Private::Metadata->meta
+        #            ->apply($s);
+        #    }
+        #}
+
+        # parse trackers
+        $s->tracker->add_tier([$s->announce]) if $s->_has_announce;
+        $s->tracker->add_tier($_) for @{ $s->_has_announce_list ? [] :$s->announce_list};
+...
+
+    };
 
 =pod
 
@@ -119,8 +143,7 @@ package Net::BitTorrent::Torrent::Queued;
     sub private {0}    # overridden by BEP27::Private::Metadata
 
 =cut
-
-     no Moose::Role;
+    no Moose::Role;
 }
 1;
 
