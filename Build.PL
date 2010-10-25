@@ -24,47 +24,46 @@ my $mb = $class->new(
     dist_version  => $VERSION,
     requires      => {
 
-        #AnyEvent                     => 0,
-        #'AnyEvent::Handle::Throttle' => '0.000002004',
+        ##AnyEvent                     => 0,
+        ##'AnyEvent::Handle::Throttle' => '0.000002004',
         'Bit::Vector' => 7.1,
         'Digest::SHA' => 5.45,
         Exporter      => 0,
 
-        #'File::Path'                 => 2.07,
-        #'File::Spec'                 => 0,
-        Moose => 1.17,
-        perl  => '5.10.0',
+        ##'File::Path'                 => 2.07,
+        ##'File::Spec'                 => 0,
+        Moose => 1.16,
+        perl  => '5.12.0',
 
-        #'Scalar::Util'               => 1.19
+        'Scalar::Util'               => 1.19
     },
     build_requires => {
-        AnyEvent => 0,
-
-        #'AnyEvent::Handle::Throttle' => '0.000002004',
+        ##AnyEvent => 0,
+        ##'AnyEvent::Handle::Throttle' => '0.000002004',
         'Bit::Vector' => 7.1,
         'Digest::SHA' => 5.45,
         Exporter      => 0,
 
-        #'File::Path'                 => 2.07,
-        #'File::Spec'                 => 0,
-        #'File::Temp'                 => 0,
-        #'Module::Build'              => 0.30,
-        Moose             => 1.17,
+        ##'File::Path'                 => 2.07,
+        ##'File::Spec'                 => 0,
+        ##'File::Temp'                 => 0,
+        'Module::Build'                => 0.3616,
+        Moose             => 1.16,
         parent            => 0,
-        perl              => '5.10.0',
+        perl              => '5.12.0',
         'TAP::Harness'    => 3.18,
         'Test::Class'     => 0.35,
-        'Test::Exception' => 0,
+        'Test::Fatal' => 0,
 
-        #'Test::Most'                 => 0,
-        #($is_developer
-        # ? ('CPAN::Meta::Converter' => 0,
-        #    'CPAN::Meta::Validator' => 0,
-        #    JSON                    => 0,
-        #    'Perl::Tidy'            => 0
-        #     )
-        # : ()
-        #)
+        ##'Test::Most'                 => 0,
+        ($is_developer
+         ? ('CPAN::Meta::Converter' => 0,
+            'CPAN::Meta::Validator' => 0,
+            JSON                    => 0,
+            'Perl::Tidy'            => 0
+             )
+         : ()
+        )
     },
     test_files       => \@tests,
     test_file_exts   => ['.t'],
