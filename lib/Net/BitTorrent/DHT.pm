@@ -3,7 +3,7 @@ package Net::BitTorrent::DHT;
     use Moose;
     use AnyEvent;
     use lib '../../../lib';
-    use Net::BitTorrent::Protocol::BEP03::Bencode qw[bdecode];
+    use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
     use Net::BitTorrent::Protocol::BEP05::Packets qw[:all];
     use Net::BitTorrent::Network::Utility qw[:paddr :sockaddr];
     use Net::BitTorrent::Types qw[:dht :addr];

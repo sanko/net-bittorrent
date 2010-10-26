@@ -2,7 +2,7 @@ package Net::BitTorrent::DHT::Standalone;
 {
     use Moose::Role;
     use lib '../../../../lib';
-    use Net::BitTorrent::Protocol::BEP03::Bencode qw[bdecode];
+    use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
     our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 3; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has 'port' => (is      => 'ro',
                    isa     => 'Int|ArrayRef[Int]',

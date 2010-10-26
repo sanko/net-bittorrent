@@ -3,7 +3,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
     use strict;
     use warnings;
     use lib '../../../../../lib';
-    use Net::BitTorrent::Protocol::BEP03::Bencode qw[:bencode];
+    use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
     require Exporter;
     our @ISA = qw[Exporter];
     our %EXPORT_TAGS;

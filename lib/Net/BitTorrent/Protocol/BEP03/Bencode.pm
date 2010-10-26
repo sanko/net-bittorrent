@@ -2,72 +2,66 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
 {
     use strict;
     use warnings;
-    use Carp qw[carp];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
-    use vars qw[@EXPORT_OK %EXPORT_TAGS];
-    use Exporter qw[];
-    *import = *import = *Exporter::import;
-    @EXPORT_OK = qw[bencode bdecode];
-    %EXPORT_TAGS = (all     => [@EXPORT_OK],
-                    bencode => [@EXPORT_OK],);
 
+    #
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+
+    #
+    use Exporter qw[import];
+    our %EXPORT_TAGS;
+    our @EXPORT_OK = @{$EXPORT_TAGS{'all'}} = qw[bencode bdecode];
+
+    #
     sub bencode {
-        my ($ref) = @_;
-        $ref = defined $ref ? $ref : '';
-        if (not ref $ref) {
-            return (  (defined $ref and $ref =~ m[^[-+]?\d+$])
-                    ? ('i' . $ref . 'e')
-                    : (length($ref) . ':' . $ref)
-            );
-        }
-        elsif (ref $ref eq 'ARRAY') {
-            return join('', 'l', (map { bencode($_) } @{$ref}), 'e');
-        }
-        elsif (ref $ref eq 'HASH') {
-            return
-                join('', 'd',
-                     (map { bencode($_) . bencode($ref->{$_}) }
-                      sort keys %{$ref}
-                     ),
-                     'e'
-                );
-        }
+        my $ref = shift // return;
+        return (  ((length $ref) && $ref =~ m[^([-\+][1-9])?\d*$])
+                ? ('i' . $ref . 'e')
+                : (length($ref) . ':' . $ref)
+        ) if !ref $ref;
+        return join('', 'l', (map { bencode($_) } @{$ref}), 'e')
+            if ref $ref eq 'ARRAY';
+        return
+            join('', 'd',
+                 (map { length($_) . ':' . $_ . bencode($ref->{$_}) }
+                  sort keys %{$ref}
+                 ),
+                 'e'
+            ) if ref $ref eq 'HASH';
         return '';
     }
 
     sub bdecode {
-        my ($string) = @_;
-        return if not defined $string;
+        my $string = shift // return;
         my ($return, $leftover);
-        if (   $string =~ m[^([1-9]\d*):]s
-            or $string =~ m[^(0+):]s)
-        {   my $size = $1;
-            $return = '' if $1 =~ m[^0+$];
-            $string =~ s|^$size:||s;
+        if ($string =~ s[^(0+|[1-9]\d*):][]) {
+            my $size = $1;
+            $return = '' if $size =~ m[^0+$];
             $return .= substr($string, 0, $size, '');
             return if length $return < $size;
-            return wantarray ? ($return, $string) : $return;    # byte string
+            return $_[0] ? ($return, $string) : $return;    # byte string
         }
-        elsif ($string =~ s|^i([-+]?\d+)e||s) {                 # integer
-            return wantarray ? (int($1), $string) : int($1);
+        elsif ($string =~ s[^i([-\+]?\d+)e][]) {            # integer
+            my $int = $1;
+            $int = () if $int =~ m[^-0] || $int =~ m[^0\d+];
+            return $_[0] ? ($int, $string) : $int;
         }
-        elsif ($string =~ s|^l(.*)||s) {                        # list
+        elsif ($string =~ s[^l(.*)][]s) {                   # list
             $leftover = $1;
-            while ($leftover and $leftover !~ s|^e||s) {
-                (my ($piece), $leftover) = bdecode($leftover);
+            while ($leftover and $leftover !~ s[^e][]s) {
+                (my ($piece), $leftover) = bdecode($leftover, 1);
                 push @$return, $piece;
             }
-            return wantarray ? (\@$return, $leftover) : \@$return;
+            return $_[0] ? (\@$return, $leftover) : \@$return;
         }
-        elsif ($string =~ s|^d(.*)||s) {                        # dictionary
+        elsif ($string =~ s[^d(.*)][]s) {                   # dictionary
             $leftover = $1;
-            while ($leftover and $leftover !~ s|^e||s) {
+            while ($leftover and $leftover !~ s[^e][]s) {
                 my ($key, $value);
-                ($key, $leftover) = bdecode($leftover);
-                ($value, $leftover) = bdecode($leftover) if $leftover;
+                ($key, $leftover) = bdecode($leftover, 1);
+                ($value, $leftover) = bdecode($leftover, 1) if $leftover;
                 $return->{$key} = $value if defined $key;
             }
-            return wantarray ? (\%$return, $leftover) : \%$return;
+            return $_[0] ? (\%$return, $leftover) : \%$return;
         }
         return;
     }
@@ -78,52 +72,86 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
 
 =head1 NAME
 
-Net::BitTorrent::Protocol::BEP03::Bencode - Utility functions for BEP03: The BitTorrent Protocol Specification
+Net::BitTorrent::Protocol::BEP03::Bencode - Metadata Utility Functions for BEP03: The BitTorrent Protocol Specification
 
-=head1 Importing From Net::BitTorrent::Protocol::BEP03::Bencode
+=head1 Synopsis
 
-By default, nothing is exported.
+    use Net::BitTorrent::Protocol::BEP03::Bencode qw[bencode bdecode];
+    use Data::Dump qw[dump];
+    printf "bencode: %s\n", bencode [123, [''], 'XXX'];
+    printf "bdecode: %s\n", dump bdecode 'd3:fool3:bar4:stube6:numberi123ee';
 
-You may import any of the following functions by name or with one or more of
-these tags:
+...prints...
+
+    bencode: li123el0:e3:XXXe
+    bdecode: { foo => ["bar", "stub"], number => 123 }
+
+=head1 Description
+
+Taken from L<BEP03|Net::BitTorrent::Protocol::BEP03/"The connectivity is as follows">...
 
 =over
 
-=item C<:all>
+=item * Strings are length-prefixed base ten followed by a colon and the
+string. For example C<4:spam> corresponds to 'C<spam>'.
 
-You get the two Bencode-related functions: L<bencode|/"bencode ( ARGS )">
-and L<bdecode|/"bdecode ( STRING )">.  For more on Bencoding, see the
-BitTorrent Protocol documentation.
+=item * Integers are represented by an 'i' followed by the number in base
+C<10> followed by an 'e'. For example C<i3e> corresponds to C<3> and C<i-3e>
+corresponds to C<-3>. Integers have no size limitation. C<i-0e> is invalid.
+All encodings with a leading zero, such as C<i03e>, are invalid, other than
+C<i0e>, which of course corresponds to C<0>.
+
+=item * Lists are encoded as an 'l' followed by their elements (also bencoded)
+followed by an 'e'. For example C<l4:spam4:eggse> corresponds to
+C<['spam', 'eggs']>.
+
+=item * Dictionaries are encoded as a 'd' followed by a list of alternating
+keys and their corresponding values followed by an 'e'. For example,
+C<d3:cow3:moo4:spam4:eggse> corresponds to C<{'cow': 'moo', 'spam': 'eggs'}>
+and C<d4:spaml1:a1:bee> corresponds to C<{'spam': ['a', 'b']}>. Keys must be
+strings and appear in sorted order (sorted as raw strings, not alphanumerics).
 
 =back
 
+=head2 Importing From Net::BitTorrent::Protocol::BEP03::Bencode
+
+By default, nothing is exported.
+
+You may import any of the included functions by name or import everything with
+the C<:all> tag.
+
 =head1 Functions
 
-=over
+In. Out. That's all there is.
 
-=item C<bencode ( ARGS )>
+=head2 C<< $string = B<bencode>( $value ) >>
 
-Expects a single value (basic scalar, array reference, or hash reference) and
-returns a single string.
+Expects a single C<$value> (which may be a scalar, list, or hash reference)
+and returns a single C<$string> value.
 
 Bencoding is the BitTorrent protocol's basic serialization and data
 organization format. The specification supports integers, lists (arrays),
 dictionaries (hashes), and byte strings.
 
-=item C<bdecode ( STRING )>
+=head2 C<< $data = B<bdecode>( $string ) >>
 
-Expects a bencoded string.  The return value depends on the type of data
-contained in the string.
+Expects a bencoded C<$string>. The return value depends on the type of data
+contained in the C<$string>.
 
-=back
+=head2 C<< ( $data, $leftovers ) = B<bdecode>( $string, 1 ) >>
+
+Expects a bencoded C<$string>. The return value depends on the type of data
+contained in the C<$string>.
+
+This form returns a second value which is any extra data found in the original
+C<$string>. Unless your input is malformed, C<$leftovers> will be an empty
+string.
 
 =head1 See Also
 
 =over
 
-=item The BitTorrent Protocol Specification
-
-http://bittorrent.org/beps/bep_0003.html#the-connectivity-is-as-follows
+=item L<The BitTorrent Protocol Specification|http://bittorrent.org/beps/bep_0003.html#the-connectivity-is-as-follows>
 
 =item Other Bencode related modules:
 
@@ -139,15 +167,41 @@ http://bittorrent.org/beps/bep_0003.html#the-connectivity-is-as-follows
 
 =back
 
+=head1 TODO
+
+=over
+
+=item I would like to benchmark my versions of bencode and bdecode against the
+L<other public versions|/"See Also"> written in Perl.
+
+=back
+
 =head1 Author
+
+=begin :html
+
+L<Sanko Robinson|http://sankorobinson.com/>
+<L<sanko@cpan.org|mailto://sanko@cpan.org>> -
+L<http://sankorobinson.com/|http://sankorobinson.com/>
+
+CPAN ID: L<SANKO|http://search.cpan.org/~sanko>
+
+=end :html
+
+=begin :text
 
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
 
+=end :text
+
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+=for :html Copyright (C) 2008-2010 by Sanko Robinson
+<L<sanko@cpan.org|mailto://sanko@cpan.org>>
+
+=for :text Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of
