@@ -32,7 +32,9 @@ lib/Net/BitTorrent/Protocol/BEP05/RoutingTable.pm
 lib/Net/BitTorrent/Protocol/BEP05/Tracker.pm
 lib/Net/BitTorrent/Protocol/BEP07.pod
 lib/Net/BitTorrent/Protocol/BEP07/Compact.pm
+lib/Net/BitTorrent/Protocol/BEP12.pod
 lib/Net/BitTorrent/Protocol/BEP12/MultiTracker.pm
+lib/Net/BitTorrent/Protocol/BEP15.pod
 lib/Net/BitTorrent/Protocol/BEP15/Tracker/UDP.pm
 lib/Net/BitTorrent/Protocol/BEP23.pod
 lib/Net/BitTorrent/Protocol/BEP23/Compact.pm
