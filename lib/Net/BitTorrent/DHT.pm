@@ -135,7 +135,7 @@ package Net::BitTorrent::DHT;
         my ($s, $n) = @_;
         require Net::BitTorrent::Protocol::BEP05::Node;
         my $sockaddr = sockaddr($n->[0], $n->[1]);
-        next if !$sockaddr;
+        return if !$sockaddr;
         $n
             = blessed $n ? $n
             : Net::BitTorrent::Protocol::BEP05::Node->new(

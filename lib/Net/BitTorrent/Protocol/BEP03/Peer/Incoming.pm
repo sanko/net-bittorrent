@@ -88,7 +88,7 @@
             Moose::Util::TypeConstraints::find_type_constraint(
                                                 'NBTypes::Torrent::Infohash');
         $info_hash = $infohash_constraint->coerce($info_hash);
-        $s->_set_support_extensions(ord(substr($reserved, 5, 1)) & 0x10);
+        $s->_set_support_extensions if (ord(substr($reserved, 5, 1)) & 0x10);
         $s->_set_peer_id($peer_id);
         my $t = $s->client->torrent($info_hash);
         return

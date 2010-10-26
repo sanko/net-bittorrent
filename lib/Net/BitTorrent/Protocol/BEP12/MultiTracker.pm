@@ -14,12 +14,14 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
                        required => 1
     );
     has 'tiers' => (
-                traits  => ['Array'],
-                isa     => 'NBTypes::Tracker::Tier',
-                is      => 'rw',
-                coerce  => 1,
-                default => sub { [] },
-                handles => {_push_tier => 'push', _shuffle_tiers => 'shuffle'}
+        traits => ['Array'],
+        isa    => 'ArrayRef[NBTypes::Tracker::Tier]',
+        is     => 'rw',
+
+        #coerce  => 1,
+        default => sub { [] },
+        clearer => '_clear_tiers',
+        handles => {_push_tier => 'push', _shuffle_tiers => 'shuffle'}
     );
     my $tier_constraint;
 

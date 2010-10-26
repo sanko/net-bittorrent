@@ -34,26 +34,26 @@ package Net::BitTorrent::Protocol::BEP03::Metadata;
     );
 
     sub _trigger_metadata {   # Subclasses should override this and call super
-        my ($self, $new_value, $old_value) = @_;
-        if (@_ == 2) {        # parse trackers
-            $self->tracker->add_tier([$new_value->{'announce'}])
-                if $new_value->{'announce'};
-            if (defined $new_value->{'announce-list'}) {
-                $self->tracker->add_tier($_)
-                    for @{$new_value->{'announce-list'}};
-            }
+        my ($s, $n, $o) = @_;
+        if (@_ == 2) {
 
-            #
-            if ($_[0]->metadata->{'info'}{'private'}) {
+            # May have changed
+            $s->tracker->_clear_tiers;
+            if ($s->metadata->{'info'}{'private'}) {
                 require Net::BitTorrent::Protocol::BEP27::Private::Metadata;
                 Net::BitTorrent::Protocol::BEP27::Private::Metadata->meta
-                    ->apply($_[0]);
+                    ->apply($s);
             }
-            return 1;
+        }
+
+        # parse trackers
+        $s->tracker->add_tier([$n->{'announce'}]) if $n->{'announce'};
+        if (defined $n->{'announce-list'}) {
+            $s->tracker->add_tier($_) for @{$n->{'announce-list'}};
         }
 
         #warn 'Someone changed the metadata!';
-        $self->_reset_info_hash;
+        $s->_reset_info_hash;
 
         #my $info_hash = $self->info_hash;
         #$self->_reset_info_hash;

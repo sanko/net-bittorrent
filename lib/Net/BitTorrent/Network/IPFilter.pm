@@ -3,33 +3,33 @@ package Net::BitTorrent::Network::IPFilter;
     use Moose;
     use Moose::Util::TypeConstraints;
     use 5.010.000;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 6; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0.074; our $MINOR = 1; our $DEV = 6; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../';
     use Net::BitTorrent::Network::Utility qw[:paddr];
     sub BUILD { 1; }
     has 'rules' => (
-          isa => 'ArrayRef[Net::BitTorrent::Network::IPFilter::Rule]' => is =>
-              'ro',
-          traits   => ['Array'],
-          init_arg => undef,
-          default  => sub { [] },
-          handles  => {
-                      add_rule            => 'push',
-                      count_rules         => 'count',
-                      is_empty            => 'is_empty',
-                      get_rule            => 'get',
-                      first_rule          => 'first',
-                      grep_rules          => 'grep',
-                      map_rules           => 'map',
-                      sort_rules          => 'sort',
-                      sort_rules_in_place => 'sort_in_place',
-                      shuffle_rules       => 'shuffle',
-                      clear_rules         => 'clear',
-                      insert_rule         => 'insert',
-                      delete_rule         => 'delete',
-                      push_rule           => 'push',
-                      pop_rule            => 'pop'
-          }
+                  isa => 'ArrayRef[Net::BitTorrent::Network::IPFilter::Rule]',
+                  is  => 'ro',
+                  traits   => ['Array'],
+                  init_arg => undef,
+                  default  => sub { [] },
+                  handles  => {
+                              add_rule            => 'push',
+                              count_rules         => 'count',
+                              is_empty            => 'is_empty',
+                              get_rule            => 'get',
+                              first_rule          => 'first',
+                              grep_rules          => 'grep',
+                              map_rules           => 'map',
+                              sort_rules          => 'sort',
+                              sort_rules_in_place => 'sort_in_place',
+                              shuffle_rules       => 'shuffle',
+                              clear_rules         => 'clear',
+                              insert_rule         => 'insert',
+                              delete_rule         => 'delete',
+                              push_rule           => 'push',
+                              pop_rule            => 'pop'
+                  }
     );
     around 'add_rule' => sub {
         my ($c, $s, $l, $u, $a, $d) = @_;
@@ -118,8 +118,8 @@ Warning:
 The example above will block any connection to the specified IP-range. This
 may reduce the number of sources for downloads.
 
-At the moment only one access levels are implemented. A value below 127 means
-that any connection-attempt is denied.
+At the moment only one access levels are implemented. A value at or below
+C<127> means that any connection-attempt is denied.
 
 =head2 Notes
 
@@ -178,7 +178,9 @@ Stores the in-memory ipfilter to disk.
 
 Indicates whether or not C<$ip> is banned. If so, the
 L<rule|Net::BitTorrent::Network::IPFilter::Rule> in which it was found is
-returned. If not, a false value is returned.
+returned. If not, a false value is returned. Currently, rules with an
+L<< access_level|Net::BitTorrent::Network::IPFilter::Rule/"$filter->B<access_level>( )" >>
+at or below C<127> are considered banned.
 
 =head1 IPv6 Support
 
@@ -192,9 +194,23 @@ L<Emule Project's ipfilter.dat documentation|http://www.emule-project.net/home/p
 
 =head1 Author
 
+=begin :html
+
+L<Sanko Robinson|http://sankorobinson.com/>
+<L<sanko@cpan.org|mailto://sanko@cpan.org>> -
+L<http://sankorobinson.com/|http://sankorobinson.com/>
+
+CPAN ID: L<SANKO|http://search.cpan.org/~sanko>
+
+=end :html
+
+=begin :text
+
 Sanko Robinson <sanko@cpan.org> - http://sankorobinson.com/
 
 CPAN ID: SANKO
+
+=end :text
 
 =head1 License and Legal
 
