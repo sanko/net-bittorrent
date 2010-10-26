@@ -30,7 +30,7 @@ package Net::BitTorrent::Torrent::Generator;
                                  },
                                  $s->_files
                 );
-                \@files;
+                [sort @files];
             },
             _count_files => sub { scalar @{shift->files} },
             total_size   => sub {
