@@ -1,11 +1,10 @@
+package Net::BitTorrent::Protocol::BEP03::Peer;
 {
-
-    package Net::BitTorrent::Protocol::BEP03::Peer;
     use Moose;
     use lib '../../../../../lib';
     extends 'Net::BitTorrent::Peer';
     use Net::BitTorrent::Protocol::BEP03::Packets qw[:all];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 10; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     sub _build_reserved {
         my ($self) = @_;
@@ -17,7 +16,7 @@
 
     sub _send_handshake {
         my $s = shift;
-        confess 'torrent is undefined' if !$s->_has_torrent;
+        confess 'torrent is undefined' if !$s->has_torrent;
         my $packet = build_handshake($s->_build_reserved,
                                      $s->torrent->info_hash,
                                      $s->client->peer_id
@@ -29,24 +28,47 @@
         #1;
     }
     my %_packet_dispatch;
-    sub _handle_packet_handshake  { die '...'; }
-    sub _handle_packet_choke      { shift->_set_remote_choked }
+    sub _handle_packet_handshake { ...; }
+    sub _handle_packet_keepalive {;}        # Noop
+
+    sub _handle_packet_choke {
+        my $s = shift;
+        $s->_set_remote_choked;
+        for my $b (@{$s->requests}) {
+            $s->_delete_request($b);
+            $b->clear_peer;
+        }
+    }
     sub _handle_packet_unchoke    { shift->_unset_remote_choked }
     sub _handle_packet_interested { shift->_set_remote_interested }
+    after '_set_remote_choked' =>
+        sub { shift->_delete_quest('request_block') };
     after '_unset_remote_choked' => sub {
         my $s = shift;
-        return if $s->_has_quest('request_block');
+        return if $s->has_quest('request_block');
         require Scalar::Util;
         Scalar::Util::weaken $s;
-        my $max_requests = 4;    # XXX - max_requests attribute
         $s->_add_quest(
             'request_block',
             AE::timer(
-                3, 10,
+                3, 5,
                 sub {
-                    return if !defined $s;
-                    return if !$s->_wanted_pieces->Norm;
-                    for ($s->_count_requests .. $max_requests) {
+                    $s // return;
+                    my $now_requests = scalar $s->_queued_requests;
+
+                    #warn sprintf '...now %d (%d) with %s', $now_requests,
+                    #    $s->_count_requests, $s->peer_id;
+                    for (
+                        $now_requests .. (    # XXX - max_requests attribute
+                              $now_requests >= 12 ? 15
+                            : $now_requests >= 8  ? 12
+                            : $now_requests >= 5  ? 8
+                            : $now_requests >= 3  ? 5
+                            : 3
+                        )
+                        )
+                    {   $s // last;
+                        $s->_wanted_pieces->Norm || last;
                         my $piece = $s->torrent->select_piece($s);
                         next if !$piece;
                         my $b = $piece->_first_unassigned_block();
@@ -71,7 +93,7 @@
              message  => sprintf
                  '%s:%d (%s) has piece #%d and now claims to have %d out of %d pieces (%3.2f%%) of %s',
              $s->host, $s->port,
-             $s->_has_peer_id ? $s->peer_id : '[Unknown peer]',
+             $s->has_peer_id ? $s->peer_id : '[Unknown peer]',
              $i,
              $have, $seed, $perc,
              $s->torrent->info_hash->to_Hex
@@ -91,7 +113,7 @@
              message  => sprintf
                  '%s:%d (%s) claims to have %d out of %d pieces (%3.2f%%) of %s',
              $s->host, $s->port,
-             $s->_has_peer_id ? $s->peer_id : '[Unknown peer]',
+             $s->has_peer_id ? $s->peer_id : '[Unknown peer]',
              $have, $seed, $perc,
              $s->torrent->info_hash->to_Hex
             }
@@ -99,6 +121,20 @@
     }
     after qw[_handle_packet_bitfield _handle_packet_have] => sub {
         shift->_check_interest;
+    };
+    after '_handle_packet_handshake' => sub {
+        my $s = shift;
+        $s->_add_quest(
+            'send_keepalive',
+            AE::timer(
+                30,
+                5 * 60,
+                sub {
+                    return if !defined $s;
+                    $s->_send_keepalive;
+                }
+            )
+        );
     };
 
     sub _handle_packet_request {
@@ -108,8 +144,8 @@
             $s->disconnect(sprintf 'Bad piece index in request: %d > %d',
                            $i, $s->torrent->piece_count)
             if $i > $s->torrent->piece_count;
-        my $_l
-            = ($i == $s->torrent->piece_count - 1)
+        my $_l =
+            ($i == $s->torrent->piece_count - 1)
             ? $s->torrent->size % $s->torrent->piece_length
             : $s->torrent->piece_length;
         return
@@ -144,26 +180,41 @@
                     return $s->_send_piece(@$request);
                 }
             )
-        ) if !$s->_has_quest('fill_remote_requests');
+        ) if !$s->has_quest('fill_remote_requests');
     }
 
     sub _handle_packet_piece {
         my ($s, $p) = @_;
+        $p // return;
         my ($i, $o, $d) = @$p;
+        warn sprintf 'peer sent i:%d o:%d l:%d', $i, $o, length $d;
         my $req = $s->_find_request($i, $o, length $d);
-        return $s->disconnect('Peer sent us a block we were not asking for.')
-            if !$req;
+        $req //
+        return $s->disconnect('Peer sent us a block we were not asking for')
+            ;
         $req->_write($d);
         $s->_delete_request($req);
-        if (!$req->piece->_first_incompete_block) {
-            $s->torrent->piece_selector->_del_working_piece($req->index)
-                if $s->torrent->hash_check($req->index);
+        return if $req->piece->_first_incompete_block;
+        my $piece =
+            $s->torrent->piece_selector->_get_working_piece($req->index);
+        $_->has_peer && $_->peer->_delete_request($_)
+            for $piece->_complete_blocks;
+
+        if ($s->torrent->hash_check($req->index)) {
+
+            # XXX - High five everyone involved
+            $s->torrent->piece_selector->_del_working_piece($p);
+        }
+        else {
+
+            # XXX - Kick everyone involved
+            $piece->clear_blocks;    # Try again
         }
     }
 
     sub _handle_packet_ext_protocol {
         my ($s, $pid, $p) = @_;
-        if ($pid == 0) {    # Setup/handshake
+        if ($pid == 0) {             # Setup/handshake
             if (defined $p->{'p'} && $s->client->has_dht) {
                 $s->client->dht->ipv4_add_node(
                             [join('.', unpack 'C*', $p->{'ipv4'}), $p->{'p'}])
@@ -178,11 +229,79 @@
         return 1;
     }
 
+    sub _handle_packet_cancel {
+        my ($s, $r) = @_;
+        my ($i, $o, $l) = @$r;
+        $s->_delete_remote_request($r);
+
+        #return
+        #    $s->disconnect(sprintf 'Bad piece index in request: %d > %d',
+        #                   $i, $s->torrent->piece_count)
+        #    if $i > $s->torrent->piece_count;
+    }
+
+    sub _handle_packet_reject {
+        my ($s, $r) = @_;
+        my ($i, $o, $l) = @$r;
+        warn sprintf 'peer rejected i:%d o:%d l:%d', $i, $o, $l;
+        my $p = $s->torrent->piece_selector->_get_working_piece($i);
+        $p // return $s->disconnect(
+                             'Peer rejected a block we were not asking for.');
+        my $b = $p->_get_block($o, $l);
+        $b // return $s->disconnect(
+                               'Peer rejected a block which does not exist.');
+        $b->has_peer
+            || return $s->disconnect(
+                  'Peer sent us a block we have yet to request from anyone.');
+        $b->peer->peer_id eq $s->peer_id
+            || return $s->disconnect(
+                   'Peer rejected a block we asked someone else to give us.');
+        $s->_delete_request($b);
+        $b->clear_peer;
+
+        #return
+        #    $s->disconnect(sprintf 'Bad piece index in request: %d > %d',
+        #                   $i, $s->torrent->piece_count)
+        #    if $i > $s->torrent->piece_count;
+    }
+    sub _handle_packet_have_all  { shift->_set_seed }
+    sub _handle_packet_have_none { shift->_unset_seed }
+
+    #after qr[^_handle_packet_[^(keepalive|reject|choke)]+$]
+    after [qw[_handle_packet_piece _handle_packet_request]] => sub {
+        my $s = shift;
+        $s->clear_timeout;
+        $s->timeout;
+    };
+    after 'BUILDALL' => sub { shift->clear_timeout };
+    has 'timeout' => (isa      => 'Ref',
+                      is       => 'ro',
+                      init_arg => undef,
+                      clearer  => 'clear_timeout',
+                      builder  => '_build_timeout',
+                      required => 1
+    );
+
+    sub _build_timeout {
+        my $s = shift;
+        require AnyEvent;
+        require Scalar::Util;
+        Scalar::Util::weaken $s;
+        AE::timer(
+            10 * 60, 0,
+            sub {
+                $s // return;
+                $s->disconnect('Peer disconnected due to inactivity');
+            }
+        );
+    }
+
     sub _handle_packet {
         my ($s, $p) = @_;
-        return if $s->local_connection && !$s->_has_torrent;
-        return if !$s->_has_handle;
-        %_packet_dispatch = ($HANDSHAKE   => 'handshake',
+        return if $s->local_connection && !$s->has_torrent;
+        return if !$s->has_handle;
+        %_packet_dispatch = ($KEEPALIVE   => 'keepalive',
+                             $HANDSHAKE   => 'handshake',
                              $CHOKE       => 'choke',
                              $UNCHOKE     => 'unchoke',
                              $INTERESTED  => 'interested',
@@ -190,33 +309,38 @@
                              $BITFIELD    => 'bitfield',
                              $REQUEST     => 'request',
                              $PIECE       => 'piece',
-                             $EXTPROTOCOL => 'ext_protocol'
+                             $EXTPROTOCOL => 'ext_protocol',
+                             $REJECT      => 'reject',
+                             $HAVE_ALL    => 'have_all',
+                             $HAVE_NONE   => 'have_none'
         ) if !keys %_packet_dispatch;
         $s->trigger_peer_packet_in(
-                         {peer     => $s,
-                          packet   => $p,
-                          severity => 'debug',
-                          message  => sprintf 'Recieved %s packet from %s',
-                          $_packet_dispatch{$p->{'type'}} // 'unknown packet',
-                          $s->_has_peer_id ? $s->peer_id : '[Unknown peer]'
-                         }
+                       {peer     => $s,
+                        packet   => $p,
+                        severity => 'debug',
+                        message  => sprintf 'Recieved %s packet from %s',
+                        $_packet_dispatch{$p->{'type'}} // 'unknown packet ( '
+                            . ($p->{'type'} // $p->{'payload'}) . ' )',
+                        $s->has_peer_id ? $s->peer_id : '[Unknown peer]'
+                       }
         );
-        my $code
-            = $s->can('_handle_packet_' . $_packet_dispatch{$p->{'type'}});
+        my $code =
+            $s->can('_handle_packet_' . $_packet_dispatch{$p->{'type'}});
         return $code->($s, $p->{'payload'}) if $code;
         return if !eval 'require Data::Dump;';
-        ddx $p;
+        Data::Dump::ddx($p);
     }
     override 'disconnect' => sub {
         my ($s) = @_;
-        if (!$s->_handle->destroyed) {
-            $s->_handle->push_shutdown;
-            $s->_handle->destroy;
+        if (!$s->handle->destroyed) {
+            $s->handle->push_shutdown if defined $s->handle->{'fh'};
+            $s->handle->destroy;
         }
         super;
     };
 
     # Outgoing packets
+    sub _send_keepalive      { shift->push_write(build_keepalive()) }
     sub _send_interested     { shift->push_write(build_interested()) }
     sub _send_not_interested { shift->push_write(build_not_interested()) }
     sub _send_have           { shift->push_write(build_have(shift)) }
@@ -232,24 +356,34 @@
         my ($s, $b) = @_;
         return if $s->remote_choked;
 
-        #warn sprintf 'Sending request for %d:%d:%d to %s', $b->index,
-        #    $b->offset, $b->length, $s->peer_id;
+        warn sprintf 'Sending request for i:%d o:%d l:%d to %s', $b->index,
+            $b->offset, $b->length, $s->peer_id;
         return $s->push_write(
                             build_request($b->index, $b->offset, $b->length));
+    }
+
+    sub _send_cancel {
+        my ($s, $b) = @_;
+        return if $s->remote_choked;
+
+        warn sprintf 'Sending cancel for i:%d o:%d l:%d to %s', $b->index,
+            $b->offset, $b->length, $s->peer_id;
+        return $s->push_write(
+                             build_cancel($b->index, $b->offset, $b->length));
     }
 
     sub _send_piece {
         my ($s, $i, $o, $l) = @_;
         return if $s->choked;
 
-        #warn sprintf 'Sending block %d:%d:%d to %s', $i, $o, $l, $s->peer_id;
+        warn sprintf 'Sending block i:%d o:%d l:%d to %s', $i, $o, $l, $s->peer_id;
         return $s->push_write(
                       build_piece($i, $o, $l, $s->torrent->read($i, $o, $l)));
     }
+    sub DEMOLISH { $_->clear_peer for @{shift->requests} }
 
     #
     no Moose;
-    no Moose::Util::TypeConstraints;
     __PACKAGE__->meta->make_immutable
 }
 1;

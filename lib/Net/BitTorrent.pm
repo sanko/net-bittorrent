@@ -3,7 +3,7 @@ package Net::BitTorrent;
     use 5.010;
     use Moose;
     use Moose::Util::TypeConstraints;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 7; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use AnyEvent;
     use lib '../../lib';
     use Net::BitTorrent::Types qw[:client];
@@ -11,7 +11,15 @@ package Net::BitTorrent;
 
     #
     sub timer { shift; AnyEvent->timer(@_) }
-    sub run { AnyEvent->condvar->recv }
+    sub run { shift->recv }
+
+    #
+    has 'condvar' => (isa        => 'Ref',                 # XXX - actual
+                      is         => 'ro',
+                      lazy_build => 1,
+                      handles    => [qw[wait recv send]]
+    );
+    sub _build_condvar { return AnyEvent->condvar }
 
     #
     has 'peer_id' => (isa        => 'NBTypes::Client::PeerID',
@@ -72,7 +80,7 @@ package Net::BitTorrent;
         return
                blessed $torrent
             && $code->($self, $torrent)
-            && $torrent->client($self) ? $torrent : ();
+            && $torrent->_set_client($self) ? $torrent : ();
     };
     my $info_hash_constraint;
     around 'torrent' => sub ($) {
@@ -86,7 +94,7 @@ package Net::BitTorrent;
             $torrent = $self->find_torrent(
                 sub {
 
-                    #$_->_has_info_hash &&
+                    #$_->has_info_hash &&
                     $_->info_hash->Lexicompare($info_hash) == 0;
                 }
             );
@@ -129,39 +137,36 @@ package Net::BitTorrent;
         #trigger => sub {...}
     );
     {
-        my %_sock_types = (4 => '0.0.0.0', 6 => '::');
         for my $prot (qw[tcp udp]) {
-            for my $ipv (keys %_sock_types) {
+            for my $ipv (4, 6) {
                 has $prot
                     . $ipv => (is         => 'ro',
                                init_arg   => undef,
                                isa        => 'Maybe[Object]',
                                lazy_build => 1,
-                               writer     => '_set_' . $prot . $ipv,
-                               predicate  => '_has_' . $prot . $ipv
+                               writer     => '_set_' . $prot . $ipv
                     );
                 has $prot 
                     . $ipv
-                    . '_sock' => (
-                                 is         => 'ro',
-                                 init_arg   => undef,
-                                 isa        => 'GlobRef',
-                                 lazy_build => 1,
-                                 weak_ref   => 1,
-                                 writer => '_set_' . $prot . $ipv . '_sock',
-                                 predicate => '_has_' . $prot . $ipv . '_sock'
+                    . '_sock' => (is         => 'ro',
+                                  init_arg   => undef,
+                                  isa        => 'GlobRef',
+                                  lazy_build => 1,
+                                  weak_ref   => 1,
+                                  writer => '_set_' . $prot . $ipv . '_sock'
                     );
                 has $prot 
                     . $ipv
-                    . '_host' => (
-                                 is      => 'ro',
-                                 isa     => 'Str',
-                                 default => $_sock_types{$ipv},
-                                 writer  => '_set_' . $prot . $ipv . '_host',
-                                 predicate => '_has_' . $prot . $ipv . '_host'
+                    . '_host' => (is         => 'ro',
+                                  isa        => 'Str',
+                                  lazy_build => 1,
+                                  builder    => '_build_' . $ipv . '_host',
+                                  writer => '_set_' . $prot . $ipv . '_host'
                     );
             }
         }
+        sub _build_4_host {'0.0.0.0'}
+        sub _build_6_host {'::'}
     }
     after 'BUILDALL' => sub { $_[0]->$_() for qw[tcp6 tcp4 udp4 udp6] };
 
@@ -376,11 +381,21 @@ package Net::BitTorrent;
         $peer = Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
             client => $self,
             handle => AnyEvent::Handle::Throttle->new(
-                fh     => $peer,
+                fh       => $peer,
+                on_error => sub {
+                    return if !defined $peer;
+                    my ($hdl, $fatal, $msg) = @_;
+
+                    #$peer->handle->destroy;
+                    $peer->disconnect('Socket error: ' . $msg) if $fatal;
+                },
                 on_eof => sub {
                     return if !defined $peer;
-                    $peer->_handle->push_shutdown;
-                    $peer->_handle->destroy;
+                    $peer->handle->push_shutdown
+                        if defined $peer->handle->{'fh'};
+                    $peer->handle->destroy;
+                    $peer->disconnect(
+                                    'Connection closed by remote connection');
                 }
             )
         );
@@ -416,11 +431,21 @@ package Net::BitTorrent;
         $peer = Net::BitTorrent::Protocol::BEP03::Peer::Incoming->new(
             client => $self,
             handle => AnyEvent::Handle::Throttle->new(
-                fh     => $peer,
+                fh       => $peer,
+                on_error => sub {
+                    return if !defined $peer;
+                    my ($hdl, $fatal, $msg) = @_;
+
+                    #$s->handle->destroy;
+                    $peer->disconnect('Socket error: ' . $msg) if $fatal;
+                },
                 on_eof => sub {
                     return if !defined $peer;
-                    $peer->_handle->push_shutdown;
-                    $peer->_handle->destroy;
+                    $peer->handle->push_shutdown
+                        if defined $peer->handle->{'fh'};
+                    $peer->handle->destroy;
+                    $peer->disconnect(
+                                    'Connection closed by remote connection');
                 }
             )
         );
@@ -475,8 +500,8 @@ package Net::BitTorrent;
 
     #
     has 'max_peers' => (isa     => 'Int',
-                        is      => 'rw',
-                        default => '50'
+                        is      => 'ro',
+                        default => 50
     );
     has '_peers' => (
         is      => 'HashRef[Net::BitTorrent::Peer]',    # by creation id
@@ -505,7 +530,7 @@ package Net::BitTorrent;
             sub {1}
         }
         has "on_$_" => (isa        => 'CodeRef',
-                        is         => 'rw',
+                        is         => 'ro',
                         traits     => ['Code'],
                         handles    => {"trigger_$_" => 'execute_method'},
                         lazy_build => 1,

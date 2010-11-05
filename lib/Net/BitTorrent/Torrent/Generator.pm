@@ -2,7 +2,7 @@ package Net::BitTorrent::Torrent::Generator;
 {
     use Moose;
     use Moose::Util::TypeConstraints;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../';
     use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
     use Net::BitTorrent::Types qw[:all];
@@ -40,24 +40,24 @@ package Net::BitTorrent::Torrent::Generator;
                 }
         }
     );
-    has 'name' => (is        => 'ro',
-                   isa       => 'Str',
-                   writer    => '_set_name',
-                   predicate => '_has_name'
+    has 'name' => (is         => 'ro',
+                   isa        => 'Str',
+                   writer     => '_set_name',
+                   lazy_build => 1
     );
-    has 'announce' => (is        => 'ro',
-                       isa       => 'Str',
-                       writer    => '_set_announce',
-                       predicate => '_has_announce'
+    has 'announce' => (is         => 'ro',
+                       isa        => 'Str',
+                       writer     => '_set_announce',
+                       lazy_build => 1,
     );
     has 'announce_list' => (is      => 'ro',
                             isa     => 'ArrayRef[ArrayRef[Str]]',
                             default => sub { [] },
                             traits  => ['Array'],
-                            handles => {_add_tier          => 'push',
-                                        _get_tier          => 'get',
-                                        _has_announce_list => 'count',
-                                        _del_tier          => 'delete'
+                            handles => {_add_tier         => 'push',
+                                        _get_tier         => 'get',
+                                        has_announce_list => 'count',
+                                        _del_tier         => 'delete'
                             }
     );
     has 'private' => (is      => 'ro',
@@ -68,17 +68,20 @@ package Net::BitTorrent::Torrent::Generator;
                                   '_unset_private' => 'unset'
                       }
     );
-    has 'comment' => (is        => 'ro',
-                      isa       => 'Str',
-                      predicate => '_has_comment',
-                      writer    => '_set_comment'
+    has 'comment' => (is         => 'ro',
+                      isa        => 'Maybe[Str]',
+                      lazy_build => 1,
+                      writer     => '_set_comment',
+                      builder    => 'noop'
     );
-    has 'merge' => (is        => 'ro',
-                    isa       => 'NBTypes::Bdecode',
-                    coerce    => 1,
-                    predicate => '_has_merge',
-                    writer    => '_set_merge'
+    has 'merge' => (is         => 'ro',
+                    isa        => 'NBTypes::Bdecode',
+                    coerce     => 1,
+                    lazy_build => 1,
+                    writer     => '_set_merge',
+                    builder    => 'noop'
     );
+    sub noop { }
     has 'piece_length' => (
         is      => 'ro',
         isa     => 'Int',
@@ -136,7 +139,7 @@ package Net::BitTorrent::Torrent::Generator;
     sub _build_metadata {
         my ($s, $p) = @_;
         my %data = (
-            ($s->_has_merge ? $s->merge : ()),
+            ($s->has_merge ? $s->merge : ()),
             info => {
                 'piece length' => $s->piece_length,
                 pieces         => '',                 # Filled later
@@ -174,7 +177,7 @@ package Net::BitTorrent::Torrent::Generator;
                                      };
                                      } @{$s->files}
                              ],
-                             name => $s->_has_name ? $s->name : $base
+                             name => $s->has_name ? $s->name : $base
                          );
                          }
                          ->()
@@ -185,13 +188,13 @@ package Net::BitTorrent::Torrent::Generator;
                  )
                 )
             },
-            ($s->_has_announce ? (announce => $s->announce) : ()),
-            ($s->_has_announce_list ? ('announce-list' => $s->announce_list)
+            ($s->has_announce ? (announce => $s->announce) : ()),
+            ($s->has_announce_list ? ('announce-list' => $s->announce_list)
              : ()
             ),
             'creation date' => time,
             'created by'    => __PACKAGE__ . ' v' . $VERSION,
-            ($s->_has_comment ? (comment => $s->comment)
+            ($s->has_comment ? (comment => $s->comment)
              : ()
             )
         );

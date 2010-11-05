@@ -5,7 +5,7 @@ use AnyEvent;
 use lib '../lib';
 use Net::BitTorrent::DHT;
 $|++;
-our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 5; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
 # Standalone node with user-defined port and boot_nodes
 my $dht = Net::BitTorrent::DHT->new(
@@ -15,10 +15,11 @@ my $dht = Net::BitTorrent::DHT->new(
 );
 
 # Two 'quests' for peers (these are two popular Ubuntu swarms)
+# See http://torrent.ubuntu.com:6969/ for updated list
 my $quest_A
-    = $dht->get_peers('3e16157f0879eb43e9e51f45d485feff90a77283', \&dht_cb);
+    = $dht->get_peers('bcf2e587afd4d3b1bdd8ece5150d9fb4d2958af4', \&dht_cb);
 my $quest_B
-    = $dht->get_peers('a1425e0d6630336cdd9fb320f3fff1030098975a', \&dht_cb);
+    = $dht->get_peers('cdc844a364ae2417ea204ea4840129b2298e7dd4', \&dht_cb);
 
 # Let's stay up to date with what's going on in the routing table
 my $timer = AE::timer 60 * 2, 60 * 5,

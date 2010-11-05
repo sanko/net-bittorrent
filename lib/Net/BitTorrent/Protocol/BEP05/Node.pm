@@ -7,7 +7,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     use Net::BitTorrent::Types qw[NBTypes::DHT::NodeID];
     use Net::BitTorrent::Protocol::BEP05::Packets qw[:all];
     use 5.010.000;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 4; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     sub BUILD {1}
@@ -33,13 +33,12 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                                '_set_announce_peer_token_' . $dir => 'set',
                                '_get_announce_peer_token_' . $dir => 'get',
                                '_del_announce_peer_token_' . $dir => 'delete',
-                               '_has_announce_peer_token_' . $dir => 'defined'
+                               'has_announce_peer_token_' . $dir  => 'defined'
                        },
                        default => sub { {} }
             );
     }
-    has 'v' =>
-        (isa => 'Str', is => 'ro', writer => '_v', predicate => '_has_v');
+    has 'v' => (isa => 'Str', is => 'ro', writer => '_v', lazy_build => 1,);
     has 'bucket' => (isa       => 'Net::BitTorrent::Protocol::BEP05::Bucket',
                      is        => 'ro',
                      writer    => 'assign_bucket',
@@ -108,34 +107,47 @@ package Net::BitTorrent::Protocol::BEP05::Node;
         Scalar::Util::weaken $self;
         AE::timer(60 * 10, 60 * 10, sub { $self->ping if $self });
     }
-    has '_seen' => (isa => 'Str', is => 'rw', predicate => '_has_seen');
-    sub touch { shift->_seen(time) }
-    sub seen  { return time - shift->_seen <= 15 * 60 }
+    has 'seen' => (
+        isa        => 'Int',
+        is         => 'ro',
+        lazy_build => 1,
+        init_arg   => undef,
+        writer     => '_set_seen',
+        handles    => {
+            touch  => sub { shift->_set_seen(time) },
+            active => sub {
+                return time - shift->seen <= 15 * 60;
+                }
+        }
+    );
     for my $type (qw[get_peers find_node announce_peer]) {
         has 'prev_'
-            . $type => (isa     => 'HashRef[Int]',
-                        is      => 'rw',
-                        default => 0,
-                        lazy    => 1,
-                        default => sub { {} },
-                        traits  => ['Hash'],
-                        handles => {'get_prev_' . $type     => 'get',
+            . $type => (isa        => 'HashRef[Int]',
+                        is         => 'ro',
+                        lazy_build => 1,
+                        builder    => '_build_prev_X',
+                        init_arg   => undef,
+                        traits     => ['Hash'],
+                        handles    => {
+                                    'get_prev_' . $type     => 'get',
                                     'set_prev_' . $type     => 'set',
                                     'defined_prev_' . $type => 'defined'
                         }
             );
     }
+    sub _build_prev_X { {} }
     after 'BUILD' => sub {
         my ($self) = @_;
         require Scalar::Util;
         Scalar::Util::weaken $self;
         $self->_ping_timer(AE::timer(rand(30), 0, sub { $self->ping }));
     };
-    has 'birth' => (is       => 'ro',
-                    isa      => 'Int',
-                    init_arg => undef,
-                    default  => sub {time}
+    has 'birth' => (is         => 'ro',
+                    isa        => 'Int',
+                    init_arg   => undef,
+                    lazy_build => 1
     );
+    sub _build_birth {time}
 
     sub ping {
         my ($self) = @_;
@@ -215,7 +227,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
 
     sub _reply_get_peers {
         my ($self, $tid, $id) = @_;
-        if (!$self->_has_announce_peer_token_out($id->to_Hex)) {
+        if (!$self->has_announce_peer_token_out($id->to_Hex)) {
             state $announce_peer_token = 'aa';
             $announce_peer_token = 'aa' if length $announce_peer_token == 3;
             $self->_set_announce_peer_token_out($id->to_Hex,
@@ -251,7 +263,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
             if $self->defined_prev_announce_peer($info_hash->to_Hex)
                 && $self->get_prev_announce_peer($info_hash->to_Hex)
                 > time - (60 * 30);
-        return if !$self->_has_announce_peer_token_in($info_hash->to_Hex);
+        return if !$self->has_announce_peer_token_in($info_hash->to_Hex);
         state $tid = 'a';
         my $packet =
             build_dht_query_announce_peer(
@@ -272,7 +284,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
     sub _reply_announce_peer {
         my ($self, $tid, $info_hash, $a_ref) = @_;
         my $packet;
-        if ((!$self->_has_announce_peer_token_out($info_hash->to_Hex))
+        if ((!$self->has_announce_peer_token_out($info_hash->to_Hex))
             || ($self->_get_announce_peer_token_out($info_hash->to_Hex) ne
                 $a_ref->{'token'})
             )

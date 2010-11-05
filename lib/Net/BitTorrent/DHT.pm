@@ -9,7 +9,7 @@ package Net::BitTorrent::DHT;
     use Net::BitTorrent::Types qw[:dht :addr];
     use Net::BitTorrent::Protocol::BEP05::RoutingTable;
     use 5.10.0;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 3; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     # Stub
     sub BUILD {1}
@@ -24,7 +24,7 @@ package Net::BitTorrent::DHT;
     after 'BUILD' => sub {
         my ($s, $a) = @_;
         return has '+client' =>
-            (handles => qr[^(?:(?:_has_)?udp\d.*?|ip_filter|port)])
+            (handles => qr[^(?:(?:has_)?udp\d.*?|ip_filter|port)])
             if $s->has_client;
         require Moose::Util;
         Moose::Util::apply_all_roles($s,
@@ -88,9 +88,9 @@ package Net::BitTorrent::DHT;
             return $s->routing_table->del_node($node);
         }
         my $sock
-            = $node->ipv6 && $s->_has_udp6_sock ? $s->udp6_sock
-            : $s->_has_udp4_sock ? $s->udp4_sock
-            :                      ();
+            = $node->ipv6 && $s->has_udp6_sock ? $s->udp6_sock
+            : $s->has_udp4_sock ? $s->udp4_sock
+            :                     ();
         my $sent = $sock ? send $sock, $packet, 0, $node->sockaddr : return;
         if ($reply) {
             $s->_inc_send_replies_count;
@@ -343,7 +343,7 @@ package Net::BitTorrent::DHT;
                     $self->_inc_recv_replies_count;
                     $self->_inc_recv_replies_length(length $data);
                     $node->_v($packet->{'v'})
-                        if !$node->_has_v && defined $packet->{'v'};
+                        if !$node->has_v && defined $packet->{'v'};
                     my $req
                         = $node->del_request($packet->{'t'}); # For future ref
                     $req->{'cb'}->($packet, $host, $port)

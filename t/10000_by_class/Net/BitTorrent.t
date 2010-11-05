@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent;
 {
     use strict;
     use warnings;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use Test::More;
     use Test::Moose;
     use parent 'Test::Class';
@@ -190,16 +190,16 @@ package t::10000_by_class::Net::BitTorrent;
             _set_port
             _set_tcp4 _set_tcp6
             _set_udp4 _set_udp6
-            _has_tcp4 _has_tcp6
-            _has_udp4 _has_udp6
+            has_tcp4 has_tcp6
+            has_udp4 has_udp6
             _set_tcp4_sock _set_tcp6_sock
             _set_udp4_sock _set_udp6_sock
-            _has_tcp4_sock _has_tcp6_sock
-            _has_udp4_sock _has_udp6_sock
+            has_tcp4_sock has_tcp6_sock
+            has_udp4_sock has_udp6_sock
             _set_tcp4_host _set_tcp6_host
             _set_udp4_host _set_udp6_host
-            _has_tcp4_host _has_tcp6_host
-            _has_udp4_host _has_udp6_host
+            has_tcp4_host has_tcp6_host
+            has_udp4_host has_udp6_host
             _no_listen_failure _no_listen_success
             _no_peer_bitfield
         ];

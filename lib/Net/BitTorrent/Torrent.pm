@@ -3,7 +3,7 @@ package Net::BitTorrent::Torrent;
     use Moose;
     use Moose::Util::TypeConstraints;
     extends 'Net::BitTorrent::Protocol::BEP03::Metadata';
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../lib';
     use Net::BitTorrent::Types qw[:torrent :file];
     use Fcntl ':flock';
@@ -14,7 +14,7 @@ package Net::BitTorrent::Torrent;
                    isa         => 'NBTypes::File::Path::PreExisting',
                    required    => 1,
                    coerce      => 1,
-                   predicate   => '_has_path',
+                   lazy_build  => 1,
                    initializer => '_initializer_path'
     );
 
@@ -30,21 +30,27 @@ package Net::BitTorrent::Torrent;
         close $FH;
     }
     has 'client' => (
-        isa       => 'Maybe[Net::BitTorrent]',
-        is        => 'rw',
-        weak_ref  => 1,
-        predicate => '_has_client',
-        handles   => {
+        isa        => 'Maybe[Net::BitTorrent]',
+        is         => 'ro',
+        weak_ref   => 1,
+        lazy_build => 1,
+        writer     => '_set_client',
+        handles    => {
             dht                     => 'dht',
             trigger_piece_hash_pass => 'trigger_piece_hash_pass',
             trigger_piece_hash_fail => 'trigger_piece_hash_fail',
             peers                   => sub {
                 my $s = shift;
-                return if !$s->_has_client;
+                return if !$s->has_client;
                 return grep {
-                    $_->_has_torrent
+                    $_->has_torrent
                         && !$_->torrent->info_hash->Compare($s->info_hash)
                 } $s->client->peers;
+            },
+            _count_peers => sub {
+                my $s = shift;
+                return if !$s->has_client;
+                return scalar $s->peers;
                 }
         },
         trigger => sub {
@@ -66,7 +72,7 @@ package Net::BitTorrent::Torrent;
                      },
                      default => sub { {} }
     );
-    has 'error' => (is       => 'rw',
+    has 'error' => (is       => 'ro',
                     isa      => 'Str',
                     init_arg => undef
     );
@@ -177,28 +183,60 @@ package Net::BitTorrent::Torrent;
                          )
         );
         $self->add_quest(
-            'new_peer',
+            'new_peer_dht',
             AE::timer(
-                0, 30,
+                3, 30,
                 sub {
-                    return if !$self;
-                    return if !$self->_has_client;
-                    return if scalar($self->peers) >= $self->max_peers;
-                    my ($source)
-                        = [[$self->get_quest('dht_get_peers'),    'dht'],
-                           [$self->get_quest('tracker_announce'), 'tracker']
-                        ]->[int rand 2];
-                    return if !@{$source->[0][2]};
-                    my $addr = $source->[0][2]->[int rand @{$source->[0][2]}];
+                    $self // return;
+                    return if !$self->has_client;
+                    return if $self->seed;
+                    return if $self->_count_peers >= $self->max_peers;
+                    my ($source) = $self->get_quest('dht_get_peers');
+                    return if !@{$source->[2]};
                     require Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
-                    $self->client->add_peer(
-                        Net::BitTorrent::Protocol::BEP03::Peer::Outgoing->new(
-                                                       torrent => $self,
-                                                       connect => $addr,
-                                                       source => $source->[1],
-                                                       client => $self->client
-                        )
-                    );
+                    my $x = 1;
+                    for ($self->_count_peers .. $self->max_peers) {
+                        $self->client->add_peer(
+                             Net::BitTorrent::Protocol::BEP03::Peer::Outgoing
+                                 ->new(
+                                 torrent => $self,
+                                 connect =>
+                                     $source->[2]->[rand @{$source->[2]}],
+                                 source => 'dht',
+                                 client => $self->client
+                                 )
+                        );
+                        last if $x == 3;
+                    }
+                }
+            )
+        );
+        $self->add_quest(
+            'new_peer_trackers',
+            AE::timer(
+                3, 30,
+                sub {
+                    $self // return;
+                    return if !$self->has_client;
+                    return if $self->seed;
+                    return if $self->_count_peers >= $self->max_peers;
+                    my ($source) = $self->get_quest('tracker_announce');
+                    return if !@{$source->[2]};
+                    require Net::BitTorrent::Protocol::BEP03::Peer::Outgoing;
+                    my $x = 1;
+                    for ($self->_count_peers .. $self->max_peers) {
+                        $self->client->add_peer(
+                             Net::BitTorrent::Protocol::BEP03::Peer::Outgoing
+                                 ->new(
+                                 torrent => $self,
+                                 connect =>
+                                     $source->[2]->[rand @{$source->[2]}],
+                                 source => 'tracker',
+                                 client => $self->client
+                                 )
+                        );
+                        last if $x == 3;
+                    }
                 }
             )
         );
@@ -208,7 +246,7 @@ package Net::BitTorrent::Torrent;
                 15, 10,
                 sub {
                     return if !$self;
-                    return if !$self->_has_client;
+                    return if !$self->has_client;
                     my @choked = sort {
                                $a->remote_choked <=> $b->remote_choked
                             || $a->total_download <=> $b->total_download
@@ -228,7 +266,7 @@ package Net::BitTorrent::Torrent;
                 120, 120,
                 sub {
                     return if !$self;
-                    return if !$self->_has_client;
+                    return if !$self->has_client;
                     return if !scalar $self->peers;
                     my @choked = sort {
                         ($a->remote_choked <=> $b->remote_choked)
@@ -256,7 +294,7 @@ package Net::BitTorrent::Torrent;
                 60, 60,
                 sub {
                     return if !$self;
-                    return if !$self->_has_client;
+                    return if !$self->has_client;
                     return if !scalar $self->peers;
                     my @unchoked = grep { !$_->choked } $self->peers;
 
@@ -294,9 +332,10 @@ package Net::BitTorrent::Torrent;
                 my $piece = $self->read($index);
                 next if !$piece || !$$piece;
                 require Digest::SHA;
-                $self->_set_piece($index)
-                    if Digest::SHA::sha1($$piece) eq
-                        substr($self->pieces, ($index * 20), 20);
+                Digest::SHA::sha1($$piece) eq
+                    substr($self->pieces, ($index * 20), 20)
+                    ? $self->_set_piece($index)
+                    : $self->_unset_piece($index);
             }
         }
         else {
@@ -329,7 +368,7 @@ package Net::BitTorrent::Torrent;
                    handles    => {
                                _set_piece   => 'Bit_On',
                                _unset_piece => 'Bit_Off',
-                               _has_piece   => 'bit_test',
+                               has_piece    => 'bit_test',
                                seed         => 'is_full'
                    },
     );
@@ -359,11 +398,11 @@ package Net::BitTorrent::Torrent;
     #}
     #
     has 'max_peers' => (isa     => subtype(as 'Int' => where { $_ >= 1 }),
-                        is      => 'rw',
+                        is      => 'ro',
                         default => '200'
     );
     has 'max_upload_slots' => (isa => subtype(as 'Int' => where { $_ >= 1 }),
-                               is  => 'rw',
+                               is  => 'ro',
                                default => '8'
     );
 

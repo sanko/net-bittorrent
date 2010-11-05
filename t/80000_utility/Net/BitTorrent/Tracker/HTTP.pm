@@ -4,7 +4,7 @@ package Net::BitTorrent::Tracker::HTTP;
     use Net::BitTorrent::Protocol::BEP07::Compact qw[:all];    # IPv4
     use Net::BitTorrent::Protocol::BEP23::Compact qw[:all];    # IPv6
     use Moose;
-        our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     extends 'Net::BitTorrent::Tracker';
     sub protocol {'tcp'}

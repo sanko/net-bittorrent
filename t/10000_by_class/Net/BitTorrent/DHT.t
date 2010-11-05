@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::DHT;
 {
     use strict;
     use warnings;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use Test::More;
     use parent 'Test::Class';
     use lib '../../../../lib', 'lib';

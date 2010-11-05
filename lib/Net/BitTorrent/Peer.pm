@@ -7,7 +7,7 @@ package Net::BitTorrent::Peer;
     use Net::BitTorrent::Types qw[:torrent];
     use Net::BitTorrent::Protocol::BEP03::Packets
         qw[parse_packet :build :types];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     has 'client' => (is       => 'ro',
@@ -18,7 +18,7 @@ package Net::BitTorrent::Peer;
     );
     has 'torrent' => (is          => 'ro',
                       isa         => 'Net::BitTorrent::Torrent',
-                      predicate   => '_has_torrent',
+                      lazy_build  => 1,
                       writer      => '_set_torrent',
                       weak_ref    => 1,
                       trigger     => sub { shift->_trigger_torrent },
@@ -39,17 +39,17 @@ package Net::BitTorrent::Peer;
     has 'pieces' => (
         is         => 'ro',
         isa        => 'NBTypes::Torrent::Bitfield',
-        lazy_build => 1,
         coerce     => 1,
         init_arg   => undef,
-        predicate  => '_has_pieces',
         writer     => '_set_pieces',
-        clearer    => '_clear_pieces',
+        lazy_build => 1,
         trigger    => sub { shift->_trigger_pieces },
         handles    => {
             _set_piece      => 'Bit_On',
-            _has_piece      => 'bit_test',
+            has_piece       => 'bit_test',
             seed            => 'is_full',
+            _set_seed       => 'Fill',
+            _unset_seed     => 'Empty',
             _check_interest => sub {
                 my $s = shift;
 
@@ -69,14 +69,14 @@ package Net::BitTorrent::Peer;
     );
 
     sub _build_pieces {
-        $_[0]->_has_torrent ? $_[0]->torrent->have->Shadow : ();
+        $_[0]->has_torrent ? $_[0]->torrent->have->Shadow : ();
     }
 
     sub _trigger_pieces {
         my ($s, $n, $o) = @_;
         confess 'pieces attribute is already set'
             if $o && !$s->local_connection;
-        return if !$s->_has_torrent;
+        return if !$s->has_torrent;
         $s->pieces->Resize($s->torrent->piece_count);
     }
     after '_set_piece' => sub { shift->_check_interest };
@@ -88,33 +88,54 @@ package Net::BitTorrent::Peer;
                               handles => {_add_remote_request    => 'push',
                                           _shift_remote_requests => 'shift',
                                           _clear_remote_requests => 'clear',
-                                          _count_remote_requests => 'count'
+                                          _count_remote_requests => 'count',
+                                          _first_remote_request  => 'first',
+                                          _delete_remote_request => 'delete'
                               },
                               default => sub { [] }
     );
+    around '_delete_remote_request' => sub {
+        my ($c, $s, $i, $o, $l) = @_;
+        return $c->($s, $i) if !ref $i;
+        my $x = 0;
+        $s->_find_remote_request(
+            sub {
+                $x++;
+                $_->[0] == $i && $_->[1] == $o && $_->[2] == $l;
+            }
+        );
+        return $c->($s, $x);
+    };
     has 'requests' => (
         is => 'ro',
         isa =>
             'ArrayRef[Net::BitTorrent::Protocol::BEP03::Metadata::Piece::Block]',
-        traits  => ['Array'],
-        handles => {_add_request    => 'push',
-                    _clear_requests => 'clear',
-                    _count_requests => 'count',
-                    _first_request  => 'first',
-                    _delete_request => 'delete'
-        },
-        default => sub { [] }
+        traits     => ['Array'],
+        writer     => '_set_requests',
+        lazy_build => 1,
+        handles    => {
+                   _add_request     => 'push',
+                   _clear_requests  => 'clear',
+                   _count_requests  => 'count',
+                   _first_request   => 'first',
+                   _delete_request  => 'delete',
+                   _queued_requests => ['grep', sub { $_ && !$_->complete }],
+                   _complete_requests => ['grep', sub { $_ && $_->complete }],
+        }
     );
+    sub _build_requests { [] }
+
+    #after qr[_(add|delete)_request] =>sub { my $s = shift;
+    #    return if !$s->_count_requests;
+    #    my @reqs = grep{ defined $_ } @{$s->requests};
+    #    $s->_clear_requests;
+    #    $s->_set_requests(\@reqs)
+    #};
     around '_delete_request' => sub {
         my ($c, $s, $i, $o, $l) = @_;
-        return $c->($s, $i) if !blessed $i;
-        my $x = 0;
-        $s->_find_request(
-            sub {
-                $x++;
-                $_->index == $i && $_->offset == $o && $_->length == $l;
-            }
-        );
+        return $c->($s, $i) if !ref $i && !defined $o;
+        my (undef, $x) = $s->_find_request(
+             blessed $i ? ($i->index, $i->offset, $i->length) : ($i, $o, $l));
         return $c->($s, $x);
     };
 
@@ -123,11 +144,14 @@ package Net::BitTorrent::Peer;
         my $x = 0;
         my $p = $s->_first_request(
             sub {
+
+                #$s->_delete_request($x) && return if !($_ && blessed $_);
                 $x++;
+                $_ // return;
                 $_->index == $i && $_->offset == $o && $_->length == $l;
             }
         );
-        wantarray ? [$p, $x] : $p;
+        wantarray ? ($p, $x) : $p;
     }
     around '_add_request' => sub {
         my ($c, $s, $b) = @_;
@@ -143,7 +167,7 @@ package Net::BitTorrent::Peer;
     has 'peer_id' => (isa       => 'NBTypes::Client::PeerID',
                       is        => 'ro',
                       writer    => '_set_peer_id',
-                      predicate => '_has_peer_id'
+                      predicate => 'has_peer_id'
     );
 
     #
@@ -152,11 +176,12 @@ package Net::BitTorrent::Peer;
                      traits  => ['Hash'],
                      handles => {_add_quest    => 'set',
                                  _get_quest    => 'get',
-                                 _has_quest    => 'defined',
+                                 has_quest     => 'defined',
                                  _delete_quest => 'delete',
                                  _clear_quests => 'clear'
                      },
-                     default => sub { {} }
+                     default    => sub { {} },
+                     auto_deref => 1
     );
 
     #
@@ -221,7 +246,7 @@ package Net::BitTorrent::Peer;
         return 1
             if scalar(
             grep {
-                       $_->_has_peer_id
+                       $_->has_peer_id
                     && $_->_id ne $s->_id
                     && $_->peer_id eq $s->peer_id
                 } $s->torrent->peers
@@ -250,10 +275,12 @@ package Net::BitTorrent::Peer;
     }
 
     sub DEMOLISH {
+        my $s = shift;
     }
 
     #
     no Moose;
+    no Moose::Util::TypeConstraints;
     __PACKAGE__->meta->make_immutable;
 }
 1;
@@ -653,7 +680,7 @@ The time since any transfer occurred with this peer.
     }
     for my $flag (qw[up_speed down_speed payload_up_speed payload_downspeed])
     {   has $flag => (isa     => 'Int',
-                      is      => 'rw',
+                      is      => 'ro',
                       default => 0
         );
     }

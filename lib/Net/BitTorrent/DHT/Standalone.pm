@@ -3,7 +3,7 @@ package Net::BitTorrent::DHT::Standalone;
     use Moose::Role;
     use lib '../../../../lib';
     use Net::BitTorrent::Protocol::BEP03::Bencode qw[:all];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 3; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has 'port' => (is      => 'ro',
                    isa     => 'Int|ArrayRef[Int]',
                    builder => '_build_port',
@@ -21,8 +21,7 @@ package Net::BitTorrent::DHT::Standalone;
                        init_arg   => undef,
                        isa        => 'Maybe[Object]',
                        lazy_build => 1,
-                       writer     => '_set_udp' . $ipv,
-                       predicate  => '_has_udp' . $ipv
+                       writer     => '_set_udp' . $ipv
             );
         has 'udp' 
             . $ipv
@@ -31,16 +30,14 @@ package Net::BitTorrent::DHT::Standalone;
                           isa        => 'GlobRef',
                           lazy_build => 1,
                           weak_ref   => 1,
-                          writer     => '_set_udp' . $ipv . '_sock',
-                          predicate  => '_has_udp' . $ipv . '_sock'
+                          writer     => '_set_udp' . $ipv . '_sock'
             );
         has 'udp' 
             . $ipv
-            . '_host' => (is        => 'ro',
-                          isa       => 'Str',
-                          default   => $_sock_types{$ipv},
-                          writer    => '_set_udp' . $ipv . '_host',
-                          predicate => '_has_udp' . $ipv . '_host'
+            . '_host' => (is      => 'ro',
+                          isa     => 'Str',
+                          default => $_sock_types{$ipv},
+                          writer  => '_set_udp' . $ipv . '_host'
             );
     }
 
@@ -189,7 +186,7 @@ package Net::BitTorrent::DHT::Standalone;
         sub {1}
     }
     has "on_$_" => (isa        => 'CodeRef',
-                    is         => 'rw',
+                    is         => 'ro',
                     traits     => ['Code'],
                     handles    => {"trigger_$_" => 'execute_method'},
                     lazy_build => 1,

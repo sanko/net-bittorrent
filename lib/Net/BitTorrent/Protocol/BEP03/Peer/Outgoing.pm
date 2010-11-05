@@ -6,24 +6,24 @@
     use lib '../../../../../../lib';
     use Net::BitTorrent::Types qw[:addr];
     extends 'Net::BitTorrent::Protocol::BEP03::Peer';
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 10; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     has '+local_connection' => (default => '1', handles => {});
 
     #
-    has '_handle' => (
-        is        => 'ro',
-        isa       => 'AnyEvent::Handle::Throttle',
-        predicate => '_has_handle',
-        init_arg  => undef,
-        writer    => '_set_handle',
-        handles   => {
+    has 'handle' => (
+        is         => 'ro',
+        isa        => 'AnyEvent::Handle::Throttle',
+        lazy_build => 1,
+        init_arg   => undef,
+        writer     => '_set_handle',
+        handles    => {
             rbuf           => 'rbuf',
             push_read      => 'push_read',
             push_write     => 'push_write',
             total_download => 'download_total',
-            fh             => sub { shift->_handle->{'fh'} },
+            fh             => sub { shift->handle->{'fh'} },
             host           => sub {
                 my $s = shift;
                 return $_[0] = undef  #$s->disconnect('Failed to open socket')
@@ -53,9 +53,9 @@
     override '_trigger_torrent' => sub {
         super;
         my ($s, $n, $o) = @_;
-        $s->_has_pieces
+        $s->has_pieces
             && $s
-            ->_has_torrent # Depending on whether the pieces attribute is set,
+            ->has_torrent  # Depending on whether the pieces attribute is set,
             ? $s->pieces->Resize($s->torrent->piece_count)    # create or
             : $s->pieces                                      # resize it.
     };
@@ -79,10 +79,18 @@
                     return if !defined $s;
                     $s->_send_handshake;
                 },
+                on_error => sub {
+                    return if !defined $s;
+                    my ($hdl, $fatal, $msg) = @_;
+
+                    #$s->handle->destroy;
+                    $s->disconnect('Socket error: ' . $msg) if $fatal;
+                },
                 on_eof => sub {
                     return if !defined $s;
-                    $s->_handle->push_shutdown;
-                    $s->_handle->destroy;
+                    $s->handle->push_shutdown if defined $s->handle->{'fh'};
+                    $s->handle->destroy;
+                    $s->disconnect('Connection closed by remote connection');
                 },
                 on_read => sub {
                     require Net::BitTorrent::Protocol::BEP03::Packets;
@@ -90,7 +98,7 @@
                     while (
                         my $p =
                         Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
-                                                            \$s->_handle->rbuf
+                                                             \$s->handle->rbuf
                         )
                         )
                     {   $s->_handle_packet($p);
@@ -114,7 +122,7 @@
         return $s->disconnect(
                  'Bad info_hash (Does not match the torrent we were seeking)')
             if $info_hash->Compare($s->torrent->info_hash) != 0;
-        $s->_check_unique_connection;
+        #$s->_check_unique_connection;
         return if !defined $s;
         $s->_send_bitfield;
     }

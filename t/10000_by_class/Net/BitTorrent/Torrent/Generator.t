@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator;
 {
     use strict;
     use warnings;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use 5.010.000;
     use Test::Most;
     use lib '../', '../../../../../', '../../../../../lib', 'lib';
@@ -34,10 +34,9 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator;
         explain 'Metadata now looks like...', $s->{'torrent'};
     }
 
-    sub _200_api : Test( 7 ) {
+    sub _200_api : Test( 6 ) {
         my $s = shift;
         is $s->{'torrent'}->comment, undef, 'default comment is undef';
-        ok !$s->{'torrent'}->_has_comment, '_has_comment is false';
         ok $s->{'torrent'}->_set_comment('See credit.txt for attributions.'),
             '_set_comment( ... )';
         is $s->{'torrent'}->comment, 'See credit.txt for attributions.',

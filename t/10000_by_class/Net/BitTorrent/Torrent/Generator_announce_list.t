@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator_announce_list;
 {
     use strict;
     use warnings;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use 5.010.000;
     use Test::Most;
     use lib '../', '../../../../../', '../../../../../lib', 'lib';
@@ -18,7 +18,7 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator_announce_list;
 
     sub _200_api : Test( 8 ) {
         my $s = shift;
-        ok !$s->{'torrent'}->_has_announce_list, 'no default announce-list';
+        ok !$s->{'torrent'}->has_announce_list, 'no default announce-list';
         $s->{'torrent'}->_add_tier(['http://example.com/announce.pl?']);
         is_deeply $s->{'torrent'}->announce_list,
             [['http://example.com/announce.pl?']], 'adding a new tier worked';
@@ -45,8 +45,7 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator_announce_list;
              ]
             ],
             'first tier was removed';
-        ok $s->{'torrent'}->_has_announce_list,
-            'announce-list is now defined';
+        ok $s->{'torrent'}->has_announce_list, 'announce-list is now defined';
         is $s->{'torrent'}->info_hash->to_Hex,
             $s->info_hash,
             'info_hash should not have changed';

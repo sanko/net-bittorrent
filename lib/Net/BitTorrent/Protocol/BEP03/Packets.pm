@@ -3,7 +3,7 @@ package Net::BitTorrent::Protocol::BEP03::Packets;
     use 5.010;
     use Moose::Role;
     use Moose::Util::TypeConstraints;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use Carp qw[carp];
     use lib '../../../../';
     use Net::BitTorrent::Types qw[:bencode :torrent];

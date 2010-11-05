@@ -13,7 +13,7 @@ package Net::BitTorrent::Protocol::BEP05::Packets;
         build_dht_reply_ping          build_dht_query_ping
         build_dht_reply_find_node     build_dht_query_find_node
         build_dht_reply_error                                      ];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     my $v = 'NB' . pack 'CC', $MAJOR * 1000, $MINOR;
 
     #

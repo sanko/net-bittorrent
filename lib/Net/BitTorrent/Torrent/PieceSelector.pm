@@ -2,26 +2,33 @@
 
     package Net::BitTorrent::Torrent::PieceSelector;
     use Moose;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     sub BUILD {1}
-    has 'torrent' => (isa      => 'Net::BitTorrent::Torrent',
-                      is       => 'ro',
-                      required => 1,
-                      handles  => [qw[peers]],
-                      weak_ref => 1
+    has 'torrent' => (isa        => 'Net::BitTorrent::Torrent',
+                      is         => 'ro',
+                      required   => 1,
+                      handles    => [qw[peers]],
+                      weak_ref   => 1,
+                      lazy_build => 1
     );
-    has 'working_pieces' => (
+    has '_working_pieces' => (
           isa => 'HashRef[Net::BitTorrent::Protocol::BEP03::Metadata::Piece]',
           is  => 'ro',
-          default => sub { {} },
-          traits  => ['Hash'],
-          handles => {'_add_working_piece'    => 'set',
+          lazy_build => 1,
+          traits     => ['Hash'],
+          handles    => {
+                      '_add_working_piece'    => 'set',
                       '_get_working_piece'    => 'get',
                       '_del_working_piece'    => 'delete',
-                      '_has_working_piece'    => 'defined',
-                      '_count_working_pieces' => 'count'
+                      'has_working_piece'     => 'defined',
+                      '_count_working_pieces' => 'count',
+                      'working_pieces'        => 'values'
           }
     );
+    sub _build__working_pieces { {} }
+    sub _unassigned_working_pieces {
+        grep { $_->_first_unassigned_block?1:0 } shift->working_pieces;
+    }
     has 'strategy' => (isa     => 'RoleName',
                        is      => 'ro',
                        builder => '_build_strategy',
@@ -43,9 +50,9 @@
     sub select_piece {
         my ($s, $p) = @_;
         my $piece = $s->_select_piece($p);
-        return if !defined $piece;
+        $piece // return;
         if (!blessed $piece ) {    # Must be an index
-            if ($s->_has_working_piece($piece)) {
+            if ($s->has_working_piece($piece)) {
                 $piece = $s->_get_working_piece($piece);
             }
             else {
@@ -59,9 +66,13 @@
 
         # Make a note of this object (may already be there...)
         $s->_add_working_piece($piece->index, $piece)
-            if !$s->_has_working_piece($piece->index);
+            if !$s->has_working_piece($piece->index);
         $piece;
     }
     sub end_game {0}
+
+    #
+    no Moose;
+    __PACKAGE__->meta->make_immutable;
 }
 1;

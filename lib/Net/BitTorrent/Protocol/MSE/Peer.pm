@@ -2,7 +2,7 @@ package Net::BitTorrent::Protocol::MSE::Peer;
 {
     use Moose::Role;
     use Moose::Util::TypeConstraints;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     has 'handshake_step' =>
         (isa => enum([qw[MSE_ONE MSE_TWO MSE_THREE MSE_FOUR MSE_FIVE]]));
 
@@ -13,7 +13,7 @@ package Net::BitTorrent::Protocol::MSE::Peer;
     sub CRYPTO_AES   {0x08}    # unimplemented
     has '_crypto' => (
          isa      => enum([CRYPTO_PLAIN, CRYPTO_RC4, CRYPTO_XOR, CRYPTO_AES]),
-         is       => 'rw',
+         is       => 'ro',
          default  => CRYPTO_PLAIN,
          init_arg => undef
     );

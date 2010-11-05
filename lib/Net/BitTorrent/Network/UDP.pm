@@ -4,7 +4,7 @@ package Net::BitTorrent::Network::UDP;
     use AnyEvent;
     use lib '../../../../lib';
     use Net::BitTorrent::Network::Utility qw[server];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 2; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     has '_port' => (is       => 'ro',
@@ -18,8 +18,7 @@ package Net::BitTorrent::Network::UDP;
             . $ipv => (is         => 'ro',
                        init_arg   => undef,
                        isa        => 'Object',
-                       lazy_build => 1,
-                       predicate  => '_has_udp' . $ipv
+                       lazy_build => 1
             );
         has 'udp' 
             . $ipv
@@ -28,24 +27,23 @@ package Net::BitTorrent::Network::UDP;
                           isa        => 'GlobRef',
                           lazy_build => 1,
                           weak_ref   => 1,
-                          writer     => '_udp' . $ipv . '_sock',
-                          predicate  => '_has_udp' . $ipv . '_sock'
+                          writer     => '_udp' . $ipv . '_sock'
             );
         has 'udp' 
             . $ipv
-            . '_host' => (is        => 'ro',
-                          isa       => 'Str',
-                          default   => $_sock_types{$ipv},
-                          writer    => '_udp' . $ipv . '_host',
-                          predicate => '_has_udp' . $ipv . '_host'
+            . '_host' => (is         => 'ro',
+                          isa        => 'Str',
+                          writer     => '_udp' . $ipv . '_host',
+                          lazy_build => 1,
+                          builder    => sub { $_sock_types{$ipv} }
             );
         has 'udp' . $ipv . '_port' => (
-            is        => 'ro',
-            isa       => 'Int',
-            writer    => '_udp' . $ipv . '_port',
-            predicate => '_has_udp' . $ipv . '_port',
-            default   => 0,
-            trigger   => sub {
+            is         => 'ro',
+            isa        => 'Int',
+            writer     => '_udp' . $ipv . '_port',
+            lazy_build => 1,
+            builder    => sub {0},
+            trigger    => sub {
                 my ($self, $new, $old) = @_;
                 if (defined $old && $old != $new) {
 
@@ -59,9 +57,9 @@ package Net::BitTorrent::Network::UDP;
         sub _build_udp6 {
             my ($self) = @_;
             my $port
-                = $self->_has_udp6_port ? $self->udp6_port
-                : $self->_has_udp4_port ? $self->udp4_port
-                :                         $self->_port;
+                = $self->has_udp6_port ? $self->udp6_port
+                : $self->has_udp4_port ? $self->udp4_port
+                :                        $self->_port;
             warn $port;
             return server(
                 $self->udp6_host,
@@ -84,9 +82,9 @@ package Net::BitTorrent::Network::UDP;
         sub _build_udp4 {
             my ($self) = @_;
             my $port
-                = $self->_has_udp4_port ? $self->udp4_port
-                : $self->_has_udp6_port ? $self->udp6_port
-                :                         $self->_port;
+                = $self->has_udp4_port ? $self->udp4_port
+                : $self->has_udp6_port ? $self->udp6_port
+                :                        $self->_port;
             warn $port;
             return server(
                 $self->udp4_host,

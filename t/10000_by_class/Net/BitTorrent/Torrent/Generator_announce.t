@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator_announce;
 {
     use strict;
     use warnings;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use 5.010.000;
     use Test::Most;
     use lib '../', '../../../../../', '../../../../../lib', 'lib';
@@ -18,11 +18,11 @@ package t::10000_by_class::Net::BitTorrent::Torrent::Generator_announce;
 
     sub _200_api : Test( 4 ) {
         my $s = shift;
-        ok !$s->{'torrent'}->_has_announce, 'no default announce URL';
+        ok !$s->{'torrent'}->has_announce, 'no default announce URL';
         $s->{'torrent'}->_set_announce('http://example.com/announce.pl?');
         is $s->{'torrent'}->announce, 'http://example.com/announce.pl?',
             'setting announce works';
-        ok $s->{'torrent'}->_has_announce, 'announce URL is now defined';
+        ok $s->{'torrent'}->has_announce, 'announce URL is now defined';
         is $s->{'torrent'}->info_hash->to_Hex,
             $s->info_hash,
             'info_hash should not have changed';

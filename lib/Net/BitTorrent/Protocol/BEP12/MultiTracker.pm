@@ -5,7 +5,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use AnyEvent;
     use Carp qw[carp];
     use List::Util qw[shuffle];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
     use Net::BitTorrent::Types qw[:tracker :bencode];
     has 'metadata' => (isa      => 'Net::BitTorrent::Torrent',
@@ -14,15 +14,15 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
                        required => 1
     );
     has 'tiers' => (
-        traits => ['Array'],
-        isa    => 'ArrayRef[NBTypes::Tracker::Tier]',
-        is     => 'rw',
+        traits     => ['Array'],
+        isa        => 'ArrayRef[NBTypes::Tracker::Tier]',
+        is         => 'ro',
+        lazy_build => 1,
 
         #coerce  => 1,
-        default => sub { [] },
-        clearer => '_clear_tiers',
         handles => {_push_tier => 'push', _shuffle_tiers => 'shuffle'}
     );
+    sub _build_tiers { [] }
     my $tier_constraint;
 
     sub add_tier {
@@ -60,7 +60,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
     sub announce {
         my ($self, $event, $code) = @_;
         return if !$self->metadata->can('client');
-        return if !$self->metadata->_has_client;
+        return if !$self->metadata->has_client;
         my %args = (info_hash  => $self->metadata->info_hash->to_Hex,
                     peer_id    => $self->metadata->client->peer_id,
                     port       => $self->metadata->client->port,
@@ -81,8 +81,13 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
                 sub {
                     return if !$self;
 
-                    #return if !$self-active;
+                    #return if !$self->active;
                     for my $tier (@{$self->tiers}) {
+
+                        #$tier // $tier->[0] // return;
+                        #use Data::Dump;
+                        #ddx $tier;
+                        #ddx $tier->[0];
                         $tier->[0]->announce(
                             $event,
                             \%args,
@@ -92,8 +97,11 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
                                     my %seen = ();
                                     @{$quest->[2]}
                                         = grep { !$seen{$_->[0]}{$_->[1]}++ }
-                                        @{$quest->[2]},
-                                        @{$announce->{'peers'}};
+                                        @{$quest->[2]}, $announce->{'peers'}
+                                        && ref $announce->{'peers'}
+                                        && ref $announce->{'peers'} eq 'ARRAY'
+                                        ? @{$announce->{'peers'}}
+                                        : ();
                                 }
                             }
                         );

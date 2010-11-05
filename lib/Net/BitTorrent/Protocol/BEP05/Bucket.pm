@@ -6,7 +6,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
     use lib '../../../../../lib';
     use Net::BitTorrent::Types qw[NBTypes::DHT::NodeID];
     use 5.010.000;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 4; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     # Stub
     sub BUILD {1}
@@ -86,7 +86,7 @@ package Net::BitTorrent::Protocol::BEP05::Bucket;
                       weak_ref => 1,
                       handles  => [qw[dht]]
     );
-    has 'last_changed' => (isa => 'Int', is => 'rw', default => time);
+    has 'last_changed' => (isa => 'Int', is => 'ro', default => time);
     has 'clearing_house' =>
         (isa => 'Ref', is => 'ro', writer => '_build_clearing_house');
     after 'BUILD' => sub {

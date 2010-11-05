@@ -2,7 +2,7 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
 {
     use strict;
     use warnings;
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 12; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use 5.010.000;
     use AnyEvent::Impl::Perl;   # Timing is different than with EV. Go figure.
     use AnyEvent;
@@ -89,14 +89,14 @@ package t::10000_by_class::Net::BitTorrent::Protocol::BEP03::Peer::Incoming;
                     subtest 'pre handshake', sub {
                         plan tests => 4;
                         explain $s->{'peer'};
-                        ok $s->{'peer'}->_has_torrent,
+                        ok $s->{'peer'}->has_torrent,
                             '...->torrent is defined';
                         is $s->{'peer'}->torrent->info_hash->to_Hex,
                             $s->info_hash,
                             '...->torrent->info_hash->to_Hex is correct';
                         is $s->{'peer'}->peer_id, $s->peer_id,
                             '...->peer_id is correct';
-                        ok !$s->{'peer'}->_has_pieces,
+                        ok !$s->{'peer'}->has_pieces,
                             'initial value for ...->pieces in unset until we get a bitfield/fast peer packet/have/etc.';
                     };
                     1;

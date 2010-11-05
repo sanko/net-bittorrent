@@ -7,11 +7,11 @@
     use Net::BitTorrent::Types qw[:addr];
     use Net::BitTorrent::Network::Utility qw[:sockaddr :paddr];
     extends 'Net::BitTorrent::Protocol::BEP03::Peer';
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 10; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
-    has '_handle' => (
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    has 'handle' => (
         is          => 'ro',
         isa         => 'AnyEvent::Handle::Throttle',
-        predicate   => '_has_handle',
+        lazy_build  => 1,
         initializer => '_initializer_handle',
         init_arg    => 'handle',
         required    => 1,
@@ -20,7 +20,7 @@
             push_read      => 'push_read',
             push_write     => 'push_write',
             total_download => 'download_total',
-            fh             => sub { shift->_handle->{'fh'} },
+            fh             => sub { shift->handle->{'fh'} },
             host           => sub {
                 my $s = shift;
                 return $_[0] = undef  #$s->disconnect('Failed to open socket')
@@ -51,7 +51,7 @@
                 while (
                       my $p =
                       Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
-                                                            \$s->_handle->rbuf
+                                                             \$s->handle->rbuf
                       )
                     )
                 {   $s->_handle_packet($p);
@@ -71,7 +71,7 @@
       #           while (
       #               my $p =
       #               Net::BitTorrent::Protocol::BEP03::Packets::parse_packet(
-      #                                                   \$s->_handle->rbuf
+      #                                                   \$s->handle->rbuf
       #               )
       #               )
       #           {   $s->_handle_packet($p);
@@ -96,7 +96,7 @@
                            $info_hash->to_Hex)
             if !$t;
         $s->_set_torrent($t);
-        $s->_check_unique_connection;
+        #$s->_check_unique_connection;
         return if !defined $s;
 
         # send handshake

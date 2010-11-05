@@ -1,9 +1,10 @@
 package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
 {
+    use 5.010;
     use Moose;
     use Moose::Util::TypeConstraints;
     use List::Util qw[shuffle];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../../';
     use Net::BitTorrent::Types qw[:tracker :bencode];
     use Net::BitTorrent::Network::Utility qw[client];
@@ -65,7 +66,7 @@ package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
             sub {
                 my $data = '';
                 my ($sock, $_host, $_port) = @_;
-                return if !$sock;
+                $sock // return $http = ();
                 syswrite($sock,
                          join "\015\012",
                          "GET $path HTTP/1.0",
