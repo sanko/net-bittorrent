@@ -38,7 +38,7 @@ package Net::BitTorrent::Protocol::BEP05::Node;
                        default => sub { {} }
             );
     }
-    has 'v' => (isa => 'Str', is => 'ro', writer => '_v', lazy_build => 1,);
+    has 'v' => (isa => 'Str', is => 'ro', writer => '_v', predicate => 'has_v');
     has 'bucket' => (isa       => 'Net::BitTorrent::Protocol::BEP05::Bucket',
                      is        => 'ro',
                      writer    => 'assign_bucket',
