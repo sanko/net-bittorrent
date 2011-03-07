@@ -8,8 +8,8 @@ Net::BitTorrent::Protocol::BEP12 - Multitracker Metadata Extension
 
 BEP: 12
 Title: Multitracker Metadata Extension
-Version: $Rev$
-Last-Modified: $Date$
+Version: $Rev: 1de7045 $
+Last-Modified: $Date: 2010-10-25 22:32:44Z (Mon, 25 Oct 2010) $
 Author:  John Hoffman <theshadow@degreez.net>
 Status:  Draft
 Type:    Standards Track

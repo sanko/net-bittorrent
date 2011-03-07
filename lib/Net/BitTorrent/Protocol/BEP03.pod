@@ -8,8 +8,8 @@ Net::BitTorrent::Protocol::BEP03 - The BitTorrent Protocol Specification
 
 BEP: 3
 Title: The BitTorrent Protocol Specification
-Version: $Rev$
-Last-Modified: $Date$
+Version: $Rev: a89cc90 $
+Last-Modified: $Date: 2010-10-14 12:54:32Z (Thu, 14 Oct 2010) $
 Author:  Bram Cohen <bram@bittorrent.com>
 Status:  Final
 Type:    Standard
@@ -160,26 +160,35 @@ This maps to a dictionary, with keys described below.
 
 =over
 
-=item The C<name> key maps to a UTF-8 encoded string which is the suggested
-name to save the file (or directory) as. It is purely advisory.
+=item
 
-=item C<piece length> maps to the number of bytes in each piece the file is
-split into. For the purposes of transfer, files are split into fixed-size
-pieces which are all the same length except for possibly the last one which
-may be truncated. C<piece length> is almost always a power of two, most
-commonly C<2^18 = 256K> (BitTorrent prior to version C<3.2> uses C<2^20 = 1M>
-as default).
+The C<name> key maps to a UTF-8 encoded string which is the suggested name to
+save the file (or directory) as. It is purely advisory.
 
-=item C<pieces> maps to a string whose length is a multiple of C<20>. It is to
-be subdivided into strings of length C<20>, each of which is the SHA1 hash of
-the piece at the corresponding index.
+=item
 
-=item There is also a key C<length> or a key C<files>, but not both or
-neither. If C<length> is present then the download represents a single file,
-otherwise it represents a set of files which go in a directory structure.
+C<piece length> maps to the number of bytes in each piece the file is split
+into. For the purposes of transfer, files are split into fixed-size pieces
+which are all the same length except for possibly the last one which may be
+truncated. C<piece length> is almost always a power of two, most commonly
+C<2^18 = 256K> (BitTorrent prior to version C<3.2> uses C<2^20 = 1M> as
+default).
 
-=item In the single file case, C<length> maps to the length of the file in
-bytes.
+=item
+
+C<pieces> maps to a string whose length is a multiple of C<20>. It is to be
+subdivided into strings of length C<20>, each of which is the SHA1 hash of the
+piece at the corresponding index.
+
+=item
+
+There is also a key C<length> or a key C<files>, but not both or neither. If
+C<length> is present then the download represents a single file, otherwise it
+represents a set of files which go in a directory structure.
+
+=item
+
+In the single file case, C<length> maps to the length of the file in bytes.
 
 For the purposes of the other keys, the multi-file case is treated as only
 having a single file by concatenating the files in the order they appear in

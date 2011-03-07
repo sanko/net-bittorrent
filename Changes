@@ -1,4 +1,4 @@
-Version 0.074000_012 | 2010-10-09 01:55:31Z (Sat, 09 Oct 2010) | 5373b32
+Version 0.074_013 | 2010-10-25 22:32:44Z (Mon, 25 Oct 2010) | 1de7045
 
     API Changes/Compatibility Information:
      * Rewrite!
@@ -435,6 +435,6 @@ _ -.-. .... .- -. --. . ... _________________________________________
 For more information, see the commit log:
     http://github.com/sanko/net-bittorrent/commits/
 
-$Ver$ from git $Rev$
-$Date$
-$Url$
+$Ver: 0.074_013 $ from git $Rev: cf7c258 $
+$Date: 2010-10-09 02:06:50Z (Sat, 09 Oct 2010) $
+$Url: git://github.com/sanko/net-bittorrent.git/raw/master/Changes $

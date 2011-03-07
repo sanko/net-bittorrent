@@ -2,22 +2,25 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
 {
     use strict;
     use warnings;
+    use lib 'lib';
 
     # Load standard modules
     use Module::Build;
     use Test::More;
     use parent 'Test::Class';
     use Test::Moose;
+    use Test::Fatal;
 
-    #use Test::Fatal;
     # Load local context
     BEGIN { -d '_build' ? last : chdir '..' for 1 .. 10 }
     my $t_builder = Test::More->builder;
     my $m_builder = Module::Build->current;
 
     # Load local modules
-    use lib '../../../../../../lib', 'lib';
-    use Net::BitTorrent::Protocol::BEP03::Metadata;
+    BEGIN {
+        require 't\10000_by_class\Net\BitTorrent\Protocol\BEP03\Storage.t';
+    }
+    use parent-norequire, 't::Net::BitTorrent::Protocol::BEP03::Storage';
 
     #
     sub class     {'Net::BitTorrent::Protocol::BEP03::Metadata'}
@@ -31,35 +34,26 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
     }
 
     sub init_args {
-        {name         => '96020_miniswarm_seed',
-         piece_length => 65536,
-         files        => shift->_files,
-         pieces       => pack 'H*',
-         'de807fd08b484ad5a82f7454f1819dbef39e8baf'
-        };
+        my $s    = shift;
+        my $args = $s->SUPER::init_args;
+        $args->{'name'}         = '96020_miniswarm_seed';
+        $args->{'piece_length'} = 65536;
+        $args->{'pieces'}
+            = pack('H*', 'de807fd08b484ad5a82f7454f1819dbef39e8baf');
+        $args;
     }
 
-    sub _files {
-        [{length => 28229,
-          path   => ['1291672777_30adc6a421_o.jpg']
-         },
-         {length => 21769,
-          path   => ['2183742557_5c9a91727d_m.jpg']
-         },
-         {length => 518, path => ['credit.txt']},
+    sub files {
+        my $s = shift;
+        [    # coerced into proper objects
+           {length => 28229,
+            path   => ['1291672777_30adc6a421_o.jpg']
+           },
+           {length => 21769,
+            path   => ['2183742557_5c9a91727d_m.jpg']
+           },
+           {length => 518, path => ['credit.txt']}
         ];
-    }
-
-    #
-    sub build : Test( startup => 1 ) {
-        my $s = shift;
-        $s->{'m'} = new_ok $s->class, [@_ ? @_ : $s->init_args];
-    }
-
-    sub files : Test( 1 ) {
-        my $s = shift;
-        is_deeply [$s->{'m'}->files], [$s->init_args ? $s->_files : []],
-            '...->files are correct';
     }
 
     sub infohash : Test( 1 ) {
@@ -72,25 +66,34 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata;
         is $s->{'m'}->as_string, $s->meta_data;
     }
 
-    sub class_can : Test( 2 ) {
+    sub class_can : Test( +1 ) {
         my $s = shift;
-        can_ok $s->{'m'}, $_ for qw[size as_string];
+        $s->SUPER::class_can();
+        can_ok $s->{'m'}, $_ for qw[as_string];
     }
 
-    sub moose_does : Test( 0 ) {
+    sub moose_does : Test( +0 ) {
         my $s = shift;
+        $s->SUPER::moose_does();
     }
 
-    sub moose_attributes : Test( 7 ) {
+    sub moose_attributes : Test( +7 ) {
         my $s = shift;
+        $s->SUPER::moose_attributes();
         has_attribute_ok $s->{'m'}, $_, 'has ' . $_
-            for
-            qw[files announce name pieces piece_length info_hash _prepared_metadata];
+            for qw[files announce name pieces piece_length info_hash tracker];
     }
 
-    sub moose_meta : Test( 1 ) {
+    sub method_002_write : Test( 2 ) {
         my $s = shift;
-        meta_ok $s->{'m'};
+        is $s->{'m'}->write(0, 0, 'XXX'), 3,
+            'wrote 3 bytes at index 0, offset 0';
+        is $s->{'m'}->write(1, 0, 'XXX'), (),
+            'fail to write 3 bytes at index 1, offset 0 (beyond end of storage)';
+    }
+
+    sub method_005_read : Test( 0 ) {
+        my $s = shift;
     }
 
     #
@@ -108,7 +111,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2011 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of

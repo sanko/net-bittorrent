@@ -1,4 +1,4 @@
-package t::Net::BitTorrent::Protocol::BEP03::Metadata_deep_single_file;
+package t::Net::BitTorrent::Protocol::BEP03::Metadata::Piece_odd_length;
 {
     use strict;
     use warnings;
@@ -6,8 +6,9 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata_deep_single_file;
     # Load standard modules
     use Module::Build;
     use Test::More;
+    use parent 'Test::Class';
     use Test::Moose;
-    use Test::Exception;
+    use Test::Fatal;
 
     # Load local context
     BEGIN { -d '_build' ? last : chdir '..' for 1 .. 10 }
@@ -15,24 +16,27 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata_deep_single_file;
     my $m_builder = Module::Build->current;
 
     # Load local modules
-    BEGIN { require 't\1000_basic\Net\BitTorrent\Protocol\BEP03\Metadata.t' }
-    use parent-norequire, 't::Net::BitTorrent::Protocol::BEP03::Metadata';
-    sub info_hash {'3F913F4AA2912644425F2A2F66583F5A4A5CB8BB'}
+    use lib '../../../../../../../.../lib', 'lib';
 
-    sub meta_data {
-        'd4:infod5:filesld6:lengthi267e4:pathl4:deep11:credits.txteee4:name11'
-            . ':credits.txt12:piece lengthi65536e6:pieces20:lᓮȝ޵𠃽˟ٺԱxee';
+    BEGIN {
+        require
+            't\10000_by_class\Net\BitTorrent\Protocol\BEP03\Metadata\Piece.t';
     }
+    use parent-norequire,
+        't::Net::BitTorrent::Protocol::BEP03::Metadata::Piece';
 
+    #
     sub init_args {
-        {name         => 'credits.txt',
-         piece_length => 65536,
-         files        => shift->_files,
-         pieces       => pack 'H*',
-         '6ce193aec89ddeb5f0a083bd13cb9fd9bad4b178'
-        };
+        my $s = shift;
+        { length => 1 + (2**16) };
     }
-    sub _files { [{length => 267, path => ['deep', 'credits.txt']}] }
+    sub offsets { [0, 16384, 32768, 49152, 65536] }
+
+    #
+    sub _last_block_length : Test( 1 ) {
+        my $s = shift;
+        is $s->{'m'}->blocks->{65536}->length, 1, 'last block length is 1';
+    }
 
     #
     __PACKAGE__->runtests() if !caller;
@@ -40,6 +44,11 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata_deep_single_file;
 1;
 
 =pod
+
+=head1 Description
+
+This tests pieces which do not break into uniform blocks. This should only
+matter for the last block in a torrent.
 
 =head1 Author
 
@@ -49,7 +58,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2011 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of

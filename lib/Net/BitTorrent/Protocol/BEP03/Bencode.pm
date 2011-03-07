@@ -4,7 +4,7 @@ package Net::BitTorrent::Protocol::BEP03::Bencode;
     use warnings;
 
     #
-    our $MAJOR = 0; our $MINOR = 74; our $DEV = 13; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 14; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
 
     #
     use Exporter qw[import];
@@ -198,10 +198,10 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-=for :html Copyright (C) 2008-2010 by Sanko Robinson
+=for :html Copyright (C) 2008-2011 by Sanko Robinson
 <L<sanko@cpan.org|mailto://sanko@cpan.org>>
 
-=for :text Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+=for :text Copyright (C) 2008-2011 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of

@@ -2,6 +2,7 @@ package t::Net::BitTorrent;
 {
     use strict;
     use warnings;
+    use lib 'lib';
 
     # Load standard modules
     use Module::Build;
@@ -16,16 +17,18 @@ package t::Net::BitTorrent;
     my $m_builder = Module::Build->current;
 
     # Load local modules
-    use lib '../../../../../../lib', 'lib';
-    use Net::BitTorrent;
-
+    #BEGIN {
+    #    require 't\10000_by_class\Net\BitTorrent\Protocol\BEP03\Storage.t';
+    #}
+    #use parent-norequire, 't::Net::BitTorrent::Protocol::BEP03::Storage';
     #
     sub class     {'Net::BitTorrent'}
     sub init_args { }
 
     #
-    sub build : Test( startup => 1 ) {
+    sub build : Test( startup => 2 ) {
         my $s = shift;
+        use_ok $s->class;
         $s->{'m'} = new_ok $s->class, [@_ ? @_ : $s->init_args];
     }
 
@@ -39,10 +42,11 @@ package t::Net::BitTorrent;
         is_deeply $s->{'m'}->torrents, [],
             'initial value of ...>torrents is an empty list';
         like exception { $s->{'m'}->add_torrent('Non-existant.torrent') },
-            qr[Failed to open],
+            qr[is required],
             '->add_torrent( q[Non-existant.torrent] ) fails';
         isa_ok $s->{'m'}
-            ->add_torrent('t/9000_data/9500_torrents/9503_miniswarm.torrent'),
+            ->add_torrent(
+                       't/90000_data/95000_torrents/95003_miniswarm.torrent'),
             'Net::BitTorrent::Torrent',
             '->( q[[...]miniswarm.torrent] ) returns new torrent';
         is $s->{'m'}->count_torrents, 1, '->count_torrents( ) is correct';

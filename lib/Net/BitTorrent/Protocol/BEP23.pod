@@ -8,8 +8,8 @@ Net::BitTorrent::Protocol::BEP23 - Tracker Returns Compact Peer Lists
 
 BEP: 23
 Title: Tracker Returns Compact Peer Lists
-Version: $Rev$
-Last-Modified: $Date$
+Version: $Rev: 0abe830 $
+Last-Modified: $Date: 2010-10-25 21:57:51Z (Mon, 25 Oct 2010) $
 Author:  David Harrison <dave@bittorrent.com>
 Status:  Accepted
 Type:    Standards track

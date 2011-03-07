@@ -5,22 +5,22 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
     use AnyEvent;
     use Carp qw[carp];
     use List::Util qw[shuffle];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 14; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../';
-    use Net::BitTorrent::Types qw[:tracker :bencode];
-    has 'metadata' => (isa      => 'Net::BitTorrent::Torrent',
-                       is       => 'ro',
-                       weak_ref => 1,
-                       required => 1
+    use Net::BitTorrent::Protocol::BEP12::Types;
+    has metadata => (isa      => 'Net::BitTorrent::Torrent',
+                     is       => 'ro',
+                     weak_ref => 1,
+                     required => 1
     );
-    has 'tiers' => (
-                traits  => ['Array'],
-                isa     => 'Net::BitTorrent::Types::Tracker::Tier',
-                is      => 'rw',
-                coerce  => 1,
-                default => sub { [] },
-                clearer => '_clear_tiers',
-                handles => {_push_tier => 'push', _shuffle_tiers => 'shuffle'}
+    has tiers => (
+              traits => ['Array'],
+              isa => 'Net::BitTorrent::Protocol::BEP12::Types::Tracker::Tier',
+              is  => 'rw',
+              coerce  => 1,
+              default => sub { [] },
+              clearer => '_clear_tiers',
+              handles => {_push_tier => 'push', _shuffle_tiers => 'shuffle'}
     );
     my $tier_constraint;
 
@@ -28,7 +28,7 @@ package Net::BitTorrent::Protocol::BEP12::MultiTracker;
         my ($self, $urls) = @_;
         $tier_constraint //=
             Moose::Util::TypeConstraints::find_type_constraint(
-                                                    'Net::BitTorrent::Types::Tracker::Tier');
+                                     'Net::BitTorrent::Types::Tracker::Tier');
         my $tier = $tier_constraint->coerce($urls);
         $self->_push_tier($tier) or return;
         $self->_shuffle_tiers;
@@ -155,7 +155,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2011 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of

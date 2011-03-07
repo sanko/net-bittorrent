@@ -1,13 +1,13 @@
 package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
 {
+    use 5.010;
     use Moose;
     use Moose::Util::TypeConstraints;
     use List::Util qw[shuffle];
-    our $MAJOR = 0.074; our $MINOR = 0; our $DEV = 1; our $VERSION = sprintf('%1.3f%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 14; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../../../';
-    use Net::BitTorrent::Types qw[:tracker :bencode];
-
-    #use Net::BitTorrent::Network::Utility qw[client];
+    use Net::BitTorrent::Protocol::BEP03::Types qw[:tracker :bencode];
+    use Net::BitTorrent::Network::Utility qw[client];
     use Net::BitTorrent::Protocol::BEP23::Compact qw[uncompact_ipv4];
     has 'url' => (isa      => subtype(as Str => where {m[^http://.+]}),
                   is       => 'ro',
@@ -66,7 +66,7 @@ package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
             sub {
                 my $data = '';
                 my ($sock, $_host, $_port) = @_;
-                return if !$sock;
+                $sock // return $http = ();
                 syswrite($sock,
                          join "\015\012",
                          "GET $path HTTP/1.0",
@@ -92,7 +92,8 @@ package Net::BitTorrent::Protocol::BEP03::Tracker::HTTP;
                                 = $data =~ m[^(.+)?(?:\015?\012){2}(.+)$]s;
                             $bdecode_constraint //=
                                 Moose::Util::TypeConstraints::find_type_constraint(
-                                                          'NBTypes::Bdecode');
+                                'Net::BitTorrent::Protocol::BEP03::Types::Bdecode'
+                                );
                             my $announce
                                 = $bdecode_constraint->coerce($content);
                             $announce->{'peers'}
@@ -134,7 +135,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2011 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of

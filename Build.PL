@@ -9,7 +9,7 @@ my $automated_testing = $ENV{'AUTOMATED_TESTING'}
     || $ENV{'PERL_MM_USE_DEFAULT'};
 my $is_developer = ((-d '.git') ? 1 : 0) or ($ENV{'RELEASE_TESTING'} ? 1 : 0);
 my @tests;
-find \&find_cb, qw[t/1000_basic/];
+find \&find_cb, qw[t/10000_by_class/];
 my $class = $is_developer ? 'inc::MBX::Developer' : 'Module::Build';
 
 if (!eval "require $class") {
@@ -23,38 +23,33 @@ my $mb = $class->new(
     dist_abstract => 'BitTorrent peer-to-peer protocol',
     dist_version  => $VERSION,
     requires      => {
-
-        ##AnyEvent                     => 0,
+        AnyEvent => 0,
         ##'AnyEvent::Handle::Throttle' => '0.000002004',
-        'Bit::Vector' => 7.1,
-        'Digest::SHA' => 5.45,
-        Exporter      => 0,
-
-        ##'File::Path'                 => 2.07,
-        ##'File::Spec'                 => 0,
-        Moose => 1.16,
-        perl  => '5.12.0',
-
-        'Scalar::Util'               => 1.19
+        'Bit::Vector'  => 7.1,
+        'Digest::SHA'  => 5.45,
+        Exporter       => 0,
+        'File::Path'   => 2.07,
+        'File::Spec'   => 0,
+        Moose          => 1.16,
+        perl           => '5.12.0',
+        'Scalar::Util' => 1.19
     },
     build_requires => {
-        ##AnyEvent => 0,
+        AnyEvent => 0,
         ##'AnyEvent::Handle::Throttle' => '0.000002004',
         'Bit::Vector' => 7.1,
         'Digest::SHA' => 5.45,
         Exporter      => 0,
-
-        ##'File::Path'                 => 2.07,
-        ##'File::Spec'                 => 0,
+        'File::Path'  => 2.07,
+        'File::Spec'  => 0,
         ##'File::Temp'                 => 0,
-        'Module::Build'                => 0.3616,
-        Moose             => 1.16,
-        parent            => 0,
-        perl              => '5.12.0',
-        'TAP::Harness'    => 3.18,
-        'Test::Class'     => 0.35,
-        'Test::Fatal' => 0,
-
+        'Module::Build' => 0.38,
+        Moose           => 1.16,
+        parent          => 0,
+        perl            => '5.12.0',
+        'TAP::Harness'  => 3.18,
+        'Test::Class'   => 0.35,
+        'Test::Fatal'   => 0,
         ##'Test::Most'                 => 0,
         ($is_developer
          ? ('CPAN::Meta::Converter' => 0,
@@ -65,12 +60,21 @@ my $mb = $class->new(
          : ()
         )
     },
-    test_files       => \@tests,
-    test_file_exts   => ['.t'],
-    use_tap_harness  => 1,
-    tap_harness_args => {
+    configure_requires => {'Module::Build' => 0.38},
+    test_files         => \@tests,
+    test_file_exts     => ['.t'],
+    use_tap_harness    => 1,
+    tap_harness_args   => {
                     jobs  => 9,
-                    rules => {par => [{seq => '/t/*'}, {seq => '/xt/*'}, '*']}
+                    rules => {
+                        par => [
+                            {seq => '/t/*'},
+                            {seq => '/xt/*'},
+                            {seq => '/t/10000_by_class/Net/BitTorrent[\._]'},
+                            {seq => '/t/10000_by_class/Net/BitTorrent/DHT/*'},
+                            '*'
+                        ]
+                    }
     },
     meta_merge => {
         keywords => [
@@ -79,18 +83,25 @@ my $mb = $class->new(
             qw[]
         ],
         resources => {
-             bugtracker => {
-                       web => 'http://github.com/sanko/net-bittorrent/issues',
-                       mailto => 'sanko@cpan.org'
-             },
-             repository => {
-                        url => 'git://github.com/sanko/net-bittorrent.git',
-                        web => 'http://github.com/sanko/net-bittorrent/tree/',
-                        type => 'git'
-             },
-             ChangeLog => 'http://github.com/sanko/net-bittorrent/commits/',
-             homepage  => 'http://sankorobinson.com/net-bittorrent/',
-             license => ['http://www.perlfoundation.org/artistic_license_2_0']
+            bugtracker =>                                          #{
+                                                                   #web =>
+                'http://github.com/sanko/net-bittorrent/issues',
+
+            #mailto => 'sanko@cpan.org'
+            #},
+            repository =>                                          #{
+                                                                   #url =>
+                'git://github.com/sanko/net-bittorrent.git',
+
+            #web => 'http://github.com/sanko/net-bittorrent/tree/',
+            #type => 'git'
+            #},
+            ChangeLog => 'http://github.com/sanko/net-bittorrent/commits/',
+            homepage  => 'http://sankorobinson.com/net-bittorrent/',
+            license =>                                                 #[
+                'http://www.perlfoundation.org/artistic_license_2_0'
+
+                #]
         }
     }
 );
@@ -118,7 +129,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2011 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of
@@ -136,6 +147,6 @@ L<clarification of the CCA-SA3.0|http://creativecommons.org/licenses/by-sa/3.0/u
 Neither this module nor the L<Author|/Author> is affiliated with BitTorrent,
 Inc.
 
-=for rcs $Id$
+=for rcs $Id: Build.PL 7803e40 2010-10-25 21:58:24Z sanko@cpan.org $
 
 =cut

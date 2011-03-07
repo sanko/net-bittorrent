@@ -8,8 +8,8 @@ Net::BitTorrent::Protocol::BEP15 - UDP Tracker Protocol for BitTorrent
 
 BEP: 15
 Title: UDP Tracker Protocol for BitTorrent
-Version: $Rev$
-Last-Modified: $Date$
+Version: $Rev: 0abe830 $
+Last-Modified: $Date: 2010-10-25 21:57:51Z (Mon, 25 Oct 2010) $
 Author:  Olaf van der Spek <olafvdspek@gmail.com>
 Status:  Draft
 Type:    Standards Track

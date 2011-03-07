@@ -12,7 +12,7 @@ package inc::MBX::Developer;
         return $self;
     }
 
-    sub write_metafile {
+    sub XXXXXwrite_metafile {
         my $s = shift;
         return if !eval 'require CPAN::Meta::Converter';
         return if !eval 'require CPAN::Meta::Validator';
@@ -164,14 +164,13 @@ END
             my $_Commit_short = substr($bits[1], 0, 7);
             my $_Id = sprintf $bits[2], (File::Spec->splitpath($file))[2],
                 $_Date;
-            my $_Repo
-                = $self->{'properties'}{'meta_merge'}{'resources'}
-                {'repository'}{'web'}
-                || $self->{'properties'}{'meta_merge'}{'resources'}
-                {'repository'}{'url'}
-                || $self->{'properties'}{'meta_merge'}{'resources'}
-                {'repository'}
-                || '';
+            my $_Repo =   #$self->{'properties'}{'meta_merge'}{'resources'}
+                          #{'repository'}{'web'}
+                          #// $self->{'properties'}{'meta_merge'}{'resources'}
+                          #{'repository'}{'url'}
+                          #//
+                $self->{'properties'}{'meta_merge'}{'resources'}{'repository'}
+                // '';
 
             # start changing the data around
             my $CHANGES_O = $CHANGES_D;

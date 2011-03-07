@@ -1,4 +1,4 @@
-package t::Net::BitTorrent::Protocol::BEP03::Metadata_single_file;
+package t::Net::BitTorrent::Protocol::BEP03::Storage::File_deep;
 {
     use strict;
     use warnings;
@@ -6,8 +6,9 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata_single_file;
     # Load standard modules
     use Module::Build;
     use Test::More;
+    use parent 'Test::Class';
     use Test::Moose;
-    use Test::Exception;
+    use Test::Fatal;
 
     # Load local context
     BEGIN { -d '_build' ? last : chdir '..' for 1 .. 10 }
@@ -15,24 +16,28 @@ package t::Net::BitTorrent::Protocol::BEP03::Metadata_single_file;
     my $m_builder = Module::Build->current;
 
     # Load local modules
-    BEGIN { require 't\1000_basic\Net\BitTorrent\Protocol\BEP03\Metadata.t' }
-    use parent-norequire, 't::Net::BitTorrent::Protocol::BEP03::Metadata';
-    sub info_hash {'B7ADF9CE9C375F1F72CFCE1D989BED10502D551F'}
+    use lib '../../../../../../../.../lib', 'lib';
 
-    sub meta_data {
-        'd4:infod6:lengthi267e4:name11:credits.txt12:piece lengthi65536e6:pie'
-            . 'ces20:lᓮȝ޵𠃽˟ٺԱxee';
+    BEGIN {
+        require
+            't\10000_by_class\Net\BitTorrent\Protocol\BEP03\Storage\File.t';
     }
+    use parent-norequire,
+        't::Net::BitTorrent::Protocol::BEP03::Storage::File';
 
+    #
     sub init_args {
-        {name         => 'credits.txt',
-         piece_length => 65536,
-         files        => shift->_files,
-         pieces       => pack 'H*',
-         '6ce193aec89ddeb5f0a083bd13cb9fd9bad4b178'
-        };
+        my $args = shift->SUPER::init_args();
+        $args->{'path'} = [qw[deep path with.ext]];
+        $args;
     }
-    sub _files { [{length => 267, path => ['credits.txt']}] }
+
+    sub check_abs_path : Test( 1 ) {
+        my $s = shift;
+        like $s->{'m'}->abs_path($s->root),
+            qr[.+[\\/]deep[\\/]path[\\/]with\.ext$],
+            'abs version of path is correct';
+    }
 
     #
     __PACKAGE__->runtests() if !caller;
@@ -49,7 +54,7 @@ CPAN ID: SANKO
 
 =head1 License and Legal
 
-Copyright (C) 2008-2010 by Sanko Robinson <sanko@cpan.org>
+Copyright (C) 2008-2011 by Sanko Robinson <sanko@cpan.org>
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of

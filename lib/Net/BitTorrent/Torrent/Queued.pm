@@ -1,8 +1,9 @@
 package Net::BitTorrent::Torrent::Queued;
 {
     use Moose::Role;
+
     #use Moose::Util::TypeConstraints;
-    our $MAJOR = 0; our $MINOR = 74; our $DEV = 3; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
+    our $MAJOR = 0; our $MINOR = 74; our $DEV = 14; our $VERSION = sprintf('%0d.%03d' . ($DEV ? (($DEV < 0 ? '' : '_') . '%03d') : ('')), $MAJOR, $MINOR, abs $DEV);
     use lib '../../../';
     use Net::BitTorrent::Protocol::BEP12::MultiTracker;
 
@@ -19,7 +20,6 @@ package Net::BitTorrent::Torrent::Queued;
         Net::BitTorrent::Protocol::BEP12::MultiTracker->new(
                                                            metadata => shift);
     }
-
     after 'BUILDALL' => sub {
         my $s = shift;
 
@@ -29,12 +29,11 @@ package Net::BitTorrent::Torrent::Queued;
         #            ->apply($s);
         #    }
         #}
-
         # parse trackers
         $s->tracker->add_tier([$s->announce]) if $s->_has_announce;
-        $s->tracker->add_tier($_) for @{ $s->_has_announce_list ? [] :$s->announce_list};
-...
-
+        $s->tracker->add_tier($_)
+            for @{$s->_has_announce_list ? [] : $s->announce_list};
+        ...;
     };
 
 =pod
