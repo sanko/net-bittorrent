@@ -33,7 +33,7 @@ package t::Net::BitTorrent::Torrent;
             . "\x8867\16\x9E \13\xF3\xDE\xE7\37c\2\x96\xC4V\xAF\x8F\xA9k"
             . "\xF07I!\x85=\xBD\xAA8\xA3)\xA8\xFC\xDErNH\x8D\xD4\23ee";
     }
-    sub init_args {'t/9000_data/9500_torrents/9503_miniswarm.torrent'}
+    sub init_args {'t/90000_data/95000_torrents/95003_miniswarm.torrent'}
 
     sub _files {
         [{length => 28229, path => ['1291672777_30adc6a421_o.jpg']},
